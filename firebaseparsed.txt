@@ -470,6 +470,7 @@ roll20-22.firebaseio.com
 roll-call-2.firebaseio.com
 royal-earn-2.firebaseio.com
 roya-tv-app.firebaseio.com
+s-usc1c-nss-308.firebaseio.com
 saisonportalfirebase.firebaseio.com
 salt-29ed0.firebaseio.com
 sample-api-78c77.firebaseio.com
