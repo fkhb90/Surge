@@ -130,7 +130,6 @@ cityguides-401-600.firebaseio.com
 cityguides-601-800.firebaseio.com
 ckmobilegcm.firebaseio.com
 clujpubs-310c1.firebaseio.com
-cnyes-prod-1307.firebaseio.com
 cocabc-c05f1.firebaseio.com
 colourgo-1201.firebaseio.com
 comexposure0.firebaseio.com
