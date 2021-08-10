@@ -268,6 +268,7 @@
  admin.intern.facebook.com
  ads.facebook.com
  ads.fbsbx.com
+ adtools.facebook.com
  advantio.facebook.com
  ae0.bb01.ams2.tfbnw.net
  ae0.bb01.atl1.tfbnw.net
