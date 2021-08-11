@@ -50,7 +50,8 @@ URL-REGEX,^https\:\/\/crs-event\.line\.me$,REJECT
 URL-REGEX,^https\:\/\/api\.today\.line\.me\/webapi\/TW\/recommendation\/articles\/articleend$,REJECT
 # Line 小紅點
 URL-REGEX,^https\:\/\/a\.line\.me\/cs\/v\d\/oa$,REJECT-DROP
-
+# Line 單一登入
+URL-REGEX,^https\:\/\/scdn\.line-apps\.com\/channel\/dialog\/sso_login\/js\/sso-login-sdk\..*\.js$,REJECT
 
 
 
