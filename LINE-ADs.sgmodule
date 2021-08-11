@@ -26,6 +26,7 @@ URL-REGEX,^https\:\/\/obs\.line\-scdn\.net\/0h.*\/(w750|o1280x720|.*\.mp4)$,REJE
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.+\/(o|m)\d+x\d+$,REJECT-DROP
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.+\/\d+p\.mp4$,REJECT-DROP
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/myhome\/r\/seasonal-.*\.zip$,REJECT
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/myhome\/h\/.*$,REJECT
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/myhome\/hex\/.*\/mp4$,REJECT
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/myhome\/hex\/.*$,REJECT
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/myhome\/hex\.*$,REJECT
