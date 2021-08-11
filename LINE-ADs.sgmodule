@@ -1,3 +1,7 @@
+#!name=Remove LINE ADs
+#!desc=刪掉 LINE 惱人的廣告 v20210722.02 - 實驗性更新，如有影響正常使用請回報。
+#!system=ios
+
 [Rule]
 # 白名單
 URL-REGEX,^https\:\/\/obs\-tw\.line\-apps\.com\/talk$,DIRECT
@@ -46,9 +50,10 @@ URL-REGEX,^https\:\/\/api\.today\.line\.me\/webapi\/TW\/recommendation\/articles
 # Line 小紅點
 URL-REGEX,^https\:\/\/a\.line\.me\/cs\/v\d\/oa$,REJECT-DROP
 
-#!name=Remove LINE ADs
+
+
+
 #!desc=刪掉 LINE 惱人的廣告 v20210722.02 - 實驗性更新，如有影響正常使用請回報。
-#!system=ios
 
 URL-REGEX,^https\:\/\/a\.line\.me\/er\/lads\/v\d\/ei\?,REJECT-DROP
 URL-REGEX,^https\:\/\/a\.line\.me\/er\/la(ss|dg)\/v\d\/event\/image,REJECT-DROP
