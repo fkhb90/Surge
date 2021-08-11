@@ -46,7 +46,7 @@ URL-REGEX,^https\:\/\/static\.line-scdn\.net\/.*\/ios-extensions\.js$,REJECT
 URL-REGEX,^https\:\/\/.*\.line\.me\/adp\/api\/ad\/v\d\/$,REJECT-DROP
 URL-REGEX,^https\:\/\/crs-event\.line\.me\/v\d\/imp$,REJECT
 URL-REGEX,^https\:\/\/crs-event\.line\.me\/v2\/mute.*$,REJECT
-URL-REGEX,^https\:\/\/static-today\.line-scdn\.net\/dist\/19386679\/.*\.js$,REJECT
+URL-REGEX,^https\:\/\/static-today\.line-scdn\.net\/dist\/.*\.js$,REJECT
 URL-REGEX,^https\:\/\/.*\.line\.me\/api\/.*\/setting\?hash.*\.*$,REJECT
 # Line 新聞
 URL-REGEX,^https\:\/\/crs-event\.line\.me$,REJECT
