@@ -1,0 +1,75 @@
+[Rule]
+# 白名單
+URL-REGEX,^https\:\/\/obs\-tw\.line\-apps\.com\/talk$,DIRECT
+URL-REGEX,^https\:\/\/stickershop\.line\-scdn\.net$,DIRECT
+# 黑名單
+# UA 偽裝
+URL-REGEX,^https\:\/\/.*\.line\.me\/lass\/api\/.*\/ads$,REJECT
+URL-REGEX,^https\:\/\/.*\.line\.me\/er\/la.*\/v1\/$,REJECT
+URL-REGEX,^https\:\/\/.*\.line\.me\/la.*\/api\/.*\/ads$,REJECT
+URL-REGEX,^https\:\/\/.*\.line\.me\/er\/lass\/v1\/event\/image\.*$,REJECT-DROP
+URL-REGEX,^https\:\/\/.*\.line\.me\/er\/lads\/v1\/ei\.*$,REJECT-DROP
+URL-REGEX,^https\:\/\/.*\.line\.me\/lgfp\/lad\/v1$,REJECT
+# 廣告媒體
+URL-REGEX,^https\:\/\/d\.line\-scdn\.net\/lcp\-prod\-photo$,REJECT
+URL-REGEX,^https\:\/\/d\.line-scdn\.net\/lcp-prod-photo\/20.+\.(jpg|jpeg|png)$,REJECT
+URL-REGEX,^https\:\/\/d\.line-scdn\.net\/r\/web\/social-plugin\/js\/thirdparty\/loader\.min\.js$,REJECT
+URL-REGEX,^https\:\/\/obs\.line\-scdn\.net\/r$,REJECT
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.*\/m.*$,REJECT
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.*\/f.*$,REJECT
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.*\/m1280x720$,REJECT
+URL-REGEX,^https\:\/\/obs\.line\-scdn\.net\/0h.*\/(w750|o1280x720|.*\.mp4)$,REJECT
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.+\/(o|m)\d+x\d+$,REJECT-DROP
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.+\/\d+p\.mp4$,REJECT-DROP
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/myhome\/r\/seasonal-.*\.zip$,REJECT
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/myhome\/hex\/.*\/mp4$,REJECT
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/myhome\/hex\/.*$,REJECT
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/myhome\/hex\.*$,REJECT
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/myhome\/hex\/.*\/f480x640$,REJECT
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/myhome\/hex\/.*\/f750x500$,REJECT
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/linecrs\/.+\/m180x180$,REJECT-DROP
+# Line 廣告
+URL-REGEX,^https\:\/\/sch\.line\.me\/api\/v\d+\/ads$,REJECT
+URL-REGEX,^https\:\/\/buy\.line\.me\/api\/graphql\?variables$,REJECT
+URL-REGEX,^https\:\/\/scdn\.line-apps\.com\/appresources\/moretab\/list\.json$,REJECT
+URL-REGEX,^https\:\/\/scdn\.line-apps\.com\/lan\/image\/line\/bannerImageEvent\/$,REJECT-DROP
+URL-REGEX,^https\:\/\/static\.line-scdn\.net\/ad-sdk\.*$,REJECT
+URL-REGEX,^https\:\/\/static\.line-scdn\.net\/ad-sdk\/edge\/r\/sdk-.*\.js$,REJECT
+URL-REGEX,^https\:\/\/.*\.line\.me\/adp\/api\/ad\/v\d\/$,REJECT-DROP
+URL-REGEX,^https\:\/\/crs-event\.line\.me\/v\d\/imp$,REJECT
+URL-REGEX,^https\:\/\/crs-event\.line\.me\/v2\/mute.*$,REJECT
+URL-REGEX,^https\:\/\/static-today\.line-scdn\.net\/dist\/19386679\/.*\.js$,REJECT
+URL-REGEX,^https\:\/\/.*\.line\.me\/api\/.*\/setting\?hash.*\.*$,REJECT
+# Line 新聞
+URL-REGEX,^https\:\/\/crs-event\.line\.me$,REJECT
+URL-REGEX,^https\:\/\/api\.today\.line\.me\/webapi\/TW\/recommendation\/articles\/articleend$,REJECT
+# Line 小紅點
+URL-REGEX,^https\:\/\/a\.line\.me\/cs\/v\d\/oa$,REJECT-DROP
+
+#!name=Remove LINE ADs
+#!desc=刪掉 LINE 惱人的廣告 v20210722.02 - 實驗性更新，如有影響正常使用請回報。
+#!system=ios
+
+URL-REGEX,^https\:\/\/a\.line\.me\/er\/lads\/v\d\/ei\?,REJECT-DROP
+URL-REGEX,^https\:\/\/a\.line\.me\/er\/la(ss|dg)\/v\d\/event\/image,REJECT-DROP
+URL-REGEX,^https\:\/\/a\.line\.me\/lass\/api\/v\d\/ads$,REJECT-DROP
+URL-REGEX,^https\:\/\/a\.line\.me\/oa\/v\d\/e$,REJECT-DROP
+URL-REGEX,^https\:\/\/a\.line\.me\/cs\/v\d\/oa$,REJECT-DROP
+URL-REGEX,^https\:\/\/w\.line\.me\/adp\/api\/ad\/v\d\/,REJECT-DROP
+URL-REGEX,^https\:\/\/buy\.line\.me\/api\/graphql\?variables,REJECT
+URL-REGEX,^https\:\/\/crs-event\.line\.me\/v\d\/imp,REJECT-DROP
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.+\/(o|m)\d+x\d+$,REJECT-DROP
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.+\/\d+p\.mp4$,REJECT-DROP
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/linecrs\/.+\/m180x180$,REJECT-DROP
+URL-REGEX,^https\:\/\/d\.line-scdn\.net\/lcp-prod-photo\/20.+\.(jpg|jpeg|png),REJECT
+URL-REGEX,^https\:\/\/scdn\.line-apps\.com\/appresources\/moretab\/list\.json,REJECT
+URL-REGEX,^https\:\/\/scdn\.line-apps\.com\/lan\/image\/line\/bannerImageEvent\/,REJECT-DROP
+URL-REGEX,^https\:\/\/scdn\.line-apps\.com\/lan\/document\/pageEvent\/line\/ios\/,REJECT-DROP
+URL-REGEX,^https\:\/\/sch\.line\.me\/api\/v\d\/ads$,REJECT-DROP
+URL-REGEX,^https\:\/\/uts-front\.line-apps\.com\/event$,REJECT-DROP
+URL-REGEX,^https\:\/\/uts-front\.line-apps\.com\/settings$,REJECT-DROP
+URL-REGEX,^https\:\/\/static\.line-scdn\.net\/ad-sdk\/,REJECT
+URL-REGEX,^https\:\/\/nelo2-col\.linecorp\.com\/_store$,REJECT
+
+[MITM]
+hostname = %APPEND% a.line.me, w.line.me, buy.line.me, crs-event.line.me, obs.line-scdn.net, d.line-scdn.net, scdn.line-apps.com, sch.line.me, uts-front.line-apps.com, static.line-scdn.net, nelo2-col.linecorp.com
