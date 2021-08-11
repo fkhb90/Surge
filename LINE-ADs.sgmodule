@@ -36,10 +36,12 @@ URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/linecrs\/.+\/m180x180$,REJECT-DROP
 # Line 廣告
 URL-REGEX,^https\:\/\/sch\.line\.me\/api\/v\d+\/ads$,REJECT
 URL-REGEX,^https\:\/\/buy\.line\.me\/api\/graphql\?variables$,REJECT
+URL-REGEX,^https\:\/\/buy\.line\.me\/service-worker\.js$,REJECT
 URL-REGEX,^https\:\/\/scdn\.line-apps\.com\/appresources\/moretab\/list\.json$,REJECT
 URL-REGEX,^https\:\/\/scdn\.line-apps\.com\/lan\/image\/line\/bannerImageEvent\/$,REJECT-DROP
 URL-REGEX,^https\:\/\/static\.line-scdn\.net\/ad-sdk\.*$,REJECT
 URL-REGEX,^https\:\/\/static\.line-scdn\.net\/ad-sdk\/edge\/r\/sdk-.*\.js$,REJECT
+URL-REGEX,^https\:\/\/static\.line-scdn\.net\/.*\/ios-extensions\.js$,REJECT
 URL-REGEX,^https\:\/\/.*\.line\.me\/adp\/api\/ad\/v\d\/$,REJECT-DROP
 URL-REGEX,^https\:\/\/crs-event\.line\.me\/v\d\/imp$,REJECT
 URL-REGEX,^https\:\/\/crs-event\.line\.me\/v2\/mute.*$,REJECT
