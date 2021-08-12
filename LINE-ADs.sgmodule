@@ -42,6 +42,7 @@ URL-REGEX,^https\:\/\/scdn\.line-apps\.com\/lan\/image\/line\/bannerImageEvent\/
 URL-REGEX,^https\:\/\/static\.line-scdn\.net\/ad-sdk\.*$,REJECT
 URL-REGEX,^https\:\/\/static\.line-scdn\.net\/ad-sdk\/edge\/r\/sdk-.*\.js$,REJECT
 URL-REGEX,^https\:\/\/static\.line-scdn\.net\/liff\/.*\/ios-extensions\.js$,REJECT
+URL-REGEX,^https\:\/\/static\.line-scdn\.net\/liff\/edge\/.*\/sdk\.js$,REJECT
 URL-REGEX,^https\:\/\/.*\.line\.me\/adp\/api\/ad\/v\d\/$,REJECT-DROP
 URL-REGEX,^https\:\/\/crs-event\.line\.me\/v\d\/imp$,REJECT
 URL-REGEX,^https\:\/\/crs-event\.line\.me\/v2\/mute.*$,REJECT
