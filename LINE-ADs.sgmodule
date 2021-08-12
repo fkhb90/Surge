@@ -44,6 +44,7 @@ URL-REGEX,^https\:\/\/buy\.line\.me\/api\/graphql\?variables$,REJECT
 URL-REGEX,^https\:\/\/buy\.line\.me\/service-worker\.js$,REJECT
 URL-REGEX,^https\:\/\/scdn\.line-apps\.com\/appresources\/moretab\/list\.json$,REJECT
 URL-REGEX,^https\:\/\/scdn\.line-apps\.com\/lan\/image\/line\/bannerImageEvent\/$,REJECT-DROP
+URL-REGEX,^https\:\/\/scdn\.line-apps\.com\/n\/line_it\/thirdparty\/loader\.min\.js$,REJECT
 URL-REGEX,^https\:\/\/static\.line-scdn\.net\/ad-sdk\.*$,REJECT
 URL-REGEX,^https\:\/\/static\.line-scdn\.net\/ad-sdk\/edge\/r\/sdk-.*\.js$,REJECT
 URL-REGEX,^https\:\/\/static\.line-scdn\.net\/liff\/.*\/ios-extensions\.js$,REJECT
