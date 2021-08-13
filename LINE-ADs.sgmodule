@@ -38,7 +38,7 @@ URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/myhome\/hm\/cms-object-.*\/mp4$,RE
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/myhome\/hm\/cms-object-.*\/f750x1000$,REJECT
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/myhome\/hm\/cms-object-.*\/.*$,REJECT
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/linecrs\/.+\/m180x180$,REJECT-DROP
-URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/lights\/sfv\/.*\/w1080$
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/r\/lights\/sfv\/.*\/w1080$,REJECT
 # Line 廣告
 URL-REGEX,^https\:\/\/sch\.line\.me\/api\/v\d+\/ads$,REJECT
 URL-REGEX,^https\:\/\/buy\.line\.me\/api\/graphql\?variables$,REJECT
