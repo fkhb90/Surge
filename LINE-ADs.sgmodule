@@ -17,7 +17,8 @@ URL-REGEX,^https\:\/\/.*\.line\.me\/lgfp\/lad\/v1$,REJECT
 # 廣告媒體
 URL-REGEX,^https\:\/\/d\.line-scdn\.net\/lcp\-prod\-photo$,REJECT
 URL-REGEX,^https\:\/\/d\.line-scdn\.net\/lcp-prod-photo\/20.+\.(jpg|jpeg|png)$,REJECT
-URL-REGEX,^https\:\/\/d\.line-scdn\.net\/r\/web\/social-plugin\/js\/thirdparty\/loader\.min\.js$,REJECT
+URL-REGEX,^https\:\/\/d\.line-scdn\.net\/r\/web\/social-plugin\/js\/thirdparty\/loader\.min\.js$,REJEC
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.*\/a.*$,REJECT
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.*\/m.*$,REJECT
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.*\/f.*$,REJECT
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.*\/m1280x720$,REJECT
