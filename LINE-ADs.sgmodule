@@ -22,6 +22,7 @@ URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.*\/a.*$,REJECT
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.*\/m.*$,REJECT
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.*\/f.*$,REJECT
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.*\/m1280x720$,REJECT
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.*\/o1280x400$,REJECT
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.*\/(w750|o1280x720|.*\.mp4)$,REJECT
 # URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.+\/(o|m)\d+x\d+$,REJECT-DROP
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.+\/\d+p\.mp4$,REJECT-DROP
