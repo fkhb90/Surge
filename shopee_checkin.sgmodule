@@ -1,0 +1,11 @@
+#!name=Shopee Auto Checkin
+#!desc=每天早上九點自動簽到 v20210820
+
+[Script]
+cron "0 9 * * *" script-path=https://kinta.ma/surge/scripts/shopee_checkin.js, wake-system=1, timeout=30
+cron "55 6 * * *" script-path=https://kinta.ma/surge/scripts/shopee_update_cookie.js, wake-system=1, timeout=30
+shopee_cookie.js = type=http-request,pattern=^https:\/\/shopee\.tw\/me\/setting,script-path=https://kinta.ma/surge/scripts/shopee_cookie.js,script-update-interval=-1
+shopee_loyalty_cookie.js = type=http-request,pattern=^https:\/\/loyalty\.shopee\.tw\/api\/v1\/coins$,script-path=https://kinta.ma/surge/scripts/shopee_cookie.js,script-update-interval=-1
+
+[MITM]
+hostname = %APPEND% shopee.tw, loyalty.shopee.tw
