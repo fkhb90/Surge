@@ -1,5 +1,5 @@
 #!name=Shopee Auto Checkin
-#!desc=每天早上十點自動簽到 v20210820
+#!desc=每天早上十點自動簽到 v20210831
 
 [Script]
 cron "55 9 * * *" script-path=https://kinta.ma/surge/scripts/shopee_update_cookie.js, wake-system=1, timeout=30
