@@ -1,3 +1,4 @@
+URL-REGEX,^(http|https):\/\/\w+\.youtube\.com\/(pagead|ptracking)
 URL-REGEX,https?:\/\/.+.googlevideo.com\/ptracking\?pltype=adhost
 URL-REGEX,https?:\/\/.+.youtube.com\/api\/stats\/ads
 URL-REGEX,https?:\/\/.+.youtube.com\/get_midroll_
@@ -33,3 +34,4 @@ URL-REGEX,^https?:\/\/.+\.googleapis\.com\/youtubei\/v1\/notification_registrati
 URL-REGEX,^https?:\/\/.+\.googleapis\.com\/youtubei\/v1\/guide
 URL-REGEX,^https?:\/\/.+\.googleapis\.com\/youtubei\/v1\/log_event
 URL-REGEX,^https?:\/\/.+\.googleapis\.com\/youtubei\/v1\/issuetoken
+URL-REGEX,^(http|https):\/\/api\.catch\.gift\/api\/v\d\/pagead\/
