@@ -193,7 +193,6 @@ appleglobal.102.112.2o7.net
 appleglobal.112.2o7.net
 apple-mobile.query.yahooapis.com
 appleweather-cache.internal.query.g03.yahoodns.net
-apps.itunes-nocookie.com
 apsu.apple.com
 ax.phobos.apple.com.edgesuite.net
 b1.mzstatic.com
