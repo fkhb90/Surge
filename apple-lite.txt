@@ -188,7 +188,6 @@ appldnld.g.aaplimg.com
 appleglobal.102.112.2o7.net
 appleglobal.112.2o7.net
 apple-mobile.query.yahooapis.com
-appleweather-cache.internal.query.g03.yahoodns.net
 apsu.apple.com
 ax.phobos.apple.com.edgesuite.net
 b1.mzstatic.com
@@ -369,8 +368,6 @@ usbos.ce.apple-dns.net
 usnyc.ce.apple-dns.net
 ut.iadsdk.apple.com
 valid.apple.com
-weather-analytics-events.apple.com
-weather-analytics-events.news.apple-dns.net
 wu.apple.com.akadns.net
 wu-calculator.apple.com
 wu-mdn.apple.com.akadns.net
