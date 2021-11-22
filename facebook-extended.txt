@@ -18361,6 +18361,7 @@
  scontent.ftpe4-2.fna.fbcdn.net
  scontent.ftpe5-1.fna.fbcdn.net
  scontent.ftpe7-1.fna.fbcdn.net
+ scontent.ftpe7-2.fna.fbcdn.net
  scontent.ftpe7-3.fna.fbcdn.net
  scontent.ftpe7-4.fna.fbcdn.net
  scontent.ftpe8-1.fna.fbcdn.net
