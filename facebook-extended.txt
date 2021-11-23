@@ -6624,6 +6624,8 @@
  external.frix4-1.fna.fbcdn.net
  external.frix7-1.fna.fbcdn.net
  external.frix8-1.fna.fbcdn.net
+ external.frmq2-1.fna.fbcdn.net
+ external.frmq2-2.fna.fbcdn.net
  external.fsac1-2.fna.fbcdn.net
  external.fsbz1-2.fna.fbcdn.net
  external.fscl10-1.fna.fbcdn.net
@@ -6655,7 +6657,14 @@
  external.ftpa1-1.fna.fbcdn.net
  external.ftpa1-2.fna.fbcdn.net
  external.ftpe10-1.fna.fbcdn.net
+ external.ftpe7-1.fna.fbcdn.net
+ external.ftpe7-2.fna.fbcdn.net
  external.ftpe7-3.fna.fbcdn.net
+ external.ftpe7-4.fna.fbcdn.net
+ external.ftpe8-1.fna.fbcdn.net
+ external.ftpe8-2.fna.fbcdn.net
+ external.ftpe8-3.fna.fbcdn.net
+ external.ftpe8-4.fna.fbcdn.net
  external.ftpf1-2.fna.fbcdn.net
  external.ftrd2-1.fna.fbcdn.net
  external.ftrn1-1.fna.fbcdn.net
@@ -8362,7 +8371,7 @@
  garena.messenger.com
  garph.fb.me
  gas-power.facebookbrand-2018-preprod.fb.com
- gateway.facebook.com
+ edge-mqtt.facebook.com
  gb.latest.instagram.com
  gb.lite.facebook.com
  gb.messenger.com
