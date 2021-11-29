@@ -8,10 +8,10 @@
 // ^https\:\/\/www\.ecosia\.org\/search https\:\/\/whoogle\.hasname\.com\/search 307
 // ^https\:\/\/ac\.ecosia\.org\/autocomplete https\:\/\/whoogle\.xuan2host\.com\/autocomplete 307
 // ^https\:\/\/www\.ecosia\.org\/search https\:\/\/whoogle\.xuan2host\.com\/search 307
-// ^https\:\/\/ac\.ecosia\.org\/autocomplete https\:\/\/whoogle\.futa\.gg\/autocomplete 307
-// ^https\:\/\/www\.ecosia\.org\/search https\:\/\/whoogle\.futa\.gg\/search 307
-^https\:\/\/ac\.ecosia\.org\/autocomplete https\:\/\/s\.alefvanoon\.xyz\/autocomplete 307
-^https\:\/\/www\.ecosia\.org\/search https\:\/\/s\.alefvanoon\.xyz\/search 307
+^https\:\/\/ac\.ecosia\.org\/autocomplete https\:\/\/whoogle\.futa\.gg\/autocomplete 307
+^https\:\/\/www\.ecosia\.org\/search https\:\/\/whoogle\.futa\.gg\/search 307
+// ^https\:\/\/ac\.ecosia\.org\/autocomplete https\:\/\/s\.alefvanoon\.xyz\/autocomplete 307
+// ^https\:\/\/www\.ecosia\.org\/search https\:\/\/s\.alefvanoon\.xyz\/search 307
 
 [MITM]
 hostname = %APPEND% ac.ecosia.org, www.ecosia.org
