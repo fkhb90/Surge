@@ -239,7 +239,6 @@ edge-035.usnyc.ce.apple-dns.net
 edge-040.gblon.ce.apple-dns.net
 edge-044.gblon.ce.apple-dns.net
 edge-045.gblon.ce.apple-dns.net
-eu-irl-00001.s3.dualstack.eu-west-1.amazonaws.com
 fbs.smoot.apple.com
 feedbackws.fe.apple-dns.net
 feedbackws.icloud.com
