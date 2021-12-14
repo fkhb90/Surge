@@ -6,7 +6,6 @@ cron "58 9 * * *" script-path=https://kinta.ma/surge/scripts/shopee_update_cooki
 cron "0 10 * * *" script-path=https://kinta.ma/surge/scripts/shopee_checkin.js, wake-system=1, timeout=30
 cron "0 10 * * *" script-path=https://kinta.ma/surge/scripts/shopee_luckydraw.js, wake-system=1, timeout=30
 shopee_token.js = type=http-request,pattern=^https:\/\/mall\.shopee\.tw\/api\/v2\/referral\/get_sharing_data$,script-path=https://kinta.ma/surge/scripts/shopee_token.js,script-update-interval=-1
-shopee_token.js = type=http-request,pattern=^https:\/\/mall\.shopee\.tw\/api\/v4\/client\/refresh$,script-path=https://kinta.ma/surge/scripts/shopee_token.js,script-update-interval=-1
 shopee_cookie.js = type=http-request,pattern=^https:\/\/shopee\.tw\/me\/setting,script-path=https://kinta.ma/surge/scripts/shopee_cookie.js,script-update-interval=-1
 shopee_loyalty_cookie.js = type=http-request,pattern=^https:\/\/loyalty\.shopee\.tw\/api\/v1\/coins$,script-path=https://kinta.ma/surge/scripts/shopee_cookie.js,script-update-interval=-1
 
