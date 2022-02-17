@@ -38,3 +38,4 @@ URL-REGEX,https?:\/\/.+\.googleapis\.com\/youtubei\/v1\/guide
 URL-REGEX,https?:\/\/.+\.googleapis\.com\/youtubei\/v1\/log_event
 URL-REGEX,https?:\/\/.+\.googleapis\.com\/youtubei\/v1\/issuetoken
 URL-REGEX,(http|https):\/\/api\.catch\.gift\/api\/v\d\/pagead\/
+URL-REGEX,https?:\/\/.*\.youtube\.com\/api\/lounge\/pairing\/get_lounge_token_batch\?
