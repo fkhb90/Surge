@@ -14,6 +14,7 @@ URL-REGEX,https?:\/\/youtubei\.googleapis\.com\/.+ad_break
 URL-REGEX,https?:\/\/youtubei\.googleapis\.com\/youtubei\/.+(ad|log)
 URL-REGEX,https?:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/log_event\/.*
 URL-REGEX,https?:\/\/.*\.youtube-nocookie\.com\/youtubei\/v1\/log_event.*
+URL-REGEX,https?:\/\/.*\.youtube\.com\/youtubei\/v1\/log_event\.*
 URL-REGEX,https?:\/\/.*\.youtube\.com\/api\/stats\/qoe\?adformat
 URL-REGEX,https?:\/\/[\w-]+\.googlevideo\.com\/.+&oad-TINYGIF
 URL-REGEX,https?:\/\/.*\.youtube\.com\/api\/lounge\/pairing\/get_screen_availability\?.*
