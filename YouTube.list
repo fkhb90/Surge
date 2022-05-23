@@ -1,3 +1,10 @@
+(^https?:\/\/[\w-]+\.googlevideo\.com\/(?!dclk_video_ads).+?)&ctier=L(&.+?),ctier,(.+)
+^https?:\/\/[\w-]+\.googlevideo\.com\/(?!(dclk_video_ads|videoplayback\?)).+&oad
+^https?:\/\/youtubei\.googleapis\.com\/youtubei\/v\d\/player\/ad_break
+^https?:\/\/(www|s)\.youtube\.com\/api\/stats\/ads
+^https?:\/\/(www|s)\.youtube\.com\/(pagead|ptracking)
+^https?:\/\/s\.youtube\.com\/api\/stats\/qoe\?adcontext ctier=[A-Z]
+^https://[\s\S]*\.googlevideo\.com/.*&(oad|ctier)
 URL-REGEX,^(http|https):\/\/\w+\.youtube\.com\/(pagead|ptracking)
 URL-REGEX,https?:\/\/.+.googlevideo\.com\/ptracking\?pltype=adhost
 URL-REGEX,https?:\/\/.+.youtube\.com\/api\/stats\/ads
