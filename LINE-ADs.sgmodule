@@ -27,7 +27,7 @@ URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.*\/(w750|o1280x720|.*\.mp4)$,REJEC
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0.*\/m.*$,REJECT
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/.*\/o.*$,REJECT
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/.*p$,REJECT
-# URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.+\/(o|m)\d+x\d+$,REJECT-DROP
+URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.+\/(o|m)\d+x\d+$,REJECT-DROP
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.+\/\d+p\.mp4$,REJECT-DROP
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.*-F.*$,REJECT
 URL-REGEX,^https\:\/\/obs\.line-scdn\.net\/0h.*-d.*$,REJECT
@@ -56,8 +56,8 @@ URL-REGEX,^https\:\/\/scdn\.line-apps\.com\/n\/line_it\/thirdparty\/loader\.min\
 URL-REGEX,^https\:\/\/static\.line-scdn\.net\/ad-sdk\.*$,REJECT
 URL-REGEX,^https\:\/\/static\.line-scdn\.net\/ad-sdk\/edge\/r\/sdk-.*\.js$,REJECT
 URL-REGEX,^https\:\/\/static\.line-scdn\.net\/line-setting\/.*\/smartch\/js\/lc\.line\.setting\.smartch\.opt-out\..*\.js$,REJECT
-# URL-REGEX,^https\:\/\/static\.line-scdn\.net\/liff\/.*\/ios-extensions\.js$,REJECT
-# URL-REGEX,^https\:\/\/static\.line-scdn\.net\/liff\/edge\/.*\/sdk\.js$,REJECT
+URL-REGEX,^https\:\/\/static\.line-scdn\.net\/liff\/.*\/ios-extensions\.js$,REJECT
+URL-REGEX,^https\:\/\/static\.line-scdn\.net\/liff\/edge\/.*\/sdk\.js$,REJECT
 URL-REGEX,^https\:\/\/.*\.line\.me\/adp\/api\/ad\/v\d\/$,REJECT-DROP
 URL-REGEX,^https\:\/\/.*\.line\.me\/api\/.*\/setting\?hash.*\.*$,REJECT
 URL-REGEX,^https\:\/\/crs-event\.line\.me\/v\d\/imp$,REJECT
