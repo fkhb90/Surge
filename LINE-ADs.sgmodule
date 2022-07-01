@@ -56,8 +56,8 @@ URL-REGEX,^https\:\/\/scdn\.line-apps\.com\/n\/line_it\/thirdparty\/loader\.min\
 URL-REGEX,^https\:\/\/static\.line-scdn\.net\/ad-sdk\.*$,REJECT
 URL-REGEX,^https\:\/\/static\.line-scdn\.net\/ad-sdk\/edge\/r\/sdk-.*\.js$,REJECT
 URL-REGEX,^https\:\/\/static\.line-scdn\.net\/line-setting\/.*\/smartch\/js\/lc\.line\.setting\.smartch\.opt-out\..*\.js$,REJECT
-URL-REGEX,^https\:\/\/static\.line-scdn\.net\/liff\/.*\/ios-extensions\.js$,REJECT
-URL-REGEX,^https\:\/\/static\.line-scdn\.net\/liff\/edge\/.*\/sdk\.js$,REJECT
+# URL-REGEX,^https\:\/\/static\.line-scdn\.net\/liff\/.*\/ios-extensions\.js$,REJECT
+# URL-REGEX,^https\:\/\/static\.line-scdn\.net\/liff\/edge\/.*\/sdk\.js$,REJECT
 URL-REGEX,^https\:\/\/.*\.line\.me\/adp\/api\/ad\/v\d\/$,REJECT-DROP
 URL-REGEX,^https\:\/\/.*\.line\.me\/api\/.*\/setting\?hash.*\.*$,REJECT
 URL-REGEX,^https\:\/\/crs-event\.line\.me\/v\d\/imp$,REJECT
