@@ -14,7 +14,7 @@ URL-REGEX,^https\:\/\/.*\.line\.me\/la.*\/api\/.*\/ads$,REJECT
 URL-REGEX,^https\:\/\/.*\.line\.me\/er\/lass\/v1\/event\/image\.*$,REJECT
 URL-REGEX,^https\:\/\/.*\.line\.me\/er\/lads\/v1\/ei\.*$,REJECT
 URL-REGEX,^https\:\/\/.*\.line\.me\/lgfp\/lad\/v1$,REJECT
-URL-REGEX,^https\:\/\/lan\.line\.me\/v1\/line\/ios\/document\/notice\.*$,REJECT
+URL-REGEX,^https\:\/\/lan\.line\.me\/v1\/line\/ios\/document\/notice\?.*$,REJECT
 
 
 # 廣告媒體
