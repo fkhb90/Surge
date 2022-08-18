@@ -1,5 +1,5 @@
 #!name=Removed LINE ADs
-#!desc=刪掉 LINE 惱人的廣告 v20220727.01 - Powered by FKHB90。
+#!desc=刪掉 LINE 惱人的廣告 v20220818.01 - Powered by FKHB90。
 #!system=ios
 
 [Rule]
@@ -70,6 +70,7 @@ URL-REGEX,^https\:\/\/crs-event\.line\.me\/v2\/mute.*$,REJECT
 
 
 # Line 新聞
+URL-REGEX,^https\:\/\/uts-front\.line-apps\.com\/event$,REJECT 
 URL-REGEX,^https\:\/\/crs-event\.line\.me$,REJECT
 URL-REGEX,^https\:\/\/api\.today\.line\.me\/webapi\/TW\/recommendation\/articles\/articleend$,REJECT
 # Line 小紅點
