@@ -8,6 +8,8 @@ URL-REGEX,^https\:\/\/obs\-tw\.line\-apps\.com\/talk$,DIRECT
 URL-REGEX,^https\:\/\/stickershop\.line\-scdn\.net$,DIRECT
 # 黑名單
 # UA 偽裝
+URL-REGEX,^https:\/\/gw\.line\.naver\.jp\/lass\/api\/v1\/ads$,REJECT
+URL-REGEX,^https:\/\/gw\.line\.naver\.jp\/tr\/event$,REJECT
 URL-REGEX,^https\:\/\/.*\.line\.me\/lass\/api\/.*\/ads$,REJECT
 URL-REGEX,^https\:\/\/.*\.line\.me\/er\/la.*\/v1\/$,REJECT
 URL-REGEX,^https\:\/\/.*\.line\.me\/la.*\/api\/.*\/ads$,REJECT
