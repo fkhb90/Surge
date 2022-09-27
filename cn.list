@@ -33,6 +33,9 @@ DOMAIN-KEYWORD,Alibaba //阿里巴巴
 DOMAIN-KEYWORD,sohu //搜狐
 DOMAIN-KEYWORD,Youku //优酷
 DOMAIN-SUFFIX,cn
+DOMAIN-SUFFIX,hk
 DOMAIN-KEYWORD,-cn
 DOMAIN-KEYWORD,cn
-GEOIP,CN,no-resolve // GeoIP China
+DOMAIN-KEYWORD,-hk
+DOMAIN-KEYWORD,hk
+GEOIP,CN,HK,no-resolve // GeoIP China,Hong Kong
