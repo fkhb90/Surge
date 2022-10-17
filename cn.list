@@ -38,5 +38,5 @@ DOMAIN-KEYWORD,-cn
 DOMAIN-KEYWORD,cn
 DOMAIN-KEYWORD,-hk
 DOMAIN-KEYWORD,hk
-GEOIP,CN,no-resolve // GeoIP China
-GEOIP,HK,no-resolve // GeoIP Hong Kong
+GEOIP,CN,no-resolve // GeoIP CHINA
+GEOIP,HK,no-resolve // GeoIP HONG KONG
