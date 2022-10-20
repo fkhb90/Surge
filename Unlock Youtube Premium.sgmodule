@@ -1,0 +1,22 @@
+#!name=Unlock Youtube Premium
+#!desc= Youtube
+
+[URL Rewrite]
+^https?:\/\/.+?\.googlevideo\.com\/.+\/videogoodput - reject
+^https?:\/\/(www|s)\.youtube\.com\/api\/stats\/ads - reject
+^https?:\/\/(www|s)\.youtube\.com\/(pagead|ptracking|sw.js|error_204|generate_204) - reject
+^https?:\/\/s\.youtube\.com\/api\/stats\/(qoe|watchtime|) - reject
+^https?:\/\/youtubei\.googleapis\.com\/youtubei\/v\d\/player\/ad_break - reject
+^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(log_event|feedback|att|guide) - reject
+^https:\/\/www\.youtube\.com\/pcs\/activeview - reject
+
+[Rule]
+//URL-REGEX,^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/player,🇺🇸US
+
+[Script]
+youtube-fake = type=http-request,pattern=^https?:\/\/[\w-]+\.googlevideo\.com\/(?!(dclk_video_ads|videoplayback\?)).+&oad,requires-body=0,script-path=https://raw.githubusercontent.com/Maasea/sgmodule/master/Script/Youtube/youtube-fake.js
+adsinhome = type=http-response,pattern=^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/(browse|next)\?,requires-body=1,binary-body-mode=1,max-size=0,script-path=https://raw.githubusercontent.com/app2smile/rules/master/js/youtube.js
+youtube-player = type=http-response,pattern=^https:\/\/youtubei\.googleapis\.com\/youtubei\/v1\/player,requires-body=1,binary-body-mode=1,max-size=0,script-path=https://raw.githubusercontent.com/Maasea/sgmodule/master/Script/Youtube/youtube-player.js
+
+[MITM]
+hostname = %APPEND% -redirector*.googlevideo.com,*.googlevideo.com,www.youtube.com,-s.youtube.com, youtubei.googleapis.com
