@@ -38,5 +38,8 @@ DOMAIN-KEYWORD,Youku //优酷
 # DOMAIN-KEYWORD,hk
 DOMAIN-SUFFIX,cn
 DOMAIN-SUFFIX,hk
+IP-ASN,45090,no-resolve // Tencent cloud computing
+IP-ASN,132203,no-resolve // Tencent cloud computing
+IP-ASN,132591,no-resolve // Tencent cloud computing
 GEOIP,CN,no-resolve // GeoIP CHINA
 GEOIP,HK,no-resolve // GeoIP HONG KONG
