@@ -109,5 +109,3 @@ DOMAIN-KEYWORD,Youku //优酷
 IP-ASN,24429,no-resolve // Zhejiang Taobao Network Co.,Ltd.
 IP-ASN,38369,no-resolve // Zhejiang Taobao Network Co.,Ltd.
 IP-ASN,45102,no-resolve // Alibaba (US) Technology Co., Ltd.
-GEOIP,CN,no-resolve // GeoIP CHINA
-GEOIP,HK,no-resolve // GeoIP HONG KONG
