@@ -1,8 +1,9 @@
-# Cloudflare Warp+ 检测分流
+ # Cloudflare Warp+ 检测分流
 
 DOMAIN-SUFFIX,api.cloudflareclient.com
 DOMAIN-SUFFIX,cloudflare-dns.com
 DOMAIN-SUFFIX,cloudflare.com
+DOMAIN-SUFFIX,cf-ns.com
 DOMAIN-SUFFIX,zero-trust-client.cloudflareclient.com
 DOMAIN-SUFFIX,1.1.1.1
 DOMAIN,https://[2606:4700:4700::1111]/cdn-cgi/trace
