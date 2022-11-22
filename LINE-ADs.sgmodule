@@ -1,5 +1,5 @@
 #!name=Removed LINE ADs
-#!desc=刪掉 LINE 惱人的廣告 v20220825.01 - Powered by FKHB90。
+#!desc=刪掉 LINE 惱人的廣告 v20221122.01 - Powered by FKHB90。
 #!system=ios
 
 [Rule]
@@ -8,8 +8,9 @@ URL-REGEX,^https\:\/\/obs\-tw\.line\-apps\.com\/talk$,DIRECT
 URL-REGEX,^https\:\/\/stickershop\.line\-scdn\.net$,DIRECT
 # 黑名單
 # UA 偽裝
-URL-REGEX,^https:\/\/gw\.line\.naver\.jp\/lass\/api\/v1\/ads$,REJECT
-URL-REGEX,^https:\/\/gw\.line\.naver\.jp\/tr\/event$,REJECT
+URL-REGEX,^https\:\/\/gw\.line\.naver\.jp\/lass\/api\/v1\/ads$,REJECT
+URL-REGEX,^https\:\/\/gw\.line\.naver\.jp\/tr\/event$,REJECT
+URL-REGEX,^https\:\/\/gw\.line\.naver\.jp\/WALLET4$,REJECT
 URL-REGEX,^https\:\/\/.*\.line\.me\/lass\/api\/.*\/ads$,REJECT
 URL-REGEX,^https\:\/\/.*\.line\.me\/er\/la.*\/v1\/$,REJECT
 URL-REGEX,^https\:\/\/.*\.line\.me\/la.*\/api\/.*\/ads$,REJECT
