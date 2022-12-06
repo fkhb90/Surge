@@ -1,8 +1,6 @@
  # Cloudflare Warp+ 检测分流
 
 DOMAIN-SUFFIX,api.cloudflareclient.com
-DOMAIN-SUFFIX,cloudflare-dns.com
-DOMAIN-SUFFIX,cloudflare.com
 DOMAIN-SUFFIX,cf-ns.com
 DOMAIN-SUFFIX,zero-trust-client.cloudflareclient.com
 DOMAIN-SUFFIX,1.1.1.1
