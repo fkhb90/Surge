@@ -2,9 +2,8 @@
 #!desc=屏蔽 iOS/iPadOS 系统更新，无 iPad 设备可在「主机名」添加「-mesu.apple.com」
 #!system=ios
 
-USER-AGENT,MobileAsset*,DIRECT
-
 [Rule]
+USER-AGENT,MobileAsset*,DIRECT
 DOMAIN,gdmf.apple.com,REJECT
 DOMAIN,gdmf.apple.com.akadns.net,REJECT
 DOMAIN,mesu.apple.com,REJECT
