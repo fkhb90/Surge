@@ -1,0 +1,23 @@
+#!name=Block OTA update for iOS and iPadOS
+#!desc=屏蔽 iOS/iPadOS 系统更新，无 iPad 设备可在「主机名」添加「-mesu.apple.com」
+#!system=ios
+
+USER-AGENT,MobileAsset*,DIRECT
+
+[Rule]
+DOMAIN,gdmf.apple.com,REJECT
+DOMAIN,gdmf.apple.com.akadns.net,REJECT
+DOMAIN,mesu.apple.com,REJECT
+DOMAIN,mesu-cdn.apple.com.akadns.net,REJECT
+DOMAIN,mesu-cdn.origin-apple.com.akadns.net,REJECT
+DOMAIN,mesu.g.aaplimg.com,REJECT
+DOMAIN,appldnld.apple.com,REJECT
+DOMAIN,appldnld.apple.com.akadns.net,REJECT
+DOMAIN,updates-http.cdn-apple.com,REJECT
+DOMAIN,xp.apple.com,REJECT
+
+[URL Rewrite]
+URL-REGEX,^https:\/\/mesu\.apple\.com\/assets\/com_apple_MobileAsset_SoftwareUpdate\/com_apple_MobileAsset_SoftwareUpdate\.xml - reject
+
+[MITM]
+hostname = %APPEND% mesu.apple.com
