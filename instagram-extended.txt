@@ -1910,6 +1910,7 @@ scontent-sin6-1.cdninstagram.com
 scontent-sin6-2.cdninstagram.com
 scontent-sin6-3.cdninstagram.com
 scontent-sin6-4.cdninstagram.com
+scontent-sin.*.cdninstagram.com
 scontent-sit4-1.cdninstagram.com
 scontent-sjc.cdninstagram.com
 scontent-sjc3-1.cdninstagram.com
