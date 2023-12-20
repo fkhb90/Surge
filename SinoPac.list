@@ -1,0 +1,11 @@
+IP-CIDR,60.248.0.0/14,DIRECT,no-resolve // Chunghwa Telecom
+IP-CIDR,61.64.0.0/14,DIRECT,no-resolve // Union Broadband Network
+IP-CIDR,61.216.0.0/13,DIRECT,no-resolve // Chunghwa Telecom
+IP-CIDR,123.51.128.0/14,DIRECT,no-resolve // New Century InfoComm Tech Co.
+IP-CIDR,203.64.0.0/13,DIRECT,no-resolve // Taiwan Academic Network
+IP-CIDR,210.58.0.0/14,DIRECT,no-resolve // Asia Pacific On-line Service
+IP-CIDR,211.76.0.0/15,DIRECT,no-resolve // SinoPac Holdings Corporate Network
+IP-CIDR,211.20.0.0/13,DIRECT,no-resolve // Chunghwa Telecom
+IP-CIDR,218.210.0.0/14,DIRECT,no-resolve // New Century InfoComm Tech Co.
+IP-CIDR,220.128.0.0/12,DIRECT,no-resolve // Chunghwa Telecom
+IP-CIDR,220.228.0.0/15,DIRECT,no-resolve // New Century InfoComm Tech Co.
