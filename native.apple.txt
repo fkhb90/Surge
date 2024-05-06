@@ -9,7 +9,6 @@
 # Syntax: Domains
 # Domains: 27
 #
-USER-AGENT,com.apple.AppStore.ProductPageExtension*
 acfeedbackws.icloud.com
 ads.internal.unity3d.com
 ads.prd.ie.internal.unity3d.com
