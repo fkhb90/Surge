@@ -5295,6 +5295,16 @@ eo-eo.nb-no.ro-ro.fbjs.facebook.com
 eo-eo.sk-sk.developers.prod.facebook.com
 eo-eo.www.fbjs.facebook.com
 eo-eo.zh-cn.zh-tw.fbjs.facebook.com
+ep1.facebook.com
+ep2.facebook.com
+ep3.facebook.com
+ep4.facebook.com
+ep5.facebook.com
+ep6.facebook.com
+ep7.facebook.com
+ep8.facebook.com
+ep9.facebook.com
+ep10.facebook.com
 ephemeral-media.giphy.com
 ephmedia.giphy.com
 epixel.fbjs.facebook.com
