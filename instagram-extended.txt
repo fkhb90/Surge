@@ -1950,6 +1950,7 @@ secure.latest.instagram.com
 shortwave.instagram.com
 smtp.instagram.fmnl5-1.fna.fbcdn.net
 static.ak.instagram.com
+static.cdninstagram.com
 survey.instagram.com
 telegraph-ash.instagram.com
 theinstagramhack.com
