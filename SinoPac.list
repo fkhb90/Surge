@@ -1,3 +1,4 @@
+//永豐證券下單相關
 IP-CIDR,60.248.0.0/14,DIRECT,no-resolve // Chunghwa Telecom
 IP-CIDR,61.64.0.0/14,DIRECT,no-resolve // Union Broadband Network
 IP-CIDR,61.216.0.0/13,DIRECT,no-resolve // Chunghwa Telecom
