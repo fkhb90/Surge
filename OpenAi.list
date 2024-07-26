@@ -7,4 +7,6 @@ DOMAIN-SUFFIX,auth0.com
 DOMAIN-SUFFIX,oaistatic.com
 DOMAIN-SUFFIX,oaiusercontent.com
 DOMAIN-SUFFIX,identrust.com
+DOMAIN-SUFFIX,ab.chatgpt.com
 DOMAIN-KEYWORD,openai
+DOMAIN-KEYWORD,chatgpt
