@@ -1,0 +1,15 @@
+#!name=Ecosia to Brave
+#!desc=把 Ecosia 搜尋轉址到 search.brave.com
+
+[URL Rewrite]
+// ^https\:\/\/ac\.ecosia\.org\/autocomplete https\:\/\/whoogle\.hasname\.com\/autocomplete 307
+// ^https\:\/\/www\.ecosia\.org\/search https\:\/\/whoogle\.hasname\.com\/search 307
+// ^https\:\/\/ac\.ecosia\.org\/autocomplete https\:\/\/whoogle\.xuan2host\.com\/autocomplete 307
+// ^https\:\/\/www\.ecosia\.org\/search https\:\/\/whoogle\.xuan2host\.com\/search 307
+^https\:\/\/ac\.ecosia\.org\/autocomplete https\:\/\/search\.brave\.com\/autocomplete 307
+^https\:\/\/www\.ecosia\.org\/search https\:\/\/search\.brave\.com\/search 307
+// ^https\:\/\/ac\.ecosia\.org\/autocomplete https\:\/\/s\.alefvanoon\.xyz\/autocomplete 307
+// ^https\:\/\/www\.ecosia\.org\/search https\:\/\/s\.alefvanoon\.xyz\/search 307
+
+[MITM]
+hostname = %APPEND% search.brave.com, www.brave.com
