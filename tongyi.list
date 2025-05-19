@@ -9,5 +9,6 @@ DOMAIN-SUFFIX,o.alicdn.com
 DOMAIN-SUFFIX,m.tongyi.com
 DOMAIN-SUFFIX,mobile-api.tongyi.com
 DOMAIN-SUFFIX,qianwen.biz.aliyun.com
+URL-REGEX,^https?\:\/\/o\.alicdn\.com.*\/liveme-console\/lib\/aes\/tracker-plugin-pv\/.*\/index\.js$
 URL-REGEX,^https?\:\/\/mum\.alibabachengdun\.com.*\/repEd\.json\?.*$
 URL-REGEX,^https?\:\/\/orange-dc\.alibaba\.com.*\/downloadResource\?.*\.json$
