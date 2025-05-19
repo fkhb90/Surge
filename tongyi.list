@@ -1,0 +1,13 @@
+#tongyi
+DOMAIN-SUFFIX,alibabachengdun.com
+DOMAIN-SUFFIX,alicdn.com
+DOMAIN-SUFFIX,aliyuncs.com
+DOMAIN-SUFFIX,aliyun.com
+DOMAIN-SUFFIX,api.tongyi.com
+DOMAIN-SUFFIX,g.alicdn.com
+DOMAIN-SUFFIX,o.alicdn.com
+DOMAIN-SUFFIX,m.tongyi.com
+DOMAIN-SUFFIX,mobile-api.tongyi.com
+DOMAIN-SUFFIX,qianwen.biz.aliyun.com
+URL-REGEX,^https?\:\/\/mum\.alibabachengdun\.com.*\/repEd\.json\?.*$
+URL-REGEX,^https?\:\/\/orange-dc\.alibaba\.com.*\/downloadResource\?.*\.json$
