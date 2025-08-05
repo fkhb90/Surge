@@ -4054,6 +4054,7 @@ edge-liverail-shv-17-prn1.facebook.com
 edge-liverail-shv-18-prn1.facebook.com
 edge-mask.scgraph.facebook.com
 edge-mqtt.facebook.com
+edge-mqtt-fallback.facebook.com
 edge-mqtt-latest-shv-01-cgk1.facebook.com
 edge-mqtt-latest-shv-01-gru1.lite.facebook.com
 edge-mqtt-latest-shv-01-sea1.lite.facebook.com
