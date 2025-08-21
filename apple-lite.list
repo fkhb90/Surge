@@ -359,7 +359,6 @@ DOMAIN-SUFFIX,wu-calculator.apple.com
 DOMAIN-SUFFIX,wu-mdn.apple.com.akadns.net
 DOMAIN-SUFFIX,wu-nwk.apple.com.akadns.net
 DOMAIN-SUFFIX,www.iadsdk.apple.com
-DOMAIN-SUFFIX,xp.apple.com
 DOMAIN-SUFFIX,zeusmedia.apple.com
 DOMAIN-SUFFIX,zeusmedia.g.aaplimg.com
 URL-REGEX,^https?\:\/\/iad-.*\.apple\.com.*\.*$
