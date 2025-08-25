@@ -1,12 +1,18 @@
 /**
- * Surge Script: Remove Tracking Parameters (Youtube Safe Version)
- * Version: 2.1
+ * Surge Script: Remove Tracking Parameters (Youtube API Safe)
+ * Version: 2.2
  * Author: Gemini
- * 修正：避免 Youtube 網址被誤傷，允許正常播放
+ * 修正：允許 Youtube API 網址完全通過，不做任何參數移除
  */
 function removeTrackingParams(url) {
     try {
         const u = new URL(url);
+
+        // --- Youtube API 網址完全放行 ---
+        if (u.hostname === 'youtubei.googleapis.com') {
+            // 直接返回 null，不做任何處理
+            return null;
+        }
 
         // --- 追蹤參數黑名單 ---
         const exactTrackers = new Set([
@@ -35,15 +41,13 @@ function removeTrackingParams(url) {
             // TikTok
             'ttclid',
             // Twitter / X.com
-            'twclid',
+            'twclid', // ⚠️ 's' 已移除
             // LinkedIn
             'li_fat_id',
             // Oracle (Eloqua)
             'elqTrackId'
-            // ⚠️ 移除 's'，避免誤傷 Youtube
         ]);
 
-        // 需要基於前綴進行模糊匹配的參數
         const prefixTrackers = [
             'utm_',       // Universal Tracking Module (e.g., utm_source)
             'pk_',        // Matomo Analytics (e.g., pk_campaign)
@@ -55,12 +59,11 @@ function removeTrackingParams(url) {
 
         let paramsChanged = false;
 
-        // 特殊處理 Youtube 網址
+        // Youtube 主網站：只移除明確黑名單，不做前綴模糊刪除
         if (
             u.hostname.endsWith('youtube.com') ||
             u.hostname.endsWith('youtu.be')
         ) {
-            // 只移除明確黑名單，不做前綴模糊刪除
             for (const key of Array.from(u.searchParams.keys())) {
                 if (exactTrackers.has(key)) {
                     u.searchParams.delete(key);
@@ -68,7 +71,7 @@ function removeTrackingParams(url) {
                 }
             }
         } else {
-            // 一般網址：黑名單 + 前綴模糊刪除
+            // 其他網址：黑名單 + 前綴模糊刪除
             for (const key of Array.from(u.searchParams.keys())) {
                 if (exactTrackers.has(key)) {
                     u.searchParams.delete(key);
@@ -106,5 +109,5 @@ if (rewrittenUrl) {
         }
     });
 } else {
-    $done({});
+    $done({}); // Youtube API 直接通過，不做任何事
 }
