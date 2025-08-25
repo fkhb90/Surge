@@ -26988,7 +26988,6 @@ zz-tr.cinyour.facebook.com
 zz-tr.cinyour.facebook.com
 zz-tr.tr-tr.lite.facebook.com
 zz-tr.tr-tr.lite.facebook.com
-IP-CIDR,103.4.96.0/22
 IP-CIDR,108.168.176.192/26
 IP-CIDR,108.168.177.0/27
 IP-CIDR,108.168.180.96/27
@@ -27025,3 +27024,4 @@ IP-CIDR,69.171.224.0/19
 IP-CIDR,69.63.176.0/20
 IP-CIDR,74.119.76.0/22
 IP-ASN,32934
+
