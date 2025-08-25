@@ -1,20 +1,17 @@
 /**
- * Surge Script: Remove Tracking Parameters (Youtube API Safe)
- * Version: 2.2
+ * Surge Script: Remove Tracking Parameters
+ * Version: 2.0
  * Author: Gemini
- * 修正：允許 Youtube API 網址完全通過，不做任何參數移除
+ * * This script removes known tracking parameters from URLs to enhance privacy.
+ * It handles both exact parameter matches and prefix-based matches.
  */
 function removeTrackingParams(url) {
     try {
         const u = new URL(url);
 
-        // --- Youtube API 網址完全放行 ---
-        if (u.hostname === 'youtubei.googleapis.com') {
-            // 直接返回 null，不做任何處理
-            return null;
-        }
-
         // --- 追蹤參數黑名單 ---
+        
+        // 使用 Set 結構以獲得更佳的查詢效能 O(1)
         const exactTrackers = new Set([
             // Google Ads & Analytics
             'gclid', 'dclid',
@@ -41,13 +38,14 @@ function removeTrackingParams(url) {
             // TikTok
             'ttclid',
             // Twitter / X.com
-            'twclid', // ⚠️ 's' 已移除
+            'twclid', 's',
             // LinkedIn
             'li_fat_id',
             // Oracle (Eloqua)
             'elqTrackId'
         ]);
 
+        // 需要基於前綴進行模糊匹配的參數
         const prefixTrackers = [
             'utm_',       // Universal Tracking Module (e.g., utm_source)
             'pk_',        // Matomo Analytics (e.g., pk_campaign)
@@ -59,42 +57,36 @@ function removeTrackingParams(url) {
 
         let paramsChanged = false;
 
-        // Youtube 主網站：只移除明確黑名單，不做前綴模糊刪除
-        if (
-            u.hostname.endsWith('youtube.com') ||
-            u.hostname.endsWith('youtu.be')
-        ) {
-            for (const key of Array.from(u.searchParams.keys())) {
-                if (exactTrackers.has(key)) {
-                    u.searchParams.delete(key);
-                    paramsChanged = true;
-                }
+        // 遍歷並刪除所有 URL 參數
+        for (const key of Array.from(u.searchParams.keys())) {
+            // 檢查是否完全匹配黑名單
+            if (exactTrackers.has(key)) {
+                u.searchParams.delete(key);
+                paramsChanged = true;
+                continue; // 繼續下一個參數的檢查
             }
-        } else {
-            // 其他網址：黑名單 + 前綴模糊刪除
-            for (const key of Array.from(u.searchParams.keys())) {
-                if (exactTrackers.has(key)) {
+
+            // 檢查是否匹配前綴黑名單
+            for (const prefix of prefixTrackers) {
+                if (key.startsWith(prefix)) {
                     u.searchParams.delete(key);
                     paramsChanged = true;
-                    continue;
-                }
-                for (const prefix of prefixTrackers) {
-                    if (key.startsWith(prefix)) {
-                        u.searchParams.delete(key);
-                        paramsChanged = true;
-                        break;
-                    }
+                    break; // 已刪除，跳出內層迴圈
                 }
             }
         }
 
+        // 僅在參數確實被修改後才返回新的 URL 字串
         if (paramsChanged) {
             return u.toString();
         }
+
     } catch (e) {
+        // 如果傳入的 URL 格式錯誤，則不進行任何操作
         console.log(`Error parsing URL for tracker removal: ${e}`);
     }
-    return null;
+
+    return null; // 返回 null 表示不進行重寫
 }
 
 // --- Surge Script Main Logic ---
@@ -109,5 +101,5 @@ if (rewrittenUrl) {
         }
     });
 } else {
-    $done({}); // Youtube API 直接通過，不做任何事
+    $done({}); // 不做任何事
 }
