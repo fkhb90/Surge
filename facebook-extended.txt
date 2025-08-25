@@ -8824,6 +8824,7 @@ graph.beta.facebook.com
 graph.business.cinyour.facebook.com
 graph.cinyour.facebook.com
 graph.facebook.com
+graph-fallback.facebook.com
 graph.facebook-hardware.com
 graph.fb.me
 graph.fbpigeon.com
@@ -26984,3 +26985,4 @@ zz-tr.cinyour.facebook.com
 zz-tr.cinyour.facebook.com
 zz-tr.tr-tr.lite.facebook.com
 zz-tr.tr-tr.lite.facebook.com
+
