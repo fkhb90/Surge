@@ -1,17 +1,14 @@
 /**
- * Surge Script: Remove Tracking Parameters
- * Version: 2.0
+ * Surge Script: Remove Tracking Parameters (Youtube Safe Version)
+ * Version: 2.1
  * Author: Gemini
- * * This script removes known tracking parameters from URLs to enhance privacy.
- * It handles both exact parameter matches and prefix-based matches.
+ * 修正：避免 Youtube 網址被誤傷，允許正常播放
  */
 function removeTrackingParams(url) {
     try {
         const u = new URL(url);
 
         // --- 追蹤參數黑名單 ---
-        
-        // 使用 Set 結構以獲得更佳的查詢效能 O(1)
         const exactTrackers = new Set([
             // Google Ads & Analytics
             'gclid', 'dclid',
@@ -38,11 +35,12 @@ function removeTrackingParams(url) {
             // TikTok
             'ttclid',
             // Twitter / X.com
-            'twclid', 's',
+            'twclid',
             // LinkedIn
             'li_fat_id',
             // Oracle (Eloqua)
             'elqTrackId'
+            // ⚠️ 移除 's'，避免誤傷 Youtube
         ]);
 
         // 需要基於前綴進行模糊匹配的參數
@@ -57,36 +55,43 @@ function removeTrackingParams(url) {
 
         let paramsChanged = false;
 
-        // 遍歷並刪除所有 URL 參數
-        for (const key of Array.from(u.searchParams.keys())) {
-            // 檢查是否完全匹配黑名單
-            if (exactTrackers.has(key)) {
-                u.searchParams.delete(key);
-                paramsChanged = true;
-                continue; // 繼續下一個參數的檢查
-            }
-
-            // 檢查是否匹配前綴黑名單
-            for (const prefix of prefixTrackers) {
-                if (key.startsWith(prefix)) {
+        // 特殊處理 Youtube 網址
+        if (
+            u.hostname.endsWith('youtube.com') ||
+            u.hostname.endsWith('youtu.be')
+        ) {
+            // 只移除明確黑名單，不做前綴模糊刪除
+            for (const key of Array.from(u.searchParams.keys())) {
+                if (exactTrackers.has(key)) {
                     u.searchParams.delete(key);
                     paramsChanged = true;
-                    break; // 已刪除，跳出內層迴圈
+                }
+            }
+        } else {
+            // 一般網址：黑名單 + 前綴模糊刪除
+            for (const key of Array.from(u.searchParams.keys())) {
+                if (exactTrackers.has(key)) {
+                    u.searchParams.delete(key);
+                    paramsChanged = true;
+                    continue;
+                }
+                for (const prefix of prefixTrackers) {
+                    if (key.startsWith(prefix)) {
+                        u.searchParams.delete(key);
+                        paramsChanged = true;
+                        break;
+                    }
                 }
             }
         }
 
-        // 僅在參數確實被修改後才返回新的 URL 字串
         if (paramsChanged) {
             return u.toString();
         }
-
     } catch (e) {
-        // 如果傳入的 URL 格式錯誤，則不進行任何操作
         console.log(`Error parsing URL for tracker removal: ${e}`);
     }
-
-    return null; // 返回 null 表示不進行重寫
+    return null;
 }
 
 // --- Surge Script Main Logic ---
@@ -101,5 +106,5 @@ if (rewrittenUrl) {
         }
     });
 } else {
-    $done({}); // 不做任何事
+    $done({});
 }
