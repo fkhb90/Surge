@@ -1,8 +1,8 @@
 /**
  * @file        URL-Tracking-Remover-Enhanced.js
- * @version     7.2
- * @description 針對 Threads 和 Instagram 進行優化，新增其專屬追蹤參數至黑名單，
- * 並將其核心 API 域名加入白名單，以預防 App 功能異常。
+ * @version     7.3
+ * @description 新增對中國大陸主流 AI 服務的追蹤參數過濾規則，包括 Kimi, 通義, 訊飛星火等，
+ * 並擴充其 API 域名白名單。
  * @author      Gemini
  * @lastUpdated 2025-08-26
  */
@@ -25,10 +25,16 @@ const API_HOSTNAME_WHITELIST = new Set([
     'api-ad.xiaohongshu.com',
     'app.bilibili.com',
     'passport.bilibili.com',
-    // --- v7.2 新增: Instagram & Threads ---
     'i.instagram.com',
     'graph.instagram.com',
-    'graph.threads.net'
+    'graph.threads.net',
+    // --- v7.3 新增: 中國大陸 AI 服務 ---
+    'api.deepseek.com',
+    'kimi.moonshot.cn', // Kimi App 域名
+    'tongyi.aliyun.com', // 通義千問
+    'xinghuo.xfyun.cn', // 訊飛星火
+    'maas.aminer.cn', // 智譜清言
+    'api.minimax.chat' // MiniMax
 ]);
 
 /**
@@ -36,21 +42,10 @@ const API_HOSTNAME_WHITELIST = new Set([
  * @description 針對特定網站的「網頁」，保留其正常運作所需的核心參數。
  */
 const ESSENTIAL_PARAMS_BY_DOMAIN = {
-    'youtube': new Set([
-        'v', 't', 'list', 'index', 'start', 'end', 'loop', 'controls',
-        'autoplay', 'mute', 'cc_lang_pref', 'cc_load_policy', 'hl',
-        'rel', 'showinfo', 'iv_load_policy', 'playsinline', 'time_continue',
-        'bpctr', 'origin', 'shorts', 'si'
-    ]),
-    'weibo': new Set([ // 此處主要針對 weibo.com 的網頁，而非 api.weibo.cn
-        'containerid', 'luicode', 'lfid', 'oid', 'id', 'uid'
-    ]),
-    'xiaohongshu': new Set([
-        'noteId', 'exploreFeedId', 'share_from_user_id'
-    ]),
-    'bilibili': new Set([
-        'p', 't', 'buvid', 'mid', 'avid', 'bvid', 'cid', 'season_id', 'ep_id'
-    ])
+    'youtube': new Set(['v', 't', 'list', 'index', 'start', 'end', 'loop', 'controls', 'autoplay', 'mute', 'cc_lang_pref', 'cc_load_policy', 'hl', 'rel', 'showinfo', 'iv_load_policy', 'playsinline', 'time_continue', 'bpctr', 'origin', 'shorts', 'si']),
+    'weibo': new Set(['containerid', 'luicode', 'lfid', 'oid', 'id', 'uid']),
+    'xiaohongshu': new Set(['noteId', 'exploreFeedId', 'share_from_user_id']),
+    'bilibili': new Set(['p', 't', 'buvid', 'mid', 'avid', 'bvid', 'cid', 'season_id', 'ep_id'])
 };
 
 /**
@@ -66,11 +61,12 @@ const GLOBAL_TRACKING_PARAMS = new Set([
     'pvid', 'fr', 'type', 'st',
     'aff_fcid', 'aff_fsk', 'aff_platform', 'algo_expid', 'algo_pvid',
     'tracking_id', 'piwik_campaign', 'piwik_kwd',
-    // --- v7.2 新增: Instagram & Threads ---
-    'igsh', // Instagram 新版分享 ID
-    'x-threads-app-object-id', // Threads 參數
-    'x-threads-app-object-type', // Threads 參數
-    'x-threads-app-redirect' // Threads 參數
+    'igsh', 'x-threads-app-object-id', 'x-threads-app-object-type', 'x-threads-app-redirect',
+    // --- v7.3 新增: 中國大陸 AI 服務 ---
+    'ds_ref', // DeepSeek
+    'kimi_share', // Kimi
+    'spark_channel', // 訊飛星火
+    'zhipu_from' // 智譜清言
 ]);
 
 /**
@@ -78,7 +74,22 @@ const GLOBAL_TRACKING_PARAMS = new Set([
  */
 const TRACKING_PREFIXES = [
     'utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'matomo_',
-    'piwik_', 'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'bd_', 'bdt'
+    'piwik_', 'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'bd_', 'bdt',
+    // --- v7.3 新增: 中國大陸 AI 服務 ---
+    'monica_',
+    'manus_',
+    'deepseek_', 'ds_',
+    'kimi_', 'moonshot_',
+    'tongyi_', 'qwen_',
+    'nanoai_', 'nano_',
+    'mita_', 'metaso_',
+    'quark_', 'qk_',
+    'iflytek_', 'spark_',
+    'zhipu_', 'glm_',
+    'stepfun_',
+    'minimax_', 'mm_',
+    'wenxiaoyan_', 'wxy_',
+    'dangbei_', 'db_'
 ];
 
 /**
@@ -100,7 +111,6 @@ function removeTrackingParams(url) {
         const hostname = u.hostname.toLowerCase();
         let paramsChanged = false;
 
-        // --- 🛡️ 步驟 1: 惡意 URL 初步篩檢 ---
         for (const pattern of MALICIOUS_PATTERNS) {
             if (pattern.test(decodeURIComponent(url))) {
                 console.warn(`[Security Alert] 檢測到疑似惡意 URL，已阻擋: ${url.substring(0, 100)}...`);
@@ -108,7 +118,6 @@ function removeTrackingParams(url) {
             }
         }
 
-        // --- 🔍 步驟 2: 確定當前域名的白名單 ---
         let essentialParams = new Set();
         for (const domainKey in ESSENTIAL_PARAMS_BY_DOMAIN) {
             if (hostname.includes(domainKey)) {
@@ -119,7 +128,6 @@ function removeTrackingParams(url) {
 
         const paramKeys = Array.from(u.searchParams.keys());
 
-        // --- 🔄 步驟 3: 遍歷並清理參數 ---
         for (const key of paramKeys) {
             if (essentialParams.has(key)) {
                 continue;
@@ -143,14 +151,13 @@ function removeTrackingParams(url) {
             }
         }
 
-        // --- ✅ 步驟 4: 回傳結果 ---
         if (paramsChanged) {
             return u.toString();
         }
         return null;
 
     } catch (e) {
-        console.error(`[Tracking Remover v7.2] 處理 URL 時發生錯誤: ${e.message}`);
+        console.error(`[Tracking Remover v7.3] 處理 URL 時發生錯誤: ${e.message}`);
         console.error(`原始 URL: ${url.substring(0, 100)}...`);
         return null;
     }
@@ -170,19 +177,16 @@ function removeTrackingParams(url) {
     try {
         hostname = new URL(originalUrl).hostname.toLowerCase();
     } catch (e) {
-        // 如果 URL 格式不正確，直接放行
         $done({});
         return;
     }
-    
-    // 🚨 核心邏輯：檢查請求是否命中 API 域名白名單
+
     if (API_HOSTNAME_WHITELIST.has(hostname)) {
         console.log(`[API Whitelist] 命中 API 域名，跳過處理: ${hostname}`);
-        $done({}); // 直接放行，不進行任何修改
+        $done({});
         return;
     }
 
-    // 如果不是 API 請求，則執行標準的清理流程
     const cleanedUrl = removeTrackingParams(originalUrl);
 
     if (cleanedUrl) {
