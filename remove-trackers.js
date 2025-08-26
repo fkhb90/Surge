@@ -1,8 +1,8 @@
 /**
  * @file        URL-Tracking-Remover-Enhanced.js
- * @version     7.1
- * @description 新增 API 域名白名單機制，解決微博等 App 內部 API 請求被錯誤清理導致功能異常的問題。
- * 當請求域名匹配白名單時，腳本將完全跳過處理，確保 App 正常通訊。
+ * @version     7.2
+ * @description 針對 Threads 和 Instagram 進行優化，新增其專屬追蹤參數至黑名單，
+ * 並將其核心 API 域名加入白名單，以預防 App 功能異常。
  * @author      Gemini
  * @lastUpdated 2025-08-26
  */
@@ -12,7 +12,7 @@
 // =================================================================================
 
 /**
- * 🚨 API 域名白名單 (v7.1 新增)
+ * 🚨 API 域名白名單
  * @description 列於此處的域名將被腳本完全忽略，不進行任何參數清理。
  * 主要用於放行 App 的內部 API 請求，避免破壞其功能。
  */
@@ -24,7 +24,11 @@ const API_HOSTNAME_WHITELIST = new Set([
     'api.zhihu.com',
     'api-ad.xiaohongshu.com',
     'app.bilibili.com',
-    'passport.bilibili.com'
+    'passport.bilibili.com',
+    // --- v7.2 新增: Instagram & Threads ---
+    'i.instagram.com',
+    'graph.instagram.com',
+    'graph.threads.net'
 ]);
 
 /**
@@ -61,7 +65,12 @@ const GLOBAL_TRACKING_PARAMS = new Set([
     'tt_from', 'is_copy_url', 'is_from_webapp', 'xhsshare', 'share_plat',
     'pvid', 'fr', 'type', 'st',
     'aff_fcid', 'aff_fsk', 'aff_platform', 'algo_expid', 'algo_pvid',
-    'tracking_id', 'piwik_campaign', 'piwik_kwd'
+    'tracking_id', 'piwik_campaign', 'piwik_kwd',
+    // --- v7.2 新增: Instagram & Threads ---
+    'igsh', // Instagram 新版分享 ID
+    'x-threads-app-object-id', // Threads 參數
+    'x-threads-app-object-type', // Threads 參數
+    'x-threads-app-redirect' // Threads 參數
 ]);
 
 /**
@@ -141,7 +150,7 @@ function removeTrackingParams(url) {
         return null;
 
     } catch (e) {
-        console.error(`[Tracking Remover v7.1] 處理 URL 時發生錯誤: ${e.message}`);
+        console.error(`[Tracking Remover v7.2] 處理 URL 時發生錯誤: ${e.message}`);
         console.error(`原始 URL: ${url.substring(0, 100)}...`);
         return null;
     }
@@ -166,7 +175,7 @@ function removeTrackingParams(url) {
         return;
     }
     
-    // 🚨 v7.1 核心更新：檢查請求是否命中 API 域名白名單
+    // 🚨 核心邏輯：檢查請求是否命中 API 域名白名單
     if (API_HOSTNAME_WHITELIST.has(hostname)) {
         console.log(`[API Whitelist] 命中 API 域名，跳過處理: ${hostname}`);
         $done({}); // 直接放行，不進行任何修改
@@ -188,10 +197,3 @@ function removeTrackingParams(url) {
         $done({});
     }
 })();
-```
-
-### 如何更新
-
-請將上方 v7.1 版本的完整程式碼複製並替換掉您目前使用的腳本。儲存後，微博 App 應該就能夠正常刷新和使用了。
-
-感謝您的耐心反饋，這對於完善腳本非常有
