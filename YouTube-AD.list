@@ -55,7 +55,7 @@ URL-REGEX,https?\:\/\/youtubei\.googleapis\.com\/youtubei\/.*\/att\/get\.*
 URL-REGEX,https?\:\/\/youtubei\.googleapis\.com\/.+ad_break
 URL-REGEX,https?\:\/\/youtubei\.googleapis\.com\/youtubei\/.*\/log_event\/.*
 URL-REGEX,^https?\:\/\/youtubei\.googleapis\.com\/youtubei\/v\d\/player\/ad_break
-URL-REGEX,^https?\:\/\/youtubei\.googleapis\.com\/youtubei\/.*\/[a-zA-Z0-9_]+(?:\/[a-zA-Z0-9_]+)*\?.*$
+# URL-REGEX,^https?\:\/\/youtubei\.googleapis\.com\/youtubei\/.*\/[a-zA-Z0-9_]+(?:\/[a-zA-Z0-9_]+)*\?.*$
 URL-REGEX,https?\:\/\/.+\.googleapis\.com\/adsmeasurement
 URL-REGEX,https?\:\/\/.+\.googleapis\.com\/youtubei\/.*\/notification_registration
 URL-REGEX,https?\:\/\/.+\.googleapis\.com\/youtubei\/.*\/guide
@@ -73,6 +73,7 @@ URL-REGEX,^https?\:\/\/youtubei\.googleapis\.com\/youtubei\/v\d\/player\/ad_brea
 URL-REGEX,^https?\:\/\/(www|s)\.youtube\.com\/api\/stats\/ads
 URL-REGEX,^https?\:\/\/(www|s)\.youtube\.com\/(pagead|ptracking)
 URL-REGEX,^https?\:\/\/s\.youtube\.com\/api\/stats\/qoe\?adcontext
-URL-REGEX,^https?\:\/\/suggestqueries\.google\.com/complete/search\?client=youtube-ios-pb&xssi=t&q=[^&]*&hl=[a-z]{2}-[A-Z]{2}&hjson=t&oe=UTF-8&ds=yt&gs_pcr=t&cp=\d+&gl=[A-Z]{2}&video_id=[^&]*&ytvs=1&w=\d+&h=\d+$
+# URL-REGEX,^https?\:\/\/suggestqueries\.google\.com/complete/search\?client=youtube-ios-pb&xssi=t&q=[^&]*&hl=[a-z]{2}-[A-Z]{2}&hjson=t&oe=UTF-8&ds=yt&gs_pcr=t&cp=\d+&gl=[A-Z]{2}&video_id=[^&]*&ytvs=1&w=\d+&h=\d+$
+
 
 
