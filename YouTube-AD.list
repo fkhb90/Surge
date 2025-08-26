@@ -1,4 +1,3 @@
-[Rule]
 # AND,((PROTOCOL,UDP), (DEST-PORT,443)),REJECT-NO-DROP
 # YouTube Ad-Block
 DOMAIN-SUFFIX,googleadservices.com,REJECT
@@ -88,4 +87,5 @@ http-request ^https?:\/\/.+\?,script-path=https://github.com/iamfugui/youtube-ad
 
 [MITM]
 hostname = %APPEND% -redirector*.googlevideo.com, *.googlevideo.com, *.youtube.com, youtubei.googleapis.com:443, s.youtube.com:443, www.youtube-nocookie.com:443
+
 
