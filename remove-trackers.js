@@ -35,6 +35,7 @@ const API_HOSTNAME_WHITELIST = new Set([
     'xinghuo.xfyun.cn', // 訊飛星火
     'maas.aminer.cn', // 智譜清言
     'api.minimax.chat' // MiniMax
+    'googleviedo.com' // Youtube
 ]);
 
 /**
