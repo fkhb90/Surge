@@ -1,6 +1,6 @@
 /**
  * @file        URL-Ultimate-Filter-Optimized.js
- * @version     15.0 (Architecturally Refined)
+ * @version     15.1 (Strict Logging Filter)
  * @description 在 v14.0 基礎上進行架構性優化。引入 LRU 快取策略、參數清理白名單（軟白名單）、
  * URL 長度安全防護及增強型診斷模組，實現了更精細、健壯和高效的過濾邏輯。
  * @author      Gemini (基於 v14.0 全面優化)
@@ -24,7 +24,7 @@ const config = {
         'graph.facebook.com', 'connect.facebook.net', 'criteo.com', 'taboola.com', 'outbrain.com',
         'scorecardresearch.com', 'chartbeat.com', 'app-measurement.com', 'branch.io', 'appsflyer.com',
         'adjust.com', 'sentry.io', 'bugsnag.com', 'hotjar.com', 'vwo.com', 'optimizely.com',
-        'mixpanel.com', 'amplitude.com', 'heap.io', 'loggly.com', 'c.clarity.ms'
+        'mixpanel.com', 'amplitude.com', 'heap.io', 'loggly.com', 'c.clarity.ms', 'log.byteoversea.com'
     ]),
 
     /**
@@ -55,8 +55,8 @@ const config = {
 
     // ... 其他設定與 v14.0 相同 ...
     PATH_ALLOW_KEYWORDS: new Set(['api', 'service', 'oauth', 'auth', 'login', 'chunk.js', 'download', 'upload', 'rss', 'feed']),
-    PATH_BLOCK_KEYWORDS: ['/ad/', '/ads/', '/advert', '/affiliate/', '/sponsor', '/track', '/analytics', '/beacon', '/pixel', 'google_ad', 'pagead', 'gtag', 'fbevents'],
-    DROP_PATH_KEYWORDS: new Set(['/log/', '/logs/', 'amp-loader', 'telemetry', 'crash']),
+    PATH_BLOCK_KEYWORDS: ['/ad/', '/ads/', '/advert', '/affiliate/', '/sponsor', '/track', '/analytics', '/beacon', '/pixel', 'google_ad', 'pagead', 'gtag', 'fbevents', 'log', 'report']),
+    DROP_PATH_KEYWORDS: new Set(['/log/', '/logs/', 'amp-loader', 'telemetry', 'crash', 'log', 'report']),
     GLOBAL_TRACKING_PARAMS: new Set(['gclid', 'dclid', 'fbclid', 'igshid', 'mc_cid', 'mc_eid', 'msclkid', 'from', 'source', 'ref', 'spm', 'scm', 'utm_source']),
     TRACKING_PREFIXES: ['utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mkt_', 'hsa_', 'ad_', 'trk_', 'spm_']
 };
