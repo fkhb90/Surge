@@ -33,8 +33,8 @@ const BLOCK_DOMAINS = new Set([
 const API_WHITELIST_EXACT = new Set([
     'youtubei.googleapis.com', 'api.weibo.cn', 'api.xiaohongshu.com', 'api.bilibili.com',
     'api.zhihu.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
-    'open.spotify.com', 'api.deepseek.com', 'kimi.moonshot.cn', 'tongyi.aliyun.com',
-    'xinghuo.xfyun.cn', 'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
+    'open.spotify.com', 'vercel.app', 'netlify.app', 'jsdelivr.net',
+    'unpkg.com', 'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
     'api.github.com'
 ]);
 
@@ -42,7 +42,10 @@ const API_WHITELIST_WILDCARDS = new Map([
     ['youtube.com', true], ['m.youtube.com', true], ['googlevideo.com', true],
     ['paypal.com', true], ['stripe.com', true], ['apple.com', true], ['icloud.com', true],
     ['windowsupdate.com', true], ['amazonaws.com', true], ['aliyuncs.com', true],
-    ['cloud.tencent.com', true], ['cloudfront.net', true]
+    ['cloud.tencent.com', true], ['cloudfront.net', true],
+    // RSS/新聞聚合服務
+    ['feedly.com', true], ['inoreader.com', true], ['theoldreader.com', true],
+    ['newsblur.com', true], ['flipboard.com', true]
 ]);
 
 /**
@@ -62,27 +65,32 @@ const PATH_ALLOW_PATTERNS = new Set([
     'register', 'profile', 'dashboard', 'admin', 'config', 'settings', 'preference',
     'notification', 'message', 'chat', 'comment', 'review', 'rating', 'search',
     'filter', 'sort', 'category', 'tag', 'media', 'image', 'video', 'audio',
-    'document', 'pdf', 'export', 'import', 'backup', 'restore', 'sync'
+    'document', 'pdf', 'export', 'import', 'backup', 'restore', 'sync',
+    // RSS/內容聚合相關
+    'feed', 'rss', 'atom', 'xml', 'opml', 'subscription', 'subscribe',
+    'collections', 'boards', 'streams', 'contents', 'preferences', 'folders',
+    'entries', 'items', 'posts', 'articles', 'sources', 'categories'
 ]);
 
 /**
  * 🚫 增強版路徑黑名單 (Enhanced Path Blacklist)
+ * @description 更精確的關鍵字匹配，減少誤殺
  */
 const PATH_BLOCK_KEYWORDS = new Set([
-    // 廣告相關
-    'ad', 'ads', 'adv', 'advert', 'advertisement', 'advertising', 'affiliate', 'sponsor',
-    'promoted', 'banner', 'popup', 'interstitial', 'preroll', 'midroll', 'postroll',
-    // 追蹤相關  
-    'track', 'trace', 'tracker', 'tracking', 'analytics', 'analytic', 'metric', 'metrics',
-    'telemetry', 'measurement', 'insight', 'intelligence', 'monitor', 'monitoring',
-    // 日誌相關
-    'log', 'logs', 'logger', 'logging', 'logrecord', 'putlog', 'audit', 'event',
-    'beacon', 'pixel', 'collect', 'collector', 'report', 'reports', 'reporting',
+    // 廣告相關 - 使用更精確的匹配
+    '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/sponsor/',
+    '/promoted/', '/banner/', '/popup/', '/interstitial/', '/preroll/', '/midroll/', '/postroll/',
+    // 追蹤相關 - 避免與業務功能衝突
+    '/track/', '/trace/', '/tracker/', '/tracking/', '/analytics/', '/analytic/', '/metric/', '/metrics/',
+    '/telemetry/', '/measurement/', '/insight/', '/intelligence/', '/monitor/', '/monitoring/',
+    // 日誌相關 - 更精確匹配
+    '/log/', '/logs/', '/logger/', '/logging/', '/logrecord/', '/putlog/', '/audit/', '/event/',
+    '/beacon/', '/pixel/', '/collect/', '/collector/', '/report/', '/reports/', '/reporting/',
     // 錯誤追蹤
-    'sentry', 'bugsnag', 'crash', 'error', 'exception', 'stacktrace',
+    '/sentry/', '/bugsnag/', '/crash/', '/error/', '/exception/', '/stacktrace/',
     // 特定平台
-    'ga', 'gpt', 'google_ad', 'pagead', 'adsbygoogle', 'doubleclick', 'adsense',
-    'dfp', 'gtag', 'gtm', 'google-analytics', 'facebook', 'fbevents', 'fbq',
+    'google_ad', 'pagead', 'adsbygoogle', 'doubleclick', 'adsense',
+    'dfp', 'gtag', 'gtm', 'google-analytics', 'fbevents', 'fbq',
     'addthis', 'sharethis', 'taboola', 'criteo', 'osano', 'onead', 'sailthru',
     'tapfiliate', 'appier', 'hotjar', 'comscore', 'mixpanel', 'amplitude',
     // AMP 廣告
@@ -90,8 +98,7 @@ const PATH_BLOCK_KEYWORDS = new Set([
     // 程序化廣告
     'prebid', 'apstag', 'pwt.js', 'utag.js', 'rtb', 'dsp', 'ssp',
     // 其他
-    'marketing', 'cookiepolicy', 'consent', 'gdpr', 'ccpa', 'social', 'plusone',
-    'related-posts', 'optimize', 'sso', 'firebase', 'pushnotification'
+    'cookiepolicy', 'gdpr', 'ccpa', 'plusone', 'optimize', 'pushnotification'
 ]);
 
 /**
