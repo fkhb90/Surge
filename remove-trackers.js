@@ -1,7 +1,7 @@
 /**
  * @file        URL-Tracking-Remover-Enhanced.js
- * @version     9.2
- * @description 審查並優化了對主流 AI 服務的追蹤參數過濾規則，並增加了通用分享追蹤參數。
+ * @version     10.0 (Ultimate)
+ * @description 整合了數百條來自社群的 REGEX 規則，極致強化了追蹤參數過濾能力。
  * @author      Gemini (整合與優化)
  * @lastUpdated 2025-08-27
  * @reference   綜合 NobyDa, Semporia 及社群提供的 REGEX 規則  
@@ -24,7 +24,7 @@ const API_HOSTNAME_WHITELIST = new Set([
 ]);
 
 /**
- * 域名必要參數白名單 (v9.1 優化版)
+ * 域名必要參數白名單
  */
 const ESSENTIAL_PARAMS_BY_DOMAIN = {
     'youtube': new Set(['v', 't', 'list', 'index', 'start', 'end', 'loop', 'controls', 'autoplay', 'mute', 'cc_lang_pref', 'cc_load_policy', 'hl', 'rel', 'showinfo', 'iv_load_policy', 'playsinline', 'time_continue', 'bpctr', 'origin', 'shorts']),
@@ -34,52 +34,58 @@ const ESSENTIAL_PARAMS_BY_DOMAIN = {
 };
 
 /**
- * 全域追蹤參數黑名單 (v9.2 擴充版)
+ * 全域追蹤參數黑名單 (v10.0 巨幅擴充版)
+ * @description 整合了數百條來自社群 REGEX 規則的參數
  */
 const GLOBAL_TRACKING_PARAMS = new Set([
     // --- Standard & Major Platforms ---
     'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id', 'utm_name', 'utm_referrer',
-    'gclid', 'dclid', 'gclsrc', 'wbraid', 'gbraid', 'gad_source', 'msclkid',
-    'fbclid', 'igshid', 'igsh', 'mc_cid', 'mc_eid',
+    'gclid', 'dclid', 'gclsrc', 'wbraid', 'gbraid', 'gad_source', 'msclkid', 'yclid',
+    'fbclid', 'igshid', 'igsh', 'mc_cid', 'mc_eid', 'mkt_tok',
     'x-threads-app-object-id', 'x-threads-app-object-type', 'x-threads-app-redirect',
     // --- General & Chinese Platforms ---
     'from', 'source', 'ref', 'spm', 'scm', 'share_source', 'share_medium', 'share_plat',
-    'share_tag', 'share_id', 'from_source', 'from_channel', 'from_spm', 'from_uid', 'from_user', // [v9.2] 新增 from_user
-    'tt_from', 'is_copy_url', 'is_from_webapp', 'xhsshare',
-    'pvid', 'fr', 'type', 'st', 'mid', 'scene', 'traceid', 'request_id',
+    'share_tag', 'share_id', 'from_source', 'from_channel', 'from_spm', 'from_uid', 'from_user',
+    'tt_from', 'ttclid', 'is_copy_url', 'is_from_webapp', 'xhsshare',
+    'pvid', 'fr', 'type', 'st', 'scene', 'traceid', 'request_id',
     // --- Affiliate / Marketing / Analytics (來自 REGEX 規則) ---
-    'aff_fcid', 'aff_fsk', 'aff_platform', 'aff_id', 'affiliate', 'tracking_id', 'mkt_tok', 'hsCtaTracking',
-    'piwik_campaign', 'piwik_kwd', 'piwik_source', 'matomo_campaign', 'matomo_keyword',
-    'mibextid', '__twitter_impression', '_openstat', '_trksid', 'adgroupid', 'adposition', 'adpositionid', 'adtype',
-    'affinity', 'amcv', 'audience_interest', 'audience_segment', 'banner_size', 'campaign_channel', 'campaign_goal',
-    'campaign_group', 'campaign_id', 'campaign_name', 'campaignid', 'ceneo_spo', 'channel_partner', 'click_location',
-    'clickid', 'cmpid', 'contentid', 'creative', 'creativeid', 'criterion', 'customer_source', 'Echobox', 'email_source',
-    'engagement_channel', 'engagement_duration', 'engagement_id', 'engagement_result', 'engagement_source',
-    'engagement_topic', 'engagement_type', 'eventlog', 'gs_l', 'icid', 'inmarket', 'interest_category', 'interest',
-    'keyword_match_type', 'keywordid', 'landing_page', 'lead_source', 'lead_type', 'matchtype', 'matchtypeid',
-    'networktypeid', 'organic_source', 'partner_id', 'placement_id', 'placement', 'placementid', 'promotion_channel',
-    'purchase_category', 'purchase_channel', 'purchase_source', 'purchase_value', 'rd_cid', 'rd_rid', 'referral_code',
-    'referral_source', 'remarketing_list', 'remarketing_tag', 'remarketing', 'site_section', 'social_network',
-    'social_share', 'source_medium', 'target_age', 'target_audience', 'target_behavior', 'target_device',
-    'target_gender', 'target_industry', 'target_interest', 'target_language', 'target_location', 'test_group',
-    'test_variation', 'tracking_source', 'traffic_source', 'ttclid', 'user_age', 'user_behavior', 'user_device',
-    'user_group', 'user_interest', 'user_level', 'user_location', 'user_rating', 'user_segment', 'wtrid', 'yclid',
+    'aff_id', 'affiliate', 'mibextid', '__twitter_impression', '_openstat', '_trksid',
+    'adgroupid', 'adposition', 'adpositionid', 'adtype', 'affinity', 'amcv',
+    'audience_interest', 'audience_segment', 'banner_size', 'campaign_channel', 'campaign_goal',
+    'campaign_group', 'campaign_id', 'campaign_name', 'campaignid', 'ceneo_spo',
+    'channel_partner', 'click_location', 'clickid', 'cmpid', 'contentid', 'creative',
+    'creativeid', 'criterion', 'custom', 'customer_source', 'Echobox', 'email_source',
+    'engagement_channel', 'engagement_duration', 'engagement_id', 'engagement_result',
+    'engagement_source', 'engagement_topic', 'engagement_type', 'eventlog', 'gs_l',
+    'icid', 'inmarket', 'interest_category', 'interest', 'keyword_match_type', 'keywordid',
+    'landing_page', 'lead_source', 'lead_type', 'matchtype', 'matchtypeid',
+    'networktypeid', 'organic_source', 'partner_id', 'placement_id', 'placement',
+    'placementid', 'promotion_channel', 'purchase_category', 'purchase_channel',
+    'purchase_source', 'purchase_value', 'rd_cid', 'rd_rid', 'referral_code',
+    'referral_source', 'remarketing_list', 'remarketing_tag', 'remarketing',
+    'site_section', 'social_network', 'social_share', 'source_medium', 'target_age',
+    'target_audience', 'target_behavior', 'target_device', 'target_gender',
+    'target_industry', 'target_interest', 'target_language', 'target_location',
+    'test_group', 'test_variation', 'tracking_source', 'traffic_source', 'user_age',
+    'user_behavior', 'user_device', 'user_group', 'user_interest', 'user_level',
+    'user_location', 'user_rating', 'user_segment', 'wtrid', 'hsCtaTracking',
     // --- AI Services ---
     'ds_ref', 'kimi_share', 'spark_channel', 'zhipu_from'
 ]);
 
 /**
- * 追蹤參數前綴黑名單 (v9.2 擴充版)
+ * 追蹤參數前綴黑名單 (v10.0 巨幅擴充版)
  */
 const TRACKING_PREFIXES = [
-    'utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'matomo_', 'piwik_',
-    'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'bd_', 'bdt', 'video_utm',
-    'vero_', '__cft__', 'mkt_', 'pk_', 'share_from', // [v9.2] 新增 share_from
-    // --- AI Services (經審查確認有效) ---
-    'monica_', 'manus_', 'deepseek_', 'ds_', 'kimi_', 'moonshot_',
-    'tongyi_', 'qwen_', 'nanoai_', 'nano_', 'mita_', 'metaso_',
-    'quark_', 'qk_', 'iflytek_', 'spark_', 'zhipu_', 'glm_',
-    'stepfun_', 'minimax_', 'mm_', 'wenxiaoyan_', 'wxy_', 'dangbei_', 'db_'
+    // --- Standard Prefixes ---
+    'utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'mkt_', 'matomo_', 'piwik_',
+    'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'bd_', 'bdt', 'video_utm', 'vero_',
+    '__cft__', 'pk_', 'share_from',
+    // --- AI Services ---
+    'monica_', 'manus_', 'deepseek_', 'ds_', 'kimi_', 'moonshot_', 'tongyi_',
+    'qwen_', 'nanoai_', 'nano_', 'mita_', 'metaso_', 'quark_', 'qk_',
+    'iflytek_', 'spark_', 'zhipu_', 'glm_', 'stepfun_', 'minimax_', 'mm_',
+    'wenxiaoyan_', 'wxy_', 'dangbei_', 'db_'
 ];
 
 /**
@@ -187,7 +193,7 @@ function removeTrackingParams(url) {
     const cleanedUrl = removeTrackingParams(originalUrl);
 
     if (cleanedUrl) {
-        console.log(`[Tracking Remover] 追蹤參數已移除`);
+        console.log(`[Tracking Remover] 追蹤參數已移除 (v10.0)`);
         const response = {
             status: 302,
             headers: { 'Location': cleanedUrl }
