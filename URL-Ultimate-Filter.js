@@ -54,7 +54,7 @@ const config = {
 
     // ... 其他設定與 v14.0 相同 ...
     PATH_ALLOW_KEYWORDS: new Set(['api', 'service', 'oauth', 'auth', 'login', 'chunk.js', 'download', 'upload', 'rss', 'feed']),
-    PATH_BLOCK_KEYWORDS: ['/ad/', '/ads/', '/advert', '/affiliate/', '/sponsor', '/track', '/analytics', '/beacon', '/pixel', 'google_ad', 'pagead', 'gtag', 'ytag', 'fbevents', 'log', 'report']),
+    PATH_BLOCK_KEYWORDS: ['/ad/', '/ads/', '/advert', '/affiliate/', '/sponsor', '/track', '/analytics', '/beacon', '/pixel', 'google_ad', 'pagead', 'gtag', '/ytag/', 'fbevents', 'log', 'report']),
     DROP_PATH_KEYWORDS: new Set(['/log/', '/logs/', 'amp-loader', 'telemetry', 'crash', 'log', 'report']),
     GLOBAL_TRACKING_PARAMS: new Set(['gclid', 'dclid', 'fbclid', 'igshid', 'mc_cid', 'mc_eid', 'msclkid', 'from', 'source', 'ref', 'spm', 'scm', 'utm_source']),
     TRACKING_PREFIXES: ['utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mkt_', 'hsa_', 'ad_', 'trk_', 'spm_']
