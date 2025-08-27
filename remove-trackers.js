@@ -1,10 +1,10 @@
 /**
  * @file        URL-Tracking-Remover-Enhanced.js
- * @version     7.3
- * @description 新增對中國大陸主流 AI 服務的追蹤參數過濾規則，包括 Kimi, 通義, 訊飛星火等，
- * 並擴充其 API 域名白名單。
- * @author      Gemini
- * @lastUpdated 2025-08-26
+ * @version     9.2
+ * @description 審查並優化了對主流 AI 服務的追蹤參數過濾規則，並增加了通用分享追蹤參數。
+ * @author      Gemini (整合與優化)
+ * @lastUpdated 2025-08-27
+ * @reference   綜合 NobyDa, Semporia 及社群提供的 REGEX 規則  
  */
 
 // =================================================================================
@@ -13,88 +13,77 @@
 
 /**
  * 🚨 API 域名白名單
- * @description 列於此處的域名將被腳本完全忽略，不進行任何參數清理。
- * 主要用於放行 App 的內部 API 請求，避免破壞其功能。
  */
 const API_HOSTNAME_WHITELIST = new Set([
-    'api.weibo.cn',
-    'api.weibo.com',
-    'api.xiaohongshu.com',
-    'api.bilibili.com',
-    'api.zhihu.com',
-    'api-ad.xiaohongshu.com',
-    'app.bilibili.com',
-    'passport.bilibili.com',
-    'i.instagram.com',
-    'graph.instagram.com',
-    'graph.threads.net',
-    // --- v7.3 新增: 中國大陸 AI 服務 ---
-    'api.deepseek.com',
-    'kimi.moonshot.cn', // Kimi App 域名
-    'tongyi.aliyun.com', // 通義千問
-    'xinghuo.xfyun.cn', // 訊飛星火
-    'maas.aminer.cn', // 智譜清言
-    'api.minimax.chat' // MiniMax
-    'googleviedo.com' // Youtube
+    '*.youtube.com', '*.m.youtube.com', 'youtubei.googleapis.com', '*.googlevideo.com',
+    'api.weibo.cn', 'api.weibo.com', 'api.xiaohongshu.com', 'api-ad.xiaohongshu.com',
+    'api.bilibili.com', 'app.bilibili.com', 'passport.bilibili.com', 'api.zhihu.com',
+    'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
+    'api.deepseek.com', 'kimi.moonshot.cn', 'tongyi.aliyun.com', 'xinghuo.xfyun.cn',
+    'maas.aminer.cn', 'api.minimax.chat'
 ]);
 
 /**
- * 域名必要參數白名單
- * @description 針對特定網站的「網頁」，保留其正常運作所需的核心參數。
+ * 域名必要參數白名單 (v9.1 優化版)
  */
 const ESSENTIAL_PARAMS_BY_DOMAIN = {
-    'youtube': new Set(['v', 't', 'list', 'index', 'start', 'end', 'loop', 'controls', 'autoplay', 'mute', 'cc_lang_pref', 'cc_load_policy', 'hl', 'rel', 'showinfo', 'iv_load_policy', 'playsinline', 'time_continue', 'bpctr', 'origin', 'shorts', 'si']),
+    'youtube': new Set(['v', 't', 'list', 'index', 'start', 'end', 'loop', 'controls', 'autoplay', 'mute', 'cc_lang_pref', 'cc_load_policy', 'hl', 'rel', 'showinfo', 'iv_load_policy', 'playsinline', 'time_continue', 'bpctr', 'origin', 'shorts']),
     'weibo': new Set(['containerid', 'luicode', 'lfid', 'oid', 'id', 'uid']),
     'xiaohongshu': new Set(['noteId', 'exploreFeedId', 'share_from_user_id']),
-    'bilibili': new Set(['p', 't', 'buvid', 'mid', 'avid', 'bvid', 'cid', 'season_id', 'ep_id'])
+    'bilibili': new Set(['p', 't', 'mid', 'avid', 'bvid', 'cid', 'season_id', 'ep_id'])
 };
 
 /**
- * 全域追蹤參數黑名單 (精簡與擴充)
+ * 全域追蹤參數黑名單 (v9.2 擴充版)
  */
 const GLOBAL_TRACKING_PARAMS = new Set([
-    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id',
+    // --- Standard & Major Platforms ---
+    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id', 'utm_name', 'utm_referrer',
     'gclid', 'dclid', 'gclsrc', 'wbraid', 'gbraid', 'gad_source', 'msclkid',
-    'fbclid', 'igshid', 'mc_cid', 'mc_eid',
-    'from', 'source', 'ref', 'spm', 'scm', 'share_source', 'share_medium',
-    'share_tag', 'share_id', 'from_source', 'from_channel', 'from_spm',
-    'tt_from', 'is_copy_url', 'is_from_webapp', 'xhsshare', 'share_plat',
-    'pvid', 'fr', 'type', 'st',
-    'aff_fcid', 'aff_fsk', 'aff_platform', 'algo_expid', 'algo_pvid',
-    'tracking_id', 'piwik_campaign', 'piwik_kwd',
-    'igsh', 'x-threads-app-object-id', 'x-threads-app-object-type', 'x-threads-app-redirect',
-    // --- v7.3 新增: 中國大陸 AI 服務 ---
-    'ds_ref', // DeepSeek
-    'kimi_share', // Kimi
-    'spark_channel', // 訊飛星火
-    'zhipu_from' // 智譜清言
+    'fbclid', 'igshid', 'igsh', 'mc_cid', 'mc_eid',
+    'x-threads-app-object-id', 'x-threads-app-object-type', 'x-threads-app-redirect',
+    // --- General & Chinese Platforms ---
+    'from', 'source', 'ref', 'spm', 'scm', 'share_source', 'share_medium', 'share_plat',
+    'share_tag', 'share_id', 'from_source', 'from_channel', 'from_spm', 'from_uid', 'from_user', // [v9.2] 新增 from_user
+    'tt_from', 'is_copy_url', 'is_from_webapp', 'xhsshare',
+    'pvid', 'fr', 'type', 'st', 'mid', 'scene', 'traceid', 'request_id',
+    // --- Affiliate / Marketing / Analytics (來自 REGEX 規則) ---
+    'aff_fcid', 'aff_fsk', 'aff_platform', 'aff_id', 'affiliate', 'tracking_id', 'mkt_tok', 'hsCtaTracking',
+    'piwik_campaign', 'piwik_kwd', 'piwik_source', 'matomo_campaign', 'matomo_keyword',
+    'mibextid', '__twitter_impression', '_openstat', '_trksid', 'adgroupid', 'adposition', 'adpositionid', 'adtype',
+    'affinity', 'amcv', 'audience_interest', 'audience_segment', 'banner_size', 'campaign_channel', 'campaign_goal',
+    'campaign_group', 'campaign_id', 'campaign_name', 'campaignid', 'ceneo_spo', 'channel_partner', 'click_location',
+    'clickid', 'cmpid', 'contentid', 'creative', 'creativeid', 'criterion', 'customer_source', 'Echobox', 'email_source',
+    'engagement_channel', 'engagement_duration', 'engagement_id', 'engagement_result', 'engagement_source',
+    'engagement_topic', 'engagement_type', 'eventlog', 'gs_l', 'icid', 'inmarket', 'interest_category', 'interest',
+    'keyword_match_type', 'keywordid', 'landing_page', 'lead_source', 'lead_type', 'matchtype', 'matchtypeid',
+    'networktypeid', 'organic_source', 'partner_id', 'placement_id', 'placement', 'placementid', 'promotion_channel',
+    'purchase_category', 'purchase_channel', 'purchase_source', 'purchase_value', 'rd_cid', 'rd_rid', 'referral_code',
+    'referral_source', 'remarketing_list', 'remarketing_tag', 'remarketing', 'site_section', 'social_network',
+    'social_share', 'source_medium', 'target_age', 'target_audience', 'target_behavior', 'target_device',
+    'target_gender', 'target_industry', 'target_interest', 'target_language', 'target_location', 'test_group',
+    'test_variation', 'tracking_source', 'traffic_source', 'ttclid', 'user_age', 'user_behavior', 'user_device',
+    'user_group', 'user_interest', 'user_level', 'user_location', 'user_rating', 'user_segment', 'wtrid', 'yclid',
+    // --- AI Services ---
+    'ds_ref', 'kimi_share', 'spark_channel', 'zhipu_from'
 ]);
 
 /**
- * 追蹤參數前綴黑名單
+ * 追蹤參數前綴黑名單 (v9.2 擴充版)
  */
 const TRACKING_PREFIXES = [
-    'utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'matomo_',
-    'piwik_', 'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'bd_', 'bdt',
-    // --- v7.3 新增: 中國大陸 AI 服務 ---
-    'monica_',
-    'manus_',
-    'deepseek_', 'ds_',
-    'kimi_', 'moonshot_',
-    'tongyi_', 'qwen_',
-    'nanoai_', 'nano_',
-    'mita_', 'metaso_',
-    'quark_', 'qk_',
-    'iflytek_', 'spark_',
-    'zhipu_', 'glm_',
-    'stepfun_',
-    'minimax_', 'mm_',
-    'wenxiaoyan_', 'wxy_',
-    'dangbei_', 'db_'
+    'utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'matomo_', 'piwik_',
+    'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'bd_', 'bdt', 'video_utm',
+    'vero_', '__cft__', 'mkt_', 'pk_', 'share_from', // [v9.2] 新增 share_from
+    // --- AI Services (經審查確認有效) ---
+    'monica_', 'manus_', 'deepseek_', 'ds_', 'kimi_', 'moonshot_',
+    'tongyi_', 'qwen_', 'nanoai_', 'nano_', 'mita_', 'metaso_',
+    'quark_', 'qk_', 'iflytek_', 'spark_', 'zhipu_', 'glm_',
+    'stepfun_', 'minimax_', 'mm_', 'wenxiaoyan_', 'wxy_', 'dangbei_', 'db_'
 ];
 
 /**
- * 惡意模式檢測 (更精準的規則)
+ * 惡意模式檢測
  */
 const MALICIOUS_PATTERNS = [
     /(javascript|data|vbscript):/i,
@@ -105,7 +94,6 @@ const MALICIOUS_PATTERNS = [
 // =================================================================================
 // 🚀 核心處理函式 (Core Logic)
 // =================================================================================
-
 function removeTrackingParams(url) {
     try {
         const u = new URL(url);
@@ -135,11 +123,13 @@ function removeTrackingParams(url) {
             }
 
             let shouldDelete = false;
-            if (GLOBAL_TRACKING_PARAMS.has(key)) {
+            const lowerKey = key.toLowerCase();
+
+            if (GLOBAL_TRACKING_PARAMS.has(lowerKey)) {
                 shouldDelete = true;
             } else {
                 for (const prefix of TRACKING_PREFIXES) {
-                    if (key.startsWith(prefix)) {
+                    if (lowerKey.startsWith(prefix)) {
                         shouldDelete = true;
                         break;
                     }
@@ -158,7 +148,7 @@ function removeTrackingParams(url) {
         return null;
 
     } catch (e) {
-        console.error(`[Tracking Remover v7.3] 處理 URL 時發生錯誤: ${e.message}`);
+        console.error(`[Tracking Remover] 處理 URL 時發生錯誤: ${e.message}`);
         console.error(`原始 URL: ${url.substring(0, 100)}...`);
         return null;
     }
@@ -182,8 +172,14 @@ function removeTrackingParams(url) {
         return;
     }
 
-    if (API_HOSTNAME_WHITELIST.has(hostname)) {
-        console.log(`[API Whitelist] 命中 API 域名，跳過處理: ${hostname}`);
+    const isWhitelisted = Array.from(API_HOSTNAME_WHITELIST).some(pattern => {
+        if (pattern.startsWith('*.')) {
+            return hostname.endsWith(pattern.substring(1)) || hostname === pattern.substring(2);
+        }
+        return hostname === pattern;
+    });
+
+    if (isWhitelisted) {
         $done({});
         return;
     }
@@ -191,13 +187,12 @@ function removeTrackingParams(url) {
     const cleanedUrl = removeTrackingParams(originalUrl);
 
     if (cleanedUrl) {
-        console.log(`https://dictionary.cambridge.org/dictionary/english/cleaned 追蹤參數已移除`);
-        $done({
-            response: {
-                status: 302,
-                headers: { 'Location': cleanedUrl }
-            }
-        });
+        console.log(`[Tracking Remover] 追蹤參數已移除`);
+        const response = {
+            status: 302,
+            headers: { 'Location': cleanedUrl }
+        };
+        $done({ response });
     } else {
         $done({});
     }
