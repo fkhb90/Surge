@@ -24,7 +24,7 @@ const config = {
         'graph.facebook.com', 'connect.facebook.net', 'criteo.com', 'taboola.com', 'outbrain.com',
         'scorecardresearch.com', 'chartbeat.com', 'app-measurement.com', 'branch.io', 'appsflyer.com',
         'adjust.com', 'sentry.io', 'bugsnag.com', 'hotjar.com', 'vwo.com', 'optimizely.com',
-        'mixpanel.com', 'amplitude.com', 'heap.io', 'loggly.com', 'c.clarity.ms', 'log.byteoversea.com'
+        'mixpanel.com', 'amplitude.com', 'heap.io', 'loggly.com', 'c.clarity.ms', 'log.byteoversea.com', 's.yimg.jp'
     ]),
 
     /**
