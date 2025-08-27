@@ -39,7 +39,7 @@ const API_HOSTNAME_WHITELIST = new Set([
     'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
     '*.paypal.com', '*.stripe.com', 'github.com/login',
     '*.apple.com', '*.icloud.com', '*.windowsupdate.com', 'api.github.com',
-    '*.amazonaws.com', '*.aliyuncs.com', '*.cloud.tencent.com', '*.cloudfront.net'
+    '*.amazonaws.com', '*.aliyuncs.com', '*.cloud.tencent.com', '*.cloudfront.net', 'api.feedly.com'
 ]);
 
 /**
