@@ -24,7 +24,7 @@ const config = {
         'graph.facebook.com', 'connect.facebook.net', 'criteo.com', 'taboola.com', 'outbrain.com',
         'scorecardresearch.com', 'chartbeat.com', 'app-measurement.com', 'branch.io', 'appsflyer.com',
         'adjust.com', 'sentry.io', 'bugsnag.com', 'hotjar.com', 'vwo.com', 'optimizely.com',
-        'mixpanel.com', 'amplitude.com', 'heap.io', 'loggly.com', 'c.clarity.ms', 'log.byteoversea.com', 's.yimg.jp',
+        'mixpanel.com', 'amplitude.com', 'heap.io', 'loggly.com', 'c.clarity.ms', 'log.byteoversea.com', 's.yimg.jp'
     ]),
 
     /**
@@ -41,7 +41,7 @@ const config = {
         // RSS 服務
         'feedly.com', 'inoreader.com',
         // 支付與更新
-        'paypal.com', 'stripe.com', 'apple.com', 'icloud.com', 'windowsupdate.com',
+        'paypal.com', 'stripe.com', 'apple.com', 'icloud.com', 'windowsupdate.com'
     ]),
     
     /**
@@ -49,7 +49,7 @@ const config = {
      */
     CLEAN_PARAMS_DOMAINS: new Set([
         'youtube.com', 'm.youtube.com', 'facebook.com', 'instagram.com', 'twitter.com', 'x.com',
-        'line.me', 'github.com', 'wikipedia.org', 'reddit.com', 'legy.line-apps.com',
+        'line.me', 'github.com', 'wikipedia.org', 'reddit.com', 'legy.line-apps.com'
     ]),
 
     // ... 其他設定與 v14.0 相同 ...
