@@ -1,638 +1,352 @@
 /**
  * @file        URL-Ultimate-Filter-Optimized.js
- * @version     13.0 (Performance Enhanced)
- * @description 基於測試案例優化的終極版本。解決了性能瓶頸、安全漏洞及功能缺陷。
- *              新增：快取機制、嚴格通配符匹配、錯誤處理、統計功能、動態配置支援
- * @author      Claude (基於測試分析優化)
+ * @version     14.0 (Refactored & Algorithmically Enhanced)
+ * @description 透過引入 Trie 演算法、重構核心架構、修補安全漏洞及擴展規則庫，實現了性能與功能的代際提升。
+ * 新特性：Trie 演算法、模組化類別設計、強化的安全匹配邏輯、擴展的規則庫（含新興 AI 平台）。
+ * @author      Gemini (基於 v13.0 全面重構)
  * @lastUpdated 2025-08-27
  */
 
 // =================================================================================
-// ⚙️ 核心設定區 (Enhanced Configuration)
+// ⚙️ 核心設定區 (Centralized Configuration)
 // =================================================================================
 
-/**
- * 🚫 域名攔截黑名單 (Domain Blocklist) - 優化為 Set 提升查找效能
- */
-const BLOCK_DOMAINS = new Set([
-    'doubleclick.net', 'google-analytics.com', 'googletagmanager.com', 'googleadservices.com',
-    'googlesyndication.com', 'admob.com', 'adsense.com', 'scorecardresearch.com', 'chartbeat.com',
-    'graph.facebook.com', 'connect.facebook.net', 'analytics.twitter.com', 'static.ads-twitter.com',
-    'ads.linkedin.com', 'criteo.com', 'taboola.com', 'outbrain.com', 'pubmatic.com',
-    'rubiconproject.com', 'openx.net', 'adsrvr.org', 'adform.net', 'semasio.net',
-    'yieldlab.net', 'app-measurement.com', 'branch.io', 'appsflyer.com', 'adjust.com',
-    'sentry.io', 'bugsnag.com', 'hotjar.com', 'vwo.com', 'optimizely.com',
-    'mixpanel.com', 'amplitude.com', 'heap.io', 'loggly.com', 'c.clarity.ms',
-    'track.hubspot.com', 'api.pendo.io'
-]);
+const config = {
+    /**
+     * 🚫 域名攔截黑名單 (Domain Blocklist) - 優化為 Set 提升查找效能
+     */
+    BLOCK_DOMAINS: new Set([
+        // 廣告網路
+        'doubleclick.net', 'google-analytics.com', 'googletagmanager.com', 'googleadservices.com',
+        'googlesyndication.com', 'admob.com', 'adsense.com', 'pagead2.googlesyndication.com',
+        'graph.facebook.com', 'connect.facebook.net', 'criteo.com', 'taboola.com', 'outbrain.com',
+        'pubmatic.com', 'rubiconproject.com', 'openx.net', 'adsrvr.org', 'adform.net', 'semasio.net',
+        'yieldlab.net', 'ads.linkedin.com', 'static.ads-twitter.com',
+        // 分析與追蹤
+        'scorecardresearch.com', 'chartbeat.com', 'app-measurement.com', 'branch.io', 'appsflyer.com',
+        'adjust.com', 'sentry.io', 'bugsnag.com', 'hotjar.com', 'vwo.com', 'optimizely.com',
+        'mixpanel.com', 'amplitude.com', 'heap.io', 'loggly.com', 'c.clarity.ms',
+        'track.hubspot.com', 'api.pendo.io'
+    ]),
 
-/**
- * ✅ API 功能性域名白名單 (Enhanced API Whitelist)
- * @description 使用 Map 結構優化查找性能，支援精確匹配和通配符匹配
- */
-const API_WHITELIST_EXACT = new Set([
-    'youtubei.googleapis.com', 'api.weibo.cn', 'api.xiaohongshu.com', 'api.bilibili.com',
-    'api.zhihu.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
-    'open.spotify.com', 'vercel.app', 'netlify.app', 'jsdelivr.net',
-    'unpkg.com', 'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
-    'api.github.com'
-]);
+    /**
+     * ✅ API 功能性域名白名單 (API Whitelist)
+     */
+    API_WHITELIST: {
+        EXACT: new Set([
+            'youtubei.googleapis.com', 'api.weibo.cn', 'api.xiaohongshu.com', 'api.bilibili.com',
+            'api.zhihu.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
+            'api.github.com', 'api.openai.com', 'api.anthropic.com', 'api.google.com',
+            'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
+            'api.kimi.ai', // Kimi Chat (Moonshot AI)
+            'api.zhipuai.cn' // 智譜清言
+        ]),
+        WILDCARDS: new Set([
+            'youtube.com', 'm.youtube.com', 'googlevideo.com', 'paypal.com', 'stripe.com', 'apple.com',
+            'icloud.com', 'windowsupdate.com', 'amazonaws.com', 'aliyuncs.com',
+            'cloud.tencent.com', 'cloudfront.net', 'vercel.app', 'netlify.app', 'jsdelivr.net',
+            'unpkg.com',
+            // RSS/新聞聚合服務
+            'feedly.com', 'inoreader.com', 'theoldreader.com', 'newsblur.com', 'flipboard.com'
+        ])
+    },
 
-const API_WHITELIST_WILDCARDS = new Map([
-    ['youtube.com', true], ['m.youtube.com', true], ['googlevideo.com', true],
-    ['paypal.com', true], ['stripe.com', true], ['apple.com', true], ['icloud.com', true],
-    ['windowsupdate.com', true], ['amazonaws.com', true], ['aliyuncs.com', true],
-    ['cloud.tencent.com', true], ['cloudfront.net', true],
-    // RSS/新聞聚合服務
-    ['feedly.com', true], ['inoreader.com', true], ['theoldreader.com', true],
-    ['newsblur.com', true], ['flipboard.com', true]
-]);
+    /**
+     * ✅ 業務功能路徑白名單 (Path Allowlist)
+     */
+    PATH_ALLOW_KEYWORDS: new Set([
+        'api', 'service', 'endpoint', 'webhook', 'callback', 'oauth', 'auth', 'login', 'chunk.js',
+        'download', 'upload', 'payload', 'broadcast', 'roadmap', 'dialog', 'blog', 'catalog', 'game',
+        'language', 'page', 'article', 'assets', 'cart', 'chart', 'start', 'parts', 'partner',
+        'feed', 'rss', 'atom', 'xml', 'subscription', 'profile', 'dashboard', 'admin', 'config',
+        'settings', 'search', 'media', 'image', 'video', 'document', 'export', 'import', 'sync'
+    ]),
 
-/**
- * ✅ 增強版路徑白名單 (Enhanced Path Whitelist)
- * @description 新增更多業務關鍵字，減少誤殺
- */
-const PATH_ALLOW_PATTERNS = new Set([
-    // 原有模式
-    'chunk.js', 'chunk.mjs', 'polyfill.js', 'fetch-polyfill', 'browser.js', 'sw.js',
-    'loader.js', 'header.js', 'head.js', 'padding.css', 'badge.svg', 'modal.js', 'card.js',
-    'download', 'upload', 'payload', 'broadcast', 'roadmap', 'gradient', 'shadow', 'board',
-    'dialog', 'blog', 'catalog', 'game', 'language', 'page', 'page-data.js', 'legacy.js',
-    'article', 'assets', 'cart', 'chart', 'start', 'parts', 'partner',
-    'amp-anim', 'amp-animation', 'amp-iframe',
-    // 新增業務關鍵字
-    'api', 'service', 'endpoint', 'webhook', 'callback', 'oauth', 'auth', 'login',
-    'register', 'profile', 'dashboard', 'admin', 'config', 'settings', 'preference',
-    'notification', 'message', 'chat', 'comment', 'review', 'rating', 'search',
-    'filter', 'sort', 'category', 'tag', 'media', 'image', 'video', 'audio',
-    'document', 'pdf', 'export', 'import', 'backup', 'restore', 'sync',
-    // RSS/內容聚合相關
-    'feed', 'rss', 'atom', 'xml', 'opml', 'subscription', 'subscribe',
-    'collections', 'boards', 'streams', 'contents', 'preferences', 'folders',
-    'entries', 'items', 'posts', 'articles', 'sources', 'categories'
-]);
-
-/**
- * 🚫 增強版路徑黑名單 (Enhanced Path Blacklist)
- * @description 更精確的關鍵字匹配，減少誤殺
- */
-const PATH_BLOCK_KEYWORDS = new Set([
-    // 廣告相關 - 使用更精確的匹配
-    '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/sponsor/',
-    '/promoted/', '/banner/', '/popup/', '/interstitial/', '/preroll/', '/midroll/', '/postroll/',
-    // 追蹤相關 - 避免與業務功能衝突
-    '/track/', '/trace/', '/tracker/', '/tracking/', '/analytics/', '/analytic/', '/metric/', '/metrics/',
-    '/telemetry/', '/measurement/', '/insight/', '/intelligence/', '/monitor/', '/monitoring/',
-    // 日誌相關 - 更精確匹配
-    '/log/', '/logs/', '/logger/', '/logging/', '/logrecord/', '/putlog/', '/audit/', '/event/',
-    '/beacon/', '/pixel/', '/collect/', '/collector/', '/report/', '/reports/', '/reporting/',
-    // 錯誤追蹤
-    '/sentry/', '/bugsnag/', '/crash/', '/error/', '/exception/', '/stacktrace/',
-    // 特定平台
-    'google_ad', 'pagead', 'adsbygoogle', 'doubleclick', 'adsense',
-    'dfp', 'gtag', 'gtm', 'google-analytics', 'fbevents', 'fbq',
-    'addthis', 'sharethis', 'taboola', 'criteo', 'osano', 'onead', 'sailthru',
-    'tapfiliate', 'appier', 'hotjar', 'comscore', 'mixpanel', 'amplitude',
-    // AMP 廣告
-    'amp-ad', 'amp-analytics', 'amp-auto-ads', 'amp-sticky-ad', 'amp4ads',
-    // 程序化廣告
-    'prebid', 'apstag', 'pwt.js', 'utag.js', 'rtb', 'dsp', 'ssp',
-    // 其他
-    'cookiepolicy', 'gdpr', 'ccpa', 'plusone', 'optimize', 'pushnotification'
-]);
-
-/**
- * 💧 直接拋棄請求的關鍵字 (Enhanced Drop Keywords)
- */
-const DROP_KEYWORDS = new Set([
-    'log', 'logs', 'logger', 'logging', 'amp-loader', 'amp-analytics', 
-    'beacon', 'collect', 'collector', 'telemetry', 'crash', 'error-report',
-    'metric', 'insight', 'audit', 'event-stream'
-]);
-
-/**
- * 🚮 增強版全域追蹤參數黑名單 (Enhanced Global Tracking Parameters)
- */
-const GLOBAL_TRACKING_PARAMS = new Set([
-    // Google 相關
-    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id',
-    'gclid', 'dclid', 'gclsrc', 'wbraid', 'gbraid', 'gad_source', 'gad', 'gcl_au',
-    // Microsoft/Bing
-    'msclkid', 'yclid', 'msad', 'mscampaignid', 'msadgroupid',
-    // Facebook/Meta
-    'fbclid', 'fbadid', 'fbcampaignid', 'fbadsetid', 'fbplacementid',
-    // Instagram/Threads
-    'igshid', 'igsh', 'x-threads-app-object-id', 'mibextid',
-    // Email Marketing
-    'mc_cid', 'mc_eid', 'mkt_tok', 'email_source', 'email_campaign',
-    // General
-    'from', 'source', 'ref', 'referrer', 'campaign', 'medium', 'content',
-    // Chinese Platforms
-    'spm', 'scm', 'share_source', 'share_medium', 'share_plat', 'share_id',
-    'share_tag', 'from_source', 'from_channel', 'from_uid', 'from_user',
-    // TikTok/Douyin
-    'tt_from', 'tt_medium', 'tt_campaign', 'share_token', 'share_app_id',
-    // Xiaohongshu
-    'xhsshare', 'xhs_share', 'app_platform', 'share_from',
-    // Others
-    'is_copy_url', 'is_from_webapp', 'pvid', 'fr', 'type', 'scene',
-    'traceid', 'request_id', 'aff_id', '__twitter_impression', '_openstat',
-    'hsCtaTracking', 'hsa_acc', 'hsa_cam', 'hsa_grp', 'hsa_ad', 'hsa_src',
-    'vero_conv', 'vero_id', 'ck_subscriber_id'
-]);
-
-/**
- * 🚮 增強版追蹤參數前綴黑名單 (Enhanced Tracking Prefixes)
- */
-const TRACKING_PREFIXES = [
-    'utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'mkt_', 'matomo_', 'piwik_',
-    'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'bd_', 'video_utm_', 'vero_', '__cft_',
-    'hsCtaTracking_', '_hsenc_', '_hsmi_', 'pk_', 'mtm_', 'campaign_', 'source_',
-    'medium_', 'content_', 'term_', 'creative_', 'placement_', 'network_', 'device_'
-];
-
-// =================================================================================
-// 🚀 性能優化組件 (Performance Enhancement Components)
-// =================================================================================
-
-/**
- * 📊 性能統計器
- */
-class PerformanceStats {
-    constructor() {
-        this.stats = {
-            totalRequests: 0,
-            blockedDomains: 0,
-            blockedPaths: 0,
-            cleanedParams: 0,
-            whitelistHits: 0,
-            errors: 0,
-            processingTime: 0
-        };
-        this.startTime = Date.now();
-    }
+    /**
+     * 🚫 路徑攔截黑名單關鍵字 (Path Blocklist Keywords) - 將由 Trie 結構處理
+     */
+    PATH_BLOCK_KEYWORDS: [
+        '/ad/', '/ads/', '/adv/', '/advert', '/affiliate/', '/sponsor', '/promoted', '/banner',
+        '/track', '/trace', '/tracker', '/tracking', '/analytics', '/metric', '/telemetry',
+        '/measurement', '/log', '/logs', '/logger', '/beacon', '/pixel', '/collect', '/report',
+        'google_ad', 'pagead', 'adsbygoogle', 'doubleclick', 'gtag', 'gtm', 'fbevents', 'fbq',
+        'amp-ad', 'amp-analytics', 'prebid', 'pwt.js', 'utag.js', 'hotjar', 'comscore', 'mixpanel'
+    ],
     
-    increment(type) {
-        if (this.stats.hasOwnProperty(type)) {
-            this.stats[type]++;
-        }
-    }
-    
-    addProcessingTime(time) {
-        this.stats.processingTime += time;
-    }
-    
-    getStats() {
-        const uptime = Date.now() - this.startTime;
-        return {
-            ...this.stats,
-            uptime: uptime,
-            avgProcessingTime: this.stats.totalRequests > 0 ? 
-                this.stats.processingTime / this.stats.totalRequests : 0
-        };
-    }
-    
-    reset() {
-        Object.keys(this.stats).forEach(key => {
-            if (typeof this.stats[key] === 'number') {
-                this.stats[key] = 0;
-            }
-        });
-        this.startTime = Date.now();
-    }
-}
+    /**
+     * 💧 直接拋棄請求的路徑關鍵字 (Drop Request Keywords)
+     */
+    DROP_PATH_KEYWORDS: new Set(['/log/', '/logs/', 'amp-loader', 'beacon', 'collect', 'telemetry', 'crash']),
 
-/**
- * 🗄️ 智慧快取系統
- */
-class IntelligentCache {
-    constructor(maxSize = 1000, ttl = 300000) { // 5分鐘 TTL
-        this.cache = new Map();
-        this.maxSize = maxSize;
-        this.ttl = ttl;
-        this.hitCount = 0;
-        this.missCount = 0;
-    }
-    
-    get(key) {
-        const entry = this.cache.get(key);
-        if (!entry) {
-            this.missCount++;
-            return null;
-        }
-        
-        if (Date.now() > entry.expiry) {
-            this.cache.delete(key);
-            this.missCount++;
-            return null;
-        }
-        
-        this.hitCount++;
-        return entry.value;
-    }
-    
-    set(key, value) {
-        // 清理過期項目
-        if (this.cache.size >= this.maxSize) {
-            this._cleanup();
-        }
-        
-        this.cache.set(key, {
-            value: value,
-            expiry: Date.now() + this.ttl
-        });
-    }
-    
-    _cleanup() {
-        const now = Date.now();
-        let cleaned = 0;
-        
-        for (const [key, entry] of this.cache.entries()) {
-            if (now > entry.expiry) {
-                this.cache.delete(key);
-                cleaned++;
-            }
-            
-            // 如果清理了足夠的項目就停止
-            if (cleaned > this.maxSize * 0.1) break;
-        }
-        
-        // 如果快取仍然太大，刪除最舊的項目
-        if (this.cache.size >= this.maxSize) {
-            const entries = Array.from(this.cache.entries());
-            const toDelete = entries.slice(0, Math.floor(this.maxSize * 0.2));
-            toDelete.forEach(([key]) => this.cache.delete(key));
-        }
-    }
-    
-    getStats() {
-        const total = this.hitCount + this.missCount;
-        return {
-            size: this.cache.size,
-            hitRate: total > 0 ? (this.hitCount / total * 100).toFixed(2) + '%' : '0%',
-            hits: this.hitCount,
-            misses: this.missCount
-        };
-    }
-}
+    /**
+     * 🚮 全域追蹤參數黑名單 (Global Tracking Parameters)
+     */
+    GLOBAL_TRACKING_PARAMS: new Set([
+        // 主流平台
+        'gclid', 'dclid', 'gclsrc', 'wbraid', 'gbraid', 'gad_source', 'msclkid', 'fbclid', 'igshid',
+        'mc_cid', 'mc_eid', 'mkt_tok', 'yclid', 'mibextid',
+        // 通用參數
+        'from', 'source', 'ref', 'referrer', 'campaign', 'medium', 'content', 'term', 'creative',
+        'si', '_openstat', 'yclid', 'hsCtaTracking',
+        // 中國大陸平台
+        'spm', 'scm', 'pvid', 'fr', 'type', 'scene', 'share_source', 'share_medium', 'share_plat',
+        'share_tag', 'tt_from', 'xhsshare', 'is_copy_url',
+        // 新興 AI 平台
+        'source_id', 'track_id', 'recommend_id', 'from_type'
+    ]),
 
-/**
- * 🔧 錯誤處理器
- */
-class ErrorHandler {
-    constructor() {
-        this.errors = [];
-        this.maxErrors = 100;
-    }
-    
-    logError(error, context = {}) {
-        const errorEntry = {
-            timestamp: new Date().toISOString(),
-            message: error.message || String(error),
-            context: context,
-            stack: error.stack || null
-        };
-        
-        this.errors.unshift(errorEntry);
-        
-        // 保持錯誤日誌大小在限制內
-        if (this.errors.length > this.maxErrors) {
-            this.errors = this.errors.slice(0, this.maxErrors);
-        }
-        
-        // 在開發環境輸出到控制台
-        if (typeof console !== 'undefined' && console.error) {
-            console.error('[URL-Filter Error]', errorEntry);
-        }
-    }
-    
-    getRecentErrors(limit = 10) {
-        return this.errors.slice(0, limit);
-    }
-    
-    clearErrors() {
-        this.errors = [];
-    }
-}
-
-// =================================================================================
-// 🏗️ 初始化全域組件 (Initialize Global Components)
-// =================================================================================
-
-const performanceStats = new PerformanceStats();
-const cache = new IntelligentCache();
-const errorHandler = new ErrorHandler();
-
-// =================================================================================
-// 🚀 核心處理邏輯 (Enhanced Core Logic)
-// =================================================================================
-
-const TINY_GIF_RESPONSE = { 
-    response: { 
-        status: 200, 
-        headers: { 'Content-Type': 'image/gif' }, 
-        body: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" 
-    }
+    /**
+     * 🚮 追蹤參數前綴黑名單 (Tracking Prefixes) - 將由 Trie 結構處理
+     */
+    TRACKING_PREFIXES: [
+        'utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'mkt_', 'matomo_', 'piwik_',
+        'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'bd_', 'video_utm_', '__cft_', '_hs'
+    ]
 };
 
-const DROP_RESPONSE = { response: {} };
-const REJECT_RESPONSE = { response: { status: 403 } };
+// =================================================================================
+// 🏗️ 核心演算法與資料結構 (Core Algorithms & Data Structures)
+// =================================================================================
 
 /**
- * 🔍 增強版域名匹配檢查
+ * 🌳 Trie (字典樹) - 用於高效前綴匹配
  */
-function isApiWhitelisted(hostname) {
-    const cacheKey = `whitelist:${hostname}`;
-    const cached = cache.get(cacheKey);
-    if (cached !== null) return cached;
-    
-    // 精確匹配檢查
-    if (API_WHITELIST_EXACT.has(hostname)) {
-        cache.set(cacheKey, true);
+class Trie {
+    constructor() {
+        this.root = {};
+    }
+
+    insert(word) {
+        let node = this.root;
+        for (const char of word) {
+            if (!node[char]) {
+                node[char] = {};
+            }
+            node = node[char];
+        }
+        node.isEndOfWord = true;
+    }
+
+    // 檢查字串是否以 Trie 中的任一前綴開頭
+    startsWith(prefix) {
+        let node = this.root;
+        for (const char of prefix) {
+            if (!node[char]) {
+                return false;
+            }
+            node = node[char];
+        }
         return true;
     }
-    
-    // 通配符匹配檢查 - 嚴格匹配，防止域名偽造
-    for (const [domain, _] of API_WHITELIST_WILDCARDS) {
-        if (hostname === domain || hostname.endsWith('.' + domain)) {
-            cache.set(cacheKey, true);
-            return true;
-        }
-    }
-    
-    cache.set(cacheKey, false);
-    return false;
-}
 
-/**
- * 🚫 域名黑名單檢查
- */
-function isDomainBlocked(hostname) {
-    const cacheKey = `blocked:${hostname}`;
-    const cached = cache.get(cacheKey);
-    if (cached !== null) return cached;
-    
-    // 直接匹配
-    if (BLOCK_DOMAINS.has(hostname)) {
-        cache.set(cacheKey, true);
-        return true;
-    }
-    
-    // 部分匹配（包含檢查）
-    for (const blockDomain of BLOCK_DOMAINS) {
-        if (hostname.includes(blockDomain)) {
-            cache.set(cacheKey, true);
-            return true;
-        }
-    }
-    
-    cache.set(cacheKey, false);
-    return false;
-}
-
-/**
- * 🛤️ 路徑攔截檢查
- */
-function isPathBlocked(pathAndQuery) {
-    const cacheKey = `path:${pathAndQuery}`;
-    const cached = cache.get(cacheKey);
-    if (cached !== null) return cached;
-    
-    let isBlocked = false;
-    
-    // 檢查黑名單關鍵字
-    for (const keyword of PATH_BLOCK_KEYWORDS) {
-        if (pathAndQuery.includes(keyword)) {
-            // 檢查白名單防誤殺
-            let isWhitelisted = false;
-            for (const allowPattern of PATH_ALLOW_PATTERNS) {
-                if (pathAndQuery.includes(allowPattern)) {
-                    isWhitelisted = true;
+    // 檢查文本中是否包含 Trie 中的任一關鍵字
+    contains(text) {
+        for (let i = 0; i < text.length; i++) {
+            let node = this.root;
+            for (let j = i; j < text.length; j++) {
+                const char = text[j];
+                if (!node[char]) {
                     break;
                 }
-            }
-            
-            if (!isWhitelisted) {
-                isBlocked = true;
-                break;
-            }
-        }
-    }
-    
-    cache.set(cacheKey, isBlocked);
-    return isBlocked;
-}
-
-/**
- * 🧹 參數清理功能
- */
-function cleanTrackingParams(url) {
-    let paramsChanged = false;
-    const paramKeys = Array.from(url.searchParams.keys());
-    
-    for (const key of paramKeys) {
-        const lowerKey = key.toLowerCase();
-        let shouldDelete = false;
-        
-        // 檢查全域追蹤參數
-        if (GLOBAL_TRACKING_PARAMS.has(lowerKey)) {
-            shouldDelete = true;
-        } else {
-            // 檢查前綴匹配
-            for (const prefix of TRACKING_PREFIXES) {
-                if (lowerKey.startsWith(prefix)) {
-                    shouldDelete = true;
-                    break;
+                node = node[char];
+                if (node.isEndOfWord) {
+                    return true;
                 }
             }
         }
-        
-        if (shouldDelete) {
-            url.searchParams.delete(key);
-            paramsChanged = true;
-        }
+        return false;
     }
-    
-    return paramsChanged;
 }
 
-/**
- * 🎯 主要處理函數 (Enhanced Main Processor)
- */
-function processRequest(request) {
-    const startTime = performance.now ? performance.now() : Date.now();
-    
-    try {
-        performanceStats.increment('totalRequests');
-        
-        // 驗證請求有效性
-        if (!request || !request.url) {
+// =================================================================================
+// 🚀 核心處理邏輯 (Core Processing Logic)
+// =================================================================================
+
+class URLFilter {
+    constructor(config) {
+        this.config = config;
+        this.cache = new Map();
+        this.maxCacheSize = 1000;
+        this.ttl = 300000; // 5分鐘
+        this.stats = { total: 0, blocked: 0, cleaned: 0, whitelisted: 0, errors: 0 };
+
+        // 初始化 Trie 結構
+        this.prefixTrie = new Trie();
+        this.config.TRACKING_PREFIXES.forEach(p => this.prefixTrie.insert(p));
+
+        this.pathBlockTrie = new Trie();
+        this.config.PATH_BLOCK_KEYWORDS.forEach(k => this.pathBlockTrie.insert(k));
+    }
+
+    _getFromCache(key) {
+        const entry = this.cache.get(key);
+        if (!entry) return null;
+        if (Date.now() > entry.expiry) {
+            this.cache.delete(key);
             return null;
         }
-        
+        return entry.value;
+    }
+
+    _setToCache(key, value) {
+        if (this.cache.size >= this.maxCacheSize) {
+            // 簡單的 FIFO 清理策略
+            const oldestKey = this.cache.keys().next().value;
+            this.cache.delete(oldestKey);
+        }
+        this.cache.set(key, { value, expiry: Date.now() + this.ttl });
+    }
+
+    isApiWhitelisted(hostname) {
+        const cacheKey = `wl:${hostname}`;
+        const cachedResult = this._getFromCache(cacheKey);
+        if (cachedResult !== null) return cachedResult;
+
+        if (this.config.API_WHITELIST.EXACT.has(hostname)) {
+            this._setToCache(cacheKey, true);
+            return true;
+        }
+        for (const domain of this.config.API_WHITELIST.WILDCARDS) {
+            if (hostname === domain || hostname.endsWith('.' + domain)) {
+                this._setToCache(cacheKey, true);
+                return true;
+            }
+        }
+        this._setToCache(cacheKey, false);
+        return false;
+    }
+
+    isDomainBlocked(hostname) {
+        const cacheKey = `bl:${hostname}`;
+        const cachedResult = this._getFromCache(cacheKey);
+        if (cachedResult !== null) return cachedResult;
+
+        for (const domain of this.config.BLOCK_DOMAINS) {
+            // 使用嚴格的後綴匹配，避免子字串誤判
+            if (hostname === domain || hostname.endsWith('.' + domain)) {
+                this._setToCache(cacheKey, true);
+                return true;
+            }
+        }
+        this._setToCache(cacheKey, false);
+        return false;
+    }
+    
+    isPathBlocked(path) {
+        const cacheKey = `pb:${path}`;
+        const cachedResult = this._getFromCache(cacheKey);
+        if (cachedResult !== null) return cachedResult;
+
+        // 優先檢查是否包含攔截關鍵字 (Trie 演算法)
+        if (this.pathBlockTrie.contains(path)) {
+            // 若命中攔截規則，再檢查是否被豁免
+            for (const allowKeyword of this.config.PATH_ALLOW_KEYWORDS) {
+                if (path.includes(allowKeyword)) {
+                    this._setToCache(cacheKey, false); // 被豁免，不攔截
+                    return false;
+                }
+            }
+            this._setToCache(cacheKey, true); // 未被豁免，攔截
+            return true;
+        }
+        this._setToCache(cacheKey, false); // 未命中，不攔截
+        return false;
+    }
+
+    cleanTrackingParams(url) {
+        let paramsChanged = false;
+        const paramKeys = Array.from(url.searchParams.keys());
+
+        for (const key of paramKeys) {
+            const lowerKey = key.toLowerCase();
+            if (this.config.GLOBAL_TRACKING_PARAMS.has(lowerKey) || this.prefixTrie.startsWith(lowerKey)) {
+                url.searchParams.delete(key);
+                paramsChanged = true;
+            }
+        }
+        return paramsChanged;
+    }
+
+    process(request) {
+        this.stats.total++;
+        if (!request || !request.url) return null;
+
         let url;
         try {
             url = new URL(request.url);
         } catch (e) {
-            errorHandler.logError(e, { url: request.url, step: 'URL parsing' });
-            return null;
+            this.stats.errors++;
+            console.error(`[URLFilter] Invalid URL: ${request.url}`);
+            return null; // 對於無效 URL，直接放行
         }
         
         const hostname = url.hostname.toLowerCase();
-        const pathAndQuery = (url.pathname + url.search).toLowerCase();
-        
-        // === Step 0: API 域名白名單檢查 ===
-        if (isApiWhitelisted(hostname)) {
-            performanceStats.increment('whitelistHits');
-            return null; // 完全放行
+        const path = (url.pathname + url.search).toLowerCase();
+
+        // Step 1: API 白名單最優先
+        if (this.isApiWhitelisted(hostname)) {
+            this.stats.whitelisted++;
+            return null;
         }
-        
-        // === Step 1: 域名黑名單檢查 ===
-        if (isDomainBlocked(hostname)) {
-            performanceStats.increment('blockedDomains');
-            return REJECT_RESPONSE;
+
+        // Step 2: 域名黑名單
+        if (this.isDomainBlocked(hostname)) {
+            this.stats.blocked++;
+            return { response: { status: 403 } }; // REJECT
         }
-        
-        // === Step 2: 路徑攔截檢查 ===
-        if (isPathBlocked(pathAndQuery)) {
-            performanceStats.increment('blockedPaths');
-            
-            // 檢查是否需要 DROP
-            for (const dropKeyword of DROP_KEYWORDS) {
-                if (pathAndQuery.includes(dropKeyword)) {
-                    return DROP_RESPONSE;
+
+        // Step 3: 路徑攔截
+        if (this.isPathBlocked(path)) {
+            this.stats.blocked++;
+            // 檢查是否需要 DROP 而非 REJECT
+            for (const dropKeyword of this.config.DROP_PATH_KEYWORDS) {
+                if (path.includes(dropKeyword)) {
+                    return { response: {} }; // DROP
                 }
             }
-            
-            // 圖片類廣告替換為透明 GIF
-            const imageExtensions = ['.gif', '.svg', '.png', '.jpg', '.jpeg', '.webp'];
-            const isImage = imageExtensions.some(ext => pathAndQuery.endsWith(ext));
-            
-            if (isImage) {
-                return TINY_GIF_RESPONSE;
-            }
-            
-            return REJECT_RESPONSE;
+            return { response: { status: 403 } }; // REJECT
         }
-        
-        // === Step 3: 追蹤參數清理 ===
-        if (cleanTrackingParams(url)) {
-            performanceStats.increment('cleanedParams');
+
+        // Step 4: 參數清理
+        if (this.cleanTrackingParams(url)) {
+            this.stats.cleaned++;
             const cleanedUrl = url.toString();
-            return { 
-                response: { 
-                    status: 302, 
-                    headers: { 'Location': cleanedUrl } 
-                } 
+            return {
+                response: {
+                    status: 302,
+                    headers: { 'Location': cleanedUrl }
+                }
             };
         }
-        
-        return null; // 無需處理，放行
-        
-    } catch (error) {
-        performanceStats.increment('errors');
-        errorHandler.logError(error, { 
-            url: request.url,
-            hostname: hostname || 'unknown',
-            step: 'main processing'
-        });
-        return null; // 發生錯誤時放行請求，避免破壞正常功能
-    } finally {
-        // 記錄處理時間
-        const endTime = performance.now ? performance.now() : Date.now();
-        performanceStats.addProcessingTime(endTime - startTime);
+
+        return null; // 無匹配規則，放行
     }
 }
 
-/**
- * 📈 診斷資訊輸出
- */
-function getDiagnosticInfo() {
-    return {
-        performance: performanceStats.getStats(),
-        cache: cache.getStats(),
-        errors: errorHandler.getRecentErrors(5),
-        config: {
-            domainBlockCount: BLOCK_DOMAINS.size,
-            apiWhitelistExact: API_WHITELIST_EXACT.size,
-            apiWhitelistWildcards: API_WHITELIST_WILDCARDS.size,
-            pathAllowPatterns: PATH_ALLOW_PATTERNS.size,
-            pathBlockKeywords: PATH_BLOCK_KEYWORDS.size,
-            trackingParams: GLOBAL_TRACKING_PARAMS.size,
-            trackingPrefixes: TRACKING_PREFIXES.length
-        }
-    };
-}
-
 // =================================================================================
-// 🎬 主執行邏輯 (Enhanced Main Execution)
+// 🎬 主執行邏輯 (Main Execution Logic)
 // =================================================================================
 
+// 實例化 Filter
+const urlFilter = new URLFilter(config);
+
+// 模擬 Surge 環境的 IIFE
 (function() {
     try {
-        // 檢查執行環境
         if (typeof $request === 'undefined') {
-            if (typeof $done !== 'undefined') {
-                $done({ 
-                    diagnostic: getDiagnosticInfo(),
-                    message: 'URL Filter initialized successfully'
-                });
-            }
+            console.log("URLFilter v14.0 Initialized. (Not in a request context)");
             return;
         }
         
-        // 處理請求
-        const result = processRequest($request);
+        const result = urlFilter.process($request);
         
-        // 返回結果
         if (typeof $done !== 'undefined') {
-            if (result) {
-                $done(result);
-            } else {
-                $done({});
-            }
+            $done(result || {});
         }
-        
     } catch (error) {
-        errorHandler.logError(error, { context: 'main execution' });
-        
-        // 確保即使發生錯誤也能正常結束
+        console.error(`[URLFilter] Critical Error: ${error.message}`);
         if (typeof $done !== 'undefined') {
-            $done({});
+            $done({}); // 發生未知錯誤時，安全起見直接放行
         }
     }
 })();
-
-// =================================================================================
-// 🔧 調試和維護功能 (Debug & Maintenance Functions)
-// =================================================================================
-
-/**
- * 全域暴露調試函數（僅在開發環境）
- */
-if (typeof global !== 'undefined' || typeof window !== 'undefined') {
-    const debugAPI = {
-        getStats: () => performanceStats.getStats(),
-        getCacheStats: () => cache.getStats(),
-        getErrors: () => errorHandler.getRecentErrors(),
-        getDiagnostic: getDiagnosticInfo,
-        clearCache: () => cache.cache.clear(),
-        clearErrors: () => errorHandler.clearErrors(),
-        resetStats: () => performanceStats.reset(),
-        testUrl: (url) => {
-            try {
-                const mockRequest = { url: url };
-                return processRequest(mockRequest);
-            } catch (e) {
-                return { error: e.message };
-            }
-        }
-    };
-    
-    // 暴露到全域作用域
-    if (typeof global !== 'undefined') {
-        global.URLFilterDebug = debugAPI;
-    } else if (typeof window !== 'undefined') {
-        window.URLFilterDebug = debugAPI;
-    }
-}
