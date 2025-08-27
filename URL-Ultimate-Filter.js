@@ -35,7 +35,7 @@ const config = {
         'api.zhihu.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
         'api.github.com', 'api.openai.com', 'api.anthropic.com', 'api.google.com',
         'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
-        'legy.line-apps.com', 'businessweekly.com'
+        'legy.line-apps.com', 'businessweekly.com.tw'
         // 通用 CDN 和開發平台
         '*.googlevideo.com', '*.aliyuncs.com', '*.cloud.tencent.com', '*.cloudfront.net', 
         '*.vercel.app', '*.netlify.app', 'jsdelivr.net', 'unpkg.com',
