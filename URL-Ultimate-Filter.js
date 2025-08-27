@@ -38,8 +38,7 @@ const config = {
             'api.zhihu.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
             'api.github.com', 'api.openai.com', 'api.anthropic.com', 'api.google.com',
             'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
-            'api.kimi.ai', // Kimi Chat (Moonshot AI)
-            'api.zhipuai.cn' // 智譜清言
+            'legy.line-apps.com'
         ]),
         WILDCARDS: new Set([
             'youtube.com', 'm.youtube.com', 'googlevideo.com', 'paypal.com', 'stripe.com', 'apple.com',
