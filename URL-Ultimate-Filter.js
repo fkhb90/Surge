@@ -11,6 +11,18 @@
 // ⚙️ 核心設定區 (Centralized Configuration v15.0)
 // =================================================================================
 
+// --- 強制攔截測試開始 ---
+if ($request.hostname.includes('yimg.jp')) {
+    $done({response: {status: 404}}); // 直接回傳一個 404 Not Found 錯誤
+    return; // 立刻結束腳本，不執行後面的邏輯
+}
+// --- 強制攔截測試結束 ---
+
+// 下面是腳本原有的程式碼...
+const config = { ... };
+// ...
+
+
 const config = {
     // 安全性設定
     MAX_URL_LENGTH: 4096,
