@@ -43,8 +43,7 @@ const API_WHITELIST_WILDCARDS = new Map([
     ['windowsupdate.com', true], ['amazonaws.com', true], ['aliyuncs.com', true],
     ['cloud.tencent.com', true], ['cloudfront.net', true],
     ['feedly.com', true], ['inoreader.com', true], ['theoldreader.com', true],
-    ['newsblur.com', true], ['flipboard.com', true],
-    ['yimg.jp', true], ['yahooapis.jp', true], ['yahoo.co.jp', true]
+    ['newsblur.com', true], ['flipboard.com', true], ['itofoo.com', true]
 ]);
 
 /**
