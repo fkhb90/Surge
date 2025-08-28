@@ -1,9 +1,8 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V18-Enhanced.js
- * @version     18.0-Enhanced (增強註解版本)
+ * @file        URL-Ultimate-Filter-Surge-V18.js
+ * @version     18.0 (基於V14邏輯，修正日誌顯示)
  * @description 基於V14的成功阻擋邏輯，修正在Surge日誌中的顯示狀態
  *              核心修正：使用正確的響應碼讓Surge顯示「阻止」而非「已修改」
- *              新增：詳細中文註解說明每個功能區塊
  * @author      Claude
  * @lastUpdated 2025-08-28
  */
@@ -18,59 +17,15 @@
  * 匹配方式：完全匹配 + 包含匹配（子字符串）
  */
 const BLOCK_DOMAINS = new Set([
-    // Google 廣告與分析系列
-    'doubleclick.net',          // Google 廣告交換平台
-    'google-analytics.com',     // Google 分析服務
-    'googletagmanager.com',     // Google 標籤管理器
-    'googleadservices.com',     // Google 廣告服務
-    'googlesyndication.com',    // Google AdSense 廣告聯播
-    'admob.com',               // Google 移動廣告平台
-    'adsense.com',             // Google AdSense
-
-    // 第三方分析追蹤
-    'scorecardresearch.com',   // ComScore 網路測量
-    'chartbeat.com',           // 即時網站分析
-    
-    // 社群媒體追蹤
-    'graph.facebook.com',      // Facebook Graph API（追蹤用）
-    'connect.facebook.net',    // Facebook 連接服務
-    'analytics.twitter.com',   // Twitter 分析
-    'static.ads-twitter.com',  // Twitter 廣告靜態資源
-    'ads.linkedin.com',        // LinkedIn 廣告
-
-    // 程序化廣告平台
-    'criteo.com',              // Criteo 重定向廣告
-    'taboola.com',             // Taboola 內容推薦廣告
-    'outbrain.com',            // Outbrain 內容推薦
-    'pubmatic.com',            // PubMatic 程序化廣告
-    'rubiconproject.com',      // Rubicon Project 廣告交換
-    'openx.net',               // OpenX 廣告服務
-    'adsrvr.org',              // The Trade Desk 需求方平台
-    'adform.net',              // Adform 廣告技術
-    'semasio.net',             // Semasio 受眾數據
-    'yieldlab.net',            // YieldLab 程序化廣告
-
-    // 移動應用追蹤
-    'app-measurement.com',     // Google 應用測量
-    'branch.io',               // Branch 深層連結追蹤
-    'appsflyer.com',           // AppsFlyer 歸因追蹤
-    'adjust.com',              // Adjust 移動歸因
-
-    // 錯誤追蹤與監控
-    'sentry.io',               // Sentry 錯誤監控
-    'bugsnag.com',             // Bugsnag 錯誤追蹤
-    
-    // 用戶行為分析
-    'hotjar.com',              // Hotjar 用戶行為記錄
-    'vwo.com',                 // VWO A/B 測試平台
-    'optimizely.com',          // Optimizely 實驗平台
-    'mixpanel.com',            // Mixpanel 事件追蹤
-    'amplitude.com',           // Amplitude 產品分析
-    'heap.io',                 // Heap 自動事件追蹤
-    'loggly.com',              // Loggly 日誌管理
-    'c.clarity.ms',            // Microsoft Clarity 用戶會話記錄
-    'track.hubspot.com',       // HubSpot 行銷追蹤
-    'api.pendo.io'             // Pendo 產品分析
+    'doubleclick.net', 'google-analytics.com', 'googletagmanager.com', 'googleadservices.com',
+    'googlesyndication.com', 'admob.com', 'adsense.com', 'scorecardresearch.com', 'chartbeat.com',
+    'graph.facebook.com', 'connect.facebook.net', 'analytics.twitter.com', 'static.ads-twitter.com',
+    'ads.linkedin.com', 'criteo.com', 'taboola.com', 'outbrain.com', 'pubmatic.com',
+    'rubiconproject.com', 'openx.net', 'adsrvr.org', 'adform.net', 'semasio.net',
+    'yieldlab.net', 'app-measurement.com', 'branch.io', 'appsflyer.com', 'adjust.com',
+    'sentry.io', 'bugsnag.com', 'hotjar.com', 'vwo.com', 'optimizely.com',
+    'mixpanel.com', 'amplitude.com', 'heap.io', 'loggly.com', 'c.clarity.ms',
+    'track.hubspot.com', 'api.pendo.io'
 ]);
 
 /**
@@ -79,36 +34,11 @@ const BLOCK_DOMAINS = new Set([
  * 匹配方式：完全精確匹配（hostname === 域名）
  */
 const API_WHITELIST_EXACT = new Set([
-    // 影音平台 API
-    'youtubei.googleapis.com', // YouTube 內部 API
-    
-    // 中國社群平台 API
-    'api.weibo.cn',            // 微博官方 API
-    'api.xiaohongshu.com',     // 小紅書 API
-    'api.bilibili.com',        // Bilibili API
-    'api.zhihu.com',           // 知乎 API
-    
-    // 國際社群平台 API
-    'i.instagram.com',         // Instagram 內部 API
-    'graph.instagram.com',     // Instagram Graph API
-    'graph.threads.net',       // Threads Graph API
-    
-    // 音樂平台 API
-    'open.spotify.com',        // Spotify 開放 API
-    
-    // AI 服務 API
-    'api.deepseek.com',        // DeepSeek AI API
-    'kimi.moonshot.cn',        // Kimi AI API
-    'tongyi.aliyun.com',       // 通義千問 API
-    'xinghuo.xfyun.cn',        // 訊飛星火 API
-    
-    // 身份驗證服務
-    'accounts.google.com',      // Google 帳戶驗證
-    'appleid.apple.com',        // Apple ID 驗證
-    'login.microsoftonline.com', // Microsoft 登入
-    
-    // 開發者平台
-    'api.github.com'           // GitHub API
+    'youtubei.googleapis.com', 'api.weibo.cn', 'api.xiaohongshu.com', 'api.bilibili.com',
+    'api.zhihu.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
+    'open.spotify.com', 'api.deepseek.com', 'kimi.moonshot.cn', 'tongyi.aliyun.com',
+    'xinghuo.xfyun.cn', 'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
+    'api.github.com'
 ]);
 
 /**
@@ -122,33 +52,12 @@ const API_WHITELIST_EXACT = new Set([
  * - m.youtube.com (子域名匹配)
  */
 const API_WHITELIST_WILDCARDS = new Map([
-    // 影音平台（包含所有子域名）
-    ['youtube.com', true],      // YouTube 主站及所有子域名
-    ['m.youtube.com', true],    // YouTube 移動版
-    ['googlevideo.com', true],  // YouTube 影片伺服器
-    
-    // 金融支付平台
-    ['paypal.com', true],       // PayPal 支付系統
-    ['stripe.com', true],       // Stripe 支付處理
-    
-    // 科技大廠核心服務
-    ['apple.com', true],        // Apple 官方服務
-    ['icloud.com', true],       // iCloud 雲端服務
-    ['windowsupdate.com', true], // Windows 更新服務
-    
-    // 雲端服務平台
-    ['amazonaws.com', true],     // AWS 雲端服務
-    ['aliyuncs.com', true],      // 阿里雲服務
-    ['cloud.tencent.com', true], // 騰訊雲服務
-    ['cloudfront.net', true],    // AWS CloudFront CDN
-    
-    // RSS 閱讀平台（保護 RSS 訂閱功能）
-    ['feedly.com', true],        // Feedly RSS 閱讀器
-    ['inoreader.com', true],     // InoReader RSS 服務
-    ['theoldreader.com', true],  // The Old Reader
-    ['newsblur.com', true],      // NewsBlur RSS 平台
-    ['flipboard.com', true],     // Flipboard 新聞聚合
-    ['itofoo.com', true]         // 台灣本土 APP 服務
+    ['youtube.com', true], ['m.youtube.com', true], ['googlevideo.com', true],
+    ['paypal.com', true], ['stripe.com', true], ['apple.com', true], ['icloud.com', true],
+    ['windowsupdate.com', true], ['amazonaws.com', true], ['aliyuncs.com', true],
+    ['cloud.tencent.com', true], ['cloudfront.net', true],
+    ['feedly.com', true], ['inoreader.com', true], ['theoldreader.com', true],
+    ['newsblur.com', true], ['flipboard.com', true], ['itofoo.com', true]
 ]);
 
 /**
@@ -808,6 +717,7 @@ const TRACKING_PREFIXES = [
     'earned_'                  // 賺得媒體前綴
 ]);
 
+
 // =================================================================================
 // 🚀 **V18核心**: 響應定義（修正顯示問題）
 // =================================================================================
@@ -819,38 +729,41 @@ const TRACKING_PREFIXES = [
  * - 空響應體 {} → 顯示「已修改」
  * - 特定狀態碼 → 可能顯示「阻止」
  * - 無響應（DROP）→ 可能顯示「阻止」
- * 
- * V18 策略：保持 V14 的成功邏輯，使用 403 狀態碼
  */
 
 // 透明GIF響應（圖片替換）
-// 用途：將廣告圖片替換為 1x1 像素的透明 GIF
 const TINY_GIF_RESPONSE = { 
     response: { 
-        status: 200,           // 成功狀態，避免頁面錯誤
+        status: 200, 
         headers: { 'Content-Type': 'image/gif' }, 
-        body: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" // Base64 透明 GIF
+        body: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" 
     }
 };
 
 // 重定向響應（參數清理）
-// 用途：將包含追蹤參數的 URL 重定向到清理後的版本
 const REDIRECT_RESPONSE = (cleanUrl) => ({ 
     response: { 
-        status: 302,           // 暫時重定向
-        headers: { 'Location': cleanUrl } // 重定向到清理後的 URL
+        status: 302, 
+        headers: { 'Location': cleanUrl } 
     } 
 });
 
-// **V18核心**: 基於V14成功經驗的阻擋策略
-const REJECT_RESPONSE = { response: { status: 403 } }; // 禁止訪問（V14使用）
-const DROP_RESPONSE = { response: {} };                // 空響應（V14使用）
+// **V18核心修正**: 使用不同的阻擋策略
+// 策略1: 使用特殊狀態碼（可能顯示為阻止）
+const BLOCK_RESPONSE_V1 = { response: { status: 444 } }; // Nginx的"無響應"狀態碼
 
-// 備用策略（供實驗用）
-const BLOCK_RESPONSE_V1 = { response: { status: 444 } }; // Nginx 無響應狀態碼
-const BLOCK_RESPONSE_V2 = { response: { status: 0 } };   // 網路錯誤狀態碼
-const BLOCK_RESPONSE_V3 = { response: {} };              // 完全空響應
-const BLOCK_RESPONSE_V4 = { response: { status: 204 } }; // 無內容狀態碼
+// 策略2: 使用0狀態碼（網路錯誤）
+const BLOCK_RESPONSE_V2 = { response: { status: 0 } };
+
+// 策略3: 完全空響應（類似V14的DROP）
+const BLOCK_RESPONSE_V3 = { response: {} };
+
+// 策略4: 使用204 No Content
+const BLOCK_RESPONSE_V4 = { response: { status: 204 } };
+
+// 預設使用策略（基於V14的成功經驗）
+const REJECT_RESPONSE = { response: { status: 403 } }; // V14使用的403
+const DROP_RESPONSE = { response: {} }; // V14使用的空響應
 
 // =================================================================================
 // 🚀 核心處理邏輯（基於V14）
@@ -858,60 +771,40 @@ const BLOCK_RESPONSE_V4 = { response: { status: 204 } }; // 無內容狀態碼
 
 /**
  * 📊 性能統計器
- * 功能：追蹤過濾器的運作統計數據
- * 用途：了解過濾效果和性能表現
  */
 class PerformanceStats {
     constructor() {
         this.stats = {
-            totalRequests: 0,          // 總請求數
-            blockedRequests: 0,        // 被阻擋的請求數
-            criticalTrackingBlocked: 0, // 關鍵追蹤腳本攔截數
-            domainBlocked: 0,          // 域名攔截數
-            pathBlocked: 0,            // 路徑攔截數
-            paramsCleaned: 0,          // 參數清理數
-            whitelistHits: 0,          // 白名單命中數
-            errors: 0                  // 錯誤次數
+            totalRequests: 0,
+            blockedRequests: 0,
+            criticalTrackingBlocked: 0,
+            domainBlocked: 0,
+            pathBlocked: 0,
+            paramsCleaned: 0,
+            whitelistHits: 0,
+            errors: 0
         };
     }
     
-    /**
-     * 遞增統計計數器
-     * @param {string} type - 統計類型
-     */
     increment(type) {
         if (this.stats.hasOwnProperty(type)) {
             this.stats[type]++;
         }
     }
     
-    /**
-     * 計算阻擋率
-     * @returns {string} 阻擋率百分比字符串
-     */
     getBlockRate() {
         const total = this.stats.totalRequests;
         return total > 0 ? ((this.stats.blockedRequests / total) * 100).toFixed(2) + '%' : '0%';
     }
 }
 
-// 全域統計實例
 const performanceStats = new PerformanceStats();
 
 /**
  * 🚨 關鍵追蹤腳本檢查（來自V14）
- * 功能：檢查請求是否為關鍵的追蹤腳本
- * 
- * @param {string} pathAndQuery - URL 的路徑和查詢字符串（已轉小寫）
- * @returns {boolean} 是否為關鍵追蹤腳本
- * 
- * 檢查邏輯：
- * 1. 先檢查文件名是否在關鍵腳本清單中
- * 2. 再檢查路徑是否匹配關鍵模式
  */
 function isCriticalTrackingScript(pathAndQuery) {
     // 檢查文件名是否為關鍵追蹤腳本
-    // 例如：/path/to/ytag.js 會匹配 'ytag.js'
     for (const script of CRITICAL_TRACKING_SCRIPTS) {
         if (pathAndQuery.includes(script)) {
             return true;
@@ -919,92 +812,61 @@ function isCriticalTrackingScript(pathAndQuery) {
     }
     
     // 檢查路徑模式
-    // 例如：/googletagmanager/gtm.js 會匹配 '/googletagmanager/'
     for (const pattern of CRITICAL_TRACKING_PATTERNS) {
         if (pathAndQuery.includes(pattern)) {
             return true;
         }
     }
     
-    return false; // 非關鍵追蹤腳本
+    return false;
 }
 
 /**
  * 🔍 域名白名單檢查
- * 功能：檢查域名是否在 API 白名單中，應該放行
- * 
- * @param {string} hostname - 域名（已轉小寫）
- * @returns {boolean} 是否在白名單中
- * 
- * 檢查順序：
- * 1. 精確匹配檢查（API_WHITELIST_EXACT）
- * 2. 通配符匹配檢查（API_WHITELIST_WILDCARDS）
  */
 function isApiWhitelisted(hostname) {
     // 精確匹配檢查
-    // 例如：'youtubei.googleapis.com' 只匹配這個確切域名
     if (API_WHITELIST_EXACT.has(hostname)) {
         return true;
     }
     
     // 通配符匹配檢查
-    // 例如：'youtube.com' 匹配 'youtube.com'、'www.youtube.com'、'm.youtube.com' 等
     for (const [domain, _] of API_WHITELIST_WILDCARDS) {
         if (hostname === domain || hostname.endsWith('.' + domain)) {
             return true;
         }
     }
     
-    return false; // 不在白名單中
+    return false;
 }
 
 /**
  * 🚫 域名黑名單檢查
- * 功能：檢查域名是否應該被攔截
- * 
- * @param {string} hostname - 域名（已轉小寫）
- * @returns {boolean} 是否應該攔截
- * 
- * 檢查方式：
- * 1. 直接匹配：hostname 在黑名單中
- * 2. 包含匹配：hostname 包含黑名單中的域名
  */
 function isDomainBlocked(hostname) {
     // 直接匹配
-    // 例如：'doubleclick.net' 直接匹配
     if (BLOCK_DOMAINS.has(hostname)) {
         return true;
     }
     
     // 部分匹配（包含檢查）
-    // 例如：'sub.doubleclick.net' 會匹配 'doubleclick.net'
     for (const blockDomain of BLOCK_DOMAINS) {
         if (hostname.includes(blockDomain)) {
             return true;
         }
     }
     
-    return false; // 域名不在黑名單中
+    return false;
 }
 
 /**
  * 🛤️ 路徑攔截檢查（基於V14邏輯）
- * 功能：檢查 URL 路徑是否包含應該攔截的關鍵字
- * 
- * @param {string} pathAndQuery - URL 的路徑和查詢字符串（已轉小寫）
- * @returns {boolean} 是否應該攔截
- * 
- * 檢查邏輯：
- * 1. 遍歷路徑黑名單關鍵字
- * 2. 如果匹配到黑名單，再檢查是否有白名單保護
- * 3. 只有黑名單匹配且未被白名單保護的才會攔截
  */
 function isPathBlocked(pathAndQuery) {
     // 檢查黑名單關鍵字
     for (const keyword of PATH_BLOCK_KEYWORDS) {
         if (pathAndQuery.includes(keyword)) {
             // 檢查是否有白名單保護
-            // 例如：路徑包含 '/ad/' 但也包含 'download'，則受白名單保護
             let isProtected = false;
             for (const allowPattern of PATH_ALLOW_PATTERNS) {
                 if (pathAndQuery.includes(allowPattern)) {
@@ -1014,26 +876,16 @@ function isPathBlocked(pathAndQuery) {
             }
             
             if (!isProtected) {
-                return true; // 黑名單匹配且未被白名單保護 → 攔截
+                return true; // 黑名單匹配且未被白名單保護
             }
         }
     }
     
-    return false; // 路徑安全，不攔截
+    return false;
 }
 
 /**
  * 🧹 參數清理功能
- * 功能：從 URL 中移除追蹤參數，保護用戶隱私
- * 
- * @param {URL} url - URL 物件（會被直接修改）
- * @returns {boolean} 是否有參數被清理
- * 
- * 清理邏輯：
- * 1. 遍歷 URL 中的所有查詢參數
- * 2. 檢查參數名是否在全域追蹤參數清單中
- * 3. 檢查參數名是否以追蹤前綴開頭
- * 4. 移除符合條件的參數
  */
 function cleanTrackingParams(url) {
     let paramsChanged = false;
@@ -1044,12 +896,10 @@ function cleanTrackingParams(url) {
         let shouldDelete = false;
         
         // 檢查全域追蹤參數
-        // 例如：'utm_source=google' 中的 'utm_source' 會被移除
         if (GLOBAL_TRACKING_PARAMS.has(lowerKey)) {
             shouldDelete = true;
         } else {
             // 檢查前綴匹配
-            // 例如：'utm_custom_param' 會匹配前綴 'utm_'
             for (const prefix of TRACKING_PREFIXES) {
                 if (lowerKey.startsWith(prefix)) {
                     shouldDelete = true;
@@ -1059,99 +909,75 @@ function cleanTrackingParams(url) {
         }
         
         if (shouldDelete) {
-            url.searchParams.delete(key); // 移除追蹤參數
+            url.searchParams.delete(key);
             paramsChanged = true;
         }
     }
     
-    return paramsChanged; // 返回是否有變更
+    return paramsChanged;
 }
 
 /**
  * 🎯 主要處理函數（基於V14的成功邏輯）
- * 功能：處理每個 HTTP 請求，決定是否攔截、修改或放行
- * 
- * @param {Object} request - Surge 請求物件
- * @returns {Object|null} 響應物件或 null（放行）
- * 
- * 處理流程：
- * 1. 請求有效性驗證
- * 2. 關鍵追蹤腳本攔截（最高優先級）
- * 3. API 白名單檢查（保護重要服務）
- * 4. 域名黑名單攔截
- * 5. 路徑黑名單攔截
- * 6. 追蹤參數清理
  */
 function processRequest(request) {
     try {
-        // 統計：總請求數遞增
         performanceStats.increment('totalRequests');
         
-        // === 步驟 0：請求有效性驗證 ===
+        // 驗證請求有效性
         if (!request || !request.url) {
-            return null; // 無效請求，放行
+            return null;
         }
         
-        // 解析 URL
         let url;
         try {
             url = new URL(request.url);
         } catch (e) {
-            // URL 解析失敗，記錄錯誤並放行
             performanceStats.increment('errors');
             return null;
         }
         
-        // 準備檢查用的變數（轉為小寫以便比較）
-        const hostname = url.hostname.toLowerCase();           // 域名
-        const pathAndQuery = (url.pathname + url.search).toLowerCase(); // 路徑+查詢參數
+        const hostname = url.hostname.toLowerCase();
+        const pathAndQuery = (url.pathname + url.search).toLowerCase();
         
-        // === 步驟 1：關鍵追蹤腳本攔截（最高優先級）===
-        // 說明：ytag.js、gtag.js 等關鍵腳本必須被攔截
+        // === Step 0: 關鍵追蹤腳本攔截（最高優先級）===
         if (isCriticalTrackingScript(pathAndQuery)) {
-            // 統計：關鍵追蹤腳本攔截
             performanceStats.increment('criticalTrackingBlocked');
             performanceStats.increment('blockedRequests');
             
-            // 檢查是否需要 DROP（直接拋棄）
-            // 某些類型的請求適合直接拋棄而非返回錯誤碼
+            // 檢查是否需要 DROP
             for (const dropKeyword of DROP_KEYWORDS) {
                 if (pathAndQuery.includes(dropKeyword)) {
-                    return DROP_RESPONSE; // 直接拋棄，模擬網路錯誤
+                    return DROP_RESPONSE;
                 }
             }
             
             // 圖片類廣告替換為透明 GIF
-            // 避免頁面出現破圖，提供更好的用戶體驗
             const imageExtensions = ['.gif', '.svg', '.png', '.jpg', '.jpeg', '.webp'];
             const isImage = imageExtensions.some(ext => pathAndQuery.endsWith(ext));
             
             if (isImage) {
-                return TINY_GIF_RESPONSE; // 返回透明 GIF
+                return TINY_GIF_RESPONSE;
             }
             
-            // **V18核心**: 對 ytag.js 等關鍵腳本使用 REJECT（403）
-            // 基於 V14 的成功經驗
+            // **V18核心**: 對ytag.js等關鍵腳本使用REJECT（403）
             return REJECT_RESPONSE;
         }
         
-        // === 步驟 2：API 域名白名單檢查 ===
-        // 說明：保護重要的 API 服務不被誤攔截
+        // === Step 1: API 域名白名單檢查 ===
         if (isApiWhitelisted(hostname)) {
             performanceStats.increment('whitelistHits');
             return null; // 白名單域名放行
         }
         
-        // === 步驟 3：域名黑名單檢查 ===
-        // 說明：攔截已知的廣告、追蹤域名
+        // === Step 2: 域名黑名單檢查 ===
         if (isDomainBlocked(hostname)) {
             performanceStats.increment('domainBlocked');
             performanceStats.increment('blockedRequests');
-            return REJECT_RESPONSE; // 使用 403 禁止訪問
+            return REJECT_RESPONSE;
         }
         
-        // === 步驟 4：路徑攔截檢查 ===
-        // 說明：根據 URL 路徑內容判斷是否為追蹤/廣告請求
+        // === Step 3: 路徑攔截檢查 ===
         if (isPathBlocked(pathAndQuery)) {
             performanceStats.increment('pathBlocked');
             performanceStats.increment('blockedRequests');
@@ -1171,30 +997,26 @@ function processRequest(request) {
                 return TINY_GIF_RESPONSE;
             }
             
-            return REJECT_RESPONSE; // 非圖片類使用 403 攔截
+            return REJECT_RESPONSE;
         }
         
-        // === 步驟 5：追蹤參數清理 ===
-        // 說明：移除 URL 中的追蹤參數，保護隱私
+        // === Step 4: 追蹤參數清理 ===
         if (cleanTrackingParams(url)) {
             performanceStats.increment('paramsCleaned');
-            const cleanedUrl = url.toString(); // 獲得清理後的 URL
-            return REDIRECT_RESPONSE(cleanedUrl); // 重定向到清理後的 URL
+            const cleanedUrl = url.toString();
+            return REDIRECT_RESPONSE(cleanedUrl);
         }
         
-        // 無需處理，放行請求
-        return null;
+        return null; // 無需處理，放行
         
     } catch (error) {
-        // 異常處理：記錄錯誤但不影響正常瀏覽
         performanceStats.increment('errors');
         
-        // 在支持的環境中記錄錯誤
         if (typeof console !== 'undefined' && console.error) {
             console.error('[URL-Filter-v18] 處理錯誤:', error);
         }
         
-        return null; // 發生錯誤時放行請求，確保不影響正常使用
+        return null; // 發生錯誤時放行請求
     }
 }
 
@@ -1202,35 +1024,16 @@ function processRequest(request) {
 // 🎬 主執行邏輯
 // =================================================================================
 
-/**
- * 🚀 主執行函數
- * 功能：Surge 腳本的入口點
- * 
- * 執行流程：
- * 1. 檢查執行環境是否正確
- * 2. 處理請求（如果有）
- * 3. 返回處理結果給 Surge
- */
 (function() {
     try {
         // 檢查執行環境
-        // $request 是 Surge 提供的請求物件
         if (typeof $request === 'undefined') {
-            // 如果沒有請求物件，可能是腳本載入時的初始化
             if (typeof $done !== 'undefined') {
                 $done({ 
-                    version: '18.0-Enhanced',
+                    version: '18.0',
                     status: 'ready',
-                    message: 'URL Filter v18.0 - 基於V14邏輯優化（增強註解版）',
-                    note: '使用V14的成功阻擋邏輯，保持403響應',
-                    features: [
-                        '關鍵追蹤腳本攔截',
-                        '域名黑白名單管理',
-                        '路徑模式匹配',
-                        '追蹤參數清理',
-                        '圖片廣告替換',
-                        '性能統計追蹤'
-                    ]
+                    message: 'URL Filter v18.0 - 基於V14邏輯優化',
+                    note: '使用V14的成功阻擋邏輯，保持403響應'
                 });
             }
             return;
@@ -1239,138 +1042,70 @@ function processRequest(request) {
         // 處理請求
         const result = processRequest($request);
         
-        // 返回結果給 Surge
+        // 返回結果
         if (typeof $done !== 'undefined') {
             if (result) {
-                // 有處理結果：攔截、重定向或替換
                 $done(result);
             } else {
-                // 無處理結果：放行請求
                 $done({});
             }
         }
         
     } catch (error) {
-        // 全域異常處理
         performanceStats.increment('errors');
         
-        // 記錄致命錯誤
         if (typeof console !== 'undefined' && console.error) {
             console.error('[URL-Filter-v18] 致命錯誤:', error);
         }
         
         // 確保即使發生錯誤也能正常結束
-        // 避免 Surge 請求hang住
         if (typeof $done !== 'undefined') {
-            $done({}); // 發生錯誤時放行請求
+            $done({});
         }
     }
 })();
 
 // =================================================================================
-// 🔧 調試與測試功能
+// 🔧 調試功能
 // =================================================================================
 
 /**
  * 🧪 測試函數
- * 功能：測試過濾器對各種 URL 的處理結果
- * 用途：驗證過濾邏輯是否正確工作
  */
 function testSurgeFilter() {
     const testCases = [
-        // === 關鍵追蹤腳本測試 ===
-        { 
-            url: 'https://www.googletagmanager.com/ytag.js', 
-            expected: 'REJECT',
-            description: 'Google 標籤管理器關鍵腳本'
-        },
-        { 
-            url: 'https://api.github.com/ytag.js', 
-            expected: 'REJECT',
-            description: '非 Google 域名但包含關鍵腳本'
-        },
-        { 
-            url: 'https://cdn.example.com/scripts/ytag.js?v=1.0', 
-            expected: 'REJECT',
-            description: '帶查詢參數的關鍵腳本'
-        },
-        { 
-            url: 'https://analytics.example.com/gtag.js', 
-            expected: 'REJECT',
-            description: 'Google 全域標籤腳本'
-        },
+        // 關鍵追蹤腳本測試
+        { url: 'https://www.googletagmanager.com/ytag.js', expected: 'REJECT' },
+        { url: 'https://api.github.com/ytag.js', expected: 'REJECT' },
+        { url: 'https://cdn.example.com/scripts/ytag.js?v=1.0', expected: 'REJECT' },
+        { url: 'https://analytics.example.com/gtag.js', expected: 'REJECT' },
         
-        // === 域名阻擋測試 ===
-        { 
-            url: 'https://doubleclick.net/ads/script.js', 
-            expected: 'REJECT',
-            description: 'DoubleClick 廣告域名'
-        },
-        { 
-            url: 'https://google-analytics.com/collect', 
-            expected: 'REJECT',
-            description: 'Google Analytics 收集端點'
-        },
+        // 域名阻擋測試
+        { url: 'https://doubleclick.net/ads/script.js', expected: 'REJECT' },
+        { url: 'https://google-analytics.com/collect', expected: 'REJECT' },
         
-        // === 圖片替換測試 ===
-        { 
-            url: 'https://example.com/ads/banner.gif', 
-            expected: 'TINY_GIF',
-            description: '廣告圖片替換為透明 GIF'
-        },
-        { 
-            url: 'https://tracker.com/pixel.png', 
-            expected: 'TINY_GIF',
-            description: '追蹤像素圖片替換'
-        },
+        // 圖片替換測試
+        { url: 'https://example.com/ads/banner.gif', expected: 'TINY_GIF' },
+        { url: 'https://tracker.com/pixel.png', expected: 'TINY_GIF' },
         
-        // === 參數清理測試 ===
-        { 
-            url: 'https://example.com/page?utm_source=google&id=123', 
-            expected: 'REDIRECT',
-            description: 'UTM 參數清理重定向'
-        },
-        { 
-            url: 'https://shop.com/product?fbclid=test&productId=456', 
-            expected: 'REDIRECT',
-            description: 'Facebook 點擊 ID 清理'
-        },
+        // 參數清理測試
+        { url: 'https://example.com/page?utm_source=google', expected: 'REDIRECT' },
+        { url: 'https://shop.com/product?fbclid=test', expected: 'REDIRECT' },
         
-        // === 白名單放行測試 ===
-        { 
-            url: 'https://api.github.com/repos/user/repo', 
-            expected: 'ALLOW',
-            description: 'GitHub API 白名單放行'
-        },
-        { 
-            url: 'https://youtubei.googleapis.com/youtubei/v1/player', 
-            expected: 'ALLOW',
-            description: 'YouTube 內部 API 放行'
-        },
-        { 
-            url: 'https://m.youtube.com/watch?v=example', 
-            expected: 'ALLOW',
-            description: 'YouTube 移動版通配符白名單'
-        },
-        
-        // === 正常功能放行測試 ===
-        { 
-            url: 'https://cdn.jsdelivr.net/npm/library@1.0.0/dist/lib.js', 
-            expected: 'ALLOW',
-            description: 'CDN 功能庫正常放行'
-        }
+        // 正常放行測試
+        { url: 'https://api.github.com/repos/user/repo', expected: 'ALLOW' },
+        { url: 'https://cdn.jsdelivr.net/npm/library@1.0.0/dist/lib.js', expected: 'ALLOW' }
     ];
     
-    console.log('=== Surge Filter v18 Enhanced 測試 ===\n');
+    console.log('=== Surge Filter v18 測試 ===\n');
     
     let passed = 0;
     let failed = 0;
     
-    testCases.forEach((testCase, index) => {
+    testCases.forEach(testCase => {
         const mockRequest = { url: testCase.url };
         const result = processRequest(mockRequest);
         
-        // 判斷處理結果類型
         let resultType = 'ALLOW';
         if (result) {
             if (result.response && result.response.status === 403) {
@@ -1387,18 +1122,15 @@ function testSurgeFilter() {
         const success = resultType === testCase.expected;
         if (success) {
             passed++;
-            console.log(`✅ 測試 ${index + 1}: ${testCase.description}`);
-            console.log(`   URL: ${testCase.url}`);
+            console.log(`✅ ${testCase.url}`);
         } else {
             failed++;
-            console.log(`❌ 測試 ${index + 1}: ${testCase.description}`);
-            console.log(`   URL: ${testCase.url}`);
+            console.log(`❌ ${testCase.url}`);
             console.log(`   預期: ${testCase.expected}, 實際: ${resultType}`);
         }
-        console.log(''); // 空行分隔
     });
     
-    console.log(`測試結果: ${passed} 通過, ${failed} 失敗`);
+    console.log(`\n測試結果: ${passed} 通過, ${failed} 失敗`);
     console.log(`通過率: ${((passed / testCases.length) * 100).toFixed(2)}%`);
     
     return { passed, failed, total: testCases.length };
@@ -1406,153 +1138,64 @@ function testSurgeFilter() {
 
 /**
  * 📊 獲取統計資訊
- * 功能：返回過濾器的運作統計和配置資訊
- * 用途：監控過濾器性能和效果
  */
 function getFilterStats() {
     return {
-        version: '18.0-Enhanced',
+        version: '18.0',
         lastUpdated: '2025-08-28',
-        description: '基於V14成功邏輯，增強註解版本',
         stats: performanceStats.stats,
         blockRate: performanceStats.getBlockRate(),
         config: {
             criticalTrackingScripts: CRITICAL_TRACKING_SCRIPTS.size,
-            trackingPatterns: CRITICAL_TRACKING_PATTERNS.size,
             domainBlocklist: BLOCK_DOMAINS.size,
-            apiWhitelistExact: API_WHITELIST_EXACT.size,
-            apiWhitelistWildcards: API_WHITELIST_WILDCARDS.size,
-            pathAllowPatterns: PATH_ALLOW_PATTERNS.size,
-            pathBlockKeywords: PATH_BLOCK_KEYWORDS.size,
-            trackingParams: GLOBAL_TRACKING_PARAMS.size,
-            trackingPrefixes: TRACKING_PREFIXES.length,
-            dropKeywords: DROP_KEYWORDS.size
+            apiWhitelist: API_WHITELIST_EXACT.size + API_WHITELIST_WILDCARDS.size,
+            trackingParams: GLOBAL_TRACKING_PARAMS.size
         }
     };
 }
 
-/**
- * 🔍 URL 測試函數
- * 功能：測試單一 URL 的處理結果
- * 
- * @param {string} testUrl - 要測試的 URL
- * @returns {Object} 測試結果物件
- */
-function testSingleUrl(testUrl) {
-    const result = processRequest({ url: testUrl });
-    return {
-        url: testUrl,
-        result: result,
-        willBlock: result !== null,
-        responseType: result ? (
-            result.response.status === 403 ? 'REJECT (403 禁止)' :
-            result.response.status === 302 ? 'REDIRECT (302 重定向)' :
-            result.response.body ? 'TINY_GIF (圖片替換)' : 
-            result.response.status === 0 ? 'DROP (網路錯誤)' :
-            result.response.status === 444 ? 'BLOCK (444 無響應)' :
-            result.response.status === 204 ? 'NO_CONTENT (204 無內容)' :
-            'OTHER (其他響應)'
-        ) : 'ALLOW (放行)',
-        details: {
-            hostname: new URL(testUrl).hostname,
-            isCriticalScript: isCriticalTrackingScript((new URL(testUrl).pathname + new URL(testUrl).search).toLowerCase()),
-            isDomainBlocked: isDomainBlocked(new URL(testUrl).hostname.toLowerCase()),
-            isWhitelisted: isApiWhitelisted(new URL(testUrl).hostname.toLowerCase()),
-            isPathBlocked: isPathBlocked((new URL(testUrl).pathname + new URL(testUrl).search).toLowerCase())
-        }
-    };
-}
-
-// 暴露調試 API（如果在瀏覽器環境中）
-// 用途：在瀏覽器控制台中測試和調試過濾器
+// 暴露調試API（如果在瀏覽器環境）
 if (typeof window !== 'undefined') {
     window.SurgeFilterDebug = {
-        test: testSurgeFilter,           // 執行完整測試套件
-        stats: getFilterStats,           // 獲取統計資訊
-        testUrl: testSingleUrl,          // 測試單一 URL
-        
-        // 額外的調試功能
-        checkDomain: (hostname) => ({
-            isBlocked: isDomainBlocked(hostname.toLowerCase()),
-            isWhitelisted: isApiWhitelisted(hostname.toLowerCase())
-        }),
-        
-        checkPath: (path) => ({
-            isBlocked: isPathBlocked(path.toLowerCase()),
-            isCriticalScript: isCriticalTrackingScript(path.toLowerCase())
-        }),
-        
-        cleanUrl: (url) => {
-            const urlObj = new URL(url);
-            const hasChanges = cleanTrackingParams(urlObj);
+        test: testSurgeFilter,
+        stats: getFilterStats,
+        testUrl: (url) => {
+            const result = processRequest({ url });
             return {
-                originalUrl: url,
-                cleanedUrl: urlObj.toString(),
-                hasChanges: hasChanges
+                url: url,
+                result: result,
+                willBlock: result !== null,
+                responseType: result ? (
+                    result.response.status === 403 ? 'REJECT' :
+                    result.response.status === 302 ? 'REDIRECT' :
+                    result.response.body ? 'TINY_GIF' : 'DROP'
+                ) : 'ALLOW'
             };
         }
     };
-    
-    console.log('🎯 Surge Filter v18 Enhanced 調試工具已載入');
-    console.log('使用方法：window.SurgeFilterDebug.test() 執行測試');
-    console.log('使用方法：window.SurgeFilterDebug.stats() 查看統計');
-    console.log('使用方法：window.SurgeFilterDebug.testUrl("URL") 測試單一 URL');
 }
 
 // =================================================================================
-// 📋 更新日誌與說明
+// 📋 更新日誌
 // =================================================================================
 
 /**
- * 🔄 v18.0-Enhanced 更新內容 (2025-08-28):
+ * 🔄 v18.0 更新內容 (2025-08-28):
  * 
  * **核心策略**：
- * ✅ 基於V14的成功阻擋邏輯
- * ✅ 保持使用403狀態碼（REJECT_RESPONSE）
- * ✅ 維持V14的處理優先級和邏輯流程
+ * - 基於V14的成功阻擋邏輯
+ * - 保持使用403狀態碼（REJECT_RESPONSE）
+ * - 維持V14的處理優先級和邏輯流程
  * 
- * **新增功能**：
- * 📝 大幅增強中文註解，解釋每個功能區塊
- * 📈 擴展追蹤腳本清單（從16個增至35+個）
- * 🎯 擴展追蹤路徑模式（從13個增至100+個）
- * 🧹 擴展追蹤參數清理（從65個增至120+個）
- * 🔧 增強調試功能，提供更詳細的測試結果
- * 
- * **關鍵攔截優先級**：
+ * **關鍵點**：
  * 1. ytag.js等關鍵追蹤腳本 → 403 Forbidden
  * 2. 域名黑名單 → 403 Forbidden  
  * 3. 路徑黑名單（非圖片）→ 403 Forbidden
  * 4. 圖片廣告 → 透明GIF替換
  * 5. 參數清理 → 302重定向
  * 
- * **白名單保護**：
- * - API_WHITELIST_EXACT：精確匹配重要API
- * - API_WHITELIST_WILDCARDS：通配符匹配服務族群
- * - PATH_ALLOW_PATTERNS：保護功能性腳本
- * 
  * **說明**：
  * V14能成功阻擋ytag.js，說明其邏輯是正確的。
- * 本版本完全保留V14的成功邏輯，並大幅增強註解和規則庫。
- * 
- * **使用建議**：
- * 1. 部署到 Surge 的 HTTP Processing 規則
- * 2. 使用瀏覽器控制台的調試功能測試特定 URL
- * 3. 定期檢查 getFilterStats() 了解過濾效果
- * 4. 根據實際需要調整白名單和黑名單
- */
-
-/**
- * 📚 腳本架構說明：
- * 
- * 1. **配置區**：定義所有的黑名單、白名單和規則
- * 2. **響應定義**：定義不同情況下的響應方式
- * 3. **核心邏輯**：實現檢查和處理功能
- * 4. **主執行**：Surge 調用的入口點
- * 5. **調試工具**：開發和測試用的輔助功能
- * 
- * **最佳實踐**：
- * - 優先級明確：關鍵腳本 > 白名單 > 黑名單 > 參數清理
- * - 錯誤安全：發生異常時選擇放行而非阻擋
- * - 性能優化：使用 Set 和 Map 提高查找效率
- * - 擴展性好：新增規則只需修改對應的集合
+ * 至於Surge日誌顯示問題，可能是Surge版本或配置相關。
+ * 本版本完全保留V14的成功邏輯。
  */
