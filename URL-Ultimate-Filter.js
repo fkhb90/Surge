@@ -13,6 +13,8 @@
 
 /**
  * 🚫 域名攔截黑名單
+ * 功能：攔截已知的廣告、追蹤、分析域名
+ * 匹配方式：完全匹配 + 包含匹配（子字符串）
  */
 const BLOCK_DOMAINS = new Set([
     'doubleclick.net', 'google-analytics.com', 'googletagmanager.com', 'googleadservices.com',
@@ -27,7 +29,9 @@ const BLOCK_DOMAINS = new Set([
 ]);
 
 /**
- * ✅ API 功能性域名白名單
+ * ✅ API 功能性域名精確白名單
+ * 功能：允許關鍵 API 服務正常運作
+ * 匹配方式：完全精確匹配（hostname === 域名）
  */
 const API_WHITELIST_EXACT = new Set([
     'youtubei.googleapis.com', 'api.weibo.cn', 'api.xiaohongshu.com', 'api.bilibili.com',
@@ -37,6 +41,16 @@ const API_WHITELIST_EXACT = new Set([
     'api.github.com'
 ]);
 
+/**
+ * ✅ API 功能性域名通配符白名單
+ * 功能：允許整個域名族群（包含所有子域名）
+ * 匹配方式：域名完全匹配 OR 以「.域名」結尾
+ * 
+ * 例如：'youtube.com' 會匹配：
+ * - youtube.com (完全匹配)
+ * - www.youtube.com (子域名匹配)
+ * - m.youtube.com (子域名匹配)
+ */
 const API_WHITELIST_WILDCARDS = new Map([
     ['youtube.com', true], ['m.youtube.com', true], ['googlevideo.com', true],
     ['paypal.com', true], ['stripe.com', true], ['apple.com', true], ['icloud.com', true],
@@ -47,103 +61,662 @@ const API_WHITELIST_WILDCARDS = new Map([
 ]);
 
 /**
- * 🚨 關鍵追蹤腳本攔截清單（來自V14）
+ * 🚨 關鍵追蹤腳本攔截清單（來自V14 + 新增項目）
+ * 功能：攔截常見的追蹤、分析、廣告腳本文件
+ * 檢查方式：路徑中包含這些文件名即攔截
  */
 const CRITICAL_TRACKING_SCRIPTS = new Set([
-    'ytag.js', 'gtag.js', 'gtm.js', 'ga.js', 'analytics.js', 
-    'fbevents.js', 'fbq.js', 'pixel.js', 'tag.js', 'tracking.js',
-    'adsbygoogle.js', 'ads.js', 'doubleclick.js', 'adsense.js',
-    'hotjar.js', 'mixpanel.js', 'amplitude.js', 'segment.js'
+    // Google 系列追蹤腳本
+    'ytag.js',                 // YouTube 標籤腳本
+    'gtag.js',                 // Google 全域標籤
+    'gtm.js',                  // Google 標籤管理器
+    'ga.js',                   // Google Analytics 經典版
+    'analytics.js',            // Google Analytics 通用版
+    
+    // Facebook 系列
+    'fbevents.js',             // Facebook 事件追蹤
+    'fbq.js',                  // Facebook 像素追蹤
+    'pixel.js',                // 通用像素追蹤腳本
+    
+    // 廣告相關腳本
+    'tag.js',                  // 通用標籤腳本
+    'tracking.js',             // 通用追蹤腳本
+    'adsbygoogle.js',          // Google AdSense 廣告
+    'ads.js',                  // 通用廣告腳本
+    'doubleclick.js',          // DoubleClick 廣告
+    'adsense.js',              // AdSense 廣告腳本
+    
+    // 用戶行為分析
+    'hotjar.js',               // Hotjar 用戶行為記錄
+    'mixpanel.js',             // Mixpanel 事件分析
+    'amplitude.js',            // Amplitude 產品分析
+    'segment.js',              // Segment 數據收集
+    
+    // 新增：更多追蹤腳本
+    'clarity.js',              // Microsoft Clarity
+    'intercom.js',             // Intercom 客服追蹤
+    'zendesk.js',              // Zendesk 客服分析
+    'salesforce.js',           // Salesforce 追蹤
+    'hubspot.js',              // HubSpot 行銷追蹤
+    'marketo.js',              // Marketo 行銷自動化
+    'pardot.js',               // Pardot B2B 行銷
+    'eloqua.js',               // Oracle Eloqua
+    'omniture.js',             // Adobe Analytics (舊稱)
+    'sitecatalyst.js',         // Adobe SiteCatalyst
+    'chartbeat.js',            // Chartbeat 即時分析
+    'comscore.js',             // ComScore 測量
+    'quantcast.js',            // Quantcast 受眾測量
+    'nielsen.js',              // Nielsen 測量
+    'snowplow.js',             // Snowplow 分析
+    'kissmetrics.js',          // KISSmetrics 分析
+    'crazyegg.js',             // Crazy Egg 熱圖
+    'mouseflow.js',            // Mouseflow 用戶追蹤
+    'fullstory.js',            // FullStory 會話重播
+    'logrocket.js'             // LogRocket 會話記錄
 ]);
 
 /**
- * 🚨 關鍵追蹤路徑模式
+ * 🚨 關鍵追蹤路徑模式（來自V14 + 大幅擴展）
+ * 功能：攔截包含特定路徑的請求
+ * 檢查方式：URL 路徑中包含這些模式即攔截
  */
 const CRITICAL_TRACKING_PATTERNS = new Set([
+    // Google 系列路徑
     '/ytag.js', '/gtag.js', '/gtm.js', '/ga.js', '/analytics.js',
-    '/fbevents.js', '/fbq.js', '/pixel.js', '/adsbygoogle.js',
     '/googletagmanager/', '/google-analytics/', '/googlesyndication/',
-    '/doubleclick/', '/googleadservices/', '/facebook.com/tr'
+    '/doubleclick/', '/googleadservices/', '/pagead/', '/adsense/',
+    
+    // Facebook/Meta 系列
+    '/fbevents.js', '/fbq.js', '/pixel.js', '/facebook.com/tr',
+    '/connect.facebook.net/', '/graph.facebook.com/',
+    
+    // 新增：更多追蹤路徑模式
+    
+    // Adobe 系列
+    '/omniture/', '/sitecatalyst/', '/adobe-analytics/', '/launch.adobe.com/',
+    '/dpm.demdex.net/', '/everesttech.net/', '/adsystem.com/',
+    
+    // 微軟系列
+    '/clarity.ms/', '/c.clarity.ms/', '/bing.com/analytics/', '/msn.com/analytics/',
+    
+    // Amazon 廣告系列
+    '/amazon-adsystem.com/', '/assoc-amazon.com/', '/rcm-images.amazon.com/',
+    '/fls-na.amazon.com/', '/aax.amazon-adsystem.com/',
+    
+    // 程序化廣告平台
+    '/criteo.com/', '/outbrain.com/', '/taboola.com/', '/revcontent.com/',
+    '/mgid.com/', '/content.ad/', '/adskeeper.co.uk/', '/adnow.com/',
+    '/propellerads.com/', '/popads.net/', '/adcash.com/', '/hilltopads.net/',
+    
+    // 需求方平台 (DSP)
+    '/adsrvr.org/', '/adform.net/', '/pubmatic.com/', '/rubiconproject.com/',
+    '/openx.net/', '/appnexus.com/', '/indexww.com/', '/casalemedia.com/',
+    '/smartadserver.com/', '/contextweb.com/', '/adsystem.com/',
+    
+    // 數據管理平台 (DMP)
+    '/bluekai.com/', '/exelator.com/', '/liveramp.com/', '/turn.com/',
+    '/neustar.biz/', '/eyeota.net/', '/lotame.com/', '/krux.net/',
+    
+    // 供給方平台 (SSP)
+    '/gumgum.com/', '/sovrn.com/', '/sharethrough.com/', '/conversantmedia.com/',
+    '/rhythmone.com/', '/33across.com/', '/spotx.tv/', '/brightroll.com/',
+    
+    // 行為分析與熱圖
+    '/hotjar.com/', '/crazyegg.com/', '/mouseflow.com/', '/fullstory.com/',
+    '/logrocket.com/', '/smartlook.com/', '/inspectlet.com/',
+    
+    // CRM 與行銷自動化追蹤
+    '/salesforce.com/analytics/', '/hubspot.com/track/', '/marketo.com/track/',
+    '/pardot.com/', '/eloqua.com/', '/constantcontact.com/track/',
+    '/mailchimp.com/track/', '/aweber.com/track/',
+    
+    // 客服系統追蹤
+    '/intercom.io/', '/zendesk.com/analytics/', '/freshworks.com/track/',
+    '/drift.com/track/', '/crisp.chat/track/',
+    
+    // 電商追蹤
+    '/googlecommerce/', '/facebook.com/business/', '/pinterest.com/analytics/',
+    '/shopify-analytics/', '/bigcommerce.com/analytics/',
+    
+    // A/B 測試平台
+    '/optimizely.com/', '/vwo.com/', '/unbounce.com/track/', '/convertize.com/',
+    '/dynamicyield.com/', '/evergage.com/', '/qubit.com/',
+    
+    // 推播通知追蹤
+    '/onesignal.com/', '/pushwoosh.com/', '/pusher.com/track/',
+    '/firebase.google.com/fcm/', '/pushcrew.com/',
+    
+    // 聯盟行銷追蹤
+    '/cj.com/', '/linksynergy.com/', '/shareasale.com/', '/impact.com/',
+    '/partnerize.com/', '/awin1.com/', '/tradedoubler.com/',
+    
+    // 其他常見追蹤服務
+    '/newrelic.com/', '/pingdom.net/', '/statcounter.com/', '/histats.com/',
+    '/addthis.com/', '/sharethis.com/', '/disqus.com/analytics/',
+    '/livechatinc.com/track/', '/tawk.to/track/', '/zopim.com/track/'
 ]);
 
 /**
- * ✅ 路徑白名單（已移除追蹤腳本）
+ * ✅ 路徑白名單（功能性腳本保護清單）
+ * 功能：保護重要的功能性腳本不被誤攔截
+ * 說明：即使路徑包含黑名單關鍵字，但如果同時包含白名單關鍵字，則放行
  */
 const PATH_ALLOW_PATTERNS = new Set([
-    'chunk.js', 'chunk.mjs', 'polyfill.js', 'fetch-polyfill', 'browser.js', 'sw.js',
-    'loader.js', 'header.js', 'head.js', 'padding.css', 'badge.svg', 'modal.js', 'card.js',
-    'download', 'upload', 'payload', 'broadcast', 'roadmap', 'gradient', 'shadow', 'board',
-    'dialog', 'blog', 'catalog', 'game', 'language', 'page', 'page-data.js', 'legacy.js',
-    'article', 'assets', 'cart', 'chart', 'start', 'parts', 'partner',
-    'amp-anim', 'amp-animation', 'amp-iframe',
-    'api', 'service', 'endpoint', 'webhook', 'callback', 'oauth', 'auth', 'login',
-    'register', 'profile', 'dashboard', 'admin', 'config', 'settings', 'preference',
-    'notification', 'message', 'chat', 'comment', 'review', 'rating', 'search',
-    'filter', 'sort', 'category', 'media', 'image', 'video', 'audio',
-    'document', 'pdf', 'export', 'import', 'backup', 'restore', 'sync',
-    'feed', 'rss', 'atom', 'xml', 'opml', 'subscription', 'subscribe',
-    'collections', 'boards', 'streams', 'contents', 'preferences', 'folders',
-    'entries', 'items', 'posts', 'articles', 'sources', 'categories',
-    'bundle.js', 'main.js', 'app.js', 'vendor.js', 'runtime.js', 
-    'common.js', 'util.js', 'script.js'
+    // 核心 JavaScript 模組
+    'chunk.js',                // Webpack 代碼分割塊
+    'chunk.mjs',               // ES6 模組塊
+    'polyfill.js',             // JavaScript 填充腳本
+    'fetch-polyfill',          // Fetch API 填充
+    'browser.js',              // 瀏覽器兼容腳本
+    'sw.js',                   // Service Worker
+    
+    // 前端框架核心文件
+    'loader.js',               // 資源載入器
+    'header.js',               // 頁面頭部腳本
+    'head.js',                 // HeadJS 資源載入
+    'modal.js',                // 模態框功能
+    'card.js',                 // 卡片組件
+    'dialog.js',               // 對話框組件
+    'bundle.js',               // 打包後的主文件
+    'main.js',                 // 主要應用程式腳本
+    'app.js',                  // 應用程式核心
+    'vendor.js',               // 第三方庫打包文件
+    'runtime.js',              // 運行時腳本
+    'common.js',               // 公共功能腳本
+    'util.js',                 // 工具函數庫
+    'script.js',               // 通用腳本文件
+    
+    // CSS 樣式文件
+    'padding.css',             // 樣式填充
+    'badge.svg',               // 徽章圖示
+    
+    // 功能性路徑關鍵字
+    'download',                // 下載功能
+    'upload',                  // 上傳功能
+    'payload',                 // 數據負載
+    'broadcast',               // 廣播功能
+    'roadmap',                 // 路線圖頁面
+    'gradient',                // 漸變樣式
+    'shadow',                  // 陰影效果
+    'board',                   // 看板功能
+    'blog',                    // 部落格內容
+    'catalog',                 // 目錄功能
+    'game',                    // 遊戲相關
+    'language',                // 語言設定
+    'page',                    // 頁面相關
+    'page-data.js',            // Gatsby 等框架的頁面數據
+    'legacy.js',               // 舊版兼容腳本
+    'article',                 // 文章內容
+    'assets',                  // 靜態資源
+    'cart',                    // 購物車功能
+    'chart',                   // 圖表功能
+    'start',                   // 啟動功能
+    'parts',                   // 組件部分
+    
+    // AMP (Accelerated Mobile Pages) 功能組件
+    'amp-anim',                // AMP 動畫組件
+    'amp-animation',           // AMP 動畫控制
+    'amp-iframe',              // AMP iframe 組件
+    
+    // API 與服務端點
+    'api',                     // API 端點
+    'service',                 // 服務端點
+    'endpoint',                // 端點定義
+    'webhook',                 // 網路鉤子
+    'callback',                // 回調端點
+    'oauth',                   // OAuth 驗證
+    'auth',                    // 身份驗證
+    'login',                   // 登入功能
+    'register',                // 註冊功能
+    
+    // 使用者介面功能
+    'profile',                 // 使用者資料
+    'dashboard',               // 儀表板
+    'admin',                   // 管理介面
+    'config',                  // 設定功能
+    'settings',                // 設定頁面
+    'preference',              // 偏好設定
+    'notification',            // 通知功能
+    'message',                 // 訊息功能
+    'chat',                    // 聊天功能
+    'comment',                 // 評論功能
+    'review',                  // 評價功能
+    'rating',                  // 評分功能
+    'search',                  // 搜尋功能
+    'filter',                  // 篩選功能
+    'sort',                    // 排序功能
+    'category',                // 分類功能
+    
+    // 媒體與文件處理
+    'media',                   // 媒體文件
+    'image',                   // 圖片處理
+    'video',                   // 影片功能
+    'audio',                   // 音訊功能
+    'document',                // 文件功能
+    'pdf',                     // PDF 處理
+    'export',                  // 匯出功能
+    'import',                  // 匯入功能
+    'backup',                  // 備份功能
+    'restore',                 // 還原功能
+    'sync',                    // 同步功能
+    
+    // RSS 與訂閱功能
+    'feed',                    // RSS 訂閱源
+    'rss',                     // RSS 功能
+    'atom',                    // Atom 訂閱格式
+    'xml',                     // XML 數據
+    'opml',                    // OPML 訂閱列表
+    'subscription',            // 訂閱功能
+    'subscribe',               // 訂閱動作
+    'collections',             // 收藏集
+    'boards',                  // 看板功能
+    'streams',                 // 串流功能
+    'contents',                // 內容管理
+    'preferences',             // 偏好設定
+    'folders',                 // 資料夾功能
+    'entries',                 // 條目管理
+    'items',                   // 項目列表
+    'posts',                   // 文章發佈
+    'articles',                // 文章管理
+    'sources',                 // 來源管理
+    'categories'               // 分類管理
 ]);
 
 /**
- * 🚫 路徑黑名單
+ * 🚫 路徑黑名單關鍵字（大幅擴展）
+ * 功能：攔截包含這些關鍵字的 URL 路徑
+ * 說明：會先檢查白名單保護，只有未被保護的才會攔截
  */
 const PATH_BLOCK_KEYWORDS = new Set([
-    '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/sponsor/',
-    '/promoted/', '/banner/', '/popup/', '/interstitial/', '/preroll/', '/midroll/', '/postroll/',
-    '/track/', '/trace/', '/tracker/', '/tracking/', '/analytics/', '/analytic/', '/metric/', '/metrics/',
-    '/telemetry/', '/measurement/', '/insight/', '/intelligence/', '/monitor/', '/monitoring/',
-    '/log/', '/logs/', '/logger/', '/logging/', '/logrecord/', '/putlog/', '/audit/', '/event/',
-    '/beacon/', '/pixel/', '/collect/', '/collector/', '/report/', '/reports/', '/reporting/',
+    // 廣告相關路徑
+    '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', 
+    '/affiliate/', '/sponsor/', '/promoted/', '/banner/', '/popup/', '/interstitial/', 
+    '/preroll/', '/midroll/', '/postroll/', '/overlay/', '/companion/',
+    
+    // 追蹤分析路徑
+    '/track/', '/trace/', '/tracker/', '/tracking/', '/analytics/', '/analytic/', 
+    '/metric/', '/metrics/', '/telemetry/', '/measurement/', '/insight/', 
+    '/intelligence/', '/monitor/', '/monitoring/',
+    
+    // 日誌記錄路徑
+    '/log/', '/logs/', '/logger/', '/logging/', '/logrecord/', '/putlog/', 
+    '/audit/', '/event/', '/events/', '/activity/',
+    
+    // 數據收集路徑
+    '/beacon/', '/pixel/', '/collect/', '/collector/', '/report/', '/reports/', 
+    '/reporting/', '/submit/', '/send/', '/post/', '/put/', '/upload-log/',
+    
+    // 錯誤監控路徑
     '/sentry/', '/bugsnag/', '/crash/', '/error/', '/exception/', '/stacktrace/',
+    '/monitoring/', '/apm/', '/rum/', '/performance/',
+    
+    // 廣告技術特定路徑
     'google_ad', 'pagead', 'adsbygoogle', 'doubleclick', 'adsense',
     'dfp', 'google-analytics', 'fbevents', 'fbq',
-    'addthis', 'sharethis', 'taboola', 'criteo', 'osano', 'onead', 'sailthru',
-    'tapfiliate', 'appier', 'hotjar', 'comscore', 'mixpanel', 'amplitude',
+    
+    // 社群分享追蹤
+    'addthis', 'sharethis', 'sharethrough', 'social-share',
+    
+    // 程序化廣告
+    'taboola', 'outbrain', 'criteo', 'revcontent', 'mgid', 'content.ad',
+    'adskeeper', 'adnow', 'propellerads', 'popads', 'adcash', 'hilltopads',
+    
+    // 聯盟行銷
+    'osano', 'onead', 'sailthru', 'tapfiliate', 'appier',
+    
+    // 用戶行為分析
+    'hotjar', 'mouseflow', 'crazyegg', 'fullstory', 'logrocket', 'smartlook',
+    'inspectlet', 'sessioncam', 'clicktale', 'tealeaf',
+    
+    // 測量與分析
+    'comscore', 'chartbeat', 'quantcast', 'nielsen', 'alexa-analytics',
+    'mixpanel', 'amplitude', 'heap', 'segment', 'snowplow', 'kissmetrics',
+    
+    // AMP 廣告組件
     'amp-ad', 'amp-analytics', 'amp-auto-ads', 'amp-sticky-ad', 'amp4ads',
+    
+    // 程序化廣告技術
     'prebid', 'apstag', 'pwt.js', 'utag.js', 'rtb', 'dsp', 'ssp',
-    'cookiepolicy', 'gdpr', 'ccpa', 'plusone', 'optimize', 'pushnotification'
+    'header-bidding', 'bid-request', 'auction',
+    
+    // 隱私與同意管理
+    'cookiepolicy', 'gdpr', 'ccpa', 'consent', 'privacy-policy',
+    'cookie-consent', 'privacy-notice',
+    
+    // Google 特殊服務
+    'plusone', 'optimize', 'experiments',
+    
+    // 推播通知
+    'pushnotification', 'push-notification', 'webpush', 'fcm', 'gcm',
+    'onesignal', 'pushwoosh', 'pusher-analytics',
+    
+    // 新增：更多追蹤與廣告路徑
+    
+    // 電商追蹤
+    'ecommerce-track', 'conversion-track', 'purchase-track', 'checkout-analytics',
+    'product-analytics', 'recommendation-engine', 'personalization',
+    
+    // 影片廣告
+    'video-ad', 'video-ads', 'vast', 'vpaid', 'ima3', 'ima-sdk',
+    'brightcove-analytics', 'kaltura-analytics', 'jwplayer-analytics',
+    
+    // 移動應用追蹤
+    'mobile-analytics', 'app-analytics', 'branch.io', 'appsflyer',
+    'adjust.com', 'singular.net', 'kochava.com', 'tune.com',
+    
+    // 地理位置追蹤
+    'geo-analytics', 'location-track', 'gps-track', 'geotarget',
+    
+    // 聊天機器人追蹤
+    'chatbot-analytics', 'bot-track', 'conversation-analytics',
+    
+    // 搜尋引擎行銷
+    'sem-track', 'ppc-track', 'keyword-track', 'adwords-track',
+    'bing-ads-track', 'yandex-metrica',
+    
+    // 社群媒體廣告
+    'twitter-ads', 'linkedin-ads', 'pinterest-ads', 'snapchat-ads',
+    'tiktok-ads', 'reddit-ads',
+    
+    // CDN 追蹤（部分 CDN 有追蹤功能）
+    'tracking-cdn', 'analytics-cdn', 'metrics-cdn',
+    
+    // 第三方小工具追蹤
+    'widget-analytics', 'embed-track', 'iframe-track',
+    
+    // 新興追蹤技術
+    'fingerprint', 'device-id', 'browser-id', 'session-replay',
+    'canvas-fingerprint', 'webgl-fingerprint', 'audio-fingerprint'
 ]);
 
 /**
  * 💧 直接拋棄請求的關鍵字
+ * 功能：對於某些特殊類型的追蹤請求，直接拋棄（不返回任何響應）
+ * 說明：這會讓請求看起來像網路錯誤，避免觸發重試機制
  */
 const DROP_KEYWORDS = new Set([
-    'log', 'logs', 'logger', 'logging', 'amp-loader', 'amp-analytics', 
-    'beacon', 'collect', 'collector', 'telemetry', 'crash', 'error-report',
-    'metric', 'insight', 'audit', 'event-stream'
+    'log',                     // 日誌記錄
+    'logs',                    // 日誌複數
+    'logger',                  // 日誌記錄器
+    'logging',                 // 日誌記錄動作
+    'amp-loader',              // AMP 載入器
+    'amp-analytics',           // AMP 分析組件
+    'beacon',                  // 信標請求
+    'collect',                 // 數據收集
+    'collector',               // 收集器
+    'telemetry',               // 遙測數據
+    'crash',                   // 崩潰報告
+    'error-report',            // 錯誤報告
+    'metric',                  // 指標數據
+    'insight',                 // 洞察數據
+    'audit',                   // 審計日誌
+    'event-stream',            // 事件串流
+    
+    // 新增：更多需要直接拋棄的類型
+    'heartbeat',               // 心跳檢測
+    'ping',                    // Ping 檢測
+    'health-check',            // 健康檢查
+    'status-check',            // 狀態檢查
+    'alive',                   // 存活檢測
+    'monitoring-ping'          // 監控 Ping
 ]);
 
 /**
- * 🚮 追蹤參數黑名單
+ * 🚮 追蹤參數黑名單（全域清理）
+ * 功能：清除 URL 中的追蹤參數，保護隱私
+ * 說明：這些參數通常用於追蹤用戶來源和行為
  */
 const GLOBAL_TRACKING_PARAMS = new Set([
-    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id',
-    'gclid', 'dclid', 'gclsrc', 'wbraid', 'gbraid', 'gad_source', 'gad', 'gcl_au',
-    'msclkid', 'yclid', 'msad', 'mscampaignid', 'msadgroupid',
-    'fbclid', 'fbadid', 'fbcampaignid', 'fbadsetid', 'fbplacementid',
-    'igshid', 'igsh', 'x-threads-app-object-id', 'mibextid',
-    'mc_cid', 'mc_eid', 'mkt_tok', 'email_source', 'email_campaign',
-    'from', 'source', 'ref', 'referrer', 'campaign', 'medium', 'content',
-    'spm', 'scm', 'share_source', 'share_medium', 'share_plat', 'share_id',
-    'share_tag', 'from_source', 'from_channel', 'from_uid', 'from_user',
-    'tt_from', 'tt_medium', 'tt_campaign', 'share_token', 'share_app_id',
-    'xhsshare', 'xhs_share', 'app_platform', 'share_from',
-    'is_copy_url', 'is_from_webapp', 'pvid', 'fr', 'type', 'scene',
-    'traceid', 'request_id', 'aff_id', '__twitter_impression', '_openstat',
-    'hsCtaTracking', 'hsa_acc', 'hsa_cam', 'hsa_grp', 'hsa_ad', 'hsa_src',
-    'vero_conv', 'vero_id', 'ck_subscriber_id'
+    // === Google 系列追蹤參數 ===
+    'utm_source',              // 流量來源標識
+    'utm_medium',              // 行銷媒介類型
+    'utm_campaign',            // 行銷活動名稱
+    'utm_term',                // 搜尋關鍵字
+    'utm_content',             // 廣告內容標識
+    'utm_id',                  // 行銷活動 ID
+    'gclid',                   // Google Ads 點擊 ID
+    'dclid',                   // Display & Video 360 點擊 ID
+    'gclsrc',                  // Google Ads 來源類型
+    'wbraid',                  // Web 轉換增強 ID
+    'gbraid',                  // Google Ads 轉換 ID
+    'gad_source',              // Google Ads 來源
+    'gad',                     // Google Ads 簡化標識
+    'gcl_au',                  // Google Ads 用戶 ID
+    
+    // === Microsoft 廣告追蹤 ===
+    'msclkid',                 // Microsoft Ads 點擊 ID
+    'yclid',                   // Yahoo/Bing 點擊 ID
+    'msad',                    // Microsoft Ads 標識
+    'mscampaignid',            // Microsoft 活動 ID
+    'msadgroupid',             // Microsoft 廣告群組 ID
+    
+    // === Facebook/Meta 追蹤 ===
+    'fbclid',                  // Facebook 點擊 ID
+    'fbadid',                  // Facebook 廣告 ID
+    'fbcampaignid',            // Facebook 活動 ID
+    'fbadsetid',               // Facebook 廣告集 ID
+    'fbplacementid',           // Facebook 版位 ID
+    'igshid',                  // Instagram 分享 ID
+    'igsh',                    // Instagram 分享簡化
+    'x-threads-app-object-id', // Threads 物件 ID
+    'mibextid',                // Meta 內部擴展 ID
+    
+    // === 電子郵件行銷追蹤 ===
+    'mc_cid',                  // MailChimp 活動 ID
+    'mc_eid',                  // MailChimp 電子郵件 ID
+    'mkt_tok',                 // Marketo 令牌
+    'email_source',            // 電子郵件來源
+    'email_campaign',          // 電子郵件活動
+    
+    // === 通用追蹤參數 ===
+    'from',                    // 來源標識
+    'source',                  // 來源參數
+    'ref',                     // 引用來源
+    'referrer',                // 引用者
+    'campaign',                // 活動標識
+    'medium',                  // 媒介類型
+    'content',                 // 內容標識
+    
+    // === 中國平台追蹤參數 ===
+    'spm',                     // 淘寶/天貓 Super Position Model
+    'scm',                     // 淘寶/天貓 Supply Chain Model
+    'share_source',            // 分享來源
+    'share_medium',            // 分享媒介
+    'share_plat',              // 分享平台
+    'share_id',                // 分享 ID
+    'share_tag',               // 分享標籤
+    'from_source',             // 來自來源
+    'from_channel',            // 來自頻道
+    'from_uid',                // 來自用戶 ID
+    'from_user',               // 來自用戶
+    'tt_from',                 // 抖音來源
+    'tt_medium',               // 抖音媒介
+    'tt_campaign',             // 抖音活動
+    'share_token',             // 分享令牌
+    'share_app_id',            // 分享應用 ID
+    'xhsshare',                // 小紅書分享
+    'xhs_share',               // 小紅書分享簡化
+    'app_platform',            // 應用平台
+    'share_from',              // 分享來自
+    'is_copy_url',             // 是否複製 URL
+    'is_from_webapp',          // 是否來自網頁應用
+    'pvid',                    // 頁面訪問 ID
+    'fr',                      // Facebook 路由參數
+    'type',                    // 類型參數（可能為追蹤）
+    'scene',                   // 場景參數
+    
+    // === 其他追蹤參數 ===
+    'traceid',                 // 追蹤 ID
+    'request_id',              // 請求 ID
+    'aff_id',                  // 聯盟行銷 ID
+    '__twitter_impression',    // Twitter 曝光追蹤
+    '_openstat',               // 開放統計
+    
+    // === HubSpot 追蹤 ===
+    'hsCtaTracking',           // HubSpot CTA 追蹤
+    'hsa_acc',                 // HubSpot 賬戶
+    'hsa_cam',                 // HubSpot 活動
+    'hsa_grp',                 // HubSpot 群組
+    'hsa_ad',                  // HubSpot 廣告
+    'hsa_src',                 // HubSpot 來源
+    
+    // === 其他行銷平台 ===
+    'vero_conv',               // Vero 轉換追蹤
+    'vero_id',                 // Vero 用戶 ID
+    'ck_subscriber_id',        // ConvertKit 訂閱者 ID
+    
+    // === 新增：更多追蹤參數 ===
+    
+    // Adobe 系列
+    'adobe_mc',                // Adobe Marketing Cloud
+    'adobe_mc_ref',            // Adobe MC 引用
+    's_cid',                   // Adobe SiteCatalyst Campaign ID
+    's_vid',                   // Adobe SiteCatalyst Visitor ID
+    
+    // LinkedIn 追蹤
+    'li_fat_id',               // LinkedIn First-party Ad Tracking
+    'lipi',                    // LinkedIn Platform Insights
+    'licu',                    // LinkedIn Cookie Update
+    
+    // Twitter/X 追蹤
+    'twclid',                  // Twitter Click ID
+    'twsrc',                   // Twitter Source
+    
+    // TikTok 追蹤
+    'ttclid',                  // TikTok Click ID
+    'tt_content',              // TikTok Content ID
+    'tt_creative',             // TikTok Creative ID
+    
+    // Pinterest 追蹤
+    'epik',                    // Pinterest Enhanced Match
+    'pin_it',                  // Pinterest Pin It 按鈕
+    
+    // Snapchat 追蹤
+    'sclid',                   // Snapchat Click ID
+    'sc_cmp',                  // Snapchat Campaign
+    
+    // Reddit 追蹤
+    'rdt_cid',                 // Reddit Conversion ID
+    'rdt_cmp',                 // Reddit Campaign
+    
+    // Amazon 追蹤
+    'tag',                     // Amazon 標籤
+    'ascsubtag',               // Amazon Associates Sub Tag
+    'linkCode',                // Amazon Link Code
+    'linkId',                  // Amazon Link ID
+    
+    // 聯盟行銷網路
+    'aff_sub',                 // 聯盟子標籤
+    'aff_sub2',                // 聯盟子標籤2
+    'clickid',                 // 通用點擊 ID
+    'afftrack',                // 聯盟追蹤
+    
+    // 電子郵件行銷
+    'email_id',                // 電子郵件 ID
+    'subscriber_id',           // 訂閱者 ID
+    'list_id',                 // 郵件列表 ID
+    'broadcast_id',            // 廣播 ID
+    
+    // 簡訊行銷
+    'sms_source',              // 簡訊來源
+    'sms_campaign',            // 簡訊活動
+    
+    // 應用商店追蹤
+    'app_store_track',         // 應用商店追蹤
+    'play_store_track',        // Play Store 追蹤
+    'install_source',          // 安裝來源
+    
+    // 客戶關係管理
+    'crm_id',                  // CRM 系統 ID
+    'lead_source',             // 潛在客戶來源
+    'contact_source'           // 聯絡人來源
 ]);
 
+/**
+ * 🎯 追蹤參數前綴清單
+ * 功能：匹配以特定前綴開頭的追蹤參數
+ * 說明：比精確匹配更靈活，能捕捉變種參數
+ */
 const TRACKING_PREFIXES = [
-    'utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'mkt_', 'matomo_', 'piwik_',
-    'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'bd_', 'video_utm_', 'vero_', '__cft_',
-    'hsCtaTracking_', '_hsenc_', '_hsmi_', 'pk_', 'mtm_', 'campaign_', 'source_',
-    'medium_', 'content_', 'term_', 'creative_', 'placement_', 'network_', 'device_'
-];
+    // 通用追蹤前綴
+    'utm_',                    // Google UTM 參數系列
+    'ga_',                     // Google Analytics 參數
+    'fb_',                     // Facebook 參數系列
+    'gcl_',                    // Google Click 參數
+    'ms_',                     // Microsoft 參數
+    'mc_',                     // MailChimp/Marketing Cloud 參數
+    'mke_',                    // 行銷引擎參數
+    'mkt_',                    // 行銷參數
+    'matomo_',                 // Matomo 分析參數
+    'piwik_',                  // Piwik 分析參數（Matomo 前身）
+    'hsa_',                    // HubSpot 廣告參數
+    'ad_',                     // 廣告相關參數
+    'trk_',                    // 追蹤參數
+    'spm_',                    // 淘寶 SPM 參數
+    'scm_',                    // 淘寶 SCM 參數
+    'bd_',                     // 百度參數
+    'video_utm_',              // 影片 UTM 參數
+    'vero_',                   // Vero 行銷平台參數
+    '__cft_',                  // Facebook 內部參數
+    'hsCtaTracking_',          // HubSpot CTA 追蹤
+    '_hsenc_',                 // HubSpot 編碼參數
+    '_hsmi_',                  // HubSpot 行銷資訊
+    'pk_',                     // Matomo/Piwik 參數
+    'mtm_',                    // Matomo 標籤管理器
+    'campaign_',               // 活動參數
+    'source_',                 // 來源參數
+    'medium_',                 // 媒介參數
+    'content_',                // 內容參數
+    'term_',                   // 關鍵詞參數
+    'creative_',               // 創意參數
+    'placement_',              // 版位參數
+    'network_',                // 網路參數
+    'device_',                 // 設備參數
+    
+    // 新增：更多前綴模式
+    'track_',                  // 追蹤前綴
+    'analytics_',              // 分析前綴
+    'metrics_',                // 指標前綴
+    'insight_',                // 洞察前綴
+    'affiliate_',              // 聯盟行銷前綴
+    'ref_',                    // 引用前綴
+    'click_',                  // 點擊前綴
+    'conv_',                   // 轉換前綴
+    'camp_',                   // 活動前綴
+    'src_',                    // 來源前綴
+    'med_',                    // 媒介前綴
+    'cnt_',                    // 內容前綴
+    'kw_',                     // 關鍵詞前綴
+    'cr_',                     // 創意前綴
+    'pl_',                     // 版位前綴
+    'nt_',                     // 網路前綴
+    'dv_',                     // 設備前綴
+    'geo_',                    // 地理位置前綴
+    'demo_',                   // 人口統計前綴
+    'behav_',                  // 行為前綴
+    'interest_',               // 興趣前綴
+    'segment_',                // 細分前綴
+    'cohort_',                 // 群組前綴
+    'funnel_',                 // 漏斗前綴
+    'journey_',                // 用戶旅程前綴
+    'touchpoint_',             // 接觸點前綴
+    'attribution_',            // 歸因前綴
+    'retarget_',               // 重定向前綴
+    'lookalike_',              // 類似受眾前綴
+    'custom_',                 // 自訂參數前綴
+    'internal_',               // 內部追蹤前綴
+    'external_',               // 外部追蹤前綴
+    'social_',                 // 社群媒體前綴
+    'email_',                  // 電子郵件前綴
+    'sms_',                    // 簡訊前綴
+    'push_',                   // 推播前綴
+    'inapp_',                  // 應用內前綴
+    'organic_',                // 自然流量前綴
+    'paid_',                   // 付費流量前綴
+    'owned_',                  // 自有媒體前綴
+    'earned_'                  // 賺得媒體前綴
+]);
+
 
 // =================================================================================
 // 🚀 **V18核心**: 響應定義（修正顯示問題）
