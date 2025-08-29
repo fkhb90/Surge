@@ -181,7 +181,7 @@ const PATH_BLOCK_REGEX = new RegExp([
 /**
  * 💧 直接拋棄請求的關鍵字 (V28 精簡)
  */
-const DROP_KEYWORDS_REGEX = /\b(log|logs|logger|logging|beacon|collect?|telemetry|crash|error-report|intake|batch|diag|heartbeat|web-vitals|csp-report|profiler|trace\.json)\b/i;
+const DROP_KEYWORDS_REGEX = /\b(log|logs|logger|logging|beacon|telemetry|crash|error-report|intake|batch|diag|heartbeat|web-vitals|csp-report|profiler|trace\.json)\b/i;
 
 /**
  * 🗑️ 追蹤參數黑名單 (V28 優化 - 分類快速查找)
