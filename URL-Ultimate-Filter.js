@@ -138,7 +138,7 @@ const STANDARD_TRACKING_SCRIPTS = new Set([
 const CRITICAL_PATH_REGEX = new RegExp([
     '/googletagmanager/', '/google-analytics/', '/googlesyndication/', '/doubleclick/',
     '/googleadservices/', 'google\\.com/ads', 'google\\.com/pagead', '/pagead/gen_204',
-    'facebook\\.com/tr', '/collect\\?', '/track/', 
+    'facebook\\.com/tr', '/collect?', '/track/', 
     '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/',
     '/api/v1/track', 'scorecardresearch\\.com/beacon\\.js', 'analytics\\.twitter\\.com',
     'ads\\.linkedin\\.com/li/track', 'amazon-adsystem\\.com/e/ec', 'ads\\.yahoo\\.com/pixel',
@@ -172,7 +172,7 @@ const PATH_ALLOW_PATTERNS = new Set([
 const PATH_BLOCK_REGEX = new RegExp([
     '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/affiliate/', '/sponsor/',
     '/track/', '/tracker/', '/tracking/', '/analytics/', '/telemetry/', '/beacon/',
-    '/pixel/', '/collect', '/log/', '/metric/', '/event/', 'google_ad', 'pagead',
+    '/pixel/', '/collect?', '/log/', '/logs/', '/metric/', '/event/', 'google_ad', 'pagead',
     'adsbygoogle', 'doubleclick', 'fbevents', 'addthis', 'criteo', 'hotjar', 'mixpanel',
     'amp-ad', 'amp-analytics', 'prebid', 'rtb', 'ad-choices', 'ad-manager', 'ad-server',
     'user-analytics', 'fingerprint', 'retargeting', 'ad-impression', 'ad-click'
@@ -181,7 +181,7 @@ const PATH_BLOCK_REGEX = new RegExp([
 /**
  * 💧 直接拋棄請求的關鍵字 (V28 精簡)
  */
-const DROP_KEYWORDS_REGEX = /\b(log|logs|logger|logging|beacon|collect|telemetry|crash|error-report|intake|batch|diag|heartbeat|web-vitals|csp-report|profiler|trace\.json)\b/i;
+const DROP_KEYWORDS_REGEX = /\b(log|logs|logger|logging|beacon|collect?|telemetry|crash|error-report|intake|batch|diag|heartbeat|web-vitals|csp-report|profiler|trace\.json)\b/i;
 
 /**
  * 🗑️ 追蹤參數黑名單 (V28 優化 - 分類快速查找)
@@ -220,7 +220,7 @@ const EXTENDED_TRACKING_PARAMS = new Set([
 ]);
 
 // V28 優化：更精準的追蹤前綴正則，避免過度匹配
-const TRACKING_PREFIX_REGEX = /^(utm_|ga_|fb_|gcl_|ms_|mc_|mke_|mkt_|ad_|trk_|spm_|bd_|ref_|from_|share_|aff_|cam_|_ga_|_hs|pk_|hmsr_)/;
+const TRACKING_PREFIX_REGEX =/^(utm_|ga_|fb_|gcl_|ms_|mc_|mke_|mkt_|matomo_|piwik_|hsa_|ad_|trk_|spm_|scm_|bd_|video_utm_|vero_|__cf_|_hs|pk_|mtm_|campaign_|source_|medium_|content_|term_|creative_|placement_|network_|device_|ref_|from_|share_|aff_|alg_|li_|tt_|tw_|epik_|_bta_|_bta|_oly_|cam_|cup_|gdr_|gds_|et_|hmsr_|zanpid_|_ga_|_gid_|_gat_|s_)/;
 
 // =================================================================================
 // 🚀 響應定義 (V28 手機優化)
