@@ -112,7 +112,7 @@ const CRITICAL_TRACKING_SCRIPTS = new Set([
  */
 const CRITICAL_TRACKING_PATTERNS = new Set([
     // Core Lists...
-    '/ytag.js', '/gtag.js', '/gtm.js', '/ga.js', '/analytics.js', '/adsbygoogle.js', '/googletagmanager/', '/google-analytics/', '/googlesyndication/', '/doubleclick/', '/googleadservices/', 'google.com/ads', 'google.com/pagead', '/pagead/gen_204', '/fbevents.js', '/fbq.js', 'facebook.com/tr', 'facebook.com/tr/', '/collect', '/track', '/v1/event', '/v1/events', '/events', '/beacon', '/pixel', '/telemetry', '/api/log', '/api/track', '/api/collect', '/api/v1/track', 'scorecardresearch.com/beacon.js', 'analytics.twitter.com', 'ads.linkedin.com/li/track', 'amazon-adsystem.com/e/ec', 'ads.yahoo.com/pixel', 'ads.bing.com/msclkid', 'segment.io/v1/track', 'heap.io/api/track', 'api.mixpanel.com/track', 'api.amplitude.com', '/v2/event', '/v2/events', '/intake', '/batch', '/abtesting/', '/feature-flag/', '/user-profile/', 'api-iam.intercom.io/messenger/web/events', 'api.hubspot.com/events', '/b/ss', '/i/adsct', 'cacafly/track', '/track/m', '/track/pc',
+    '/ytag.js', '/gtag.js', '/gtm.js', '/ga.js', '/analytics.js', '/adsbygoogle.js', '/googletagmanager/', '/google-analytics/', '/googlesyndication/', '/doubleclick/', '/googleadservices/', 'google.com/ads', 'google.com/pagead', '/pagead/gen_204', '/fbevents.js', '/fbq.js', 'facebook.com/tr', 'facebook.com/tr/', '/collect?', '/track', '/v1/event', '/v1/events', '/events', '/beacon', '/pixel', '/telemetry', '/api/log', '/api/track', '/api/collect', '/api/v1/track', 'scorecardresearch.com/beacon.js', 'analytics.twitter.com', 'ads.linkedin.com/li/track', 'amazon-adsystem.com/e/ec', 'ads.yahoo.com/pixel', 'ads.bing.com/msclkid', 'segment.io/v1/track', 'heap.io/api/track', 'api.mixpanel.com/track', 'api.amplitude.com', '/v2/event', '/v2/events', '/intake', '/batch', '/abtesting/', '/feature-flag/', '/user-profile/', 'api-iam.intercom.io/messenger/web/events', 'api.hubspot.com/events', '/b/ss', '/i/adsct', 'cacafly/track', '/track/m', '/track/pc',
 
     // V25 China Expansion (Retained)
     '/hm.js', 'hm.baidu.com/hm.js',
@@ -134,7 +134,7 @@ const PATH_BLOCK_KEYWORDS = new Set(['/ad/', '/ads/', '/adv/', '/advert/', '/adv
 /**
  * 💧 直接拋棄請求的關鍵字 (無變更)
  */
-const DROP_KEYWORDS = new Set(['log', 'logs', 'logger', 'logging', 'amp-loader', 'amp-analytics', 'beacon', 'collect', 'collector', 'telemetry', 'crash', 'error-report', 'metric', 'insight', 'audit', 'event-stream', 'ingest', 'live-log', 'realtime-log', 'data-pipeline', 'rum', 'intake', 'batch', 'diag', 'client-event', 'server-event', 'heartbeat']);
+const DROP_KEYWORDS = new Set(['log', 'logs', 'logger', 'logging', 'amp-loader', 'amp-analytics', 'beacon', 'collect?', 'collector', 'telemetry', 'crash', 'error-report', 'metric', 'insight', 'audit', 'event-stream', 'ingest', 'live-log', 'realtime-log', 'data-pipeline', 'rum', 'intake', 'batch', 'diag', 'client-event', 'server-event', 'heartbeat']);
 
 /**
  * 🗑️ 追蹤參數黑名單 (V25 擴充)
