@@ -108,11 +108,11 @@ const CRITICAL_TRACKING_SCRIPTS = new Set([
 ]);
 
 /**
- * 🚨 關鍵追蹤路徑模式 (V25 擴充)
+ * 🚨 關鍵追蹤路徑模式 (V25 擴充) - 已修正
  */
 const CRITICAL_TRACKING_PATTERNS = new Set([
-    // Core Lists...
-    '/ytag.js', '/gtag.js', '/gtm.js', '/ga.js', '/analytics.js', '/adsbygoogle.js', '/googletagmanager/', '/google-analytics/', '/googlesyndication/', '/doubleclick/', '/googleadservices/', 'google.com/ads', 'google.com/pagead', '/pagead/gen_204', '/fbevents.js', '/fbq.js', 'facebook.com/tr', 'facebook.com/tr/', '/collect?', '/track', '/v1/event', '/v1/events', '/events', '/beacon', '/pixel', '/telemetry', '/api/log', '/api/track', '/api/collect', '/api/v1/track', 'scorecardresearch.com/beacon.js', 'analytics.twitter.com', 'ads.linkedin.com/li/track', 'amazon-adsystem.com/e/ec', 'ads.yahoo.com/pixel', 'ads.bing.com/msclkid', 'segment.io/v1/track', 'heap.io/api/track', 'api.mixpanel.com/track', 'api.amplitude.com', '/v2/event', '/v2/events', '/intake', '/batch', '/abtesting/', '/feature-flag/', '/user-profile/', 'api-iam.intercom.io/messenger/web/events', 'api.hubspot.com/events', '/b/ss', '/i/adsct', 'cacafly/track', '/track/m', '/track/pc',
+    // Core Lists... (已修正部分規則以提高精準度)
+    '/ytag.js', '/gtag.js', '/gtm.js', '/ga.js', '/analytics.js', '/adsbygoogle.js', '/googletagmanager/', '/google-analytics/', '/googlesyndication/', '/doubleclick/', '/googleadservices/', 'google.com/ads', 'google.com/pagead', '/pagead/gen_204', '/fbevents.js', '/fbq.js', 'facebook.com/tr', 'facebook.com/tr/', '/collect?', '/track/', '/v1/event', '/v1/events', '/events/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/', '/api/v1/track', 'scorecardresearch.com/beacon.js', 'analytics.twitter.com', 'ads.linkedin.com/li/track', 'amazon-adsystem.com/e/ec', 'ads.yahoo.com/pixel', 'ads.bing.com/msclkid', 'segment.io/v1/track', 'heap.io/api/track', 'api.mixpanel.com/track', 'api.amplitude.com', '/v2/event', '/v2/events', '/intake', '/batch', '/abtesting/', '/feature-flag/', '/user-profile/', 'api-iam.intercom.io/messenger/web/events', 'api.hubspot.com/events', '/b/ss', '/i/adsct', 'cacafly/track', '/track/m', '/track/pc',
 
     // V25 China Expansion (Retained)
     '/hm.js', 'hm.baidu.com/hm.js',
