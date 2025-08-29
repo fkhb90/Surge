@@ -71,7 +71,7 @@ const API_WHITELIST_EXACT = new Set([
     'api.cathaybk.com.tw', 'api.ctbcbank.com', 'tixcraft.com', 'kktix.com', 'netbank.bot.com.tw',
     'ebank.megabank.com.tw', 'ibank.firstbank.com.tw', 'netbank.hncb.com.tw', 'mma.sinopac.com',
     'richart.tw', 'api.irentcar.com.tw', 'ebank.tcb-bank.com.tw', 'ibanking.scsb.com.tw', 
-    'ebank.taipeifubon.com.tw', 'nbe.standardchartered.com.tw', 'api.feedly.com'
+    'ebank.taipeifubon.com.tw', 'nbe.standardchartered.com.tw', 'api.feedly.com', 'pro.104.com.tw'
 ]);
 
 const API_WHITELIST_WILDCARDS = new Map([
