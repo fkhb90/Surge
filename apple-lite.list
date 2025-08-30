@@ -163,7 +163,6 @@ DOMAIN-SUFFIX,ads.apple.com
 DOMAIN-SUFFIX,ads.internal.unity3d.com
 DOMAIN-SUFFIX,ads.prd.ie.internal.unity3d.com
 DOMAIN-SUFFIX,aidc.apple.com
-DOMAIN-SUFFIX,albert.gcsis-apple.com.akadns.net
 DOMAIN-SUFFIX,analytics.icloud.com
 DOMAIN-SUFFIX,analytics-edge.apple.com
 DOMAIN-SUFFIX,api.books.apple.com
@@ -257,7 +256,6 @@ DOMAIN-SUFFIX,gbman.ce.apple-dns.net
 DOMAIN-SUFFIX,gcs-eu-00002.content-storage-download.googleapis.com
 DOMAIN-SUFFIX,gdcrl.godaddy.com.akadns.net
 DOMAIN-SUFFIX,gdmf.apple.com	
-DOMAIN-SUFFIX,gs.apple.com
 DOMAIN-SUFFIX,health-assets.cdn-apple.com
 DOMAIN-SUFFIX,health-assets.cdn-apple.com.edgekey.net
 DOMAIN-SUFFIX,iad.apple.com
