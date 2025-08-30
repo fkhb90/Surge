@@ -251,16 +251,12 @@ DOMAIN-SUFFIX,feedback.apple.com
 DOMAIN-SUFFIX,feedbackws.apple.com
 DOMAIN-SUFFIX,feedbackws.fe.apple-dns.net
 DOMAIN-SUFFIX,feedbackws.icloud.com
-DOMAIN-SUFFIX,fr51p02sa.guzzoni-apple.com.akadns.net
 DOMAIN-SUFFIX,ftreporter.push.apple.com
 DOMAIN-SUFFIX,gblon.ce.apple-dns.net
 DOMAIN-SUFFIX,gbman.ce.apple-dns.net
 DOMAIN-SUFFIX,gcs-eu-00002.content-storage-download.googleapis.com
 DOMAIN-SUFFIX,gdcrl.godaddy.com.akadns.net
 DOMAIN-SUFFIX,gdmf.apple.com	
-DOMAIN-SUFFIX,guzzoni.apple.com
-DOMAIN-SUFFIX,gsas.apple.com
-DOMAIN-SUFFIX,gsas.apple.com.akadns.net
 DOMAIN-SUFFIX,gs.apple.com
 DOMAIN-SUFFIX,health-assets.cdn-apple.com
 DOMAIN-SUFFIX,health-assets.cdn-apple.com.edgekey.net
@@ -301,7 +297,6 @@ DOMAIN-SUFFIX,notes-analytics-events.apple.com
 DOMAIN-SUFFIX,notes-analytics-events.news.apple-dns.net
 DOMAIN-SUFFIX,ocsp-lb.apple.com.akadns.net
 DOMAIN-SUFFIX,opensource.apple.com
-DOMAIN-SUFFIX,origin.seed-siri-apple.com.akadns.net
 DOMAIN-SUFFIX,outsideapple.apple.com
 DOMAIN-SUFFIX,outsideapple.apple.com.akadns.net
 DOMAIN-SUFFIX,pancake.apple.com
@@ -329,7 +324,6 @@ DOMAIN-SUFFIX,sb.music.apple.com
 DOMAIN-SUFFIX,sb.tv.apple.com
 DOMAIN-SUFFIX,searn.ce.apple-dns.net
 DOMAIN-SUFFIX,securemetrics.apple.com
-DOMAIN-SUFFIX,seed.siri.apple.com
 DOMAIN-SUFFIX,settings.crashlytics.com
 DOMAIN-SUFFIX,skadsdk.apple.com
 DOMAIN-SUFFIX,smoot-feedback.v.aaplimg.com
