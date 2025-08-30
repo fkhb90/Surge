@@ -273,7 +273,6 @@ DOMAIN-SUFFIX,idiagnostics.apple.com.akadns.net
 DOMAIN-SUFFIX,images.apple.com
 DOMAIN-SUFFIX,images.apple.com.akadns.net
 DOMAIN-SUFFIX,internalcheck.apple.com
-DOMAIN-SUFFIX,init.ess.apple.com
 DOMAIN-SUFFIX,iphone-services.apple.com
 DOMAIN-SUFFIX,iphone-services.ls-apple.com.akadns.net
 DOMAIN-SUFFIX,iphonesubmissions.apple.com
@@ -327,7 +326,6 @@ DOMAIN-SUFFIX,securemetrics.apple.com
 DOMAIN-SUFFIX,settings.crashlytics.com
 DOMAIN-SUFFIX,skadsdk.apple.com
 DOMAIN-SUFFIX,smoot-feedback.v.aaplimg.com
-DOMAIN-SUFFIX,sp11p03sa.guzzoni-apple.com.akadns.net
 DOMAIN-SUFFIX,stats.apple.com
 DOMAIN-SUFFIX,static.ips.apple.com
 DOMAIN-SUFFIX,stocks-analytics-events.apple.com
