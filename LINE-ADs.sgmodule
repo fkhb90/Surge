@@ -90,26 +90,31 @@ URL-REGEX,^https:\/\/(partner-ad|affiliate|external-ad|network-ad)\.line\.(me|co
 
 [MITM]
 hostname = %APPEND%
-# --- 核心 API 與追蹤 (高頻觸發) ---
-# 說明：這些是廣告與追蹤請求的主要來源。
+# --- 核心 API 與追蹤 ---
 legy.line-apps.com,
 nelo2-col.linecorp.com,
 analytics.line.me,
 stat.line-apps.com,
 track.line.me,
-api.line.me,
+metrics.line-apps.com,
+collect.line-apps.com,
+telemetry.line.me,
+beacon.line.me,
+targeting.line.me,
+behavioral.line.me,
+personalized.line-apps.com,
+recommend-ad.line.me,
+api.line.me, # 僅為攔截 OA 廣告路徑，核心功能已由 DOMAIN-SUFFIX 保護
 oa.line.biz,
 
-# --- 各服務廣告 API (按需觸發) ---
-# 說明：當您使用特定功能時，以下域名中的廣告 API 會被攔截。
-# 註解：pay.line.me 僅攔截其下的 /advertisement/ 路徑，不影響支付核心。
-voom.line.me,
+# --- 各服務廣告 API ---
 today-api.line-apps.com,
+voom.line.me,
 timeline.line.me,
 live.line.me,
 live-api.line-apps.com,
 shopping.line.me,
-pay.line.me,
+pay.line.me, # 僅為攔截廣告 API，支付核心不受影響
 point-ad.line.me,
 reward.line.me,
 place.line.me,
@@ -120,17 +125,17 @@ friend.line.me,
 push.line.me,
 push-api.line.me,
 
-# --- 廣告內容 CDN (安全合併) ---
-# 說明：合併所有 *.line-scdn.net 子域名是安全的，因為它們主要分發內容而非處理敏感事務。
-*.line-scdn.net,
+# --- 廣告內容 CDN ---
+obs.line-scdn.net,
+d.line-scdn.net,
+vdn.line-scdn.net,
 
-# --- 其他零散追蹤與廣告域名 ---
-# 說明：覆蓋其餘已知廣告域名。
-targeting.line.me,
-behavioral.line.me,
-personalized.line-apps.com,
-recommend-ad.line.me,
+# --- 其他廣告域名 ---
 real-time-ad.line.me,
+splash.line.me,
+startup-ad.line-scdn.net,
+dynamic-ad.line-scdn.net,
+partner-ad.line-scdn.net,
 affiliate.line.me,
 external-ad.line.me,
 network-ad.line-apps.com
