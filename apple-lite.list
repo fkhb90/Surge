@@ -1,36 +1,145 @@
-# Blocks Apple telemetry and tracking but won't break your device
-# 核心廣告與追蹤
-DOMAIN-SUFFIX,ads.apple.com
-DOMAIN-SUFFIX,adservices.apple.com
-DOMAIN-SUFFIX,iadsdk.apple.com
-DOMAIN-SUFFIX,iadcontent.apple.com
-DOMAIN-SUFFIX,skadnetwork.com
-DOMAIN-SUFFIX,api-adservices.apple.com
-DOMAIN-SUFFIX,dzc-metrics.mzstatic.com
+# unified-apple-privacy.list
+# version: v2025-08-31-01
+# generated: 2025-08-31
+# objective: 在不破壞核心系統功能前提下，降低 Apple 及相關廣告／遙測可見度
+# ordering: ALLOW (核心) → CONDITIONAL (媒體) → BLOCK (廣告／遙測／診斷) → OPTIONAL (第三方) → CANDIDATES → REGEX
+# note: 視個人情境調整；請先於測試裝置灰度驗證 48h
 
-# 核心遙測與分析
-DOMAIN-SUFFIX,analytics.apple.com
-DOMAIN-SUFFIX,analytics-edge.apple.com
-DOMAIN-SUFFIX,metrics.apple.com
-DOMAIN-SUFFIX,securemetrics.apple.com
-DOMAIN-SUFFIX,supportmetrics.apple.com
-DOMAIN-SUFFIX,books-analytics-events.apple.com
-DOMAIN-SUFFIX,news-events.apple.com
-DOMAIN-SUFFIX,notes-analytics-events.apple.com
-DOMAIN-SUFFIX,stocks-analytics-events.apple.com
+#####################################################################
+# SECTION 1 －－ Core Security & Function (MANDATORY ALLOW / DIRECT)
+# 風險若阻擋：TLS 憑證撤銷延遲、系統更新失敗、登入失敗、應用安裝異常
+#####################################################################
+# DOMAIN,ocsp-lb.apple.com
+# DOMAIN,tbsc.apple.com
+# DOMAIN,valid.apple.com
+# DOMAIN,appldnld.apple.com
+# DOMAIN,gdmf.apple.com
+# DOMAIN,iphone-services.apple.com
+# DOMAIN,identity.apple.com
+# DOMAIN,appidnid.apple.com
+# DOMAIN,cdsassets.apple.com
+# DOMAIN,cds.apple.com
+# DOMAIN,ess.apple.com
+# DOMAIN,images.apple.com
+# DOMAIN,devimages-cdn.apple.com
 
-# 反饋與診斷
-DOMAIN-SUFFIX,crashreport.apple.com
-DOMAIN-SUFFIX,feedback.apple.com
-DOMAIN-SUFFIX,radarsubmissions.apple.com
-DOMAIN-SUFFIX,diagnostics.apple.com
-DOMAIN-SUFFIX,ppq.apple.com
+# 視極簡需求可移動至媒體段：下兩行保留是為減少 App Store 圖示缺失
+# DOMAIN,store.mzstatic.com
+# DOMAIN-SUFFIX,mzstatic.com
 
-# 以下域名可能導致功能異常，請謹慎使用
-DOMAIN-SUFFIX,tv.apple.com  <- 可能破壞 Apple TV+
-DOMAIN-SUFFIX,books.apple.com <- 可能破壞 Apple Books
-# DOMAIN-SUFFIX,appldnld.apple.com <- 可能破壞 App 下載與系統更新
-# DOMAIN-SUFFIX,mzstatic.com <- 可能破壞 App Store 圖片顯示
-# DOMAIN-SUFFIX,ocsp.apple.com <- 可能導致 App 啟動緩慢 (macOS)
+#####################################################################
+# SECTION 2 －－ Media / Content (CONDITIONAL ALLOW)
+# 若不使用對應服務，可註解以降低外部請求
+#####################################################################
+DOMAIN,podcasts.apple.com
+DOMAIN,tv.apple.com
+DOMAIN,books.apple.com
+DOMAIN,api.books.apple.com
+DOMAIN,health-assets.cdn-apple.com
+DOMAIN,stocks-sparkline.apple.com
+DOMAIN,sb.music.apple.com
+DOMAIN,sb.tv.apple.com
+DOMAIN,pancake.apple.com
+DOMAIN,zeusmedia.apple.com
+DOMAIN-SUFFIX,aaplimg.com
 
-URL-REGEX,^https?://iad-[a-z0-9-]+.apple.com/？*$
+#####################################################################
+# SECTION 3 －－ Ads & Attribution (RECOMMENDED BLOCK)
+# 阻擋後：廣告位可能留白；歸因資料減少
+#####################################################################
+# ↓ 建議以 REJECT 或自訂策略（如 REJECT-TINYGIF）
+DOMAIN,iad.apple.com
+DOMAIN,iadsdk.apple.com
+DOMAIN,ca.iadsdk.apple.com
+DOMAIN,cf.iadsdk.apple.com
+DOMAIN,cs.iadsdk.apple.com
+DOMAIN,ut.iadsdk.apple.com
+DOMAIN,tr.iadsdk.apple.com
+DOMAIN,news.iadsdk.apple.com
+DOMAIN,iadcontent.apple.com
+DOMAIN,iadsk.apple.com
+DOMAIN,ads.apple.com
+DOMAIN,api-adservices.apple.com
+DOMAIN,api-adservices.skadnetwork.com
+DOMAIN,skadsdk.apple.com
+DOMAIN,unityads.unity3d.com
+DOMAIN,ads.internal.unity3d.com
+DOMAIN,ads.prd.ie.internal.unity3d.com
+
+#####################################################################
+# SECTION 4 －－ Analytics / Telemetry (RECOMMENDED BLOCK)
+# 阻擋後：遙測統計缺失，可能影響使用行為最佳化；評估必要性
+#####################################################################
+DOMAIN,metrics.apple.com
+DOMAIN,metrics.mzstatic.com
+DOMAIN,metrics.icloud.com
+DOMAIN,analytics.icloud.com
+DOMAIN,analytics-edge.apple.com
+DOMAIN,feedbackws.apple.com
+DOMAIN,feedbackws.icloud.com
+DOMAIN,feedback.apple.com
+DOMAIN,smoot-feedback.v.aaplimg.com
+DOMAIN,books-analytics-events.apple.com
+DOMAIN,notes-analytics-events.apple.com
+DOMAIN,stocks-analytics-events.apple.com
+DOMAIN,news-events.apple.com
+DOMAIN,news-events.news.apple-dns.net
+DOMAIN,notes-analytics-events.news.apple-dns.net
+DOMAIN,stocks-analytics-events.news.apple-dns.net
+DOMAIN,supportmetrics.apple.com
+DOMAIN,securemetrics.apple.com
+DOMAIN,basejumper.apple.com
+DOMAIN,stats.apple.com
+
+#####################################################################
+# SECTION 5 －－ Diagnostics / Internal Reporting (OPTIONAL BLOCK)
+# 阻擋後：無自動錯誤回報；若需協助診斷可暫時允許
+#####################################################################
+DOMAIN,crashreport.apple.com
+DOMAIN,idiagnostics.apple.com
+DOMAIN,radarsubmissions.apple.com
+DOMAIN,radarsubmissions.apple.com.akadns.net
+DOMAIN,tf-feedback.itunes.apple.com
+DOMAIN,ppq.apple.com
+DOMAIN,ppq-new-st.oa-apple.com.akadns.net
+DOMAIN,internalcheck.apple.com
+
+#####################################################################
+# SECTION 6 －－ Third-Party Debug / Telemetry (MODE SWITCH)
+# 測試／開發模式：允許（DIRECT）
+# 隱私模式：阻擋（REJECT）
+# 可用情境：崩潰分析、性能統計、A/B 測試
+#####################################################################
+#MODE:PRIVACY → （預設阻擋可保留；若要允許請取消註解或移到白名單清單）
+DOMAIN,e.crashlytics.com
+DOMAIN,settings.crashlytics.com
+DOMAIN,pipe.prd.skypedata.akadns.net
+DOMAIN,pipe.cloudapp.aria.akadns.net
+DOMAIN,prd.col.aria.browser.skypedata.akadns.net
+DOMAIN,prd.col.aria.mobile.skypedata.akadns.net
+
+#####################################################################
+# SECTION 7 －－ Ephemeral CDN Candidates (OBSERVE ONLY)
+# 不建議直接阻擋；列出以供日誌頻率追蹤。必要時分流到暫存清單再決策。
+# 若後續證實僅承載廣告／遙測且無功能依賴，再轉入阻擋段。
+#####################################################################
+#CANDIDATE,a1467.g.akamai.net
+#CANDIDATE,a1715.phobos.apple.com
+#CANDIDATE,edge-035.usnyc.ce.apple-dns.net
+#CANDIDATE,edge-010.gblon.ce.apple-dns.net
+#CANDIDATE,edge-045.gblon.ce.apple-dns.net
+#CANDIDATE,a682.phobos.g.aaplimg.com
+#CANDIDATE,a506.phobos.g.aaplimg.com
+#CANDIDATE,a1598.phobos.g.aaplimg.com
+#CANDIDATE,a1397.phobos.g.aaplimg.com
+#CANDIDATE,a1462.phobos.g.aaplimg.com
+
+#####################################################################
+# SECTION 8 －－ Regex Rules (Minimal & Audited)
+# 僅針對明確 iad-* 型態；避免過廣影響效能／誤傷
+#####################################################################
+URL-REGEX,^https?:\/\/iad-[a-z0-9-]+\.apple\.com\/?.*$
+
+#####################################################################
+# END OF FILE
+#####################################################################
