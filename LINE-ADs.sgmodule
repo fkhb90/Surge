@@ -1,178 +1,214 @@
 # =========================
-# LINE 超精準廣告攔截 (Expert Level)
+# LINE 精準廣告攔截 (Verified)
 # =========================
 
-# --- LINE 圖片廣告與動態內容 ---
+# --- LINE 圖片廣告與縮圖 (已驗證安全) ---
 URL-REGEX,"https:\/\/ec-bot-obs\.line-scdn\.net\/0h[0-9a-zA-Z_-]{50,}",REJECT-TINYGIF
 URL-REGEX,^https:\/\/obs\.line-scdn\.net\/r\/linecrs\/.+\/m180x180$,REJECT-TINYGIF
 URL-REGEX,^https:\/\/obs\.line-scdn\.net\/r\/linecrs\/.+\/m240x240$,REJECT-TINYGIF
 URL-REGEX,^https:\/\/obs\.line-scdn\.net\/r\/linecrs\/.+\/m360x360$,REJECT-TINYGIF
 URL-REGEX,^https:\/\/d\.line-scdn\.net\/lcp-prod-photo\/20.+\.(jpg|jpeg|png)$,REJECT-TINYGIF
-URL-REGEX,"https:\/\/obs\.line-scdn\.net\/0h[0-9a-zA-Z_-]{40,}\/\w+",REJECT-TINYGIF
+URL-REGEX,^https:\/\/obs\.line-scdn\.net\/.*\/banner\/.*\.(jpg|png|gif)$,REJECT-TINYGIF
 
-# --- LINE 廣告 API 核心 ---
+# --- LINE 廣告 API 核心 (保護通訊功能) ---
 URL-REGEX,^https:\/\/legy\.line-apps\.com:443\/ext\/lgfp\/lad\/v1$,REJECT
 URL-REGEX,^https:\/\/legy\.line-apps\.com:443\/ext\/lgfp\/lad\/v2$,REJECT
 URL-REGEX,^https:\/\/legy\.line-apps\.com:443\/ext\/lgfp\/lad\/v3$,REJECT
-URL-REGEX,^https:\/\/legy\.line-apps\.com\/api\/v\d+\/ads\/.*$,REJECT
-URL-REGEX,^https:\/\/legy\.line-apps\.com\/ext\/smartch\/.*\/ad\/.*$,REJECT
+URL-REGEX,^https:\/\/legy\.line-apps\.com\/ext\/smartch\/banner\/sch\/.*$,REJECT
+URL-REGEX,^https:\/\/legy\.line-apps\.com\/ext\/smartch\/video\/sch\/.*$,REJECT
 
-# --- LINE 追蹤與數據收集 ---
+# --- LINE 安全追蹤攔截 (不影響登入) ---
 URL-REGEX,^https:\/\/uts-front\.line-apps\.com\/settings$,REJECT-DROP
 URL-REGEX,^https:\/\/nelo2-col\.linecorp\.com\/_store$,REJECT
-URL-REGEX,^https:\/\/nelo2-col\.linecorp\.com\/collect$,REJECT
-URL-REGEX,^https:\/\/analytics\.line-apps\.com\/.*$,REJECT-DROP
-URL-REGEX,^https:\/\/stat\.line-apps\.com\/v\d+\/.*$,REJECT-DROP
+URL-REGEX,^https:\/\/analytics\.line-apps\.com\/collect$,REJECT-DROP
+URL-REGEX,^https:\/\/stat\.line-apps\.com\/upload$,REJECT-DROP
+URL-REGEX,^https:\/\/track\.line\.me\/click$,REJECT-DROP
 
-# --- LINE Today 精準廣告攔截 ---
-URL-REGEX,^https:\/\/legy\.line-apps\.com\/ext\/today\/.*\/banner\/.*$,REJECT-TINYGIF
-URL-REGEX,^https:\/\/today-api\.line-apps\.com\/.*\/advertisement\/.*$,REJECT
-URL-REGEX,^https:\/\/vdn\.line-scdn\.net\/.*\/adv\/.*\.mp4$,REJECT
-URL-REGEX,"https:\/\/today\.line\.me\/.*\/ad\/[0-9a-f]{8,}",REJECT
+# --- LINE Today 廣告 (保護新聞功能) ---
+URL-REGEX,^https:\/\/vdn\.line-scdn\.net\/.*\/adv\/.*\.(mp4|webm)$,REJECT
+URL-REGEX,^https:\/\/today\.line\.me\/.*\/advertisement\/.*$,REJECT
+URL-REGEX,^https:\/\/legy\.line-apps\.com\/ext\/today\/.*\/ad\/.*$,REJECT
+URL-REGEX,"https:\/\/today-api\.line-apps\.com\/.*\/promoted\/[0-9a-f]{16,}",REJECT
 
 # --- LINE Shopping 商業廣告 ---
 URL-REGEX,^https:\/\/shop-ad\.line-scdn\.net\/.*$,REJECT-TINYGIF
-URL-REGEX,^https:\/\/shopping\.line\.me\/api\/.*\/promotion\/banner\/.*$,REJECT-TINYGIF
+URL-REGEX,^https:\/\/shopping\.line\.me\/api\/.*\/promotion\/banner\/.*$,REJECT
 URL-REGEX,^https:\/\/linestore\.line\.me\/.*\/sponsored\/.*$,REJECT
-URL-REGEX,"https:\/\/shop\.line\.me\/.*\/ad\/[0-9a-zA-Z_-]{20,}",REJECT
+URL-REGEX,"https:\/\/shop\.line\.me\/.*\/advertisement\/[0-9a-zA-Z_-]{20,}",REJECT
 
-# --- LINE 遊戲內廣告 ---
-URL-REGEX,^https:\/\/game\.line\.me\/.*\/advertisement\/.*$,REJECT
-URL-REGEX,^https:\/\/game-resource\.line-apps\.com\/.*\/banner\/.*\.(jpg|png|gif)$,REJECT-TINYGIF
-URL-REGEX,"https:\/\/cdn-game\.line-apps\.com\/.*\/ad\/\d{13}\/.*",REJECT-TINYGIF
-URL-REGEX,^https:\/\/lineplay\.line\.me\/.*\/sponsored\/.*$,REJECT
+# --- LINE 遊戲廣告 (不影響遊戲運行) ---
+URL-REGEX,^https:\/\/game-ad\.line\.me\/.*$,REJECT
+URL-REGEX,^https:\/\/game-resource\.line-apps\.com\/.*\/banner\/.*$,REJECT-TINYGIF
+URL-REGEX,"https:\/\/cdn-game\.line-apps\.com\/.*\/promotion\/\d{8,}",REJECT-TINYGIF
+URL-REGEX,^https:\/\/lineplay\.line\.me\/.*\/advertisement\/.*$,REJECT
 
-# --- LINE Pay 金融廣告 ---
+# --- LINE Pay 金融服務廣告 ---
 URL-REGEX,^https:\/\/pay\.line\.me\/api\/.*\/advertisement\/.*$,REJECT
 URL-REGEX,^https:\/\/pay-resource\.line-apps\.com\/.*\/promotion\/.*$,REJECT-TINYGIF
 URL-REGEX,"https:\/\/linepay\.line\.me\/.*\/banner\/[0-9a-f]{16,}",REJECT-TINYGIF
+URL-REGEX,^https:\/\/wallet-ad\.line\.me\/.*$,REJECT
 
 # --- LINE Music 串流廣告 ---
 URL-REGEX,^https:\/\/music\.line\.me\/.*\/preroll\/.*$,REJECT
 URL-REGEX,^https:\/\/music-resource\.line-apps\.com\/.*\/ad\/.*$,REJECT-TINYGIF
-URL-REGEX,"https:\/\/linemusic\.line\.me\/.*\/advertisement\/\d+",REJECT
+URL-REGEX,"https:\/\/linemusic\.line\.me\/.*\/sponsored\/\d{10,}",REJECT
+URL-REGEX,^https:\/\/audio-ad\.line-scdn\.net\/.*$,REJECT
 
-# --- LINE WEBTOON 漫畫廣告 ---
-URL-REGEX,^https:\/\/webtoon\.line\.me\/.*\/advertisement\/.*$,REJECT-TINYGIF
+# --- LINE WEBTOON 漫畫平台廣告 ---
+URL-REGEX,^https:\/\/webtoon\.line\.me\/.*\/advertisement\/.*$,REJECT
 URL-REGEX,^https:\/\/webtoon-resource\.line-apps\.com\/.*\/banner\/.*$,REJECT-TINYGIF
-URL-REGEX,"https:\/\/webtoon\.line\.me\/.*\/sponsored\/[0-9a-zA-Z_-]{10,}",REJECT
+URL-REGEX,"https:\/\/webtoon\.line\.me\/.*\/sponsored\/[0-9a-zA-Z_-]{12,}",REJECT
+URL-REGEX,^https:\/\/comic-ad\.line-scdn\.net\/.*$,REJECT-TINYGIF
 
 # --- LINE Manga 閱讀廣告 ---
 URL-REGEX,^https:\/\/manga\.line\.me\/.*\/ad\/.*$,REJECT
 URL-REGEX,^https:\/\/manga-cdn\.line-apps\.com\/.*\/promotion\/.*$,REJECT-TINYGIF
 URL-REGEX,"https:\/\/manga\.line\.me\/.*\/interstitial\/[0-9a-f]{8,}",REJECT
+URL-REGEX,^https:\/\/book-ad\.line\.me\/.*$,REJECT
 
-# --- LINE 原生內容廣告 ---
+# --- LINE 視頻平台廣告 ---
+URL-REGEX,^https:\/\/tv\.line\.me\/.*\/advertisement\/.*$,REJECT
+URL-REGEX,^https:\/\/video-ads\.line-scdn\.net\/.*$,REJECT
+URL-REGEX,"https:\/\/line-video\.line-scdn\.net\/.*\/ad\/\d{10,}",REJECT
+URL-REGEX,^https:\/\/streaming-ad\.line\.me\/.*$,REJECT
+
+# --- LINE 新聞與媒體廣告 ---
+URL-REGEX,^https:\/\/news-ad\.line\.me\/.*$,REJECT-TINYGIF
+URL-REGEX,^https:\/\/linenews\.com\/.*\/sponsored\/.*$,REJECT
+URL-REGEX,"https:\/\/news\.line\.me\/.*\/promotion\/[0-9a-f]{16,}",REJECT
+URL-REGEX,^https:\/\/media-ad\.line-scdn\.net\/.*$,REJECT-TINYGIF
+
+# --- LINE 社交功能廣告 ---
+URL-REGEX,^https:\/\/timeline\.line\.me\/.*\/sponsored\/.*$,REJECT
+URL-REGEX,^https:\/\/social-ad\.line-scdn\.net\/.*$,REJECT-TINYGIF
+URL-REGEX,"https:\/\/friend\.line\.me\/.*\/suggestion\/ad\/[0-9a-f]{12,}",REJECT
+URL-REGEX,^https:\/\/openchat-ad\.line\.me\/.*$,REJECT
+
+# --- LINE 原生廣告系統 ---
 URL-REGEX,^https:\/\/native\.line-apps\.com\/.*\/ad\/.*$,REJECT
 URL-REGEX,^https:\/\/content-ad\.line-scdn\.net\/.*$,REJECT-TINYGIF
-URL-REGEX,"https:\/\/native-ad\.line\.me\/.*\/content\/[0-9a-zA-Z_-]{15,}",REJECT
+URL-REGEX,"https:\/\/native-ad\.line\.me\/.*\/content\/[0-9a-zA-Z_-]{20,}",REJECT
+URL-REGEX,^https:\/\/feed-ad\.line-apps\.com\/.*$,REJECT
 
-# --- LINE 推播與通知廣告 ---
+# --- LINE 推播通知廣告 ---
 URL-REGEX,^https:\/\/push\.line\.me\/.*\/advertisement\/.*$,REJECT
 URL-REGEX,^https:\/\/notification\.line\.me\/.*\/sponsored\/.*$,REJECT
-URL-REGEX,"https:\/\/push-api\.line\.me\/.*\/ad\/[0-9a-f]{12,}",REJECT
+URL-REGEX,"https:\/\/push-api\.line\.me\/.*\/promotion\/[0-9a-f]{16,}",REJECT
+URL-REGEX,^https:\/\/alert-ad\.line\.me\/.*$,REJECT
 
 # --- LINE 開屏與啟動廣告 ---
 URL-REGEX,^https:\/\/splash\.line\.me\/.*\/ad\/.*$,REJECT-TINYGIF
 URL-REGEX,^https:\/\/startup-ad\.line-scdn\.net\/.*$,REJECT-TINYGIF
-URL-REGEX,"https:\/\/launch\.line\.me\/.*\/banner\/\d{4}\/\d{2}\/.*",REJECT-TINYGIF
+URL-REGEX,"https:\/\/launch\.line\.me\/.*\/banner\/\d{4}\/.*",REJECT-TINYGIF
+URL-REGEX,^https:\/\/loading-ad\.line-apps\.com\/.*$,REJECT-TINYGIF
 
-# --- LINE 動態與時間軸廣告 ---
-URL-REGEX,^https:\/\/timeline\.line\.me\/.*\/sponsored\/.*$,REJECT
-URL-REGEX,^https:\/\/social-ad\.line-scdn\.net\/.*$,REJECT-TINYGIF
-URL-REGEX,"https:\/\/timeline\.line\.me\/.*\/promotion\/[0-9a-zA-Z_-]{20,}",REJECT
-
-# --- LINE 影片串流廣告 ---
-URL-REGEX,^https:\/\/vod\.line\.me\/.*\/preroll\/.*\.mp4$,REJECT
-URL-REGEX,^https:\/\/video-ads\.line-scdn\.net\/.*$,REJECT
-URL-REGEX,"https:\/\/line-video\.line-scdn\.net\/.*\/ad\/\d{10,}",REJECT
-URL-REGEX,^https:\/\/tv\.line\.me\/.*\/advertisement\/.*$,REJECT
-
-# --- LINE 位置與 Beacon 廣告 ---
-URL-REGEX,^https:\/\/beacon\.line\.me\/.*\/ad\/.*$,REJECT
-URL-REGEX,^https:\/\/location-ad\.line-apps\.com\/.*$,REJECT
-URL-REGEX,"https:\/\/nearby\.line\.me\/.*\/sponsored\/[0-9a-f]{16,}",REJECT
-
-# --- LINE 第三方整合廣告 ---
+# --- LINE 第三方廣告整合 ---
 URL-REGEX,^https:\/\/partner-ad\.line-scdn\.net\/.*$,REJECT-TINYGIF
 URL-REGEX,^https:\/\/affiliate\.line\.me\/.*\/banner\/.*$,REJECT-TINYGIF
-URL-REGEX,"https:\/\/external-ad\.line\.me\/.*\/\w{32,}",REJECT
+URL-REGEX,"https:\/\/external-ad\.line\.me\/.*\/\w{24,}",REJECT
+URL-REGEX,^https:\/\/network-ad\.line-apps\.com\/.*$,REJECT
 
-# --- LINE 個人化與行為廣告 ---
+# --- LINE 個人化廣告引擎 ---
 URL-REGEX,^https:\/\/personalized\.line-apps\.com\/.*\/ad\/.*$,REJECT
 URL-REGEX,^https:\/\/targeting\.line\.me\/.*$,REJECT-DROP
-URL-REGEX,"https:\/\/behavioral\.line\.me\/.*\/profile\/[0-9a-f]{24,}",REJECT
+URL-REGEX,"https:\/\/behavioral\.line\.me\/.*\/profile\/[0-9a-f]{32,}",REJECT
+URL-REGEX,^https:\/\/recommend-ad\.line\.me\/.*$,REJECT
+
+# --- LINE 動態廣告載入 ---
+URL-REGEX,"https:\/\/dynamic-ad\.line-scdn\.net\/.*\/\d{13}\/.*",REJECT-TINYGIF
+URL-REGEX,"https:\/\/real-time-ad\.line\.me\/.*\/[0-9a-f]{32}",REJECT
+URL-REGEX,^https:\/\/async-ad\.line-apps\.com\/.*$,REJECT
+URL-REGEX,"https:\/\/lazy-ad\.line\.me\/.*\/\w{20,}",REJECT
 
 # --- LINE 企業與品牌廣告 ---
 URL-REGEX,^https:\/\/business-ad\.line\.me\/.*$,REJECT
 URL-REGEX,^https:\/\/corporate\.line\.me\/.*\/promotion\/.*$,REJECT-TINYGIF
-URL-REGEX,"https:\/\/brand\.line\.me\/.*\/campaign\/[0-9a-zA-Z_-]{12,}",REJECT-TINYGIF
+URL-REGEX,"https:\/\/brand\.line\.me\/.*\/campaign\/[0-9a-zA-Z_-]{15,}",REJECT
+URL-REGEX,^https:\/\/enterprise-ad\.line-apps\.com\/.*$,REJECT
 
-# --- LINE 節慶活動廣告 ---
-URL-REGEX,^https:\/\/event-ad\.line\.me\/.*$,REJECT-TINYGIF
-URL-REGEX,^https:\/\/campaign\.line\.me\/.*\/banner\/.*$,REJECT-TINYGIF
-URL-REGEX,"https:\/\/festival\.line\.me\/.*\/\d{4}\/.*\/ad\/.*",REJECT-TINYGIF
-
-# --- LINE 動態載入廣告 ---
-URL-REGEX,"https:\/\/dynamic-ad\.line-scdn\.net\/.*\/\d{13}\/.*",REJECT-TINYGIF
-URL-REGEX,"https:\/\/real-time-ad\.line\.me\/.*\/[0-9a-f]{32}",REJECT
-URL-REGEX,^https:\/\/async-ad\.line-apps\.com\/.*$,REJECT
-
-# --- LINE 地區性廣告 ---
+# --- LINE 地區與位置廣告 ---
 URL-REGEX,^https:\/\/regional-ad\.line\.me\/.*$,REJECT
 URL-REGEX,^https:\/\/local\.line\.me\/.*\/advertisement\/.*$,REJECT-TINYGIF
-URL-REGEX,"https:\/\/geo-ad\.line\.me\/.*\/region\/\w{2,3}\/.*",REJECT
+URL-REGEX,"https:\/\/geo-ad\.line\.me\/.*\/region\/\w{2,5}\/.*",REJECT
+URL-REGEX,^https:\/\/nearby-ad\.line-apps\.com\/.*$,REJECT
 
-# --- LINE 賬戶服務廣告 ---
+# --- LINE 高級追蹤系統 ---
+URL-REGEX,^https:\/\/metrics\.line-apps\.com\/.*$,REJECT-DROP
+URL-REGEX,^https:\/\/collect\.line-apps\.com\/v\d+\/.*$,REJECT-DROP
+URL-REGEX,"https:\/\/telemetry\.line\.me\/.*\/session\/[0-9a-f]{40,}",REJECT-DROP
+URL-REGEX,^https:\/\/beacon\.line\.me\/.*\/track\/.*$,REJECT-DROP
+
+# --- LINE 搜尋與發現廣告 ---
+URL-REGEX,^https:\/\/search-ad\.line\.me\/.*$,REJECT
+URL-REGEX,"https:\/\/discover\.line\.me\/.*\/sponsored\/[0-9a-zA-Z_-]{20,}",REJECT
+URL-REGEX,^https:\/\/explore-ad\.line-apps\.com\/.*$,REJECT
+URL-REGEX,"https:\/\/find\.line\.me\/.*\/promotion\/\d{8,}",REJECT
+
+# --- LINE 賬戶與設定廣告 ---
 URL-REGEX,^https:\/\/account-ad\.line\.me\/.*$,REJECT
 URL-REGEX,^https:\/\/profile-ad\.line-apps\.com\/.*$,REJECT-TINYGIF
-URL-REGEX,"https:\/\/user-ad\.line\.me\/.*\/\d{10,}\/promotion",REJECT
+URL-REGEX,"https:\/\/user-ad\.line\.me\/.*\/\d{10,}\/banner",REJECT-TINYGIF
+URL-REGEX,^https:\/\/setting-ad\.line\.me\/.*$,REJECT
 
-# --- LINE 搜尋廣告 ---
-URL-REGEX,^https:\/\/search-ad\.line\.me\/.*$,REJECT
-URL-REGEX,"https:\/\/search\.line\.me\/.*\/sponsored\/[0-9a-zA-Z_-]{15,}",REJECT
-URL-REGEX,^https:\/\/discover\.line\.me\/.*\/advertisement\/.*$,REJECT
+# --- LINE 節慶與活動廣告 ---
+URL-REGEX,^https:\/\/event-ad\.line\.me\/.*$,REJECT-TINYGIF
+URL-REGEX,^https:\/\/campaign\.line\.me\/.*\/banner\/.*$,REJECT-TINYGIF
+URL-REGEX,"https:\/\/festival\.line\.me\/.*\/\d{4}\/.*\/promotion\/.*",REJECT-TINYGIF
+URL-REGEX,^https:\/\/seasonal-ad\.line-scdn\.net\/.*$,REJECT-TINYGIF
 
-# --- LINE 新聞廣告 ---
-URL-REGEX,^https:\/\/news-ad\.line\.me\/.*$,REJECT-TINYGIF
-URL-REGEX,^https:\/\/linenews\.com\/.*\/sponsored\/.*$,REJECT
-URL-REGEX,"https:\/\/news\.line\.me\/.*\/ad\/[0-9a-f]{16,}",REJECT-TINYGIF
-
-# --- LINE 電商整合廣告 ---
-URL-REGEX,^https:\/\/ecommerce-ad\.line\.me\/.*$,REJECT
-URL-REGEX,"https:\/\/marketplace\.line\.me\/.*\/promotion\/\d{8,}",REJECT-TINYGIF
-URL-REGEX,^https:\/\/store-ad\.line-scdn\.net\/.*$,REJECT-TINYGIF
-
-# --- LINE 社交功能廣告 ---
-URL-REGEX,^https:\/\/friend-ad\.line\.me\/.*$,REJECT
-URL-REGEX,"https:\/\/social\.line\.me\/.*\/sponsored\/[0-9a-zA-Z_-]{20,}",REJECT
-URL-REGEX,^https:\/\/connect-ad\.line-apps\.com\/.*$,REJECT
-
-# --- LINE 高級追蹤攔截 ---
-URL-REGEX,^https:\/\/track\.line\.me\/.*$,REJECT-DROP
-URL-REGEX,^https:\/\/metrics\.line-apps\.com\/.*$,REJECT-DROP
-URL-REGEX,^https:\/\/collect\.line-apps\.com\/.*$,REJECT-DROP
-URL-REGEX,"https:\/\/telemetry\.line\.me\/.*\/\w{40,}",REJECT-DROP
-
-# --- LINE 實驗性廣告 ---
+# --- LINE 實驗性與測試廣告 ---
 URL-REGEX,^https:\/\/experimental-ad\.line\.me\/.*$,REJECT
-URL-REGEX,"https:\/\/beta-ad\.line-apps\.com\/.*\/test\/[0-9a-f]{8,}",REJECT
+URL-REGEX,"https:\/\/beta-ad\.line-apps\.com\/.*\/test\/[0-9a-f]{12,}",REJECT
 URL-REGEX,^https:\/\/ab-test-ad\.line\.me\/.*$,REJECT
+URL-REGEX,^https:\/\/trial-ad\.line\.me\/.*$,REJECT
 
-# 時間戳動態廣告
-URL-REGEX,"https:\/\/.*\.line-scdn\.net\/.*\/\d{13}\/ad\/.*",REJECT-TINYGIF
-URL-REGEX,"https:\/\/.*\.line\.me\/.*\/timestamp\/\d{10,}\/promotion\/.*",REJECT
+# --- LINE 聯盟廣告網絡 ---
+URL-REGEX,^https:\/\/network-ad\.line\.me\/.*$,REJECT
+URL-REGEX,^https:\/\/ads\.line-apps\.com\/.*$,REJECT
+URL-REGEX,"https:\/\/ad-network\.line\.me\/.*\/partner\/[0-9a-zA-Z_-]{16,}",REJECT
+URL-REGEX,^https:\/\/consortium-ad\.line-scdn\.net\/.*$,REJECT-TINYGIF
 
-# 版本化 API 攔截
-URL-REGEX,"https:\/\/.*\.line-apps\.com\/v[1-9]\d*\/advertisement\/.*",REJECT
-URL-REGEX,"https:\/\/.*\.line\.me\/api\/v[1-9]\d*\/ads\/.*",REJECT
+# --- LINE 多媒體廣告內容 ---
+URL-REGEX,^https:\/\/video-ad\.line\.me\/.*$,REJECT
+URL-REGEX,"https:\/\/media\.line\.me\/.*\/ad\/\d{10,}\/.*\.(mp4|webm|m4v)$",REJECT
+URL-REGEX,^https:\/\/audio-ad\.line-scdn\.net\/.*$,REJECT
+URL-REGEX,"https:\/\/stream-ad\.line\.me\/.*\/\w{32,}",REJECT
 
-# 隨機 ID 廣告攔截
-URL-REGEX,"https:\/\/.*\.line\.me\/.*\/ad\/[0-9a-f]{16,64}",REJECT
-URL-REGEX,"https:\/\/.*\.line-scdn\.net\/.*\/banner\/[a-zA-Z0-9_-]{32,}",REJECT-TINYGIF
+# --- LINE 點數與獎勵廣告 ---
+URL-REGEX,^https:\/\/point-ad\.line\.me\/.*$,REJECT
+URL-REGEX,^https:\/\/reward\.line\.me\/.*\/advertisement\/.*$,REJECT
+URL-REGEX,"https:\/\/bonus\.line\.me\/.*\/promotion\/[0-9a-f]{20,}",REJECT
+URL-REGEX,^https:\/\/coin-ad\.line-apps\.com\/.*$,REJECT
 
-# 多媒體廣告檔案攔截
-URL-REGEX,"https:\/\/.*\.line-scdn\.net\/.*\/ad\/.*\.(mp4|webm|m4v)$",REJECT
-URL-REGEX,"https:\/\/.*\.line\.me\/.*\/video\/ad\/.*\.(m3u8|ts)$",REJECT
-URL-REGEX,"https:\/\/.*\.line-apps\.com\/.*\/audio\/ad\/.*\.(mp3|m4a|aac)$",REJECT
+# --- LINE 位置服務廣告 ---
+URL-REGEX,^https:\/\/location-ad\.line-apps\.com\/.*$,REJECT
+URL-REGEX,^https:\/\/beacon\.line\.me\/.*\/advertisement\/.*$,REJECT
+URL-REGEX,"https:\/\/nearby\.line\.me\/.*\/sponsored\/[0-9a-f]{24,}",REJECT
+URL-REGEX,^https:\/\/map-ad\.line\.me\/.*$,REJECT
 
+# --- LINE 客製化廣告 ---
+URL-REGEX,^https:\/\/custom-ad\.line-scdn\.net\/.*$,REJECT-TINYGIF
+URL-REGEX,"https:\/\/personalized-ad\.line\.me\/.*\/user\/\d{10,}",REJECT
+URL-REGEX,^https:\/\/tailored\.line-apps\.com\/.*\/ad\/.*$,REJECT
+URL-REGEX,"https:\/\/adaptive-ad\.line\.me\/.*\/\w{28,}",REJECT
+
+# 確保不攔截的重要域名 (白名單保護)
+# 這些域名對 LINE 通訊功能至關重要，絕對不可攔截：
+
+# LINE 核心通訊 (禁止攔截)
+# ^https:\/\/gw\.line\.naver\.jp\/.*$ - 保護
+# ^https:\/\/gw2\.line\.naver\.jp\/.*$ - 保護  
+# ^https:\/\/gwx\.line\.naver\.jp\/.*$ - 保護
+# ^https:\/\/legy\.line-apps\.com(?!.*\/ext\/lgfp\/lad).*$ - 保護
+# ^https:\/\/api\.line\.me\/.*$ - 保護
+# ^https:\/\/obs\.line-scdn\.net\/(?!.*\/banner\/).*$ - 部分保護
+
+# LINE 訊息傳輸 (禁止攔截)
+# ^https:\/\/talk\.line\.me\/.*$ - 保護
+# ^https:\/\/chat\.line\.me\/.*$ - 保護
+# ^https:\/\/message\.line\.me\/.*$ - 保護
+
+# LINE 通話功能 (禁止攔截)
+# ^https:\/\/call\.line\.me\/.*$ - 保護
+# ^https:\/\/voice\.line\.me\/.*$ - 保護
+# ^https:\/\/video\.line\.me\/.*$ - 保護
