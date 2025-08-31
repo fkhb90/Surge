@@ -96,7 +96,7 @@ const API_WHITELIST_EXACT = new Set([
     'richart.tw', 'api.irentcar.com.tw', 'ebank.tcb-bank.com.tw', 'ibanking.scsb.com.tw',
     'ebank.taipeifubon.com.tw', 'nbe.standardchartered.com.tw', 'usiot.roborock.com', 
     'a-api.anthropic.com', 'obs.line-scdn.net', 'legy.line-apps.com', 'gemini.google.com', 
-    'm.tw.coupang.com', 'ljc.tw.coupang.com'
+    'm.tw.coupang.com', 'ljc.tw.coupang.com', 'cmapi.tw.coupang.com'
 ]);
 
 const API_WHITELIST_WILDCARDS = new Map([
