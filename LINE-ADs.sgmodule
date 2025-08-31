@@ -52,6 +52,23 @@ DOMAIN-SUFFIX,ad.line.me,REJECT-TINYGIF
 DOMAIN-SUFFIX,shop-ad.line-scdn.net,REJECT-TINYGIF
 DOMAIN-SUFFIX,wallet-ad.line.me,REJECT-TINYGIF
 DOMAIN-SUFFIX,music-ad.line.me,REJECT
+DOMAIN-SUFFIX,sch.line.me,REJECT
+DOMAIN-SUFFIX,sspapi.line.me,REJECT
+DOMAIN-SUFFIX,a.line.me,REJECT
+DOMAIN-SUFFIX,adcreative.line.me,REJECT
+DOMAIN-SUFFIX,lap.line.me,REJECT
+DOMAIN-SUFFIX,lap-api.line.me,REJECT
+DOMAIN-SUFFIX,crossfeed.line-apps.com,REJECT
+DOMAIN-SUFFIX,tr.line.me,REJECT-DROP
+DOMAIN-SUFFIX,dmp.line.me,REJECT-DROP
+DOMAIN-SUFFIX,dsp.line.me,REJECT
+DOMAIN-SUFFIX,rtb.line.me,REJECT
+DOMAIN-SUFFIX,impression.line.me,REJECT-DROP
+
+# === 混合內容域名的 URL 過濾 ===
+URL-REGEX,^https:\/\/scdn\.line-apps\.com\/(promotion|campaign|sponsored|ad)\/.*$,REJECT
+URL-REGEX,^https:\/\/static\.line-scdn\.net\/.*(\/ad\/|\/promotion\/|\/banner\/).*$,REJECT
+
 
 # --- LINE Today, Voom, Timeline ---
 URL-REGEX,^https:\/\/vdn\.line-scdn\.net\/.*\/adv\/.*\.(mp4|webm)$,REJECT
