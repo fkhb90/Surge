@@ -1,42 +1,43 @@
-#!name=LINE 廣告與追蹤攔截規則 (v3.3 - 優化版)
-#!desc=v3.2 結構優化與規則精簡版。基於最小權限原則，僅 MitM 必要域名，保障核心功能穩定。v20250901
+#!name=LINE 廣告與追蹤攔截規則 (v3.4 - 強化版)
+#!desc=v3.3 基礎上整合社群規則，強化對核心閘道與通用廣告 API 的攔截。v20250901
 #!system=ios
 #!category=Line
 #
 # 最後更新：2025-09-01
-# 說明：此版本基於 v3.2 進行結構優化與規則精簡。
-#      1. 重組 DOMAIN-SUFFIX 規則，使其更具語意化。
-#      2. 移除已被 URL-REGEX 覆蓋的冗餘條目，提升效率。
-#      3. 強化關鍵註解，並同步更新 MITM 列表順序，提高可維護性。
+# 說明：此版本基於 v3.3 進行強化，審慎整合了部分社群發現的有效規則。
+#      1. 新增對核心閘道 (gw.line.naver.jp) 中廣告與追蹤路徑的攔截。
+#      2. 新增更通用的廣告 API 匹配規則，提升覆蓋面。
 # ===================================================================
 
 # -------------------------------------------------------------------
 # A. 核心功能保護 (最高優先級)
-# 說明：此處的域名是 LINE 正常運作的基礎，採用 Proxy 策略是為了讓請求
-#      能被 Surge 接管，以便後續的 URL-REGEX 規則可以對其加密的 HTTPS 
-#      流量進行匹配。這不是簡單的放行，而是「有條件的分析」。
 # -------------------------------------------------------------------
 DOMAIN-SUFFIX,gw.line.naver.jp,Proxy
 DOMAIN-SUFFIX,gw2.line.naver.jp,Proxy
 DOMAIN-SUFFIX,gwx.line.naver.jp,Proxy
 DOMAIN-SUFFIX,api.line.me,Proxy
-# [註解] api.line.me 受最高優先級保護，但其下的特定廣告路徑仍可被後續的 URL-REGEX 攔截 (需 MITM)。
 DOMAIN-SUFFIX,profile.line-scdn.net,Proxy
 DOMAIN-SUFFIX,stickershop.line-scdn.net,Proxy
-
-# [核心] 保護 legy (LINE Edge Gateway) 的核心功能，但排除已知的廣告/推薦路徑，交由後續規則處理。
 URL-REGEX,^https:\/\/legy\.line-apps\.com\/(?!ext\/(lgfp\/lad|smartch|today)\/).*$,Proxy
-# [核心] 保護 obs-scdn (Object Storage) 的核心資源 (如貼圖、圖片)，但排除廣告橫幅和縮圖路徑。
 URL-REGEX,^https:\/\/obs\.line-scdn\.net\/(?!.*(\/banner\/|r\/linecrs)).*$,Proxy
 URL-REGEX,^https:\/\/obs\-tw\.line\-apps\.com\/talk$,Proxy
 
+
 # -------------------------------------------------------------------
 # B. 全域廣告 API 與追蹤服務 (攔截核心)
-# 說明：這些是 LINE 廣告與追蹤系統的中樞神經，優先攔截。
 # -------------------------------------------------------------------
 # --- 主要廣告 API ---
 URL-REGEX,^https:\/\/legy\.line-apps\.com\/ext\/lgfp\/lad\/v\d+,REJECT
 URL-REGEX,^https:\/\/legy\.line-apps\.com\/ext\/(smartch|today)\/.*\/ad\/,REJECT
+
+# --- [v3.4 新增] 核心閘道廣告與追蹤 ---
+URL-REGEX,^https:\/\/gw\.line\.naver\.jp\/lass\/api\/v1\/ads$,REJECT
+URL-REGEX,^https:\/\/gw\.line\.naver\.jp\/tr\/event$,REJECT-DROP
+
+# --- [v3.4 新增] 通用廣告 API 與追蹤 ---
+URL-REGEX,^https:\/\/.*\.line\.me\/lass\/api\/.*\/ads$,REJECT
+URL-REGEX,^https:\/\/.*\.line\.me\/la.*\/api\/.*\/ads$,REJECT
+URL-REGEX,^https:\/\/.*\.line\.me\/er\/lads\/v1\/ei\.*$,REJECT-DROP
 
 # --- 核心追蹤與分析 (使用 REJECT-DROP 無聲拒絕，效率更高) ---
 URL-REGEX,^https:\/\/nelo2-col\.linecorp\.com\/_store$,REJECT-DROP
@@ -48,15 +49,12 @@ URL-REGEX,^https:\/\/(targeting|behavioral|personalized|recommend-ad)\.line\.me\
 
 # -------------------------------------------------------------------
 # C. 各服務內嵌廣告 (API 優先，內容為輔)
-# 說明：針對 LINE 各項子服務中的廣告內容與 API 進行精準攔截。
 # -------------------------------------------------------------------
-
 # === 廣告內容 CDN ===
-# --- 攔截已知廣告特徵的圖片 URL (返回透明圖) ---
 URL-REGEX,https:\/\/obs\.line-scdn\.net\/(r\/linecrs\/.+\/m\d+x\d+|0h[0-9a-zA-Z_-]{50,}),REJECT-TINYGIF
 URL-REGEX,^https:\/\/d\.line-scdn\.net\/lcp-prod-photo\/20.+\.(jpe?g|png)$,REJECT-TINYGIF
-
-# --- 攔截專門用於廣告的域名或路徑 ---
+URL-REGEX,^https:\/\/(splash|startup-ad|dynamic-ad)\.line\.(me|net|com)\/.*$,REJECT-TINYGIF
+URL-REGEX,^https:\/\/.*\.line\.me\/er\/lass\/v1\/event\/image\.*$,REJECT-TINYGIF # [v3.4 新增]
 DOMAIN-SUFFIX,ad.line-scdn.net,REJECT-TINYGIF
 DOMAIN-SUFFIX,shop-ad.line-scdn.net,REJECT-TINYGIF
 DOMAIN-SUFFIX,wallet-ad.line.me,REJECT-TINYGIF
