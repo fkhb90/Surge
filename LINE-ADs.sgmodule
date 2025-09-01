@@ -28,7 +28,7 @@ DOMAIN-SUFFIX,shop.line-scdn.net,Proxy
 URL-REGEX,^https:\/\/legy\.line-apps\.com\/(?!ext\/(lgfp\/lad|smartch|today)\/).*$,Proxy
 # [核心] 保護 obs-scdn (Object Storage) 的核心資源 (如貼圖、圖片)，但排除廣告橫幅和縮圖路徑。
 URL-REGEX,^https:\/\/obs\.line-scdn\.net\/(?!.*(\/banner\/|r\/linecrs)).*$,Proxy
-
+URL-REGEX,^https:\/\/obs\-tw\.line\-apps\.com\/talk$,Proxy
 
 # -------------------------------------------------------------------
 # B. 全域廣告 API 與追蹤服務 (攔截核心)
