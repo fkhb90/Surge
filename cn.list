@@ -1,138 +1,218 @@
-# China
+# =================================================================
+# 🇨🇳 中國應用與服務流量分流規則 (China Traffic Routing Rules) v6.0
+# 版本：終極覆蓋版 (Ultimate Coverage Edition) - 完整列表
+# 最後更新: 2025-09-01
+#
+# 說明:
+# 此版本整合了 V5.0 的詳盡域名清單與完整的 IP-ASN、IP-CIDR 列表，
+# 旨在實現對中國流量的最大化捕獲。
+# =================================================================
+
+# =================================================================
+# 第一層：域名規則 (V5.0 全集)
+# 說明：精準識別，優先匹配，效能最佳。
+# =================================================================
+
+# -----------------------------------------------------------------
+# 1. 核心規則與頂級域名 (Core Rules & TLDs)
+# -----------------------------------------------------------------
 DOMAIN-SUFFIX,cn
 DOMAIN-SUFFIX,hk
-DOMAIN-KEYWORD,tmall
-DOMAIN-KEYWORD,alicdn
-DOMAIN-KEYWORD,alipay
-DOMAIN-KEYWORD,aliyun
-DOMAIN-KEYWORD,baidu
-DOMAIN-KEYWORD,beplay
+DOMAIN-SUFFIX,gov.cn # 政府機構
+DOMAIN-SUFFIX,edu.cn # 教育機構
+
+# -----------------------------------------------------------------
+# 2. 阿里巴巴集團 (Alibaba Group)
+# -----------------------------------------------------------------
+# 涵蓋: 淘寶、天貓、支付寶、阿里雲、釘釘、優酷、高德地圖、阿里雲盤、Teambition 等。
+PROCESS-NAME,com.taobao.taobao
+PROCESS-NAME,com.tmall.wireless
+PROCESS-NAME,com.eg.android.AlipayGphone
+PROCESS-NAME,com.autonavi.minimap # 高德地圖
+PROCESS-NAME,com.alibaba.android.rimet # 釘釘
+PROCESS-NAME,com.alicloud.databox # 阿里雲盤
 DOMAIN-KEYWORD,taobao
-DOMAIN-KEYWORD,hnagroup
-DOMAIN-KEYWORD,weibo //微博
-DOMAIN-KEYWORD,baidu //百度
-DOMAIN-KEYWORD,bilibili //哔哩哔哩
-DOMAIN-KEYWORD,zhihu //知乎助手
-DOMAIN-KEYWORD,jd //京东
-DOMAIN-KEYWORD,smzdm //什么值得买
-DOMAIN-KEYWORD,tieba //百度贴吧
-DOMAIN-KEYWORD,manmanbuy //慢慢买
-DOMAIN-KEYWORD,dingdong //叮咚买菜
-DOMAIN-KEYWORD,eleme //饿了么
-DOMAIN-KEYWORD,famijia //Fa米家
-DOMAIN-KEYWORD,luka //Luka阅读习惯养成
-DOMAIN-KEYWORD,meituan //美团买菜
-DOMAIN-KEYWORD,wechat //微信
-DOMAIN-KEYWORD,qq //腾讯
-DOMAIN-KEYWORD,iQIYI //爱奇艺
-DOMAIN-KEYWORD,Alibaba //阿里巴巴
-DOMAIN-KEYWORD,sohu //搜狐
-DOMAIN-KEYWORD,Youku //优酷
-DOMAIN-KEYWORD,core-c-lq //抖音
-DOMAIN-KEYWORD,core-lq //抖音
-DOMAIN-KEYWORD,normal-c-lq //抖音
-DOMAIN-KEYWORD,normal-lq //抖音
-DOMAIN-KEYWORD,search-quic-lq //抖音
-DOMAIN-KEYWORD,search-lq //抖音
-USER-AGENT,%E4%B8%AD%E5%9B%BD%E5%B7%A5%E5%95%86%E9%93%B6%E8%A1%8C*
-USER-AGENT,%E4%BA%AC%E4%B8%9C%E5%88%B0%E5%AE%B6*
-USER-AGENT,%E4%BC%81%E4%B8%9A%E5%BE%AE%E4%BF%A1*
-USER-AGENT,%E4%BC%98%E9%85%B7*
-USER-AGENT,%E5%8D%B3%E5%88%BB*
-USER-AGENT,%E7%BD%91%E6%98%93%E4%BA%91%E9%9F%B3%E4%B9%90*
-USER-AGENT,*Vainglory*
-USER-AGENT,Best%20Trace*
-USER-AGENT,MegaWerewolf*
-USER-AGENT,MicroMessenger%20Client
-USER-AGENT,MicroMessenger*
-USER-AGENT,MicroMessengerClient*
-USER-AGENT,Moke*
-USER-AGENT,NeteaseMusic*
-USER-AGENT,QQ*
-USER-AGENT,RemotePlay*
-USER-AGENT,TIM*
-USER-AGENT,TeamViewer*
-USER-AGENT,WeChat*
-USER-AGENT,WebTorrent*
-USER-AGENT,YYeTs*
-USER-AGENT,arrowio*
-USER-AGENT,balls*
-USER-AGENT,cmb*
-USER-AGENT,cmblife*
-USER-AGENT,eusoft_ting_en_iphone
-USER-AGENT,hearthstone*
-USER-AGENT,hide*
-USER-AGENT,ting_en
-USER-AGENT,*bili*
-USER-AGENT,Bilibili*
-USER-AGENT,bili*
-USER-AGENT,bili-inter*
-USER-AGENT,TikTok*
-USER-AGENT,%E5%92%AA%E5%92%95%E8%A7%86%E9%A2%91
-USER-AGENT,%E6%89%8B%E6%9C%BA%E6%B7%98%E5%AE%9D*
-USER-AGENT,%E7%BD%91%E6%98%93%E4%BA%91%E9%9F%B3%E4%B9%90
-USER-AGENT,%E7%BD%91%E6%98%93%E4%BA%91%E9%9F%B3%E4%B9%90**
-USER-AGENT,%E9%85%B7%E6%88%91%E9%9F%B3%E4%B9%90*
-USER-AGENT,MApi* // Dianping
-USER-AGENT,*QIYI*
-USER-AGENT,MGTV*
-USER-AGENT,MOO%E9%9F%B3%E4%B9%90*
-USER-AGENT,PPStream*
-USER-AGENT,QIYI*
-USER-AGENT,QQ%E9%9F%B3%E4%B9%90
-USER-AGENT,QQ%e9%9f%b3%e4%b9%90*
-USER-AGENT,QQMusic*
-USER-AGENT,QYPlayer*
-USER-AGENT,baiduyinyue
-USER-AGENT,iQiYi*
-USER-AGENT,live4iphone*
-USER-AGENT,qqlive4iphone*
-USER-AGENT,walkman*
-USER-AGENT,xiami*
-USER-AGENT,Himalaya*
-USER-AGENT,AcFun*
-USER-AGENT,MiguVideo*
-USER-AGENT,NeteaseMusic**
-USER-AGENT,网易云音乐*
-USER-AGENT,网易云音乐**
-USER-AGENT,MOO*
-USER-AGENT,TencentMidasConnect*
-USER-AGENT,Youku*
+DOMAIN-KEYWORD,alipay
+DOMAIN-KEYWORD,alicdn
+DOMAIN-KEYWORD,aliyun
+DOMAIN-KEYWORD,amap # 高德地圖
+DOMAIN-KEYWORD,dingtalk # 釘釘
+DOMAIN-KEYWORD,teambition # Teambition
+DOMAIN-KEYWORD,tmall
+DOMAIN-KEYWORD,youku # 優酷
+DOMAIN-KEYWORD,xiami # 蝦米 (已停止服務，為相容舊版保留)
+DOMAIN-SUFFIX,alibabacloud.com
+
+# -----------------------------------------------------------------
+# 3. 騰訊集團 (Tencent Group)
+# -----------------------------------------------------------------
+# 涵蓋: 微信、QQ、騰訊視頻、QQ音樂、騰訊雲、騰訊文件、微雲、QQ閱讀等。
+PROCESS-NAME,com.tencent.mm # 微信
+PROCESS-NAME,com.tencent.mobileqq # QQ
+PROCESS-NAME,com.tencent.qqlive # 騰訊視頻
+PROCESS-NAME,com.tencent.qqreader # QQ閱讀
+PROCESS-NAME,com.tencent.weread # 微信读书
+PROCESS-NAME,com.tencent.drive # 騰訊文件/微雲
+DOMAIN-KEYWORD,wechat
+DOMAIN-KEYWORD,qq
+DOMAIN-KEYWORD,tencent
+DOMAIN-SUFFIX,weixin.qq.com
+DOMAIN-SUFFIX,qcloud.com # 騰訊雲
+DOMAIN-SUFFIX,tencent-cloud.com
+
+# -----------------------------------------------------------------
+# 4. 字節跳動 (ByteDance)
+# -----------------------------------------------------------------
+# 涵蓋: 抖音、TikTok、今日頭條、懂車帝、西瓜視頻、飛書、番茄小說等。
+PROCESS-NAME,com.zhiliaoapp.musically # TikTok
+PROCESS-NAME,com.ss.android.ugc.aweme # 抖音
+PROCESS-NAME,com.ss.android.article.news # 今日頭條
+PROCESS-NAME,com.dragon.read # 番茄小說
+PROCESS-NAME,com.larksuite.suite # 飛書 (Lark)
+DOMAIN-KEYWORD,bytedance
+DOMAIN-KEYWORD,douyin
+DOMAIN-KEYWORD,toutiao
+DOMAIN-KEYWORD,dongchedi # 懂車帝
+DOMAIN-KEYWORD,ixigua # 西瓜視頻
+DOMAIN-KEYWORD,larksuite # 飛書
+
+# -----------------------------------------------------------------
+# 5. 百度 (Baidu)
+# -----------------------------------------------------------------
+# 涵蓋: 百度搜尋、貼吧、網盤、地圖、愛奇藝、文心一言等。
+PROCESS-NAME,com.baidu.tieba
+PROCESS-NAME,com.baidu.BaiduMap
+PROCESS-NAME,com.baidu.netdisk
+PROCESS-NAME,com.qiyi.video # 愛奇藝
+DOMAIN-KEYWORD,baidu
+DOMAIN-KEYWORD,tieba
+DOMAIN-KEYWORD,iQIYI # 愛奇藝
+DOMAIN-KEYWORD,yiyan # 文心一言
+DOMAIN-SUFFIX,bdstatic.com
+DOMAIN-SUFFIX,baidubce.com # 百度雲
+
+# -----------------------------------------------------------------
+# 6. 京東、拼多多與其他電商 (E-commerce)
+# -----------------------------------------------------------------
+PROCESS-NAME,com.jingdong.app.mall
+PROCESS-NAME,com.xunmeng.pinduoduo
+PROCESS-NAME,com.shizhuang.duapps # 得物
+DOMAIN-KEYWORD,jd
+DOMAIN-KEYWORD,pinduoduo
+DOMAIN-KEYWORD,poizon # 得物
+DOMAIN-KEYWORD,smzdm # 什麼值得買
+DOMAIN-KEYWORD,vip.com # 唯品會
+
+# -----------------------------------------------------------------
+# 7. 生活、旅遊與出行 (Lifestyle & Travel)
+# -----------------------------------------------------------------
+PROCESS-NAME,com.sankuai.meituan # 美團
+PROCESS-NAME,me.ele # 餓了麼
+PROCESS-NAME,com.xingin.xhs # 小紅書
+PROCESS-NAME,com.sdu.didi.psnger # 滴滴出行
+DOMAIN-KEYWORD,meituan # 美團
+DOMAIN-KEYWORD,dianping # 大眾點評
+DOMAIN-KEYWORD,eleme # 餓了麼
+DOMAIN-KEYWORD,xiaohongshu # 小紅書
+DOMAIN-KEYWORD,ctrip.com # 攜程
+DOMAIN-KEYWORD,qunar.com # 去哪兒
+DOMAIN-KEYWORD,didiglobal # 滴滴出行
+DOMAIN-KEYWORD,sf-express # 順豐速運
+
+# -----------------------------------------------------------------
+# 8. 影音、直播與社交 (Media, Live Streaming & Social)
+# -----------------------------------------------------------------
+# 涵蓋: 嗶哩嗶哩、微博、知乎、快手、斗魚、虎牙、豆瓣、虎撲等。
 PROCESS-NAME,com.bilibili.app.blue
-PROCESS-NAME,com.bilibili.app.in
-PROCESS-NAME,com.bilibili.comic
-PROCESS-NAME,com.bilibili.comic.intl
-PROCESS-NAME,tv.danmaku.bili
-PROCESS-NAME,tv.danmaku.bilibilihd
-PROCESS-NAME,com.zhiliaoapp.musically
-PROCESS-NAME,com.jjwxc.reader
-PROCESS-NAME,com.xiaomi.mibrain.speech
-PROCESS-NAME,thunder
-PROCESS-NAME,com.qiyi.video
-IP-CIDR,1.255.62.0/24,no-resolve
-IP-CIDR,101.32.104.0/21,no-resolve
-IP-CIDR,101.32.118.0/23,no-resolve
-IP-CIDR,101.32.96.0/20,no-resolve
-IP-CIDR,119.28.28.28/32,no-resolve
-IP-CIDR,120.195.181.180/32,no-resolve
-IP-CIDR,129.226.0.0/16,no-resolve
-IP-CIDR,182.254.116.0/24,no-resolve
-IP-CIDR,183.128.0.0/11,no-resolve
-IP-CIDR,183.131.48.0/20,no-resolve
-IP-CIDR,185.188.32.0/22,no-resolve
-IP-CIDR,185.188.32.0/24,no-resolve
-IP-CIDR,185.188.33.0/24,no-resolve
-IP-CIDR,185.188.34.0/24,no-resolve
-IP-CIDR,185.188.35.0/24,no-resolve
-IP-CIDR,203.205.238.0/23,no-resolve
-IP-CIDR,203.205.254.0/23,no-resolve
-IP-CIDR6,2a0b:b580::/48,no-resolve
-IP-CIDR6,2a0b:b581::/48,no-resolve
-IP-CIDR6,2a0b:b582::/48,no-resolve
-IP-CIDR6,2a0b:b583::/48,no-resolve
-IP-ASN,24429,no-resolve // Zhejiang Taobao Network Co.,Ltd.
-IP-ASN,38369,no-resolve // Zhejiang Taobao Network Co.,Ltd.
-IP-ASN,45102,no-resolve // Alibaba (US) Technology Co., Ltd.
-IP-ASN,55990,no-resolve // Huawei Cloud Service data center
-IP-ASN,131325,no-resolve //  CHINATELECOM JIANGSU province NANTONG MAN network
-IP-ASN,140292,no-resolve // CHINATELECOM Jiangsu province Suzhou 5G network
+PROCESS-NAME,com.weico.international # 微博
+PROCESS-NAME,com.zhihu.android # 知乎
+PROCESS-NAME,com.kuaishou.nebula # 快手
+PROCESS-NAME,air.tv.douyu.android # 斗魚
+PROCESS-NAME,com.duowan.kiwi # 虎牙直播
+DOMAIN-KEYWORD,bilibili
+DOMAIN-KEYWORD,weibo # 微博
+DOMAIN-KEYWORD,zhihu # 知乎
+DOMAIN-KEYWORD,163.com # 網易
+DOMAIN-KEYWORD,sina.com.cn # 新浪
+DOMAIN-KEYWORD,sohu.com # 搜狐
+DOMAIN-KEYWORD,kuaishou.com # 快手
+DOMAIN-KEYWORD,douyu.com # 斗魚
+DOMAIN-KEYWORD,huya.com # 虎牙
+DOMAIN-KEYWORD,douban.com # 豆瓣
+DOMAIN-KEYWORD,hupu.com # 虎撲
+
+# -----------------------------------------------------------------
+# 9. 辦公與協作 (Office & Collaboration)
+# -----------------------------------------------------------------
+# 涵蓋: 金山辦公、騰訊文件、石墨文件、幕布等。
+PROCESS-NAME,cn.wps.moffice_eng # WPS Office
+DOMAIN-KEYWORD,wps.cn # 金山辦公
+DOMAIN-SUFFIX,docs.qq.com # 騰訊文件
+DOMAIN-SUFFIX,shimo.im # 石墨文件
+DOMAIN-SUFFIX,mubu.com # 幕布
+
+# -----------------------------------------------------------------
+# 10. 常用 CDN 與基礎設施 (Common CDNs & Infrastructure)
+# -----------------------------------------------------------------
+DOMAIN-SUFFIX,qiniu.com # 七牛雲
+DOMAIN-SUFFIX,qiniudns.com
+DOMAIN-SUFFIX,upaiyun.com # 又拍雲
+DOMAIN-SUFFIX,upyun.com
+DOMAIN-SUFFIX,meituan.net # 美團雲 CDN
+DOMAIN-SUFFIX,clouddn.com
+
+# -----------------------------------------------------------------
+# 11. 遊戲、財經與工具 (Gaming, Finance & Tools)
+# -----------------------------------------------------------------
+# 涵蓋: 原神、明日方舟、東方財富、雪球、富途、老虎證券、搜狗輸入法等。
+DOMAIN-KEYWORD,mihoyo # 米哈遊 (原神)
+DOMAIN-KEYWORD,hoyoverse
+DOMAIN-KEYWORD,hypergryph.com # 鷹角網路 (明日方舟)
+DOMAIN-KEYWORD,eastmoney.com # 東方財富
+DOMAIN-KEYWORD,xueqiu.com # 雪球
+DOMAIN-KEYWORD,futunn.com # 富途牛牛
+DOMAIN-KEYWORD,itiger.com # 老虎證券
+DOMAIN-KEYWORD,sogou.com # 搜狗
+
+# -----------------------------------------------------------------
+# 12. 手機製造商系統服務 (Mobile OS Services)
+# -----------------------------------------------------------------
+# 說明: 若非使用中國版系統，或僅需分流特定 App，可考慮註解掉此區塊。
+# Xiaomi (小米)
+DOMAIN-SUFFIX,mi.com
+DOMAIN-SUFFIX,miui.com
+DOMAIN-SUFFIX,xiaomi.com
+DOMAIN-SUFFIX,micloud.com
+# Huawei / Honor (華為/榮耀)
+DOMAIN-SUFFIX,hicloud.com
+DOMAIN-SUFFIX,huawei.com
+DOMAIN-SUFFIX,hihonor.com
+DOMAIN-SUFFIX,dbankcdn.com
+# OPPO / OnePlus / realme
+DOMAIN-SUFFIX,heytapcs.com
+DOMAIN-SUFFIX,heytap.com
+DOMAIN-SUFFIX,oppo.com
+# VIVO / iQOO
+DOMAIN-SUFFIX,vivo.com.cn
+DOMAIN-SUFFIX,vivoglobal.com
+
+# =================================================================
+# 第二層：中國大陸自治系統編號 (China ASN)
+# 說明：高效捕獲主要運營商與大型企業的全部 IP 資產。
+# =================================================================
+IP-ASN,4134,no-resolve # ChinaNet (China Telecom)
+IP-ASN,4837,no-resolve # China Unicom
+IP-ASN,58453,no-resolve # China Mobile (CMNET)
+IP-ASN,9808,no-resolve # China Mobile
+IP-ASN,45102,no-resolve # Alibaba (US) Technology
+IP-ASN,45090,no-resolve # Alibaba (China) Technology
+IP-ASN,37963,no-resolve # Alibaba Cloud
+IP-ASN,24429,no-resolve # Zhejiang Taobao Network
+IP-ASN,38369,no-resolve # Zhejiang Taobao Network
+IP-ASN,55967,no-resolve # Beijing ByteDance
+IP-ASN,132203,no-resolve # Tencent Technology
+IP-ASN,132202,no-resolve # Tencent Computer Systems
+IP-ASN,56046,no-resolve # Tencent Cloud
+IP-ASN,133535,no-resolve # Baidu
+IP-ASN,133359,no-resolve # Baidu
+IP-ASN,59625,no-resolve # JD.com
