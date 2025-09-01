@@ -123,16 +123,16 @@ DOMAIN,prd.col.aria.mobile.skypedata.akadns.net
 # 不建議直接阻擋；列出以供日誌頻率追蹤。必要時分流到暫存清單再決策。
 # 若後續證實僅承載廣告／遙測且無功能依賴，再轉入阻擋段。
 #####################################################################
-#CANDIDATE,a1467.g.akamai.net
-#CANDIDATE,a1715.phobos.apple.com
-#CANDIDATE,edge-035.usnyc.ce.apple-dns.net
-#CANDIDATE,edge-010.gblon.ce.apple-dns.net
-#CANDIDATE,edge-045.gblon.ce.apple-dns.net
-#CANDIDATE,a682.phobos.g.aaplimg.com
-#CANDIDATE,a506.phobos.g.aaplimg.com
-#CANDIDATE,a1598.phobos.g.aaplimg.com
-#CANDIDATE,a1397.phobos.g.aaplimg.com
-#CANDIDATE,a1462.phobos.g.aaplimg.com
+DOMAIN,a1467.g.akamai.net
+DOMAIN,a1715.phobos.apple.com
+DOMAIN,edge-035.usnyc.ce.apple-dns.net
+DOMAIN,edge-010.gblon.ce.apple-dns.net
+DOMAIN,edge-045.gblon.ce.apple-dns.net
+DOMAIN,a682.phobos.g.aaplimg.com
+DOMAIN,a506.phobos.g.aaplimg.com
+DOMAIN,a1598.phobos.g.aaplimg.com
+DOMAIN,a1397.phobos.g.aaplimg.com
+DOMAIN,a1462.phobos.g.aaplimg.com
 
 #####################################################################
 # SECTION 8 －－ Regex Rules (Minimal & Audited)
