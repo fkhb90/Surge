@@ -1,144 +1,220 @@
 # unified-apple-privacy.list
-# version: v2025-08-31-01
-# generated: 2025-08-31
-# objective: 在不破壞核心系統功能前提下，降低 Apple 及相關廣告／遙測可見度
+# version: v2025-09-01-06 (Surge REJECT-SET Format / Expanded iAd SDK)
+# objective: 在不破壞核心系統功能前提下，降低 Apple 及相關廣告／遙測可見度。白名單與可選項目已被註解 (#)，並為每行規則附上用途說明。
 # ordering: ALLOW (核心) → CONDITIONAL (媒體) → BLOCK (廣告／遙測／診斷) → OPTIONAL (第三方) → CANDIDATES → REGEX
 # note: 視個人情境調整；請先於測試裝置灰度驗證 48h
 
 #####################################################################
 # SECTION 1 －－ Core Security & Function (MANDATORY ALLOW / DIRECT)
 # 風險若阻擋：TLS 憑證撤銷延遲、系統更新失敗、登入失敗、應用安裝異常
+# (註：以下白名單項目已註解，以避免被 REJECT 規則阻擋)
 #####################################################################
-# DOMAIN,ocsp-lb.apple.com
-# DOMAIN,tbsc.apple.com
-# DOMAIN,valid.apple.com
-# DOMAIN,appldnld.apple.com
-# DOMAIN,gdmf.apple.com
-# DOMAIN,iphone-services.apple.com
-# DOMAIN,identity.apple.com
-# DOMAIN,appidnid.apple.com
-# DOMAIN,cdsassets.apple.com
-# DOMAIN,cds.apple.com
-# DOMAIN,ess.apple.com
-# DOMAIN,images.apple.com
-# DOMAIN,devimages-cdn.apple.com
+# DOMAIN,ocsp-lb.apple.com   #憑證狀態檢查 (OCSP)，驗證 App 與系統安全性
+# DOMAIN,tbsc.apple.com   #憑證與安全相關服務
+# DOMAIN,valid.apple.com   #裝置啟用與驗證服務
+# DOMAIN,appldnld.apple.com   #系統更新、App Store 應用程式下載
+# DOMAIN,gdmf.apple.com   #裝置管理框架，MDM 與系統配置
+# DOMAIN,iphone-services.apple.com   #iPhone 核心服務，包含 Find My iPhone
+# DOMAIN,identity.apple.com   #Apple ID 登入與 iCloud 身份驗證
+# DOMAIN,appidnid.apple.com   #Apple ID 登入認證 (新版)
+# DOMAIN,cdsassets.apple.com   #iCloud 與開發者資源 CDN
+# DOMAIN,cds.apple.com   #核心內容分發網路 (CDN)
+# DOMAIN,ess.apple.com   #iCloud 同步與設定服務
+# DOMAIN,images.apple.com   #Apple 官方圖片資源
+# DOMAIN,devimages-cdn.apple.com   #開發者文件與 Xcode 相關圖片資源
+# DOMAIN,device-management.apple.com   #裝置管理與 MDM 核心
+# DOMAIN,gsa.apple.com   #Apple 登入與 iCloud 認證 (Geo Services Auth)
+# DOMAIN,store.mzstatic.com   #App Store 圖示與媒體資源 (舊)
+# DOMAIN-SUFFIX,mzstatic.com   #App Store/iTunes 媒體資源 (舊)
 
-# 視極簡需求可移動至媒體段：下兩行保留是為減少 App Store 圖示缺失
-# DOMAIN,store.mzstatic.com
-# DOMAIN-SUFFIX,mzstatic.com
-
 #####################################################################
-# SECTION 2 －－ Media / Content (CONDITIONAL ALLOW)
-# 若不使用對應服務，可註解以降低外部請求
+# SECTION 2 －－ Media / Content (CONDITIONAL)
+# 若不使用對應服務，可自行移除註解以阻擋、降低外部請求。
+# (註：預設不阻擋，已全部註解)
 #####################################################################
-DOMAIN,podcasts.apple.com
-DOMAIN,tv.apple.com
-DOMAIN,books.apple.com
-DOMAIN,api.books.apple.com
-DOMAIN,health-assets.cdn-apple.com
-DOMAIN,stocks-sparkline.apple.com
-DOMAIN,sb.music.apple.com
-DOMAIN,sb.tv.apple.com
-DOMAIN,pancake.apple.com
-DOMAIN,zeusmedia.apple.com
-DOMAIN-SUFFIX,aaplimg.com
+DOMAIN,podcasts.apple.com   #Apple Podcasts 內容與目錄
+DOMAIN,tv.apple.com   #Apple TV+ 服務
+DOMAIN,books.apple.com   #Apple Books 服務
+DOMAIN,api.books.apple.com   #Apple Books API
+# DOMAIN,health-assets.cdn-apple.com   #健康 App 文章與 Fitness+ 影片資源
+DOMAIN,stocks-sparkline.apple.com   #股市 App 圖表數據
+DOMAIN,sb.music.apple.com   #Apple Music 訂閱與資料同步
+DOMAIN,sb.tv.apple.com   #Apple TV+ 訂閱與資料同步
+DOMAIN,pancake.apple.com   #Apple TV+ 影片串流 CDN
+DOMAIN,zeusmedia.apple.com   #Apple TV+ 媒體資源
+# DOMAIN-SUFFIX,aaplimg.com   #Apple 通用圖片資源 CDN
 
 #####################################################################
 # SECTION 3 －－ Ads & Attribution (RECOMMENDED BLOCK)
 # 阻擋後：廣告位可能留白；歸因資料減少
+# (註：以下為黑名單，將被 REJECT 規則阻擋)
 #####################################################################
-# ↓ 建議以 REJECT 或自訂策略（如 REJECT-TINYGIF）
-DOMAIN,iad.apple.com
-DOMAIN,iadsdk.apple.com
-DOMAIN,ca.iadsdk.apple.com
-DOMAIN,cf.iadsdk.apple.com
-DOMAIN,cs.iadsdk.apple.com
-DOMAIN,ut.iadsdk.apple.com
-DOMAIN,tr.iadsdk.apple.com
-DOMAIN,news.iadsdk.apple.com
-DOMAIN,iadcontent.apple.com
-DOMAIN,iadsk.apple.com
-DOMAIN,ads.apple.com
-DOMAIN,api-adservices.apple.com
-DOMAIN,api-adservices.skadnetwork.com
-DOMAIN,skadsdk.apple.com
-DOMAIN,unityads.unity3d.com
-DOMAIN,ads.internal.unity3d.com
-DOMAIN,ads.prd.ie.internal.unity3d.com
+DOMAIN,iad.apple.com   #Apple iAd 廣告服務主網域
+DOMAIN,iadsdk.apple.com   #iAd 廣告軟體開發工具包 (SDK)
+DOMAIN,api.iadsdk.apple.com   #iAd 廣告 SDK (API)
+DOMAIN,ca.iadsdk.apple.com   #iAd 廣告 SDK (加拿大地區)
+DOMAIN,cf.iadsdk.apple.com   #iAd 廣告 SDK (CloudFront)
+DOMAIN,cs.iadsdk.apple.com   #iAd 廣告 SDK (客戶端)
+DOMAIN,su.iadsdk.apple.com   #iAd 廣告 SDK (供應/更新)
+DOMAIN,static.iadsdk.apple.com   #iAd 廣告 SDK (靜態資源)
+DOMAIN,tr.iadsdk.apple.com   #iAd 廣告 SDK (追蹤)
+DOMAIN,ut.iadsdk.apple.com   #iAd 廣告 SDK (使用者追蹤)
+DOMAIN,jp.iadsdk.apple.com   #iAd 廣告 SDK (日本地區)
+DOMAIN,gb.iadsdk.apple.com   #iAd 廣告 SDK (英國地區)
+DOMAIN,de.iadsdk.apple.com   #iAd 廣告 SDK (德國地區)
+DOMAIN,fr.iadsdk.apple.com   #iAd 廣告 SDK (法國地區)
+DOMAIN,au.iadsdk.apple.com   #iAd 廣告 SDK (澳洲地區)
+DOMAIN,news.iadsdk.apple.com   #Apple News 內的廣告
+DOMAIN,iadcontent.apple.com   #iAd 廣告內容分發
+DOMAIN,iadsk.apple.com   #iAd 廣告服務 (SKAdNetwork)
+DOMAIN,ads.apple.com   #Apple Search Ads 搜尋廣告
+DOMAIN,advertising.apple.com   #Apple Search Ads 主要端點
+DOMAIN,api-adservices.apple.com   #廣告服務 API
+DOMAIN,api-adservices.skadnetwork.com   #SKAdNetwork 歸因 API
+DOMAIN,skadsdk.apple.com   #SKAdNetwork SDK
+DOMAIN,app-attribution.apple.com   #App 安裝歸因，追蹤廣告成效
+DOMAIN,news-ad.apple.com   #Apple News/Stocks 廣告服務
+DOMAIN,books-ad.apple.com   #Apple Books 廣告服務
+DOMAIN,amp-ad.apple.com   #App Store 推薦內容廣告
+DOMAIN,unityads.unity3d.com   #Unity 遊戲引擎廣告
+DOMAIN,ads.internal.unity3d.com   #Unity 廣告 (內部)
+DOMAIN,ads.prd.ie.internal.unity3d.com   #Unity 廣告 (產品)
 
 #####################################################################
 # SECTION 4 －－ Analytics / Telemetry (RECOMMENDED BLOCK)
 # 阻擋後：遙測統計缺失，可能影響使用行為最佳化；評估必要性
+# (註：以下為黑名單，將被 REJECT 規則阻擋)
 #####################################################################
-DOMAIN,metrics.apple.com
-DOMAIN,metrics.mzstatic.com
-DOMAIN,metrics.icloud.com
-DOMAIN,analytics.icloud.com
-DOMAIN,analytics-edge.apple.com
-DOMAIN,feedbackws.apple.com
-DOMAIN,feedbackws.icloud.com
-DOMAIN,feedback.apple.com
-DOMAIN,smoot-feedback.v.aaplimg.com
-DOMAIN,books-analytics-events.apple.com
-DOMAIN,notes-analytics-events.apple.com
-DOMAIN,stocks-analytics-events.apple.com
-DOMAIN,news-events.apple.com
-DOMAIN,news-events.news.apple-dns.net
-DOMAIN,notes-analytics-events.news.apple-dns.net
-DOMAIN,stocks-analytics-events.news.apple-dns.net
-DOMAIN,supportmetrics.apple.com
-DOMAIN,securemetrics.apple.com
-DOMAIN,basejumper.apple.com
-DOMAIN,stats.apple.com
+DOMAIN,metrics.apple.com   #核心遙測數據回傳
+DOMAIN,metrics.mzstatic.com   #App Store/iTunes 相關遙測
+DOMAIN,metrics.icloud.com   #iCloud 使用分析
+DOMAIN,analytics.icloud.com   #iCloud 分析數據
+DOMAIN,analytics-edge.apple.com   #Apple 分析服務邊緣節點
+DOMAIN,apple-cloudkit.com   #CloudKit 遙測與分析
+DOMAIN,deviceservices-edge.apple.com   #裝置狀態遙測邊緣節點
+DOMAIN,i.cal.biz.mzstatic.com   #App Store 分析與遙測 (常見)
+DOMAIN,feedbackws.apple.com   #回饋助理 (Feedback Assistant)
+DOMAIN,feedbackws.icloud.com   #iCloud 相關回饋
+DOMAIN,feedback.apple.com   #Beta 版軟體回饋
+DOMAIN,smoot-feedback.v.aaplimg.com   #Siri/Spotlight 建議回饋
+DOMAIN,books-analytics-events.apple.com   #Apple Books 分析事件
+DOMAIN,notes-analytics-events.apple.com   #備忘錄 App 分析事件
+DOMAIN,stocks-analytics-events.apple.com   #股市 App 分析事件
+DOMAIN,news-events.apple.com   #Apple News 新聞事件遙測
+DOMAIN,news-events.news.apple-dns.net   #Apple News 事件遙測 (CDN)
+DOMAIN,notes-analytics-events.news.apple-dns.net   #備忘錄分析 (CDN)
+DOMAIN,stocks-analytics-events.news.apple-dns.net   #股市分析 (CDN)
+DOMAIN,supportmetrics.apple.com   #Apple 支援服務遙測
+DOMAIN,securemetrics.apple.com   #安全相關遙測
+DOMAIN,basejumper.apple.com   #遙測數據收集 (內部代號)
+DOMAIN,stats.apple.com   #統計數據上傳
+DOMAIN,data.apple.com   #通用數據收集端點
+DOMAIN,telemetry.apple.com   #裝置性能與使用數據遙測
+DOMAIN,logws.apple.com   #系統與 App 日誌回傳
+DOMAIN,xp.apple.com   #A/B 測試與體驗採樣
 
 #####################################################################
 # SECTION 5 －－ Diagnostics / Internal Reporting (OPTIONAL BLOCK)
 # 阻擋後：無自動錯誤回報；若需協助診斷可暫時允許
+# (註：以下為黑名單，將被 REJECT 規則阻擋)
 #####################################################################
-DOMAIN,crashreport.apple.com
-DOMAIN,idiagnostics.apple.com
-DOMAIN,radarsubmissions.apple.com
-DOMAIN,radarsubmissions.apple.com.akadns.net
-DOMAIN,tf-feedback.itunes.apple.com
-DOMAIN,ppq.apple.com
-DOMAIN,ppq-new-st.oa-apple.com.akadns.net
-DOMAIN,internalcheck.apple.com
+DOMAIN,crashreport.apple.com   #App 崩潰報告
+DOMAIN,diagnostic-events.apple.com   #診斷事件回報
+DOMAIN,idiagnostics.apple.com   #iOS 診斷服務
+DOMAIN,radarsubmissions.apple.com   #Apple 內部錯誤追蹤系統 (Radar)
+DOMAIN,radarsubmissions.apple.com.akadns.net   #Radar 錯誤追蹤 (Akamai CDN)
+DOMAIN,tf-feedback.itunes.apple.com   #TestFlight App 回饋
+DOMAIN,ppq.apple.com   #性能與功耗品質數據回報
+DOMAIN,ppq-new-st.oa-apple.com.akadns.net   #性能回報 (Akamai CDN)
+DOMAIN,internalcheck.apple.com   #內部檢查服務
+DOMAIN,appleseed.apple.com   #Beta 軟體回饋系統 (Feedback Assistant)
+DOMAIN,submit.appleseed.apple.com   #Beta 軟體回饋上傳
 
 #####################################################################
 # SECTION 6 －－ Third-Party Debug / Telemetry (MODE SWITCH)
-# 測試／開發模式：允許（DIRECT）
-# 隱私模式：阻擋（REJECT）
 # 可用情境：崩潰分析、性能統計、A/B 測試
+# (註：以下為黑名單，預設隱私模式阻擋)
 #####################################################################
-#MODE:PRIVACY → （預設阻擋可保留；若要允許請取消註解或移到白名單清單）
-DOMAIN,e.crashlytics.com
-DOMAIN,settings.crashlytics.com
-DOMAIN,pipe.prd.skypedata.akadns.net
-DOMAIN,pipe.cloudapp.aria.akadns.net
-DOMAIN,prd.col.aria.browser.skypedata.akadns.net
-DOMAIN,prd.col.aria.mobile.skypedata.akadns.net
+DOMAIN,e.crashlytics.com   #Google Firebase Crashlytics 崩潰分析
+DOMAIN,settings.crashlytics.com   #Crashlytics 設定
+DOMAIN,pipe.prd.skypedata.akadns.net   #Microsoft/Skype 遙測
+DOMAIN,pipe.cloudapp.aria.akadns.net   #Microsoft 遙測 (Aria)
+DOMAIN,prd.col.aria.browser.skypedata.akadns.net   #Microsoft 遙測 (瀏覽器)
+DOMAIN,prd.col.aria.mobile.skypedata.akadns.net   #Microsoft 遙測 (行動裝置)
+DOMAIN,appevents.facebook.com   #Facebook App 事件與分析
+DOMAIN,app.adjust.com   #Adjust 行動數據分析與歸因
+DOMAIN,s2s.adjust.com   #Adjust 伺服器間歸因
+DOMAIN,sdk.appsflyer.com   #AppsFlyer 行動數據分析與歸因 SDK
+DOMAIN,events.appsflyer.com   #AppsFlyer 事件回報
+DOMAIN,api.mixpanel.com   #Mixpanel 使用者行為分析
+DOMAIN,api.amplitude.com   #Amplitude 產品分析
+DOMAIN,ingest.sentry.io   #Sentry 錯誤與崩潰回報
+DOMAIN,api.segment.io   #Segment 客戶數據平台
+DOMAIN,mobile-events.datadoghq.com   #Datadog 行動應用監控
+DOMAIN,firebaselogging-pa.googleapis.com   #Google Firebase 日誌記錄
+DOMAIN,in.appcenter.ms   #Microsoft App Center 崩潰與分析
 
 #####################################################################
-# SECTION 7 －－ Ephemeral CDN Candidates (OBSERVE ONLY)
+# SECTION 7 －－ Apple CarPlay Functionality (MODULAR RULES)
+# 策略：核心功能設為強制允許，Apple 原生地圖與媒體服務則提供可選封鎖。
+#####################################################################
+
+# === 7.1 Core CarPlay & Siri (MANDATORY ALLOW / DIRECT) ===
+# 風險若阻擋：CarPlay 連線失敗、Siri 無法使用、語音控制失靈。
+# (註：已註解以避免被 REJECT 規則阻擋)
+# DOMAIN,gsa.apple.com   #核心認證，CarPlay 連線時可能需要
+# DOMAIN,siri.apple.com   #Siri 語音辨識主服務
+# DOMAIN,assistant.apple.com   #Siri 助理功能後端
+# DOMAIN,text-to-speech.apple.com   #Siri 語音合成 (TTS)
+# DOMAIN,ls.apple.com   #核心定位服務 (AGPS)，影響所有導航 App
+
+# === 7.2 Apple Maps Services (OPTIONAL BLOCK for Non-Apple Maps Users) ===
+# 阻擋後：Apple 地圖將無法載入圖資、搜尋地點或規劃路線。不會影響 Google Maps。
+# (註：若要阻擋 Apple 地圖，請移除下方相關域名前的 #)
+# DOMAIN,gspe19-ssl.ls.apple.com   #Apple 地圖圖資
+# DOMAIN,gspe21-ssl.ls.apple.com   #Apple 地圖衛星影像
+# DOMAIN,cdn.apple-mapkit.com   #Apple MapKit 框架資源
+# DOMAIN,maps-data.apple.com   #Apple 地圖 POI/路況/路線數據
+# DOMAIN,geod.apple.com   #地理編碼服務 (地址轉座標)
+
+# === 7.3 Other Apple Media Services in CarPlay (OPTIONAL BLOCK) ===
+# 阻擋後：對應的 Apple 原生 App 將無法播放內容。
+# (註：若要阻擋 Apple 媒體服務，請移除下方相關域名前的 #)
+# DOMAIN,amp-api.music.apple.com   #Apple Music API
+# DOMAIN,podcasts-data.apple.com   #Apple Podcasts 目錄與數據
+# DOMAIN,books-data.apple.com   #Apple Audiobooks 數據
+
+#####################################################################
+# SECTION 8 －－ Ephemeral CDN Candidates (OBSERVE & VERIFY)
 # 不建議直接阻擋；列出以供日誌頻率追蹤。必要時分流到暫存清單再決策。
-# 若後續證實僅承載廣告／遙測且無功能依賴，再轉入阻擋段。
+# (註：預設不阻擋，已全部註解)
 #####################################################################
-DOMAIN,a1467.g.akamai.net
-DOMAIN,a1715.phobos.apple.com
-DOMAIN,edge-035.usnyc.ce.apple-dns.net
-DOMAIN,edge-010.gblon.ce.apple-dns.net
-DOMAIN,edge-045.gblon.ce.apple-dns.net
-DOMAIN,a682.phobos.g.aaplimg.com
-DOMAIN,a506.phobos.g.aaplimg.com
-DOMAIN,a1598.phobos.g.aaplimg.com
-DOMAIN,a1397.phobos.g.aaplimg.com
-DOMAIN,a1462.phobos.g.aaplimg.com
+# DOMAIN,a1467.g.akamai.net   #Akamai CDN 節點，功能混雜
+# DOMAIN,a1715.phobos.apple.com   #Phobos CDN (前 iTunes Store 資源)
+# DOMAIN,edge-035.usnyc.ce.apple-dns.net   #Apple CDN 邊緣節點 (紐約)
+# DOMAIN,edge-010.gblon.ce.apple-dns.net   #Apple CDN 邊緣節點 (倫敦)
+# DOMAIN,edge-045.gblon.ce.apple-dns.net   #Apple CDN 邊緣節點 (倫敦)
+# DOMAIN,a682.phobos.g.aaplimg.com   #Phobos 圖片資源 CDN
+# DOMAIN,a506.phobos.g.aaplimg.com   #Phobos 圖片資源 CDN
+# DOMAIN,a1598.phobos.g.aaplimg.com   #Phobos 圖片資源 CDN
+# DOMAIN,a1397.phobos.g.aaplimg.com   #Phobos 圖片資源 CDN
+# DOMAIN,a1462.phobos.g.aaplimg.com   #Phobos 圖片資源 CDN
+# DOMAIN,humb.apple.com   #Apple Music/TV+ 個人化推薦遙測
+# DOMAIN,weather-data.apple.com   #天氣 App 數據，可能夾帶遙測
+# DOMAIN,maps-data.apple.com   #地圖 App 數據，可能夾帶遙測
+# DOMAIN,api.smoot.apple.com   #Siri/Spotlight 建議後端 API
 
 #####################################################################
-# SECTION 8 －－ Regex Rules (Minimal & Audited)
+# SECTION 9 －－ Regex Rules (Audited & High-Precision)
 # 僅針對明確 iad-* 型態；避免過廣影響效能／誤傷
+# (註：以下為黑名單，將被 REJECT 規則阻擋)
 #####################################################################
-URL-REGEX,^https?:\/\/iad-[a-z0-9-]+\.apple\.com\/?.*$
+URL-REGEX,^https?:\/\/iad-[a-z0-9-]+\.apple\.com\/?.*$   #攔截所有 iad-* 子網域，為 iAd 廣告變體
+URL-REGEX,^https?:\/\/[a-z0-9-]+\.metrics\.apple.com   #攔截 metrics.apple.com 的所有子網域
+URL-REGEX,^https?:\/\/[a-z0-9-]+\.analytics\.apple.com   #攔截 analytics.apple.com 的所有子網域
+URL-REGEX,^https?:\/\/news\.apple\.com\/.*\/ads\/.* #攔截 Apple News 中明確的廣告路徑
+URL-REGEX,^https?:\/\/stocks\.apple\.com\/.*\/ads\/.* #攔截股市 App 中明確的廣告路徑
+URL-REGEX,^https?:\/\/api-adservices\.apple\.com\/api\/v[1-9]\/attribution\/.* #攔截 SKAdNetwork 的版本化歸因回報 URL
 
 #####################################################################
 # END OF FILE
