@@ -4,11 +4,11 @@
 # ordering: ALLOW (核心) → CONDITIONAL (媒體) → BLOCK (廣告／遙測／診斷) → OPTIONAL (第三方) → CANDIDATES → REGEX
 # note: 視個人情境調整；請先於測試裝置灰度驗證 48h
 
-#####################################################################
+##########################################
 # SECTION 1 －－ Core Security & Function (MANDATORY ALLOW / DIRECT)
 # 風險若阻擋：TLS 憑證撤銷延遲、系統更新失敗、登入失敗、應用安裝異常
 # (註：以下白名單項目已註解，以避免被 REJECT 規則阻擋)
-#####################################################################
+##########################################
 # DOMAIN,ocsp-lb.apple.com   #憑證狀態檢查 (OCSP)，驗證 App 與系統安全性
 # DOMAIN,tbsc.apple.com   #憑證與安全相關服務
 # DOMAIN,valid.apple.com   #裝置啟用與驗證服務
@@ -27,11 +27,11 @@
 # DOMAIN,store.mzstatic.com   #App Store 圖示與媒體資源 (舊)
 # DOMAIN-SUFFIX,mzstatic.com   #App Store/iTunes 媒體資源 (舊)
 
-#####################################################################
+##########################################
 # SECTION 2 －－ Media / Content (CONDITIONAL)
 # 若不使用對應服務，可自行移除註解以阻擋、降低外部請求。
 # (註：預設不阻擋，已全部註解)
-#####################################################################
+##########################################
 DOMAIN,podcasts.apple.com   #Apple Podcasts 內容與目錄
 DOMAIN,tv.apple.com   #Apple TV+ 服務
 DOMAIN,books.apple.com   #Apple Books 服務
@@ -44,11 +44,11 @@ DOMAIN,pancake.apple.com   #Apple TV+ 影片串流 CDN
 DOMAIN,zeusmedia.apple.com   #Apple TV+ 媒體資源
 # DOMAIN-SUFFIX,aaplimg.com   #Apple 通用圖片資源 CDN
 
-#####################################################################
+##########################################
 # SECTION 3 －－ Ads & Attribution (RECOMMENDED BLOCK)
 # 阻擋後：廣告位可能留白；歸因資料減少
 # (註：以下為黑名單，將被 REJECT 規則阻擋)
-#####################################################################
+##########################################
 DOMAIN,iad.apple.com   #Apple iAd 廣告服務主網域
 DOMAIN,iadsdk.apple.com   #iAd 廣告軟體開發工具包 (SDK)
 DOMAIN,api.iadsdk.apple.com   #iAd 廣告 SDK (API)
@@ -80,11 +80,11 @@ DOMAIN,unityads.unity3d.com   #Unity 遊戲引擎廣告
 DOMAIN,ads.internal.unity3d.com   #Unity 廣告 (內部)
 DOMAIN,ads.prd.ie.internal.unity3d.com   #Unity 廣告 (產品)
 
-#####################################################################
+##########################################
 # SECTION 4 －－ Analytics / Telemetry (RECOMMENDED BLOCK)
 # 阻擋後：遙測統計缺失，可能影響使用行為最佳化；評估必要性
 # (註：以下為黑名單，將被 REJECT 規則阻擋)
-#####################################################################
+##########################################
 DOMAIN,metrics.apple.com   #核心遙測數據回傳
 DOMAIN,metrics.mzstatic.com   #App Store/iTunes 相關遙測
 DOMAIN,metrics.icloud.com   #iCloud 使用分析
@@ -113,11 +113,11 @@ DOMAIN,telemetry.apple.com   #裝置性能與使用數據遙測
 DOMAIN,logws.apple.com   #系統與 App 日誌回傳
 DOMAIN,xp.apple.com   #A/B 測試與體驗採樣
 
-#####################################################################
+##########################################
 # SECTION 5 －－ Diagnostics / Internal Reporting (OPTIONAL BLOCK)
 # 阻擋後：無自動錯誤回報；若需協助診斷可暫時允許
 # (註：以下為黑名單，將被 REJECT 規則阻擋)
-#####################################################################
+##########################################
 DOMAIN,crashreport.apple.com   #App 崩潰報告
 DOMAIN,diagnostic-events.apple.com   #診斷事件回報
 DOMAIN,idiagnostics.apple.com   #iOS 診斷服務
@@ -130,11 +130,11 @@ DOMAIN,internalcheck.apple.com   #內部檢查服務
 DOMAIN,appleseed.apple.com   #Beta 軟體回饋系統 (Feedback Assistant)
 DOMAIN,submit.appleseed.apple.com   #Beta 軟體回饋上傳
 
-#####################################################################
+##########################################
 # SECTION 6 －－ Third-Party Debug / Telemetry (MODE SWITCH)
 # 可用情境：崩潰分析、性能統計、A/B 測試
 # (註：以下為黑名單，預設隱私模式阻擋)
-#####################################################################
+##########################################
 DOMAIN,e.crashlytics.com   #Google Firebase Crashlytics 崩潰分析
 DOMAIN,settings.crashlytics.com   #Crashlytics 設定
 DOMAIN,pipe.prd.skypedata.akadns.net   #Microsoft/Skype 遙測
@@ -154,10 +154,10 @@ DOMAIN,mobile-events.datadoghq.com   #Datadog 行動應用監控
 DOMAIN,firebaselogging-pa.googleapis.com   #Google Firebase 日誌記錄
 DOMAIN,in.appcenter.ms   #Microsoft App Center 崩潰與分析
 
-#####################################################################
+##########################################
 # SECTION 7 －－ Apple CarPlay Functionality (MODULAR RULES)
 # 策略：核心功能設為強制允許，Apple 原生地圖與媒體服務則提供可選封鎖。
-#####################################################################
+##########################################
 
 # === 7.1 Core CarPlay & Siri (MANDATORY ALLOW / DIRECT) ===
 # 風險若阻擋：CarPlay 連線失敗、Siri 無法使用、語音控制失靈。
@@ -184,11 +184,11 @@ DOMAIN,in.appcenter.ms   #Microsoft App Center 崩潰與分析
 # DOMAIN,podcasts-data.apple.com   #Apple Podcasts 目錄與數據
 # DOMAIN,books-data.apple.com   #Apple Audiobooks 數據
 
-#####################################################################
+##########################################
 # SECTION 8 －－ Ephemeral CDN Candidates (OBSERVE & VERIFY)
 # 不建議直接阻擋；列出以供日誌頻率追蹤。必要時分流到暫存清單再決策。
 # (註：預設不阻擋，已全部註解)
-#####################################################################
+##########################################
 # DOMAIN,a1467.g.akamai.net   #Akamai CDN 節點，功能混雜
 # DOMAIN,a1715.phobos.apple.com   #Phobos CDN (前 iTunes Store 資源)
 # DOMAIN,edge-035.usnyc.ce.apple-dns.net   #Apple CDN 邊緣節點 (紐約)
@@ -204,11 +204,11 @@ DOMAIN,in.appcenter.ms   #Microsoft App Center 崩潰與分析
 # DOMAIN,maps-data.apple.com   #地圖 App 數據，可能夾帶遙測
 # DOMAIN,api.smoot.apple.com   #Siri/Spotlight 建議後端 API
 
-#####################################################################
+##########################################
 # SECTION 9 －－ Regex Rules (Audited & High-Precision)
 # 僅針對明確 iad-* 型態；避免過廣影響效能／誤傷
 # (註：以下為黑名單，將被 REJECT 規則阻擋)
-#####################################################################
+##########################################
 URL-REGEX,^https?:\/\/iad-[a-z0-9-]+\.apple\.com\/?.*$   #攔截所有 iad-* 子網域，為 iAd 廣告變體
 URL-REGEX,^https?:\/\/[a-z0-9-]+\.metrics\.apple.com   #攔截 metrics.apple.com 的所有子網域
 URL-REGEX,^https?:\/\/[a-z0-9-]+\.analytics\.apple.com   #攔截 analytics.apple.com 的所有子網域
@@ -216,6 +216,6 @@ URL-REGEX,^https?:\/\/news\.apple\.com\/.*\/ads\/.* #攔截 Apple News 中明確
 URL-REGEX,^https?:\/\/stocks\.apple\.com\/.*\/ads\/.* #攔截股市 App 中明確的廣告路徑
 URL-REGEX,^https?:\/\/api-adservices\.apple\.com\/api\/v[1-9]\/attribution\/.* #攔截 SKAdNetwork 的版本化歸因回報 URL
 
-#####################################################################
+##########################################
 # END OF FILE
-#####################################################################
+##########################################
