@@ -1,79 +1,121 @@
-# [Rule]
-# AND,((PROTOCOL,UDP), (DEST-PORT,443)),REJECT-NO-DROP
-# YouTube Ad-Block
+# YouTube 廣告阻擋規則清單（Premium 相容版）
+
+## 基礎網路協定規則
+# 阻擋非必要 UDP 連線到 443 端口
+AND,((PROTOCOL,UDP), (DEST-PORT,443)),REJECT-NO-DROP
+
+## 核心廣告服務域名阻擋
+# Google 廣告核心服務
 DOMAIN-SUFFIX,googleadservices.com,REJECT
-DOMAIN-SUFFIX,google-analytics.com,REJECT
-DOMAIN-SUFFIX,googletagservices.com,REJECT
 DOMAIN-SUFFIX,doubleclick.net,REJECT
 DOMAIN-SUFFIX,googlesyndication.com,REJECT
+DOMAIN-SUFFIX,googletagservices.com,REJECT
 DOMAIN-SUFFIX,adservice.google.com,REJECT
-DOMAIN-SUFFIX,pagead2.googlesyndication.com,REJECT
-DOMAIN-SUFFIX,partnerad.l.google.com,REJECT
+
+# DoubleClick 廣告網路
 DOMAIN-SUFFIX,ad.doubleclick.net,REJECT
 DOMAIN-SUFFIX,securepubads.g.doubleclick.net,REJECT
-DOMAIN-SUFFIX,tpc.googlesyndication.com,REJECT
 DOMAIN-SUFFIX,pubads.g.doubleclick.net,REJECT
-DOMAIN-SUFFIX,imasdk.googleapis.com,REJECT
 DOMAIN-SUFFIX,ad.l.doubleclick.net,REJECT
-DOMAIN-SUFFIX,admob.com,REJECT
+
+# Google 聯播網廣告
+DOMAIN-SUFFIX,pagead2.googlesyndication.com,REJECT
+DOMAIN-SUFFIX,partnerad.l.google.com,REJECT
+DOMAIN-SUFFIX,tpc.googlesyndication.com,REJECT
+
+# YouTube 專用廣告域名
 DOMAIN-SUFFIX,ads.youtube.com,REJECT
+DOMAIN-SUFFIX,imasdk.googleapis.com,REJECT
+
+# 行動廣告平台
+DOMAIN-SUFFIX,admob.com,REJECT
 DOMAIN-SUFFIX,advertising.com,REJECT
+
+# 影片廣告統計
 DOMAIN-SUFFIX,video-ad-stats.googlesyndication.com,REJECT
-# URL-REGEX,^https?\://[\s\S]*\.googlevideo\.com/.*&(oad|ctier)
-URL-REGEX,^https?\:\/\/[\w-]+\.googlevideo\.com\/(?!(dclk_video_ads|videoplayback\?)).+&oad
-URL-REGEX,https?\:\/\/.+.googlevideo\.com\/ptracking\?pltype=adhost
-URL-REGEX,https?\:\/\/[\w-]+\.googlevideo\.com\/.+&oad-TINYGIF
-URL-REGEX,https?\:\/\/.*\.googlevideo\.com\/generate_204
-URL-REGEX,https?\:\/\/.*\.googlevideo\.com\/generate_204?.*
-URL-REGEX,https?\:\/\/.*\.googlevideo\.com\/generate_204\.*
-URL-REGEX,https?\:\/\/.+\.googlevideo\.com\/videogoodput
-URL-REGEX,^https?\:\/\/(www|s)\.youtube\.com\/api\/stats\/ads
-URL-REGEX,^https?\:\/\/(www|s)\.youtube\.com\/(pagead|ptracking)
-URL-REGEX,^https?\:\/\/s\.youtube\.com\/api\/stats\/qoe\?adcontext ctier=[A-Z]
-URL-REGEX,^https?\:\/\/\w+\.youtube\.com\/(pagead|ptracking)
-URL-REGEX,https?\:\/\/.+.youtube\.com\/api\/stats\/ads
-URL-REGEX,https?\:\/\/.+.youtube\.com\/get_midroll_
-URL-REGEX,https?\:\/\/.+.youtube\.com\/pagead\/
-URL-REGEX,https?\:\/\/.*\.youtube\.com\/ptracking.*
-URL-REGEX,https?\:\/\/.+.youtube\.com\/ptracking\?
-URL-REGEX,https?\:\/\/.+.youtube\.com\/_get_ads
-URL-REGEX,https?\:\/\/.+.youtube\.com\/log_event
-URL-REGEX,https?\:\/\/.*\.youtube-nocookie\.com\/youtubei\/.*\/log_event.*
-URL-REGEX,https?\:\/\/.*\.youtube\.com\/youtubei\/.*\/log_event\.*
-URL-REGEX,https?\:\/\/.*\.youtube\.com\/api\/stats\/qoe\?adformat
-URL-REGEX,https?\:\/\/.*\.youtube\.com\/api\/stats\/atr.*
-URL-REGEX,https?\:\/\/.*\.youtube\.com\/generate_204
-URL-REGEX,https?\:\/\/.*\.youtube\.com\/generate_204?.*
-URL-REGEX,https?\:\/\/.*\.youtube\.com\/generate_204\.*
-URL-REGEX,https?\:\/\/.+\.youtube\.com\/csi_204
-URL-REGEX,https?\:\/\/.+\.youtube\.com\/error_204
-URL-REGEX,https?\:\/\/.+\.youtube\.com\/get_midroll
-URL-REGEX,https?\:\/\/.*\.youtube\.com\/api\/lounge\/pairing\/get_screen_availability\?.*
-URL-REGEX,https?\:\/\/.*\.youtube\.com\/api\/lounge\/pairing\/get_lounge_token_batch\?
-# URL-REGEX,https?\:\/\/.*\.youtube\.com\/s\/player\/.*\/fetch-polyfill\.vflset\/fetch-polyfill\.js
-URL-REGEX,https?\:\/\/youtubei\.googleapis\.com\/youtubei\/.*\/att\/get\.*
-URL-REGEX,https?\:\/\/youtubei\.googleapis\.com\/.+ad_break
-URL-REGEX,https?\:\/\/youtubei\.googleapis\.com\/youtubei\/.*\/log_event\/.*
-URL-REGEX,^https?\:\/\/youtubei\.googleapis\.com\/youtubei\/v\d\/player\/ad_break
-# URL-REGEX,^https?\:\/\/youtubei\.googleapis\.com\/youtubei\/.*\/[a-zA-Z0-9_]+(?:\/[a-zA-Z0-9_]+)*\?.*$
-URL-REGEX,https?\:\/\/.+\.googleapis\.com\/adsmeasurement
-URL-REGEX,https?\:\/\/.+\.googleapis\.com\/youtubei\/.*\/notification_registration
-URL-REGEX,https?\:\/\/.+\.googleapis\.com\/youtubei\/.*\/guide
-URL-REGEX,https?\:\/\/.+\.googleapis\.com\/youtubei\/.*\/log_event
-URL-REGEX,https?\:\/\/.+\.googleapis\.com\/youtubei\/.*\/issuetoken
-URL-REGEX,https?\:\/\/.*\.google\.com\/ads\/on-device\/conversions\?.*
-URL-REGEX,https?\:\/\/.*\.google\.com\/js\/th\/lTforlp.*\.js
-# URL-REGEX,https?\:\/\/.*\.google\.com\/js\/th\/.*\.js
-URL-REGEX,https?\:\/\/premiumyva\.appspot\.com\/vmclickstoadvertisersite
-URL-REGEX,https?\:\/\/s0.2mdn\.net\/ads\/
-URL-REGEX,https?\:\/\/stats\.tubemogul\.com\/stats\/
-URL-REGEX,https?\:\/\/api\.catch\.gift\/api\/v\d\/pagead\/
-URL-REGEX,^https?\:\/\/[\w-]+\.googlevideo\.com\/(?!(dclk_video_ads|videoplayback\?)).+&oad
-URL-REGEX,^https?\:\/\/youtubei\.googleapis\.com\/youtubei\/v\d\/player\/ad_break
-URL-REGEX,^https?\:\/\/(www|s)\.youtube\.com\/api\/stats\/ads
-URL-REGEX,^https?\:\/\/(www|s)\.youtube\.com\/(pagead|ptracking)
-URL-REGEX,^https?\:\/\/s\.youtube\.com\/api\/stats\/qoe\?adcontext
-# URL-REGEX,^https?\:\/\/suggestqueries\.google\.com/complete/search\?client=youtube-ios-pb&xssi=t&q=[^&]*&hl=[a-z]{2}-[A-Z]{2}&hjson=t&oe=UTF-8&ds=yt&gs_pcr=t&cp=\d+&gl=[A-Z]{2}&video_id=[^&]*&ytvs=1&w=\d+&h=\d+$
 
+## 隱私追蹤防護（新增強化）
+# Google Analytics 全系列
+DOMAIN-SUFFIX,google-analytics.com,REJECT
+DOMAIN-SUFFIX,googletagmanager.com,REJECT
+DOMAIN-SUFFIX,analytics.google.com,REJECT
 
+# 第三方追蹤服務
+DOMAIN-SUFFIX,facebook.com/tr,REJECT
+DOMAIN-SUFFIX,connect.facebook.net,REJECT
+DOMAIN-SUFFIX,hotjar.com,REJECT
+DOMAIN-SUFFIX,mouseflow.com,REJECT
+DOMAIN-SUFFIX,fullstory.com,REJECT
+DOMAIN-SUFFIX,loggly.com,REJECT
+DOMAIN-SUFFIX,mixpanel.com,REJECT
+DOMAIN-SUFFIX,segment.com,REJECT
 
+# 廣告聯盟追蹤
+DOMAIN-SUFFIX,adsystem.com,REJECT
+DOMAIN-SUFFIX,amazon-adsystem.com,REJECT
+DOMAIN-SUFFIX,ads.twitter.com,REJECT
+DOMAIN-SUFFIX,ads.pinterest.com,REJECT
+
+## YouTube 影片廣告精準阻擋
+# Googlevideo 廣告內容（保留 Premium 功能）
+URL-REGEX,^https?\:\/\/[\w-]+\.googlevideo\.com\/.*[?&]oad=
+URL-REGEX,^https?\:\/\/[\w-]+\.googlevideo\.com\/.*[?&]ctier=L
+URL-REGEX,^https?\:\/\/[\w-]+\.googlevideo\.com\/ptracking\?pltype=adhost
+URL-REGEX,^https?\:\/\/[\w-]+\.googlevideo\.com\/.*oad-TINYGIF
+
+# YouTube 廣告 API（保持 Premium 服務完整性）
+URL-REGEX,^https?\:\/\/(www|s)\.youtube\.com\/api\/stats\/ads($|\?)
+URL-REGEX,^https?\:\/\/(www|s)\.youtube\.com\/pagead\/
+URL-REGEX,^https?\:\/\/(www|s)\.youtube\.com\/ptracking($|\?)
+URL-REGEX,^https?\:\/\/\w+\.youtube\.com\/get_midroll_
+URL-REGEX,^https?\:\/\/\w+\.youtube\.com\/_get_ads($|\?)
+
+# YouTube 追蹤限制（保留必要功能）
+URL-REGEX,^https?\:\/\/.*\.youtube\.com\/api\/stats\/qoe\?.*adformat
+URL-REGEX,^https?\:\/\/.*\.youtube\.com\/api\/stats\/qoe\?.*adcontext.*ctier=[A-Z]
+URL-REGEX,^https?\:\/\/.*\.youtube\.com\/api\/stats\/atr\?
+
+# YouTubei API 廣告相關
+URL-REGEX,^https?\:\/\/youtubei\.googleapis\.com\/youtubei\/v\d+\/player\/ad_break
+URL-REGEX,^https?\:\/\/youtubei\.googleapis\.com\/.*\/att\/get\?.*ad
+URL-REGEX,^https?\:\/\/youtubei\.googleapis\.com\/.*ad_break
+
+## 數據收集與追蹤阻擋
+# Google 數據收集
+URL-REGEX,^https?\:\/\/.*\.google\.com\/ads\/on-device\/conversions\?
+URL-REGEX,^https?\:\/\/.*\.google\.com\/js\/th\/.*adservice.*\.js
+URL-REGEX,^https?\:\/\/.*\.googleapis\.com\/adsmeasurement
+
+# 第三方統計與追蹤
+URL-REGEX,^https?\:\/\/stats\.tubemogul\.com\/stats\/
+URL-REGEX,^https?\:\/\/api\.catch\.gift\/api\/v\d+\/pagead\/
+URL-REGEX,^https?\:\/\/s0\.2mdn\.net\/ads\/
+URL-REGEX,^https?\:\/\/premiumyva\.appspot\.com\/vmclickstoadvertisersite
+
+## 專為 Premium 用戶優化的排除規則
+# 保留 Premium 功能的關鍵服務
+# 以下域名和路徑不應被阻擋：
+# - youtube.com/api/stats/qoe（非廣告相關的品質評估）
+# - googlevideo.com/videoplayback（影片播放核心功能）
+# - youtubei.googleapis.com/youtubei/*/browse（瀏覽功能）
+# - youtubei.googleapis.com/youtubei/*/search（搜尋功能）
+# - youtubei.googleapis.com/youtubei/*/player（播放器功能，非廣告相關）
+
+## 額外隱私保護規則
+# 社交媒體追蹤像素
+DOMAIN-SUFFIX,facebook.com/tr,REJECT
+DOMAIN-SUFFIX,t.co,REJECT
+DOMAIN-SUFFIX,bit.ly,REJECT
+DOMAIN-SUFFIX,ow.ly,REJECT
+
+# 行為分析服務
+DOMAIN-SUFFIX,crazyegg.com,REJECT
+DOMAIN-SUFFIX,optimizely.com,REJECT
+DOMAIN-SUFFIX,quantserve.com,REJECT
+DOMAIN-SUFFIX,scorecardresearch.com,REJECT
+
+# 廣告交換平台
+DOMAIN-SUFFIX,adsystem.com,REJECT
+DOMAIN-SUFFIX,adnxs.com,REJECT
+DOMAIN-SUFFIX,rubiconproject.com,REJECT
+DOMAIN-SUFFIX,openx.net,REJECT
