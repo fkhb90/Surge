@@ -22,7 +22,7 @@ DOMAIN-SUFFIX,gwx.line.naver.jp,Proxy
 DOMAIN-SUFFIX,api.line.me,Proxy
 # [註解] api.line.me 受最高優先級保護，但其下的特定廣告路徑仍可被後續的 URL-REGEX 攔截 (需 MITM)。
 DOMAIN-SUFFIX,profile.line-scdn.net,Proxy
-DOMAIN-SUFFIX,shop.line-scdn.net,Proxy
+DOMAIN-SUFFIX,stickershop.line-scdn.net,Proxy
 
 # [核心] 保護 legy (LINE Edge Gateway) 的核心功能，但排除已知的廣告/推薦路徑，交由後續規則處理。
 URL-REGEX,^https:\/\/legy\.line-apps\.com\/(?!ext\/(lgfp\/lad|smartch|today)\/).*$,Proxy
