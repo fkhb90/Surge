@@ -1,15 +1,44 @@
-# YouTube 廣告阻擋規則清單（Premium 相容版）
+# YouTube 廣告阻擋規則清單（Premium 完全相容版）
 
 ## 基礎網路協定規則
-# 阻擋非必要 UDP 連線到 443 端口
+# 阻擋可疑 UDP 連線
 AND,((PROTOCOL,UDP), (DEST-PORT,443)),REJECT-NO-DROP
 
-## 核心廣告服務域名阻擋
-# Google 廣告核心服務
-DOMAIN-SUFFIX,googleadservices.com,REJECT
-DOMAIN-SUFFIX,doubleclick.net,REJECT
-DOMAIN-SUFFIX,googlesyndication.com,REJECT
+## 🛡️ **隱私追蹤防護（核心重點）**
+# Google 分析與追蹤服務
+DOMAIN-SUFFIX,google-analytics.com,REJECT
+DOMAIN-SUFFIX,googletagmanager.com,REJECT
+DOMAIN-SUFFIX,analytics.google.com,REJECT
 DOMAIN-SUFFIX,googletagservices.com,REJECT
+
+# 第三方追蹤與分析
+DOMAIN-SUFFIX,facebook.com/tr,REJECT
+DOMAIN-SUFFIX,connect.facebook.net,REJECT
+DOMAIN-SUFFIX,hotjar.com,REJECT
+DOMAIN-SUFFIX,mouseflow.com,REJECT
+DOMAIN-SUFFIX,fullstory.com,REJECT
+DOMAIN-SUFFIX,mixpanel.com,REJECT
+DOMAIN-SUFFIX,segment.com,REJECT
+DOMAIN-SUFFIX,amplitude.com,REJECT
+
+# 廣告網路追蹤
+DOMAIN-SUFFIX,adnxs.com,REJECT
+DOMAIN-SUFFIX,rubiconproject.com,REJECT
+DOMAIN-SUFFIX,openx.net,REJECT
+DOMAIN-SUFFIX,adsystem.com,REJECT
+DOMAIN-SUFFIX,amazon-adsystem.com,REJECT
+
+# 社交媒體追蹤像素
+DOMAIN-SUFFIX,ads.twitter.com,REJECT
+DOMAIN-SUFFIX,ads.pinterest.com,REJECT
+DOMAIN-SUFFIX,ads.linkedin.com,REJECT
+DOMAIN-SUFFIX,t.co,REJECT
+
+## 📺 **YouTube 廣告服務阻擋（Premium 安全）**
+# 核心廣告服務（不影響 Premium 功能）
+DOMAIN-SUFFIX,googleadservices.com,REJECT
+DOMAIN-SUFFIX,googlesyndication.com,REJECT
+DOMAIN-SUFFIX,doubleclick.net,REJECT
 DOMAIN-SUFFIX,adservice.google.com,REJECT
 
 # DoubleClick 廣告網路
@@ -18,104 +47,76 @@ DOMAIN-SUFFIX,securepubads.g.doubleclick.net,REJECT
 DOMAIN-SUFFIX,pubads.g.doubleclick.net,REJECT
 DOMAIN-SUFFIX,ad.l.doubleclick.net,REJECT
 
-# Google 聯播網廣告
+# Google 聯播網（保留 Premium 用戶權益）
 DOMAIN-SUFFIX,pagead2.googlesyndication.com,REJECT
 DOMAIN-SUFFIX,partnerad.l.google.com,REJECT
 DOMAIN-SUFFIX,tpc.googlesyndication.com,REJECT
 
-# YouTube 專用廣告域名
+# YouTube 明確廣告域名
 DOMAIN-SUFFIX,ads.youtube.com,REJECT
-DOMAIN-SUFFIX,imasdk.googleapis.com,REJECT
+DOMAIN-SUFFIX,video-ad-stats.googlesyndication.com,REJECT
 
 # 行動廣告平台
 DOMAIN-SUFFIX,admob.com,REJECT
 DOMAIN-SUFFIX,advertising.com,REJECT
 
-# 影片廣告統計
-DOMAIN-SUFFIX,video-ad-stats.googlesyndication.com,REJECT
-
-## 隱私追蹤防護（新增強化）
-# Google Analytics 全系列
-DOMAIN-SUFFIX,google-analytics.com,REJECT
-DOMAIN-SUFFIX,googletagmanager.com,REJECT
-DOMAIN-SUFFIX,analytics.google.com,REJECT
-
-# 第三方追蹤服務
-DOMAIN-SUFFIX,facebook.com/tr,REJECT
-DOMAIN-SUFFIX,connect.facebook.net,REJECT
-DOMAIN-SUFFIX,hotjar.com,REJECT
-DOMAIN-SUFFIX,mouseflow.com,REJECT
-DOMAIN-SUFFIX,fullstory.com,REJECT
-DOMAIN-SUFFIX,loggly.com,REJECT
-DOMAIN-SUFFIX,mixpanel.com,REJECT
-DOMAIN-SUFFIX,segment.com,REJECT
-
-# 廣告聯盟追蹤
-DOMAIN-SUFFIX,adsystem.com,REJECT
-DOMAIN-SUFFIX,amazon-adsystem.com,REJECT
-DOMAIN-SUFFIX,ads.twitter.com,REJECT
-DOMAIN-SUFFIX,ads.pinterest.com,REJECT
-
-## YouTube 影片廣告精準阻擋
-# Googlevideo 廣告內容（保留 Premium 功能）
-URL-REGEX,^https?\:\/\/[\w-]+\.googlevideo\.com\/.*[?&]oad=
-URL-REGEX,^https?\:\/\/[\w-]+\.googlevideo\.com\/.*[?&]ctier=L
+## 🎬 **精準影片廣告攔截（Premium 兼容）**
+# Googlevideo 廣告內容（精確匹配，保護 Premium 播放）
+URL-REGEX,^https?\:\/\/[\w-]+\.googlevideo\.com\/.*[?&]oad=[^&]*$
+URL-REGEX,^https?\:\/\/[\w-]+\.googlevideo\.com\/.*[?&]ctier=L[^&]*$
 URL-REGEX,^https?\:\/\/[\w-]+\.googlevideo\.com\/ptracking\?pltype=adhost
-URL-REGEX,^https?\:\/\/[\w-]+\.googlevideo\.com\/.*oad-TINYGIF
 
-# YouTube 廣告 API（保持 Premium 服務完整性）
-URL-REGEX,^https?\:\/\/(www|s)\.youtube\.com\/api\/stats\/ads($|\?)
+# YouTube 廣告統計（不影響播放品質監控）
+URL-REGEX,^https?\:\/\/(www|s)\.youtube\.com\/api\/stats\/ads(\?|$)
 URL-REGEX,^https?\:\/\/(www|s)\.youtube\.com\/pagead\/
-URL-REGEX,^https?\:\/\/(www|s)\.youtube\.com\/ptracking($|\?)
 URL-REGEX,^https?\:\/\/\w+\.youtube\.com\/get_midroll_
-URL-REGEX,^https?\:\/\/\w+\.youtube\.com\/_get_ads($|\?)
 
-# YouTube 追蹤限制（保留必要功能）
-URL-REGEX,^https?\:\/\/.*\.youtube\.com\/api\/stats\/qoe\?.*adformat
-URL-REGEX,^https?\:\/\/.*\.youtube\.com\/api\/stats\/qoe\?.*adcontext.*ctier=[A-Z]
-URL-REGEX,^https?\:\/\/.*\.youtube\.com\/api\/stats\/atr\?
+# YouTube 廣告相關 API（精確匹配）
+URL-REGEX,^https?\:\/\/.*\.youtube\.com\/api\/stats\/qoe\?.*adformat=
+URL-REGEX,^https?\:\/\/.*\.youtube\.com\/api\/stats\/atr\?.*ad_
+URL-REGEX,^https?\:\/\/.*\.youtube\.com\/_get_ads(\?|$)
 
-# YouTubei API 廣告相關
-URL-REGEX,^https?\:\/\/youtubei\.googleapis\.com\/youtubei\/v\d+\/player\/ad_break
-URL-REGEX,^https?\:\/\/youtubei\.googleapis\.com\/.*\/att\/get\?.*ad
-URL-REGEX,^https?\:\/\/youtubei\.googleapis\.com\/.*ad_break
+# YouTubei API 廣告專用端點
+URL-REGEX,^https?\:\/\/youtubei\.googleapis\.com\/youtubei\/v\d+\/player\/ad_break(\?|$)
+URL-REGEX,^https?\:\/\/youtubei\.googleapis\.com\/.*\/att\/get\?.*ad_
 
-## 數據收集與追蹤阻擋
-# Google 數據收集
-URL-REGEX,^https?\:\/\/.*\.google\.com\/ads\/on-device\/conversions\?
-URL-REGEX,^https?\:\/\/.*\.google\.com\/js\/th\/.*adservice.*\.js
-URL-REGEX,^https?\:\/\/.*\.googleapis\.com\/adsmeasurement
+## ⚠️ **Premium 功能保護清單**
+# 以下端點必須保持暢通，確保 Premium 服務正常：
 
-# 第三方統計與追蹤
-URL-REGEX,^https?\:\/\/stats\.tubemogul\.com\/stats\/
-URL-REGEX,^https?\:\/\/api\.catch\.gift\/api\/v\d+\/pagead\/
-URL-REGEX,^https?\:\/\/s0\.2mdn\.net\/ads\/
-URL-REGEX,^https?\:\/\/premiumyva\.appspot\.com\/vmclickstoadvertisersite
+# ✅ 播放核心功能
+# youtube.com/api/stats/qoe（非廣告品質評估）
+# googlevideo.com/videoplayback（影片串流）
+# youtubei.googleapis.com/youtubei/*/player（播放器核心）
 
-## 專為 Premium 用戶優化的排除規則
-# 保留 Premium 功能的關鍵服務
-# 以下域名和路徑不應被阻擋：
-# - youtube.com/api/stats/qoe（非廣告相關的品質評估）
-# - googlevideo.com/videoplayback（影片播放核心功能）
-# - youtubei.googleapis.com/youtubei/*/browse（瀏覽功能）
-# - youtubei.googleapis.com/youtubei/*/search（搜尋功能）
-# - youtubei.googleapis.com/youtubei/*/player（播放器功能，非廣告相關）
+# ✅ Premium 專屬功能
+# youtubei.googleapis.com/youtubei/*/browse（瀏覽功能）
+# youtubei.googleapis.com/youtubei/*/search（搜尋功能）
+# youtubei.googleapis.com/youtubei/*/guide（導覽功能）
+# youtube.com/api/timedtext（字幕服務）
 
-## 額外隱私保護規則
-# 社交媒體追蹤像素
-DOMAIN-SUFFIX,facebook.com/tr,REJECT
-DOMAIN-SUFFIX,t.co,REJECT
-DOMAIN-SUFFIX,bit.ly,REJECT
-DOMAIN-SUFFIX,ow.ly,REJECT
+# ✅ 背景播放與下載
+# youtubei.googleapis.com/youtubei/*/offline（離線功能）
+# youtube.com/api/sound_device（音訊處理）
 
-# 行為分析服務
+## 🔒 **進階隱私防護**
+# 行為追蹤阻擋
 DOMAIN-SUFFIX,crazyegg.com,REJECT
 DOMAIN-SUFFIX,optimizely.com,REJECT
 DOMAIN-SUFFIX,quantserve.com,REJECT
 DOMAIN-SUFFIX,scorecardresearch.com,REJECT
+DOMAIN-SUFFIX,comscore.com,REJECT
 
-# 廣告交換平台
-DOMAIN-SUFFIX,adsystem.com,REJECT
-DOMAIN-SUFFIX,adnxs.com,REJECT
-DOMAIN-SUFFIX,rubiconproject.com,REJECT
-DOMAIN-SUFFIX,openx.net,REJECT
+# 廣告交換與競價平台
+DOMAIN-SUFFIX,pubmatic.com,REJECT
+DOMAIN-SUFFIX,adsafeprotected.com,REJECT
+DOMAIN-SUFFIX,moatads.com,REJECT
+DOMAIN-SUFFIX,rlcdn.com,REJECT
+
+# 數據收集防護
+URL-REGEX,^https?\:\/\/.*\.google\.com\/ads\/measurement\/
+URL-REGEX,^https?\:\/\/.*\.google\.com\/pagead\/conversion\/
+URL-REGEX,^https?\:\/\/.*\.google\.com\/ads\/on-device\/conversions\?
+
+# 指紋追蹤防護
+URL-REGEX,^https?\:\/\/.*\.googleapis\.com\/adsmeasurement\/
+URL-REGEX,^https?\:\/\/.*\.youtube\.com\/youtubei\/.*\/log_event\?.*ad_
