@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V31-Final.js
- * @version     31.3 (Integrated Version)
- * @description V30 Trie 樹架構的最終呈現版本，並整合了參數白名單機制以保護必要參數 (如 '?t=' 時間戳)。
+ * @file        URL-Ultimate-Filter-Surge-V31.4-Final.js
+ * @version     31.4 (Integrated Version)
+ * @description V30 Trie 樹架構的最終呈現版本，並整合了參數白名單機制以保護必要參數 (如 '?t=', '?v=', 'targetId='）。
  * 此版本融合了 Trie 樹的高效查找、LRU 快取和清晰的程式碼結構，是兼具極致性能與可維護性的最終形態。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-02
@@ -184,10 +184,12 @@ const GLOBAL_TRACKING_PARAMS = new Set([
 const TRACKING_PREFIXES = new Set(['utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'mkt_', 'matomo_', 'piwik_', 'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'bd_', 'video_utm_', 'vero_', '__cf_', '_hs', 'pk_', 'mtm_', 'campaign_', 'source_', 'medium_', 'content_', 'term_', 'creative_', 'placement_', 'network_', 'device_', 'ref_', 'from_', 'share_', 'aff_', 'alg_', 'li_', 'tt_', 'tw_', 'epik_', '_bta_', '_bta', '_oly_', 'cam_', 'cup_', 'gdr_', 'gds_', 'et_', 'hmsr_', 'zanpid_', '_ga_', '_gid_', '_gat_', 's_']);
 
 /**
- * ✅ [新增] 參數白名單 (防止誤刪)
+ * ✅ [修正] 參數白名單 (防止誤刪)
  */
 const PARAMS_TO_KEEP_WHITELIST = new Set([
-    't' // 保護 '?t=...' 時間戳 (快取破壞者)，防止網頁內容更新失敗
+    't',        // 保護 '?t=...' 時間戳 (快取破壞者)，防止網頁內容更新失敗
+    'v',        // 保護 '?v=...' 版本號 (快取破壞者)，確保資源正確載入
+    'targetid'  // 保護 Atlassian 服務 (如 Jira) 所需的目標 ID
 ]);
 
 
@@ -309,7 +311,7 @@ function processRequest(request) {
     try {
         if (typeof $request === 'undefined') {
             if (typeof $done !== 'undefined') {
-                $done({ version: '31.3', status: 'ready', message: 'URL Filter v31.3 - Trie Final Integrated' });
+                $done({ version: '31.4', status: 'ready', message: 'URL Filter v31.4 - Trie Final Integrated' });
             }
             return;
         }
@@ -322,12 +324,18 @@ function processRequest(request) {
 })();
 
 // =================================================================================================
-// ## 更新日誌 (V31.3)
+// ## 更新日誌 (V31.4)
 // =================================================================================================
 //
 // ### 📅 更新日期: 2025-09-02
 //
-// ### ✨ V31.2 -> V31.3 變更:
+// ### ✨ V31.3 -> V31.4 變更:
+//
+// 1.  **【修正】參數清理邏輯，擴充白名單**:
+//     - 在 `PARAMS_TO_KEEP_WHITELIST` 中新增了 `'v'` 與 `'targetid'`。
+//     - 此修正可防止腳本移除資源版本號 (`?v=...`) 與 Atlassian 服務所需的目標 ID (`?targetId=...`)，解決了先前版本中可能導致的網頁功能異常問題。
+//
+// ### ✨ V31.2 -> V31.3 變更回顧:
 //
 // 1.  **擴充攔截規則 (Naver)**:
 //     - 在 `BLOCK_DOMAINS` 中新增了 `'wcs.naver.net'`。
@@ -362,5 +370,5 @@ function processRequest(request) {
 //
 // ### 🏆 總結:
 //
-// V31.3 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法層面解決了「效率」與「未來適應性」的問題，是在手機 Surge 環境下，兼具正確性、極致性能與可持續發展的最終解決方案。
+// V31.4 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法層面解決了「效率」與「未來適應性」的問題，是在手機 Surge 環境下，兼具正確性、極致性能與可持續發展的最終解決方案。
 
