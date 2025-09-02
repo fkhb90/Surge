@@ -1,6 +1,6 @@
 /**
  * @file        URL-Ultimate-Filter-Surge-V31-Final.js
- * @version     31.1 (Integrated Version)
+ * @version     31.3 (Integrated Version)
  * @description V30 Trie 樹架構的最終呈現版本，並整合了參數白名單機制以保護必要參數 (如 '?t=' 時間戳)。
  * 此版本融合了 Trie 樹的高效查找、LRU 快取和清晰的程式碼結構，是兼具極致性能與可維護性的最終形態。
  * @author      Claude & Gemini & Acterus
@@ -36,7 +36,7 @@ const BLOCK_DOMAINS = new Set([
     'zeropark.com', 'admitad.com', 'awin1.com', 'cj.com', 'impactradius.com', 'linkshare.com',
     'rakutenadvertising.com', 'appnexus.com', 'contextweb.com', 'openx.com', 'spotx.tv', 'onetrust.com',
     'cookielaw.org', 'trustarc.com', 'sourcepoint.com', 'liveintent.com', 'narrative.io', 'neustar.biz',
-    'tapad.com', 'thetradedesk.com', 'bluekai.com', 'clickforce.com.tw', 'tagtoo.co', 'urad.com.tw',
+    'tapad.com', 'thetradedesk.com', 'bluekai.com', 'wcs.naver.net', 'clickforce.com.tw', 'tagtoo.co', 'urad.com.tw',
     'cacafly.com', 'is-tracking.com', 'vpon.com', 'ad-specs.guoshipartners.com', 'sitetag.us', 'imedia.com.tw',
     'ad.ettoday.net', 'ad.pixnet.net', 'ad.pchome.com.tw', 'ad.momo.com.tw', 'ad.xuite.net', 'ad.cna.com.tw',
     'ad.cw.com.tw', 'ad.hi-on.org', 'adm.chinatimes.com', 'analysis.tw', 'trk.tw', 'fast-trk.com', 'gamani.com',
@@ -117,7 +117,7 @@ const API_WHITELIST_WILDCARDS = new Map([
  * 🚨 關鍵追蹤腳本攔截清單
  */
 const CRITICAL_TRACKING_SCRIPTS = new Set([
-    'ytag.js', 'gtag.js', 'gtm.js', 'ga.js', 'analytics.js', 'adsbygoogle.js', 'ads.js', 'fbevents.js', 'fbq.js', 'pixel.js', 'connect.js', 'tracking.js', 'tracker.js', 'tag.js', 'doubleclick.js', 'adsense.js', 'adloader.js', 'hotjar.js', 'mixpanel.js', 'amplitude.js', 'segment.js', 'clarity.js', 'matomo.js', 'piwik.js', 'fullstory.js', 'heap.js', 'inspectlet.js', 'logrocket.js', 'vwo.js', 'optimizely.js', 'criteo.js', 'pubmatic.js', 'outbrain.js', 'taboola.js', 'prebid.js', 'apstag.js', 'utag.js', 'beacon.js', 'event.js', 'collect.js', 'activity.js', 'conversion.js', 'action.js', 'abtasty.js', 'cmp.js', 'sp.js', 'adobedtm.js', 'visitorapi.js', 'intercom.js', 'link-click-tracker.js', 'user-timing.js', 'cf.js', 'tagtoo.js',
+    'ytag.js', 'gtag.js', 'gtm.js', 'ga.js', 'analytics.js', 'adsbygoogle.js', 'ads.js', 'fbevents.js', 'fbq.js', 'pixel.js', 'connect.js', 'tracking.js', 'tracker.js', 'tag.js', 'doubleclick.js', 'adsense.js', 'adloader.js', 'hotjar.js', 'mixpanel.js', 'amplitude.js', 'segment.js', 'clarity.js', 'matomo.js', 'piwik.js', 'fullstory.js', 'heap.js', 'inspectlet.js', 'logrocket.js', 'vwo.js', 'optimizely.js', 'criteo.js', 'pubmatic.js', 'outbrain.js', 'taboola.js', 'prebid.js', 'apstag.js', 'utag.js', 'beacon.js', 'event.js', 'collect.js', 'activity.js', 'conversion.js', 'action.js', 'abtasty.js', 'cmp.js', 'sp.js', 'adobedtm.js', 'visitorapi.js', 'intercom.js', 'link-click-tracker.js', 'user-timing.js', 'cf.js', 'tagtoo.js', 'wcslog.js',
     'hm.js', 'u.js', 'um.js', 'aplus.js', 'aplus_wap.js', 'gdt.js',
     'tiktok-pixel.js', 'tiktok-analytics.js', 'pangle.js', 'ec.js', 'autotrack.js',
     'capture.js', 'user-id.js', 'adroll.js', 'adroll_pro.js', 'quant.js', 'quantcast.js', 'comscore.js',
@@ -309,7 +309,7 @@ function processRequest(request) {
     try {
         if (typeof $request === 'undefined') {
             if (typeof $done !== 'undefined') {
-                $done({ version: '31.1', status: 'ready', message: 'URL Filter v31.1 - Trie Final Integrated' });
+                $done({ version: '31.3', status: 'ready', message: 'URL Filter v31.3 - Trie Final Integrated' });
             }
             return;
         }
@@ -322,12 +322,23 @@ function processRequest(request) {
 })();
 
 // =================================================================================================
-// ## 更新日誌 (V31.1)
+// ## 更新日誌 (V31.3)
 // =================================================================================================
 //
 // ### 📅 更新日期: 2025-09-02
 //
-// ### ✨ V31.0 -> V31.1 變更:
+// ### ✨ V31.2 -> V31.3 變更:
+//
+// 1.  **擴充攔截規則 (Naver)**:
+//     - 在 `BLOCK_DOMAINS` 中新增了 `'wcs.naver.net'`。
+//     - 在 `CRITICAL_TRACKING_SCRIPTS` 中新增了 `'wcslog.js'` 以更全面地攔截 Naver 的分析腳本。
+//
+// ### ✨ V31.1 -> V31.2 變更回顧:
+//
+// 1.  **擴充 API 白名單**:
+//     - 在 `API_WHITELIST_EXACT` 中新增了 `'duckduckgo.com'` 與 `'external-content.duckduckgo.com'`，以確保 DuckDuckGo 搜尋引擎及其內容服務的正常運作。
+//
+// ### ✨ V31.0 -> V31.1 變更回顧:
 //
 // 1.  **整合參數白名單**:
 //     - 新增了 `PARAMS_TO_KEEP_WHITELIST` 設定，用於保護不應被移除的必要 URL 參數。
@@ -351,4 +362,5 @@ function processRequest(request) {
 //
 // ### 🏆 總結:
 //
-// V31.1 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法層面解決了「效率」與「未來適應性」的問題，是在手機 Surge 環境下，兼具正確性、極致性能與可持續發展的最終解決方案。
+// V31.3 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法層面解決了「效率」與「未來適應性」的問題，是在手機 Surge 環境下，兼具正確性、極致性能與可持續發展的最終解決方案。
+
