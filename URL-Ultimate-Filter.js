@@ -107,7 +107,7 @@ const API_WHITELIST_WILDCARDS = new Map([
     ['swscan.apple.com', true], ['gsp-ssl.ls.apple.com', true], ['fubon.com', true], ['bot.com.tw', true],
     ['megabank.com.tw', true], ['firstbank.com.tw', true], ['hncb.com.tw', true], ['chb.com.tw', true],
     ['taishinbank.com.tw', true], ['sinopac.com', true], ['tcb-bank.com.tw', true], ['scsb.com.tw', true],
-    ['standardchartered.com.tw', true]
+    ['standardchartered.com.tw', true], ['web-static.archive.org', true], ['web.archive.org', true]
 ]);
 
 /**
