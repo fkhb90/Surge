@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V31.4-Final.js
- * @version     31.4 (Integrated Version)
- * @description V30 Trie 樹架構的最終呈現版本，並整合了參數白名單機制以保護必要參數 (如 '?t=', '?v=', 'targetId='）。
+ * @file        URL-Ultimate-Filter-Surge-V31-Final.js
+ * @version     31.5 (Integrated Version)
+ * @description V30 Trie 樹架構的最終呈現版本，並整合了參數白名單與 Regex 攔截機制。
  * 此版本融合了 Trie 樹的高效查找、LRU 快取和清晰的程式碼結構，是兼具極致性能與可維護性的最終形態。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-02
@@ -117,7 +117,7 @@ const API_WHITELIST_WILDCARDS = new Map([
  * 🚨 關鍵追蹤腳本攔截清單
  */
 const CRITICAL_TRACKING_SCRIPTS = new Set([
-    'ytag.js', 'gtag.js', 'gtm.js', 'ga.js', 'analytics.js', 'adsbygoogle.js', 'ads.js', 'fbevents.js', 'fbq.js', 'pixel.js', 'connect.js', 'tracking.js', 'tracker.js', 'tag.js', 'doubleclick.js', 'adsense.js', 'adloader.js', 'hotjar.js', 'mixpanel.js', 'amplitude.js', 'segment.js', 'clarity.js', 'matomo.js', 'piwik.js', 'fullstory.js', 'heap.js', 'inspectlet.js', 'logrocket.js', 'vwo.js', 'optimizely.js', 'criteo.js', 'pubmatic.js', 'outbrain.js', 'taboola.js', 'prebid.js', 'apstag.js', 'utag.js', 'beacon.js', 'event.js', 'collect.js', 'activity.js', 'conversion.js', 'action.js', 'abtasty.js', 'cmp.js', 'sp.js', 'adobedtm.js', 'visitorapi.js', 'intercom.js', 'link-click-tracker.js', 'user-timing.js', 'cf.js', 'tagtoo.js', 'wcslog.js',
+    'ytag.js', 'gtag.js', 'gtm.js', 'ga.js', 'analytics.js', 'adsbygoogle.js', 'ads.js', 'fbevents.js', 'fbq.js', 'pixel.js', 'connect.js', 'tracking.js', 'tracker.js', 'tag.js', 'doubleclick.js', 'adsense.js', 'adloader.js', 'hotjar.js', 'mixpanel.js', 'amplitude.js', 'segment.js', 'clarity.js', 'matomo.js', 'piwik.js', 'fullstory.js', 'heap.js', 'inspectlet.js', 'logrocket.js', 'vwo.js', 'optimizely.js', 'criteo.js', 'pubmatic.js', 'outbrain.js', 'taboola.js', 'prebid.js', 'apstag.js', 'utag.js', 'beacon.js', 'event.js', 'collect.js', 'activity.js', 'conversion.js', 'action.js', 'abtasty.js', 'cmp.js', 'sp.js', 'adobedtm.js', 'visitorapi.js', 'intercom.js', 'link-click-tracker.js', 'user-timing.js', 'cf.js', 'tagtoo.js', 'wcslog.js', 'ads-beacon.js',
     'hm.js', 'u.js', 'um.js', 'aplus.js', 'aplus_wap.js', 'gdt.js',
     'tiktok-pixel.js', 'tiktok-analytics.js', 'pangle.js', 'ec.js', 'autotrack.js',
     'capture.js', 'user-id.js', 'adroll.js', 'adroll_pro.js', 'quant.js', 'quantcast.js', 'comscore.js',
@@ -192,6 +192,13 @@ const PARAMS_TO_KEEP_WHITELIST = new Set([
     'targetid'  // 保護 Atlassian 服務 (如 Jira) 所需的目標 ID
 ]);
 
+/**
+ * 🚫 [新增] 基於正規表示式的路徑黑名單
+ */
+const PATH_BLOCK_REGEX = [
+    /^\/[a-z0-9]{12,}\.js/ // 攔截根目錄下由12位以上隨機英數字組成的.js檔，例如 /mKGqAA1MFbon.js
+];
+
 
 // =================================================================================================
 // 🚀 V30 核心性能組件 (Trie 樹 + LRU 快取)
@@ -228,7 +235,7 @@ const DROP_RESPONSE = { response: {} };
 // =================================================================================
 
 class PerformanceStats {
-    constructor() { this.stats = { totalRequests: 0, blockedRequests: 0, criticalTrackingBlocked: 0, domainBlocked: 0, pathBlocked: 0, paramsCleaned: 0, whitelistHits: 0, errors: 0 }; }
+    constructor() { this.stats = { totalRequests: 0, blockedRequests: 0, criticalTrackingBlocked: 0, domainBlocked: 0, pathBlocked: 0, regexPathBlocked: 0, paramsCleaned: 0, whitelistHits: 0, errors: 0 }; }
     increment(type) { if (this.stats.hasOwnProperty(type)) this.stats[type]++; }
 }
 const performanceStats = new PerformanceStats();
@@ -259,19 +266,28 @@ function isPathBlocked(path) {
 }
 
 /**
- * [修改] 清理追蹤參數，同時尊重白名單
- * @param {URL} url - URL 物件
- * @returns {boolean} - 參數是否被修改
+ * [新增] 檢查路徑是否被 Regex 規則攔截
+ * @param {string} path - 請求路徑 (不含主機)
+ * @returns {boolean}
  */
+function isPathBlockedByRegex(path) {
+    const cacheKey = `regex:${path}`; const cachedResult = cache.get(cacheKey); if (cachedResult !== null) return cachedResult;
+    for (const regex of PATH_BLOCK_REGEX) {
+        if (regex.test(path)) {
+            cache.set(cacheKey, true);
+            return true;
+        }
+    }
+    cache.set(cacheKey, false);
+    return false;
+}
+
 function cleanTrackingParams(url) {
     let paramsChanged = false;
     for (const key of [...url.searchParams.keys()]) {
         const lowerKey = key.toLowerCase();
-        
-        // 判斷是否需要移除：在黑名單中，且「不」在白名單中
         const shouldBeRemoved = GLOBAL_TRACKING_PARAMS.has(lowerKey) || prefixTrie.startsWith(lowerKey);
         const shouldBeKept = PARAMS_TO_KEEP_WHITELIST.has(lowerKey);
-
         if (shouldBeRemoved && !shouldBeKept) {
             url.searchParams.delete(key);
             paramsChanged = true;
@@ -290,11 +306,15 @@ function processRequest(request) {
     try {
         performanceStats.increment('totalRequests'); if (!request || !request.url) return null;
         let url; try { url = new URL(request.url); } catch (e) { performanceStats.increment('errors'); return null; }
-        const hostname = url.hostname.toLowerCase(); const path = (url.pathname + url.search).toLowerCase();
+        const hostname = url.hostname.toLowerCase();
+        const path = url.pathname.toLowerCase(); // Regex 比對僅針對路徑
+        const fullPath = (url.pathname + url.search).toLowerCase(); // 舊有邏輯維持使用完整路徑
+
         if (isApiWhitelisted(hostname)) { performanceStats.increment('whitelistHits'); return null; }
-        if (isCriticalTrackingScript(path)) { performanceStats.increment('criticalTrackingBlocked'); performanceStats.increment('blockedRequests'); return getBlockResponse(path); }
-        if (isDomainBlocked(hostname)) { performanceStats.increment('domainBlocked'); performanceStats.increment('blockedRequests'); return getBlockResponse(path); }
-        if (isPathBlocked(path)) { performanceStats.increment('pathBlocked'); performanceStats.increment('blockedRequests'); return getBlockResponse(path); }
+        if (isCriticalTrackingScript(fullPath)) { performanceStats.increment('criticalTrackingBlocked'); performanceStats.increment('blockedRequests'); return getBlockResponse(fullPath); }
+        if (isDomainBlocked(hostname)) { performanceStats.increment('domainBlocked'); performanceStats.increment('blockedRequests'); return getBlockResponse(fullPath); }
+        if (isPathBlocked(fullPath)) { performanceStats.increment('pathBlocked'); performanceStats.increment('blockedRequests'); return getBlockResponse(fullPath); }
+        if (isPathBlockedByRegex(path)) { performanceStats.increment('regexPathBlocked'); performanceStats.increment('blockedRequests'); return getBlockResponse(fullPath); } // 新增 Regex 檢查
         if (cleanTrackingParams(url)) { performanceStats.increment('paramsCleaned'); return REDIRECT_RESPONSE(url.toString()); }
         return null;
     } catch (error) {
@@ -311,7 +331,7 @@ function processRequest(request) {
     try {
         if (typeof $request === 'undefined') {
             if (typeof $done !== 'undefined') {
-                $done({ version: '31.4', status: 'ready', message: 'URL Filter v31.4 - Trie Final Integrated' });
+                $done({ version: '31.5', status: 'ready', message: 'URL Filter v31.5 - Trie Final Integrated' });
             }
             return;
         }
@@ -324,16 +344,25 @@ function processRequest(request) {
 })();
 
 // =================================================================================================
-// ## 更新日誌 (V31.4)
+// ## 更新日誌 (V31.5)
 // =================================================================================================
 //
 // ### 📅 更新日期: 2025-09-02
 //
-// ### ✨ V31.3 -> V31.4 變更:
+// ### ✨ V31.4 -> V31.5 變更:
+//
+// 1.  **【架構升級】新增 Regex 路徑攔截**:
+//     - 新增 `PATH_BLOCK_REGEX` 設定，用於處理複雜及隨機的路徑模式。
+//     - 新增規則 `/^\/[a-z0-9]{12,}\.js/`，以有效攔截隨機檔名的追蹤腳本 (如 `unwire.hk` 網站所使用的)。
+//     - 新增 `isPathBlockedByRegex` 核心函式以支援此功能。
+// 2.  **【規則擴充】新增腳本黑名單**:
+//     - 將 `'ads-beacon.js'` 加入 `CRITICAL_TRACKING_SCRIPTS` 中。
+//
+// ### ✨ V31.3 -> V31.4 變更回顧:
 //
 // 1.  **【修正】參數清理邏輯，擴充白名單**:
 //     - 在 `PARAMS_TO_KEEP_WHITELIST` 中新增了 `'v'` 與 `'targetid'`。
-//     - 此修正可防止腳本移除資源版本號 (`?v=...`) 與 Atlassian 服務所需的目標 ID (`?targetId=...`)，解決了先前版本中可能導致的網頁功能異常問題。
+//     - 此修正可防止腳本移除資源版本號 (`?v=...`) 與 Atlassian 服務所需的目標 ID (`?targetId=...`)。
 //
 // ### ✨ V31.2 -> V31.3 變更回顧:
 //
@@ -344,31 +373,23 @@ function processRequest(request) {
 // ### ✨ V31.1 -> V31.2 變更回顧:
 //
 // 1.  **擴充 API 白名單**:
-//     - 在 `API_WHITELIST_EXACT` 中新增了 `'duckduckgo.com'` 與 `'external-content.duckduckgo.com'`，以確保 DuckDuckGo 搜尋引擎及其內容服務的正常運作。
+//     - 在 `API_WHITELIST_EXACT` 中新增了 `'duckduckgo.com'` 與 `'external-content.duckduckgo.com'`。
 //
 // ### ✨ V31.0 -> V31.1 變更回顧:
 //
 // 1.  **整合參數白名單**:
-//     - 新增了 `PARAMS_TO_KEEP_WHITELIST` 設定，用於保護不應被移除的必要 URL 參數。
-//     - 預設將 `'t'` 加入白名單，以解決時間戳參數 (Cache Buster) 被誤刪可能導致的網頁快取問題。
-//     - `cleanTrackingParams` 函式邏輯已更新，現在會優先檢查白名單，確保受保護的參數得以保留。
+//     - 新增了 `PARAMS_TO_KEEP_WHITELIST` 設定，用於保護不應被移除的必要 URL 參數 (`'t'`)。
 //
 // ### ✨ V30 -> V31 核心優化回顧 (架構性升級):
 //
 // 1.  **全面導入 Trie 樹 (字典樹) 演算法**:
-//     - **重構內容**: 將先前版本中用於匹配路徑、參數前綴等多個 `Set` 集合的匹配邏輯（`includes` 迴圈或 `RegExp`），全部重構為 Trie 樹結構。
-//     - **核心優勢**:
-//         - **恆定高效查詢 (O(k))**: 查詢效率僅與被檢測字串的長度 (k) 相關，與規則庫的總數量 (n) 完全脫鉤。
-//         - **卓越的可擴展性**: 可輕鬆擴展至數萬條規則，而查詢性能幾乎無衰減，徹底解決了未來規則庫膨脹可能導致的性能瓶頸。
-//         - **對行動裝置更友善**: 在快取未命中的情況下，Trie 的 CPU 消耗遠低於複雜的正則匹配，實現了極致的節能效果。
+//     - **重構內容**: 將先前版本中用於匹配路徑、參數前綴等多個 `Set` 集合的匹配邏輯，全部重構為 Trie 樹結構。
+//     - **核心優勢**: 恆定高效查詢 (O(k))、卓越的可擴展性、對行動裝置更友善。
 //
 // 2.  **保留並適配 LRU 快取**:
-//     - 繼續保留 LRU 快取機制，用於快取 Trie 樹的最終判斷結果（`true` 或 `false`）。Trie 負責高效的「首次計算」，LRU 快取負責高效的「結果複用」，二者結合，相得益彰。
-//
-// 3.  **優化初始化過程**:
-//     - 腳本在首次加載時，會一次性將所有相關的規則 `Set` 載入到各自的 Trie 樹實例中，為後續的高效查詢做好準備。
+//     - 繼續保留 LRU 快取機制，用於快取 Trie 樹的最終判斷結果。
 //
 // ### 🏆 總結:
 //
-// V31.4 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法層面解決了「效率」與「未來適應性」的問題，是在手機 Surge 環境下，兼具正確性、極致性能與可持續發展的最終解決方案。
-
+// V31.5 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法層面解決了「效率」與「未來適應性」的問題，是在手機 Surge 環境下，兼具正確性、極致性能與可持續發展的最終解決方案。
+```eof
