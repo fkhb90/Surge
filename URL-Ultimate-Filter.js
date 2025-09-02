@@ -68,6 +68,7 @@ const BLOCK_DOMAINS = new Set([
     'ligatus.com', 'lockerdome.com', 'loopme.com', 'mgid.com', 'mobfox.com', 'nativo.com',
     'netmng.com', 'omnitagjs.com', 'onscroll.com', 'plista.com', 'popin.cc', 'project-wonderful.com',
     'revcontent.com', 'revlifter.com', 'rfihub.com', 'run-syndicate.com', 'sekindo.com', 'servebom.com',
+    'gravatar.com'
 ]);
 
 /**
