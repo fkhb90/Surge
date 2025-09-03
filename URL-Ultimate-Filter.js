@@ -1,16 +1,16 @@
 /**
  * @file        URL-Ultimate-Filter-Surge-V32-Final.js
- * @version     32.0 (Optimized Final)
- * @description V30 Trie 樹架構的最終優化版本。此版本重構了程式碼結構，將設定與核心引擎分離，
- * 並精煉了部分規則，旨在達到極致的性能、穩定性與長期可維護性的最終形態。
+ * @version     32.1 (Hotfix)
+ * @description V30 Trie 樹架構的最終優化版本。此版本修正了 V32.0 中因設定遺漏導致規則載入失敗的嚴重錯誤，
+ * 並重構了初始化機制，旨在達到極致的性能、穩定性與長期可維護性的最終形態。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-03
  */
 
 // #################################################################################################
 // #                                                                                               #
-// #                                   ⚙️ SCRIPT CONFIGURATION                                     #
-// #                       (使用者可在此區域安全地新增、修改或移除規則)                                   #
+// #                                   ⚙️ SCRIPT CONFIGURATION                                    #
+// #                       (使用者可在此區域安全地新增、修改或移除規則)                         #
 // #                                                                                               #
 // #################################################################################################
 
@@ -302,6 +302,11 @@ const CONFIG = {
         // --- Google Analytics (Legacy) ---
         '_ga', '_gid', '_gat', '__gads', '__gac'
     ]),
+    
+    /**
+     * [修正] 追蹤參數前綴集合 (移入 CONFIG 以修正 V32.0 的錯誤)
+     */
+    TRACKING_PREFIXES: new Set(['utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'mkt_', 'matomo_', 'piwik_', 'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'bd_', 'video_utm_', 'vero_', '__cf_', '_hs', 'pk_', 'mtm_', 'campaign_', 'source_', 'medium_', 'content_', 'term_', 'creative_', 'placement_', 'network_', 'device_', 'ref_', 'from_', 'share_', 'aff_', 'alg_', 'li_', 'tt_', 'tw_', 'epik_', '_bta_', '_bta', '_oly_', 'cam_', 'cup_', 'gdr_', 'gds_', 'et_', 'hmsr_', 'zanpid_', '_ga_', '_gid_', '_gat_', 's_']),
 
     /**
      * ✅ 必要參數白名單
@@ -325,7 +330,7 @@ const CONFIG = {
 // #################################################################################################
 // #                                                                                               #
 // #                                🚀 CORE ENGINE (DO NOT MODIFY)                                 #
-// #                           (腳本核心引擎，非專業人士請勿修改此區域)                                  #
+// #                           (腳本核心引擎，非專業人士請勿修改此區域)                        #
 // #                                                                                               #
 // #################################################################################################
 
@@ -350,11 +355,24 @@ class LRUCache {
 
 // --- 初始化核心組件 ---
 const cache = new LRUCache();
-const prefixTrie = new Trie(); CONFIG.TRACKING_PREFIXES.forEach(p => prefixTrie.insert(p.toLowerCase()));
-const criticalPatternTrie = new Trie(); CONFIG.CRITICAL_TRACKING_PATTERNS.forEach(p => criticalPatternTrie.insert(p.toLowerCase()));
-const pathBlockTrie = new Trie(); CONFIG.PATH_BLOCK_KEYWORDS.forEach(p => pathBlockTrie.insert(p.toLowerCase()));
-const allowTrie = new Trie(); CONFIG.PATH_ALLOW_PATTERNS.forEach(p => allowTrie.insert(p.toLowerCase()));
-const dropTrie = new Trie(); CONFIG.DROP_KEYWORDS.forEach(p => dropTrie.insert(p.toLowerCase()));
+const TRIES = {
+    prefix: new Trie(),
+    criticalPattern: new Trie(),
+    pathBlock: new Trie(),
+    allow: new Trie(),
+    drop: new Trie(),
+};
+
+/**
+ * [重構] 集中初始化所有 Trie 樹，提升穩定性。
+ */
+function initializeTries() {
+    CONFIG.TRACKING_PREFIXES.forEach(p => TRIES.prefix.insert(p.toLowerCase()));
+    CONFIG.CRITICAL_TRACKING_PATTERNS.forEach(p => TRIES.criticalPattern.insert(p.toLowerCase()));
+    CONFIG.PATH_BLOCK_KEYWORDS.forEach(p => TRIES.pathBlock.insert(p.toLowerCase()));
+    CONFIG.PATH_ALLOW_PATTERNS.forEach(p => TRIES.allow.insert(p.toLowerCase()));
+    CONFIG.DROP_KEYWORDS.forEach(p => TRIES.drop.insert(p.toLowerCase()));
+}
 
 const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', 'jpg', 'jpeg', 'webp', '.ico']);
 const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 'image/gif' }, body: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" }};
@@ -396,7 +414,7 @@ function isCriticalTrackingScript(lowerFullPath) {
         isBlocked = CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName);
     }
     if (!isBlocked) {
-        isBlocked = criticalPatternTrie.contains(lowerFullPath);
+        isBlocked = TRIES.criticalPattern.contains(lowerFullPath);
     }
 
     cache.set(cacheKey, isBlocked);
@@ -464,8 +482,8 @@ function isPathBlocked(lowerFullPath) {
     if (cachedResult !== null) return cachedResult;
     
     let result = false;
-    if (pathBlockTrie.contains(lowerFullPath)) {
-        if (!allowTrie.contains(lowerFullPath)) {
+    if (TRIES.pathBlock.contains(lowerFullPath)) {
+        if (!TRIES.allow.contains(lowerFullPath)) {
             result = true;
         }
     }
@@ -507,7 +525,7 @@ function cleanTrackingParams(url) {
             continue;
         }
 
-        if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) || prefixTrie.startsWith(lowerKey)) {
+        if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) || TRIES.prefix.startsWith(lowerKey)) {
             url.searchParams.delete(key);
             paramsChanged = true;
         }
@@ -522,7 +540,7 @@ function cleanTrackingParams(url) {
  */
 function getBlockResponse(originalFullPath) {
     const lowerFullPath = originalFullPath.toLowerCase();
-    if (dropTrie.contains(lowerFullPath)) {
+    if (TRIES.drop.contains(lowerFullPath)) {
         return DROP_RESPONSE;
     }
     const pathOnly = originalFullPath.split('?')[0];
@@ -604,15 +622,17 @@ function processRequest(request) {
 
 // #################################################################################################
 // #                                                                                               #
-// #                                       🎬 EXECUTION                                            #
+// #                                       🎬 EXECUTION                                          #
 // #                                                                                               #
 // #################################################################################################
 
 (function() {
     try {
+        initializeTries(); // 執行初始化
+        
         if (typeof $request === 'undefined') {
             if (typeof $done !== 'undefined') {
-                $done({ version: '32.0', status: 'ready', message: 'URL Filter v32.0 - Optimized Final' });
+                $done({ version: '32.1', status: 'ready', message: 'URL Filter v32.1 - Hotfix' });
             }
             return;
         }
@@ -628,30 +648,25 @@ function processRequest(request) {
 })();
 
 // =================================================================================================
-// ## 更新日誌 (V32.0)
+// ## 更新日誌 (V32.1)
 // =================================================================================================
 //
 // ### 📅 更新日期: 2025-09-03
 //
-// ### ✨ V31.9 -> V32.0 變更 (架構優化):
+// ### ✨ V32.0 -> V32.1 變更 (Hotfix):
+//
+// 1.  **【核心錯誤修正】規則載入失敗**:
+//     - 修正了 V32.0 中因 `CONFIG` 物件遺漏 `TRACKING_PREFIXES` 列表，而導致腳本初始化失敗、所有黑名單規則不生效的嚴重錯誤。
+// 2.  **【架構強化】重構初始化機制**:
+//     - 新增了 `initializeTries` 函式，將所有 Trie 樹的初始化過程集中管理，使程式碼結構更穩健，杜絕未來可能發生的類似錯誤。
+//
+// ### ✨ V31.9 -> V32.0 變更回顧 (架構優化):
 //
 // 1.  **【架構重構】設定與引擎分離**:
 //     - 將所有規則列表整合至頂部的 `CONFIG` 物件中，實現了設定與核心程式碼的完全分離，大幅提升了可維護性與安全性。
 // 2.  **【規則精煉】移除高風險參數**:
 //     - 從 `GLOBAL_TRACKING_PARAMS` 中移除了 `'target'` 參數，以避免其因過於通用而破壞部分網站的正常跳轉功能。
-// 3.  **【可維護性提升】規則註解與分類**:
-//     - 為 `BLOCK_DOMAINS` 等大型規則集增加了分類註解，使規則的來源與目的更加清晰，便於未來管理。
-//
-// ### ✨ V31.8 -> V31.9 變更回顧:
-//
-// 1.  **【策略性規則擴充】**:
-//     - 修正了 `easy-social-share-buttons` 外掛的攔截規則，採用了更精準的路徑模式攔截。
-//
-// ### ✨ V31.7 -> V31.8 變更回顧:
-//
-// 1.  **【策略性規則擴充】**:
-//     - 曾嘗試使用關鍵字攔截 `easy-social-share-buttons` (此策略證明無效，已於 V31.9 中修正)。
 //
 // ### 🏆 總結:
 //
-// V32.0 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法與程式碼結構層面，解決了「效率」、「未來適應性」與「長期可維護性」的問題，是在手機 Surge 環境下，兼具正確性、極致性能與可持續發展的最終解決方案。
+// V32.1 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法與程式碼結構層面，解決了「效率」、「未來適應性」與「長期可維護性」的問題，是在手機 Surge 環境下，兼具正確性、極致性能與可持續發展的最終解決方案。
