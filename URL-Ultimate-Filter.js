@@ -89,7 +89,7 @@ const CONFIG = {
         // --- 支付 & 金流 ---
         'api.stripe.com', 'api.paypal.com', 'api.adyen.com', 'api.braintreegateway.com',
         // --- 生產力 & 協作工具 ---
-        'api.notion.com', 'api.figma.com', 'api.trello.com', 'api.asana.com', 'api.dropboxapi.com', '*.atlassian.net',
+        'api.notion.com', 'api.figma.com', 'api.trello.com', 'api.asana.com', 'api.dropboxapi.com', 'clorasio.atlassian.net',
         // --- 第三方認證 & SSO ---
         'okta.com', 'auth0.com', 'sso.godaddy.com',
         // --- 其他常用 API ---
