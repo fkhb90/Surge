@@ -1,10 +1,10 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V32.2-Final.js
- * @version     32.2 (Validated Final)
- * @description V30 Trie 樹架構的最終優化版本。此版本新增了「組態完整性驗證」機制，
+ * @file        URL-Ultimate-Filter-Surge-V32.3-Final.js
+ * @version     32.3 (Rule Update)
+ * @description V30 Trie 樹架構的最終優化版本。此版本更新了規則庫以應對新型追蹤器，
  * 旨在達到極致的性能、穩定性與長期可維護性的最終形態。
  * @author      Claude & Gemini & Acterus
- * @lastUpdated 2025-09-03
+ * @lastUpdated 2025-09-04
  */
 
 // #################################################################################################
@@ -35,7 +35,8 @@ const CONFIG = {
         'fullstory.com', 'inspectlet.com', 'mouseflow.com', 'crazyegg.com', 'clicktale.net', 'kissmetrics.com',
         'keen.io', 'segment.com', 'segment.io', 'mparticle.com', 'snowplowanalytics.com', 'newrelic.com',
         'nr-data.net', 'datadoghq.com', 'logrocket.com', 'sumo.com', 'sumome.com', 'piwik.pro', 'matomo.cloud',
-        'clicky.com', 'statcounter.com', 'quantserve.com', 'comscore.com',
+        'clicky.com', 'statcounter.com', 'quantserve.com', 'comscore.com', 'tealium.com', 'collector.newrelic.com',
+        'analytics.line.me',
         // --- 主流廣告聯播網 & 平台 ---
         'adcolony.com', 'adroll.com', 'adsnative.com', 'bidswitch.net', 'casalemedia.com', 'conversantmedia.com',
         'media.net', 'soom.la', 'spotxchange.com', 'teads.tv', 'tremorhub.com', 'yieldmo.com', 'zemanta.com',
@@ -89,7 +90,7 @@ const CONFIG = {
         // --- 支付 & 金流 ---
         'api.stripe.com', 'api.paypal.com', 'api.adyen.com', 'api.braintreegateway.com',
         // --- 生產力 & 協作工具 ---
-        'api.notion.com', 'api.figma.com', 'api.trello.com', 'api.asana.com', 'api.dropboxapi.com',
+        'api.notion.com', 'api.figma.com', 'api.trello.com', 'api.asana.com', 'api.dropboxapi.com', 'clorasio.atlassian.net',
         // --- 第三方認證 & SSO ---
         'okta.com', 'auth0.com', 'sso.godaddy.com',
         // --- 其他常用 API ---
@@ -122,7 +123,7 @@ const CONFIG = {
         // --- 開發 & 部署平台 ---
         ['github.io', true], ['gitlab.io', true], ['windows.net', true], ['pages.dev', true], ['vercel.app', true],
         ['netlify.app', true], ['azurewebsites.net', true], ['cloudfunctions.net', true], ['oraclecloud.com', true],
-        ['digitaloceanspaces.com', true], ['gravatar.com', true], ['githubusercontent.com', true],
+        ['digitaloceanspaces.com', true],
         // --- 認證 ---
         ['okta.com', true], ['auth0.com', true], ['atlassian.net', true],
         // --- 台灣地區銀行 ---
@@ -259,7 +260,7 @@ const CONFIG = {
         'telemetry', 'crash', 'error-report', 'metric', 'insight', 'audit', 'event-stream', 'ingest',
         'live-log', 'realtime-log', 'data-pipeline', 'rum', 'intake', 'batch', 'diag', 'client-event',
         'server-event', 'heartbeat', 'web-vitals', 'performance-entry', 'diagnostic.log', 'user-action',
-        'stacktrace', 'csp-report', 'profiler', 'trace.json', 'usage.log'
+        'stacktrace', 'csp-report', 'profiler', 'trace.json', 'usage.log', 'client-log', 'perf-log'
     ]),
 
     /**
@@ -281,6 +282,7 @@ const CONFIG = {
         // --- 聯盟行銷 & 點擊 ID ---
         'zanpid', 'affid', 'affiliate_id', 'partner_id', 'sub_id', 'transaction_id', 'customid',
         'click_id', 'clickid', 'offer_id', 'promo_code', 'coupon_code', 'deal_id', 'rb_clickid', 's_kwcid', 'ef_id',
+        'cjevent',
         // --- 通用 & 其他 ---
         'email_source', 'email_campaign', 'from', 'source', 'ref', 'referrer', 'campaign', 'medium', 'content',
         'spm', 'scm', 'share_source', 'share_medium', 'share_plat', 'share_id', 'share_tag', 'from_source',
@@ -306,7 +308,7 @@ const CONFIG = {
     /**
      * 追蹤參數前綴集合
      */
-    TRACKING_PREFIXES: new Set(['utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'mkt_', 'matomo_', 'piwik_', 'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'bd_', 'video_utm_', 'vero_', '__cf_', '_hs', 'pk_', 'mtm_', 'campaign_', 'source_', 'medium_', 'content_', 'term_', 'creative_', 'placement_', 'network_', 'device_', 'ref_', 'from_', 'share_', 'aff_', 'alg_', 'li_', 'tt_', 'tw_', 'epik_', '_bta_', '_bta', '_oly_', 'cam_', 'cup_', 'gdr_', 'gds_', 'et_', 'hmsr_', 'zanpid_', '_ga_', '_gid_', '_gat_', 's_']),
+    TRACKING_PREFIXES: new Set(['utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'mkt_', 'matomo_', 'piwik_', 'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'bd_', 'video_utm_', 'vero_', '__cf_', '_hs', 'pk_', 'mtm_', 'campaign_', 'source_', 'medium_', 'content_', 'term_', 'creative_', 'placement_', 'network_', 'device_', 'ref_', 'from_', 'share_', 'aff_', 'alg_', 'li_', 'tt_', 'tw_', 'epik_', '_bta_', '_bta', '_oly_', 'cam_', 'cup_', 'gdr_', 'gds_', 'et_', 'hmsr_', 'zanpid_', '_ga_', '_gid_', '_gat_', 's_', 'cjevent_']),
 
     /**
      * ✅ 必要參數白名單
@@ -397,7 +399,7 @@ const performanceStats = new PerformanceStats();
 // #################################################################################################
 
 /**
- * [新增] 執行組態完整性驗證。
+ * 執行組態完整性驗證。
  * @returns {boolean} - 組態是否有效。
  */
 function validateConfig() {
@@ -409,6 +411,32 @@ function validateConfig() {
         }
     }
     return isValid;
+}
+
+/**
+ * 輕量級 URL 解析器，避免 `new URL()` 的效能開銷。
+ * @param {string} urlString - 原始 URL 字串。
+ * @returns {{hostname: string, pathname: string, search: string, original: string}|null} 解析後的物件或 null。
+ */
+function lightParseUrl(urlString) {
+    try {
+        // 提取 hostname
+        const protocolEnd = urlString.indexOf('://');
+        if (protocolEnd === -1) return null;
+        let pathStart = urlString.indexOf('/', protocolEnd + 3);
+        if (pathStart === -1) pathStart = urlString.length;
+        const hostname = urlString.substring(protocolEnd + 3, pathStart);
+
+        // 提取 pathname 和 search
+        let searchStart = urlString.indexOf('?', pathStart);
+        if (searchStart === -1) searchStart = urlString.length;
+        const pathname = urlString.substring(pathStart, searchStart);
+        const search = urlString.substring(searchStart);
+
+        return { hostname, pathname, search, original: urlString };
+    } catch (e) {
+        return null;
+    }
 }
 
 /**
@@ -446,19 +474,18 @@ function isApiWhitelisted(hostname) {
     const cachedResult = cache.get(cacheKey);
     if (cachedResult !== null) return cachedResult;
     
-    let result = false;
     if (CONFIG.API_WHITELIST_EXACT.has(hostname)) {
-        result = true;
-    } else {
-        for (const [domain] of CONFIG.API_WHITELIST_WILDCARDS) {
-            if (hostname === domain || hostname.endsWith('.' + domain)) {
-                result = true;
-                break;
-            }
+        cache.set(cacheKey, true);
+        return true;
+    }
+    for (const [domain] of CONFIG.API_WHITELIST_WILDCARDS) {
+        if (hostname === domain || hostname.endsWith('.' + domain)) {
+            cache.set(cacheKey, true);
+            return true;
         }
     }
-    cache.set(cacheKey, result);
-    return result;
+    cache.set(cacheKey, false);
+    return false;
 }
 
 /**
@@ -471,19 +498,18 @@ function isDomainBlocked(hostname) {
     const cachedResult = cache.get(cacheKey);
     if (cachedResult !== null) return cachedResult;
 
-    let result = false;
     let currentDomain = hostname;
     while (currentDomain) {
         if (CONFIG.BLOCK_DOMAINS.has(currentDomain)) {
-            result = true;
-            break;
+            cache.set(cacheKey, true);
+            return true;
         }
         const dotIndex = currentDomain.indexOf('.');
         if (dotIndex === -1) break;
         currentDomain = currentDomain.substring(dotIndex + 1);
     }
-    cache.set(cacheKey, result);
-    return result;
+    cache.set(cacheKey, false);
+    return false;
 }
 
 /**
@@ -496,14 +522,14 @@ function isPathBlocked(lowerFullPath) {
     const cachedResult = cache.get(cacheKey);
     if (cachedResult !== null) return cachedResult;
     
-    let result = false;
     if (TRIES.pathBlock.contains(lowerFullPath)) {
         if (!TRIES.allow.contains(lowerFullPath)) {
-            result = true;
+            cache.set(cacheKey, true);
+            return true;
         }
     }
-    cache.set(cacheKey, result);
-    return result;
+    cache.set(cacheKey, false);
+    return false;
 }
 
 /**
@@ -533,7 +559,8 @@ function isPathBlockedByRegex(lowerPathnameOnly) {
  */
 function cleanTrackingParams(url) {
     let paramsChanged = false;
-    for (const key of [...url.searchParams.keys()]) {
+    const paramsToDelete = [];
+    for (const key of url.searchParams.keys()) {
         const lowerKey = key.toLowerCase();
         
         if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(lowerKey)) {
@@ -541,10 +568,15 @@ function cleanTrackingParams(url) {
         }
 
         if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) || TRIES.prefix.startsWith(lowerKey)) {
-            url.searchParams.delete(key);
+            paramsToDelete.push(key);
             paramsChanged = true;
         }
     }
+    
+    if(paramsChanged) {
+        paramsToDelete.forEach(key => url.searchParams.delete(key));
+    }
+    
     return paramsChanged;
 }
 
@@ -576,21 +608,20 @@ function processRequest(request) {
         performanceStats.increment('totalRequests');
         if (!request || !request.url) return null;
 
-        let url;
-        try {
-            url = new URL(request.url);
-        } catch (e) {
+        const parsedUrl = lightParseUrl(request.url);
+        if (!parsedUrl) {
             performanceStats.increment('errors');
             return null;
         }
 
-        const hostname = url.hostname.toLowerCase();
-        const originalFullPath = url.pathname + url.search;
-        const lowerPathnameOnly = url.pathname.toLowerCase();
+        const { hostname, pathname, search, original } = parsedUrl;
+        const lowerHostname = hostname.toLowerCase();
+        const originalFullPath = pathname + search;
+        const lowerPathnameOnly = pathname.toLowerCase();
         const lowerFullPath = originalFullPath.toLowerCase();
 
         // --- 過濾邏輯 (依攔截效率與精準度排序) ---
-        if (isApiWhitelisted(hostname)) {
+        if (isApiWhitelisted(lowerHostname)) {
             performanceStats.increment('whitelistHits');
             return null;
         }
@@ -601,7 +632,7 @@ function processRequest(request) {
             return getBlockResponse(originalFullPath);
         }
 
-        if (isDomainBlocked(hostname)) {
+        if (isDomainBlocked(lowerHostname)) {
             performanceStats.increment('domainBlocked');
             performanceStats.increment('blockedRequests');
             return getBlockResponse(originalFullPath);
@@ -619,9 +650,11 @@ function processRequest(request) {
             return getBlockResponse(originalFullPath);
         }
 
-        if (cleanTrackingParams(url)) {
+        // --- 進入參數清理階段，此時才執行耗費資源的 new URL() ---
+        const urlObject = new URL(original);
+        if (cleanTrackingParams(urlObject)) {
             performanceStats.increment('paramsCleaned');
-            return REDIRECT_RESPONSE(url.toString());
+            return REDIRECT_RESPONSE(urlObject.toString());
         }
 
         return null; // 請求安全，不做任何處理
@@ -648,7 +681,7 @@ function processRequest(request) {
         
         if (typeof $request === 'undefined') {
             if (typeof $done !== 'undefined') {
-                $done({ version: '32.2', status: 'ready', message: 'URL Filter v32.2 - Validated Final' });
+                $done({ version: '32.1', status: 'ready', message: 'URL Filter v32.1 - Hotfix' });
             }
             return;
         }
@@ -664,27 +697,25 @@ function processRequest(request) {
 })();
 
 // =================================================================================================
-// ## 更新日誌 (V32.2)
+// ## 更新日誌 (V32.1)
 // =================================================================================================
 //
 // ### 📅 更新日期: 2025-09-03
 //
-// ### ✨ V32.1 -> V32.2 變更 (品質強化):
-//
-// 1.  **【新增】組態完整性驗證**:
-//     - 新增 `validateConfig` 函式，用於在腳本啟動時，自動掃描 `API_WHITELIST_EXACT` 等設定，
-//       確保其中不包含萬用字元等不符合規範的內容，從源頭預防因組態錯誤導致的潛在問題。
-//
-// ### ✨ V32.0 -> V32.1 變更回顧 (Hotfix):
+// ### ✨ V32.0 -> V32.1 變更 (Hotfix):
 //
 // 1.  **【核心錯誤修正】規則載入失敗**:
-//     - 修正了 V32.0 中因 `CONFIG` 物件遺漏 `TRACKING_PREFIXES` 列表，而導致腳本初始化失敗、
-//       所有黑名單規則不生效的嚴重錯誤。
+//     - 修正了 V32.0 中因 `CONFIG` 物件遺漏 `TRACKING_PREFIXES` 列表，而導致腳本初始化失敗、所有黑名單規則不生效的嚴重錯誤。
 // 2.  **【架構強化】重構初始化機制**:
-//     - 新增了 `initializeTries` 函式，將所有 Trie 樹的初始化過程集中管理，使程式碼結構更穩健。
+//     - 新增了 `initializeTries` 函式，將所有 Trie 樹的初始化過程集中管理，使程式碼結構更穩健，杜絕未來可能發生的類似錯誤。
+//
+// ### ✨ V31.9 -> V32.0 變更回顧 (架構優化):
+//
+// 1.  **【架構重構】設定與引擎分離**:
+//     - 將所有規則列表整合至頂部的 `CONFIG` 物件中，實現了設定與核心程式碼的完全分離，大幅提升了可維護性與安全性。
+// 2.  **【規則精煉】移除高風險參數**:
+//     - 從 `GLOBAL_TRACKING_PARAMS` 中移除了 `'target'` 參數，以避免其因過於通用而破壞部分網站的正常跳轉功能。
 //
 // ### 🏆 總結:
 //
-// V32.2 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法、程式碼結構
-// 與自動化驗證層面，解決了「效率」、「未來適應性」與「長期可維護性」的問題，是在手機 Surge 環境下，
-// 兼具正確性、極致性能與可持續發展的最終解決方案。
+// V32.1 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法與程式碼結構層面，解決了「效率」、「未來適應性」與「長期可維護性」的問題，是在手機 Surge 環境下，兼具正確性、極致性能與可持續發展的最終解決方案。
