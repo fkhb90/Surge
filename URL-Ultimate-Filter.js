@@ -102,7 +102,7 @@ const CONFIG = {
         'richart.tw', 'api.irentcar.com.tw', 'ebank.tcb-bank.com.tw', 'ibanking.scsb.com.tw',
         'ebank.taipeifubon.com.tw', 'nbe.standardchartered.com.tw', 'usiot.roborock.com', 'cmapi.tw.coupang.com',
         // --- [新增] 蝦皮相容性修正 ---
-        'api.shopee.tw', 'cv.shopee.tw', 'deo.shopeemobile.com',
+        'api.shopee.tw', 'cv.shopee.tw', 'deo.shopeemobile.com', 'dem.shopee.com',
         // --- 其他 ---
         'duckduckgo.com', 'external-content.duckduckgo.com'
     ]),
