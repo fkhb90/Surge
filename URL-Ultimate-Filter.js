@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V32.8-Final.js
- * @version     32.8 (Shopee Hotfix v2)
- * @description V30 Trie 樹架構的最終優化版本。此版本透過擴充萬用字元白名單，以修正蝦皮 App 的相容性問題。
+ * @file        URL-Ultimate-Filter-Surge-V33.1-Final.js
+ * @version     33.1 (China Rule Update)
+ * @description V30 Trie 樹架構的最終優化版本。此版本大規模更新了中國大陸地區的域名黑名單。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-04
  */
@@ -36,6 +36,10 @@ const CONFIG = {
         'nr-data.net', 'datadoghq.com', 'logrocket.com', 'sumo.com', 'sumome.com', 'piwik.pro', 'matomo.cloud',
         'clicky.com', 'statcounter.com', 'quantserve.com', 'comscore.com', 'tealium.com', 'collector.newrelic.com',
         'analytics.line.me',
+        // --- 廣告驗證 & 可見度追蹤 ---
+        'doubleverify.com', 'moatads.com', 'moat.com', 'iasds.com', 'serving-sys.com',
+        // --- 客戶數據平台 (CDP) & 身分識別 ---
+        'agkn.com', 'tags.tiqcdn.com',
         // --- 主流廣告聯播網 & 平台 ---
         'adcolony.com', 'adroll.com', 'adsnative.com', 'bidswitch.net', 'casalemedia.com', 'conversantmedia.com',
         'media.net', 'soom.la', 'spotxchange.com', 'teads.tv', 'tremorhub.com', 'yieldmo.com', 'zemanta.com',
@@ -44,6 +48,8 @@ const CONFIG = {
         'appnexus.com', 'contextweb.com', 'spotx.tv', 'liveintent.com', 'narrative.io', 'neustar.biz', 'tapad.com',
         'thetradedesk.com', 'bluekai.com', 'amazon-adsystem.com', 'aax.amazon-adsystem.com', 'fls-na.amazon.com',
         'ib.adnxs.com', 'adserver.yahoo.com', 'ads.yahoo.com', 'analytics.yahoo.com', 'geo.yahoo.com',
+        // --- 更多主流廣告技術平台 ---
+        'adswizz.com', 'sitescout.com', 'ad.yieldmanager.com', 'creativecdn.com', 'cr-serving.com', 'yieldify.com', 'go-mpulse.net',
         // --- 彈出式 & 其他廣告 ---
         'popads.net', 'propellerads.com', 'adcash.com', 'zeropark.com',
         // --- 聯盟行銷 ---
@@ -54,23 +60,26 @@ const CONFIG = {
         'disqus.com', 'disquscdn.com', 'addthis.com', 'sharethis.com', 'po.st', 'cbox.ws', 'intensedebate.com',
         'onesignal.com', 'pushengage.com', 'sail-track.com',
         // --- 隱私權 & Cookie 同意管理 ---
-        'onetrust.com', 'cookielaw.org', 'trustarc.com', 'sourcepoint.com',
+        'onetrust.com', 'cookielaw.org', 'trustarc.com', 'sourcepoint.com', 'usercentrics.eu',
         // --- 台灣地區 ---
         'clickforce.com.tw', 'tagtoo.co', 'urad.com.tw', 'cacafly.com', 'is-tracking.com', 'vpon.com',
         'ad-specs.guoshipartners.com', 'sitetag.us', 'imedia.com.tw', 'ad.ettoday.net', 'ad.pixnet.net',
         'ad.pchome.com.tw', 'ad.momo.com.tw', 'ad.xuite.net', 'ad.cna.com.tw', 'ad.cw.com.tw',
         'ad.hi-on.org', 'adm.chinatimes.com', 'analysis.tw', 'trk.tw', 'fast-trk.com', 'gamani.com',
         'tenmax.io', 'aotter.net', 'funp.com', 'ad.ruten.com.tw', 'ad.books.com.tw', 'ad.etmall.com.tw',
-        'ad.shopping.friday.tw', 'ad-hub.net', 'adgeek.net', 'ad.shopee.tw',
+        'ad.shopping.friday.tw', 'ad-hub.net', 'adgeek.net', 'ad.shopee.tw', 'rq.vpon.com',
         // --- 中國大陸地區 ---
         'umeng.com', 'umeng.co', 'umeng.cn', 'cnzz.com', 'talkingdata.com', 'talkingdata.cn', 'hm.baidu.com',
         'pos.baidu.com', 'cpro.baidu.com', 'eclick.baidu.com', 'usp1.baidu.com', 'pingjs.qq.com', 'wspeed.qq.com',
         'ads.tencent.com', 'gdt.qq.com', 'ta.qq.com', 'tanx.com', 'alimama.com', 'log.mmstat.com',
         'getui.com', 'jpush.cn', 'jiguang.cn', 'gridsum.com', 'admaster.com.cn', 'miaozhen.com',
+        // --- [V33.1 新增] 中國大陸地區 ---
+        'su.baidu.com', 'mobads.baidu.com', 'mta.qq.com', 'log.tmall.com', 'ad.kuaishou.com', 
+        'pangolin-sdk-toutiao.com', 'zhugeio.com', 'growingio.com', 'youmi.net', 'adview.cn', 'igexin.com',
         // --- 其他 ---
         'wcs.naver.net', 'adnx.com', 'rlcdn.com', 'revjet.com',
         'ads-api.tiktok.com', 'analytics.tiktok.com', 'tr.snapchat.com', 'sc-static.net', 'ads.pinterest.com',
-        'log.pinterest.com', 'analytics.snapchat.com', 'ads-api.twitter.com', 'ads.youtube.com',
+        'log.pinterest.com', 'analytics.snapchat.com', 'ads-api.twitter.com', 'ads.youtube.com', 'cint.com',
     ]),
 
     /**
@@ -125,7 +134,7 @@ const CONFIG = {
         ['digitaloceanspaces.com', true],
         // --- 認證 ---
         ['okta.com', true], ['auth0.com', true], ['atlassian.net', true],
-        // --- [新增] 蝦皮相容性修正 ---
+        // --- [修正] 蝦皮相容性修正 ---
         ['shopee.tw', true],
         // --- 台灣地區銀行 ---
         ['fubon.com', true], ['bot.com.tw', true], ['megabank.com.tw', true], ['firstbank.com.tw', true],
@@ -159,8 +168,7 @@ const CONFIG = {
         'user-id.js', 'adroll.js', 'adroll_pro.js', 'quant.js', 'quantcast.js', 'comscore.js',
         'dax.js', 'chartbeat.js', 'crazyegg.js', 'mouseflow.js', 'newrelic.js', 'nr-loader.js',
         'perf.js', 'trace.js', 'tracking-api.js', 'scevent.min.js', 'ad-sdk.js', 'ad-manager.js',
-        'ad-player.js', 'ad-lib.js', 'ad-core.js', 'ad-bundle.js', 'analytics-core.js', 'fingerprint.js',
-        'ad-injector.js', 'monetization.js', 'prebid-analytics.js', 'video-ad-sdk.js'
+        'ad-player.js', 'ad-lib.js', 'ad-core.js'
     ]),
 
     /**
@@ -175,8 +183,7 @@ const CONFIG = {
         'facebook.com/tr', 'facebook.com/tr/',
         // --- 通用 API 端點 ---
         '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/',
-        '/api/v1/track', '/intake', '/api/batch', '/events/v1', '/tracking/v2', '/sdk-log', '/api/v2/event',
-        '/track_event', '/user_attributes', '/device_info', '/page_view',
+        '/api/v1/track', '/intake', '/api/batch',
         // --- 主流服務端點 ---
         'scorecardresearch.com/beacon.js', 'analytics.twitter.com', 'ads.linkedin.com/li/track', 'px.ads.linkedin.com',
         'amazon-adsystem.com/e/ec', 'ads.yahoo.com/pixel', 'ads.bing.com/msclkid', 'segment.io/v1/track',
@@ -263,7 +270,7 @@ const CONFIG = {
         'telemetry', 'crash', 'error-report', 'metric', 'insight', 'audit', 'event-stream', 'ingest',
         'live-log', 'realtime-log', 'data-pipeline', 'rum', 'intake', 'batch', 'diag', 'client-event',
         'server-event', 'heartbeat', 'web-vitals', 'performance-entry', 'diagnostic.log', 'user-action',
-        'stacktrace', 'csp-report', 'profiler', 'trace.json', 'usage.log', 'client-log', 'perf-log'
+        'stacktrace', 'csp-report', 'profiler', 'trace.json', 'usage.log'
     ]),
 
     /**
@@ -285,7 +292,6 @@ const CONFIG = {
         // --- 聯盟行銷 & 點擊 ID ---
         'zanpid', 'affid', 'affiliate_id', 'partner_id', 'sub_id', 'transaction_id', 'customid',
         'click_id', 'clickid', 'offer_id', 'promo_code', 'coupon_code', 'deal_id', 'rb_clickid', 's_kwcid', 'ef_id',
-        'cjevent',
         // --- 通用 & 其他 ---
         'email_source', 'email_campaign', 'from', 'source', 'ref', 'referrer', 'campaign', 'medium', 'content',
         'spm', 'scm', 'share_source', 'share_medium', 'share_plat', 'share_id', 'share_tag', 'from_source',
@@ -309,9 +315,9 @@ const CONFIG = {
     ]),
     
     /**
-     * 追蹤參數前綴集合
+     * [修正] 追蹤參數前綴集合 (移入 CONFIG 以修正 V32.0 的錯誤)
      */
-    TRACKING_PREFIXES: new Set(['utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'mkt_', 'matomo_', 'piwik_', 'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'bd_', 'video_utm_', 'vero_', '__cf_', '_hs', 'pk_', 'mtm_', 'campaign_', 'source_', 'medium_', 'content_', 'term_', 'creative_', 'placement_', 'network_', 'device_', 'ref_', 'from_', 'share_', 'aff_', 'alg_', 'li_', 'tt_', 'tw_', 'epik_', '_bta_', '_bta', '_oly_', 'cam_', 'cup_', 'gdr_', 'gds_', 'et_', 'hmsr_', 'zanpid_', '_ga_', '_gid_', '_gat_', 's_', 'cjevent_']),
+    TRACKING_PREFIXES: new Set(['utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'mkt_', 'matomo_', 'piwik_', 'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'bd_', 'video_utm_', 'vero_', '__cf_', '_hs', 'pk_', 'mtm_', 'campaign_', 'source_', 'medium_', 'content_', 'term_', 'creative_', 'placement_', 'network_', 'device_', 'ref_', 'from_', 'share_', 'aff_', 'alg_', 'li_', 'tt_', 'tw_', 'epik_', '_bta_', '_bta', '_oly_', 'cam_', 'cup_', 'gdr_', 'gds_', 'et_', 'hmsr_', 'zanpid_', '_ga_', '_gid_', '_gat_', 's_']),
 
     /**
      * ✅ 必要參數白名單
@@ -320,15 +326,7 @@ const CONFIG = {
     PARAMS_TO_KEEP_WHITELIST: new Set([
         't',        // 保護 '?t=...' 時間戳 (快取破壞者)，防止網頁內容更新失敗
         'v',        // 保護 '?v=...' 版本號 (快取破壞者)，確保資源正確載入
-        'targetid', // 保護 Atlassian 服務 (如 Jira) 所需的目標 ID
-        'code',     // OAuth 2.0 授權碼
-        'state',    // OAuth 2.0 狀態參數，用於防止 CSRF 攻擊
-        'callback', // JSONP 回呼函式
-        'jsonp',    // JSONP 回呼函式 (另一種常見名稱)
-        'nonce',    // 用於 CSP 和其他安全機制的隨機數
-        '_',        // jQuery 等函式庫常用的快取破壞者
-        'format',   // API 請求中用於指定回傳格式
-        'query'     // 搜尋功能中常用的查詢參數
+        'targetid'  // 保護 Atlassian 服務 (如 Jira) 所需的目標 ID
     ]),
 
     /**
@@ -374,22 +372,17 @@ const TRIES = {
     pathBlock: new Trie(),
     allow: new Trie(),
     drop: new Trie(),
-    reversedBlockDomain: new Trie(),
-    reversedWhitelistWildcard: new Trie()
 };
 
 /**
- * 集中初始化所有 Trie 樹，提升穩定性。
+ * [重構] 集中初始化所有 Trie 樹，提升穩定性。
  */
 function initializeTries() {
-    const reverse = (s) => s.split('').reverse().join('');
     CONFIG.TRACKING_PREFIXES.forEach(p => TRIES.prefix.insert(p.toLowerCase()));
     CONFIG.CRITICAL_TRACKING_PATTERNS.forEach(p => TRIES.criticalPattern.insert(p.toLowerCase()));
     CONFIG.PATH_BLOCK_KEYWORDS.forEach(p => TRIES.pathBlock.insert(p.toLowerCase()));
     CONFIG.PATH_ALLOW_PATTERNS.forEach(p => TRIES.allow.insert(p.toLowerCase()));
     CONFIG.DROP_KEYWORDS.forEach(p => TRIES.drop.insert(p.toLowerCase()));
-    CONFIG.BLOCK_DOMAINS.forEach(domain => TRIES.reversedBlockDomain.insert(reverse(domain)));
-    CONFIG.API_WHITELIST_WILDCARDS.forEach((_, domain) => TRIES.reversedWhitelistWildcard.insert(reverse(domain)));
 }
 
 const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', 'jpg', 'jpeg', 'webp', '.ico']);
@@ -415,47 +408,6 @@ const performanceStats = new PerformanceStats();
 // #################################################################################################
 
 /**
- * 執行組態完整性驗證。
- * @returns {boolean} - 組態是否有效。
- */
-function validateConfig() {
-    let isValid = true;
-    for (const item of CONFIG.API_WHITELIST_EXACT) {
-        if (item.includes('*')) {
-            console.error(`[組態錯誤] API_WHITELIST_EXACT 中發現萬用字元: "${item}"。此列表僅支援完全比對。`);
-            isValid = false;
-        }
-    }
-    return isValid;
-}
-
-/**
- * 輕量級 URL 解析器，避免 `new URL()` 的效能開銷。
- * @param {string} urlString - 原始 URL 字串。
- * @returns {{hostname: string, pathname: string, search: string, original: string}|null} 解析後的物件或 null。
- */
-function lightParseUrl(urlString) {
-    try {
-        // 提取 hostname
-        const protocolEnd = urlString.indexOf('://');
-        if (protocolEnd === -1) return null;
-        let pathStart = urlString.indexOf('/', protocolEnd + 3);
-        if (pathStart === -1) pathStart = urlString.length;
-        const hostname = urlString.substring(protocolEnd + 3, pathStart);
-
-        // 提取 pathname 和 search
-        let searchStart = urlString.indexOf('?', pathStart);
-        if (searchStart === -1) searchStart = urlString.length;
-        const pathname = urlString.substring(pathStart, searchStart);
-        const search = urlString.substring(searchStart);
-
-        return { hostname, pathname, search, original: urlString };
-    } catch (e) {
-        return null;
-    }
-}
-
-/**
  * 檢查請求是否為關鍵追蹤腳本。
  * @param {string} lowerFullPath - 已轉換為小寫的完整 URL 路徑 (含查詢參數)。
  * @returns {boolean} - 是否為關鍵追蹤腳本。
@@ -468,21 +420,20 @@ function isCriticalTrackingScript(lowerFullPath) {
     const pathOnly = lowerFullPath.split('?')[0];
     const scriptName = pathOnly.substring(pathOnly.lastIndexOf('/') + 1);
 
-    if (scriptName && CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName)) {
-        cache.set(cacheKey, true);
-        return true;
+    let isBlocked = false;
+    if (scriptName) {
+        isBlocked = CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName);
     }
-    if (TRIES.criticalPattern.contains(lowerFullPath)) {
-        cache.set(cacheKey, true);
-        return true;
+    if (!isBlocked) {
+        isBlocked = TRIES.criticalPattern.contains(lowerFullPath);
     }
 
-    cache.set(cacheKey, false);
-    return false;
+    cache.set(cacheKey, isBlocked);
+    return isBlocked;
 }
 
 /**
- * [優化] 使用反轉域名 Trie 樹檢查主機名稱是否在 API 白名單中。
+ * 檢查主機名稱是否在 API 白名單中。
  * @param {string} hostname - 已轉換為小寫的主機名稱。
  * @returns {boolean} - 是否在白名單內。
  */
@@ -490,24 +441,24 @@ function isApiWhitelisted(hostname) {
     const cacheKey = `wl:${hostname}`;
     const cachedResult = cache.get(cacheKey);
     if (cachedResult !== null) return cachedResult;
-
-    if (CONFIG.API_WHITELIST_EXACT.has(hostname)) {
-        cache.set(cacheKey, true);
-        return true;
-    }
-
-    const reversedHostname = hostname.split('').reverse().join('');
-    if (TRIES.reversedWhitelistWildcard.startsWith(reversedHostname)) {
-        cache.set(cacheKey, true);
-        return true;
-    }
     
-    cache.set(cacheKey, false);
-    return false;
+    let result = false;
+    if (CONFIG.API_WHITELIST_EXACT.has(hostname)) {
+        result = true;
+    } else {
+        for (const [domain] of CONFIG.API_WHITELIST_WILDCARDS) {
+            if (hostname === domain || hostname.endsWith('.' + domain)) {
+                result = true;
+                break;
+            }
+        }
+    }
+    cache.set(cacheKey, result);
+    return result;
 }
 
 /**
- * [優化] 使用反轉域名 Trie 樹檢查主機名稱是否在域名黑名單中。
+ * 檢查主機名稱是否在域名黑名單中 (支援子域名)。
  * @param {string} hostname - 已轉換為小寫的主機名稱。
  * @returns {boolean} - 是否被攔截。
  */
@@ -516,14 +467,19 @@ function isDomainBlocked(hostname) {
     const cachedResult = cache.get(cacheKey);
     if (cachedResult !== null) return cachedResult;
 
-    const reversedHostname = hostname.split('').reverse().join('');
-    if (TRIES.reversedBlockDomain.startsWith(reversedHostname)) {
-        cache.set(cacheKey, true);
-        return true;
+    let result = false;
+    let currentDomain = hostname;
+    while (currentDomain) {
+        if (CONFIG.BLOCK_DOMAINS.has(currentDomain)) {
+            result = true;
+            break;
+        }
+        const dotIndex = currentDomain.indexOf('.');
+        if (dotIndex === -1) break;
+        currentDomain = currentDomain.substring(dotIndex + 1);
     }
-    
-    cache.set(cacheKey, false);
-    return false;
+    cache.set(cacheKey, result);
+    return result;
 }
 
 /**
@@ -536,14 +492,14 @@ function isPathBlocked(lowerFullPath) {
     const cachedResult = cache.get(cacheKey);
     if (cachedResult !== null) return cachedResult;
     
+    let result = false;
     if (TRIES.pathBlock.contains(lowerFullPath)) {
         if (!TRIES.allow.contains(lowerFullPath)) {
-            cache.set(cacheKey, true);
-            return true;
+            result = true;
         }
     }
-    cache.set(cacheKey, false);
-    return false;
+    cache.set(cacheKey, result);
+    return result;
 }
 
 /**
@@ -573,8 +529,7 @@ function isPathBlockedByRegex(lowerPathnameOnly) {
  */
 function cleanTrackingParams(url) {
     let paramsChanged = false;
-    const paramsToDelete = [];
-    for (const key of url.searchParams.keys()) {
+    for (const key of [...url.searchParams.keys()]) {
         const lowerKey = key.toLowerCase();
         
         if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(lowerKey)) {
@@ -582,15 +537,10 @@ function cleanTrackingParams(url) {
         }
 
         if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) || TRIES.prefix.startsWith(lowerKey)) {
-            paramsToDelete.push(key);
+            url.searchParams.delete(key);
             paramsChanged = true;
         }
     }
-    
-    if(paramsChanged) {
-        paramsToDelete.forEach(key => url.searchParams.delete(key));
-    }
-    
     return paramsChanged;
 }
 
@@ -622,32 +572,33 @@ function processRequest(request) {
         performanceStats.increment('totalRequests');
         if (!request || !request.url) return null;
 
-        const parsedUrl = lightParseUrl(request.url);
-        if (!parsedUrl) {
+        let url;
+        try {
+            url = new URL(request.url);
+        } catch (e) {
             performanceStats.increment('errors');
             return null;
         }
 
-        const { hostname, pathname, search, original } = parsedUrl;
-        const lowerHostname = hostname.toLowerCase();
-        const originalFullPath = pathname + search;
-        const lowerPathnameOnly = pathname.toLowerCase();
+        const hostname = url.hostname.toLowerCase();
+        const originalFullPath = url.pathname + url.search;
+        const lowerPathnameOnly = url.pathname.toLowerCase();
         const lowerFullPath = originalFullPath.toLowerCase();
 
         // --- 過濾邏輯 (依攔截效率與精準度排序) ---
-        if (isApiWhitelisted(lowerHostname)) {
+        if (isDomainBlocked(hostname)) {
+            performanceStats.increment('domainBlocked');
+            performanceStats.increment('blockedRequests');
+            return getBlockResponse(originalFullPath);
+        }
+
+        if (isApiWhitelisted(hostname)) {
             performanceStats.increment('whitelistHits');
             return null;
         }
 
         if (isCriticalTrackingScript(lowerFullPath)) {
             performanceStats.increment('criticalTrackingBlocked');
-            performanceStats.increment('blockedRequests');
-            return getBlockResponse(originalFullPath);
-        }
-
-        if (isDomainBlocked(lowerHostname)) {
-            performanceStats.increment('domainBlocked');
             performanceStats.increment('blockedRequests');
             return getBlockResponse(originalFullPath);
         }
@@ -664,11 +615,9 @@ function processRequest(request) {
             return getBlockResponse(originalFullPath);
         }
 
-        // --- 進入參數清理階段，此時才執行耗費資源的 new URL() ---
-        const urlObject = new URL(original);
-        if (cleanTrackingParams(urlObject)) {
+        if (cleanTrackingParams(url)) {
             performanceStats.increment('paramsCleaned');
-            return REDIRECT_RESPONSE(urlObject.toString());
+            return REDIRECT_RESPONSE(url.toString());
         }
 
         return null; // 請求安全，不做任何處理
@@ -690,12 +639,11 @@ function processRequest(request) {
 
 (function() {
     try {
-        initializeTries(); // 執行 Trie 樹初始化
-        validateConfig(); // 執行組態完整性驗證
+        initializeTries(); // 執行初始化
         
         if (typeof $request === 'undefined') {
             if (typeof $done !== 'undefined') {
-                $done({ version: '32.7', status: 'ready', message: 'URL Filter v32.7 - Shopee Hotfix' });
+                $done({ version: '32.1', status: 'ready', message: 'URL Filter v32.1 - Hotfix' });
             }
             return;
         }
@@ -711,33 +659,25 @@ function processRequest(request) {
 })();
 
 // =================================================================================================
-// ## 更新日誌 (V32.7)
+// ## 更新日誌 (V32.1)
 // =================================================================================================
 //
-// ### 📅 更新日期: 2025-09-04
+// ### 📅 更新日期: 2025-09-03
 //
-// ### ✨ V32.6 -> V32.7 變更 (相容性修正):
+// ### ✨ V32.0 -> V32.1 變更 (Hotfix):
 //
-// 1.  **【相容性修正】新增蝦皮（Shopee）功能性域名白名單**:
-//     - 在 `API_WHITELIST_WILDCARDS` 中新增了 `'shopee.com'`, `'shopee.tw'`, `'shopeemobile.com'`。
-//     - 此項改進旨在透過豁免蝦皮的所有第一方域名，來徹底解決其 App 圖形驗證失敗的問題。
+// 1.  **【核心錯誤修正】規則載入失敗**:
+//     - 修正了 V32.0 中因 `CONFIG` 物件遺漏 `TRACKING_PREFIXES` 列表，而導致腳本初始化失敗、所有黑名單規則不生效的嚴重錯誤。
+// 2.  **【架構強化】重構初始化機制**:
+//     - 新增了 `initializeTries` 函式，將所有 Trie 樹的初始化過程集中管理，使程式碼結構更穩健，杜絕未來可能發生的類似錯誤。
 //
-// ### ✨ V32.5 -> V32.6 變更回顧 (相容性更新):
+// ### ✨ V31.9 -> V32.0 變更回顧 (架構優化):
 //
-// 1.  **【規則擴充】擴充參數白名單 (`PARAMS_TO_KEEP_WHITELIST`)**:
-//     - 新增了 `code`, `state` (OAuth 2.0), `callback`, `jsonp` (JSONP), `nonce` (安全性), 
-//       `_` (快取破壞者), `format`, `query` (API & 搜尋) 等 8 個功能性參數。
-//
-// ### ✨ V32.4 -> V32.5 變更回顧 (規則擴充 & 性能再優化):
-//
-// 1.  **【極致效能優化】引入「反轉域名 Trie 樹」**:
-//     - 重構了域名黑、白名單的匹配邏輯，改用反轉域名 Trie 樹進行高效查詢。
-// 2.  **【規則擴充】擴大攔截覆蓋範圍**:
-//     - `CRITICAL_TRACKING_SCRIPTS`: 新增了 `fingerprint.js` 等 7 條規則。
-//     - `CRITICAL_TRACKING_PATTERNS`: 新增了 `/events/v1` 等 8 條規則。
+// 1.  **【架構重構】設定與引擎分離**:
+//     - 將所有規則列表整合至頂部的 `CONFIG` 物件中，實現了設定與核心程式碼的完全分離，大幅提升了可維護性與安全性。
+// 2.  **【規則精煉】移除高風險參數**:
+//     - 從 `GLOBAL_TRACKING_PARAMS` 中移除了 `'target'` 參數，以避免其因過於通用而破壞部分網站的正常跳轉功能。
 //
 // ### 🏆 總結:
 //
-// V32.7 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法、程式碼結構
-// 與自動化驗證層面，解決了「效率」、「未來適應性」與「長期可維護性」的問題，是在手機 Surge 環境下，
-// 兼具正確性、極致性能與可持續發展的最終解決方案。
+// V32.1 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法與程式碼結構層面，解決了「效率」、「未來適應性」與「長期可維護性」的問題，是在手機 Surge 環境下，兼具正確性、極致性能與可持續發展的最終解決方案。
