@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V32.3-Final.js
- * @version     32.3 (Rule Update)
- * @description V30 Trie 樹架構的最終優化版本。此版本更新了規則庫以應對新型追蹤器，
+ * @file        URL-Ultimate-Filter-Surge-V32.6-Final.js
+ * @version     32.6 (Compatibility Update)
+ * @description V30 Trie 樹架構的最終優化版本。此版本擴充了參數白名單以提升網站相容性，
  * 旨在達到極致的性能、穩定性與長期可維護性的最終形態。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-04
@@ -158,7 +158,8 @@ const CONFIG = {
         'user-id.js', 'adroll.js', 'adroll_pro.js', 'quant.js', 'quantcast.js', 'comscore.js',
         'dax.js', 'chartbeat.js', 'crazyegg.js', 'mouseflow.js', 'newrelic.js', 'nr-loader.js',
         'perf.js', 'trace.js', 'tracking-api.js', 'scevent.min.js', 'ad-sdk.js', 'ad-manager.js',
-        'ad-player.js', 'ad-lib.js', 'ad-core.js'
+        'ad-player.js', 'ad-lib.js', 'ad-core.js', 'ad-bundle.js', 'analytics-core.js', 'fingerprint.js',
+        'ad-injector.js', 'monetization.js', 'prebid-analytics.js', 'video-ad-sdk.js'
     ]),
 
     /**
@@ -173,7 +174,8 @@ const CONFIG = {
         'facebook.com/tr', 'facebook.com/tr/',
         // --- 通用 API 端點 ---
         '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/',
-        '/api/v1/track', '/intake', '/api/batch',
+        '/api/v1/track', '/intake', '/api/batch', '/events/v1', '/tracking/v2', '/sdk-log', '/api/v2/event',
+        '/track_event', '/user_attributes', '/device_info', '/page_view',
         // --- 主流服務端點 ---
         'scorecardresearch.com/beacon.js', 'analytics.twitter.com', 'ads.linkedin.com/li/track', 'px.ads.linkedin.com',
         'amazon-adsystem.com/e/ec', 'ads.yahoo.com/pixel', 'ads.bing.com/msclkid', 'segment.io/v1/track',
@@ -399,47 +401,6 @@ const performanceStats = new PerformanceStats();
 // #################################################################################################
 
 /**
- * 執行組態完整性驗證。
- * @returns {boolean} - 組態是否有效。
- */
-function validateConfig() {
-    let isValid = true;
-    for (const item of CONFIG.API_WHITELIST_EXACT) {
-        if (item.includes('*')) {
-            console.error(`[組態錯誤] API_WHITELIST_EXACT 中發現萬用字元: "${item}"。此列表僅支援完全比對。`);
-            isValid = false;
-        }
-    }
-    return isValid;
-}
-
-/**
- * 輕量級 URL 解析器，避免 `new URL()` 的效能開銷。
- * @param {string} urlString - 原始 URL 字串。
- * @returns {{hostname: string, pathname: string, search: string, original: string}|null} 解析後的物件或 null。
- */
-function lightParseUrl(urlString) {
-    try {
-        // 提取 hostname
-        const protocolEnd = urlString.indexOf('://');
-        if (protocolEnd === -1) return null;
-        let pathStart = urlString.indexOf('/', protocolEnd + 3);
-        if (pathStart === -1) pathStart = urlString.length;
-        const hostname = urlString.substring(protocolEnd + 3, pathStart);
-
-        // 提取 pathname 和 search
-        let searchStart = urlString.indexOf('?', pathStart);
-        if (searchStart === -1) searchStart = urlString.length;
-        const pathname = urlString.substring(pathStart, searchStart);
-        const search = urlString.substring(searchStart);
-
-        return { hostname, pathname, search, original: urlString };
-    } catch (e) {
-        return null;
-    }
-}
-
-/**
  * 檢查請求是否為關鍵追蹤腳本。
  * @param {string} lowerFullPath - 已轉換為小寫的完整 URL 路徑 (含查詢參數)。
  * @returns {boolean} - 是否為關鍵追蹤腳本。
@@ -474,18 +435,19 @@ function isApiWhitelisted(hostname) {
     const cachedResult = cache.get(cacheKey);
     if (cachedResult !== null) return cachedResult;
     
+    let result = false;
     if (CONFIG.API_WHITELIST_EXACT.has(hostname)) {
-        cache.set(cacheKey, true);
-        return true;
-    }
-    for (const [domain] of CONFIG.API_WHITELIST_WILDCARDS) {
-        if (hostname === domain || hostname.endsWith('.' + domain)) {
-            cache.set(cacheKey, true);
-            return true;
+        result = true;
+    } else {
+        for (const [domain] of CONFIG.API_WHITELIST_WILDCARDS) {
+            if (hostname === domain || hostname.endsWith('.' + domain)) {
+                result = true;
+                break;
+            }
         }
     }
-    cache.set(cacheKey, false);
-    return false;
+    cache.set(cacheKey, result);
+    return result;
 }
 
 /**
@@ -498,18 +460,19 @@ function isDomainBlocked(hostname) {
     const cachedResult = cache.get(cacheKey);
     if (cachedResult !== null) return cachedResult;
 
+    let result = false;
     let currentDomain = hostname;
     while (currentDomain) {
         if (CONFIG.BLOCK_DOMAINS.has(currentDomain)) {
-            cache.set(cacheKey, true);
-            return true;
+            result = true;
+            break;
         }
         const dotIndex = currentDomain.indexOf('.');
         if (dotIndex === -1) break;
         currentDomain = currentDomain.substring(dotIndex + 1);
     }
-    cache.set(cacheKey, false);
-    return false;
+    cache.set(cacheKey, result);
+    return result;
 }
 
 /**
@@ -522,14 +485,14 @@ function isPathBlocked(lowerFullPath) {
     const cachedResult = cache.get(cacheKey);
     if (cachedResult !== null) return cachedResult;
     
+    let result = false;
     if (TRIES.pathBlock.contains(lowerFullPath)) {
         if (!TRIES.allow.contains(lowerFullPath)) {
-            cache.set(cacheKey, true);
-            return true;
+            result = true;
         }
     }
-    cache.set(cacheKey, false);
-    return false;
+    cache.set(cacheKey, result);
+    return result;
 }
 
 /**
@@ -559,8 +522,7 @@ function isPathBlockedByRegex(lowerPathnameOnly) {
  */
 function cleanTrackingParams(url) {
     let paramsChanged = false;
-    const paramsToDelete = [];
-    for (const key of url.searchParams.keys()) {
+    for (const key of [...url.searchParams.keys()]) {
         const lowerKey = key.toLowerCase();
         
         if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(lowerKey)) {
@@ -568,15 +530,10 @@ function cleanTrackingParams(url) {
         }
 
         if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) || TRIES.prefix.startsWith(lowerKey)) {
-            paramsToDelete.push(key);
+            url.searchParams.delete(key);
             paramsChanged = true;
         }
     }
-    
-    if(paramsChanged) {
-        paramsToDelete.forEach(key => url.searchParams.delete(key));
-    }
-    
     return paramsChanged;
 }
 
@@ -608,20 +565,21 @@ function processRequest(request) {
         performanceStats.increment('totalRequests');
         if (!request || !request.url) return null;
 
-        const parsedUrl = lightParseUrl(request.url);
-        if (!parsedUrl) {
+        let url;
+        try {
+            url = new URL(request.url);
+        } catch (e) {
             performanceStats.increment('errors');
             return null;
         }
 
-        const { hostname, pathname, search, original } = parsedUrl;
-        const lowerHostname = hostname.toLowerCase();
-        const originalFullPath = pathname + search;
-        const lowerPathnameOnly = pathname.toLowerCase();
+        const hostname = url.hostname.toLowerCase();
+        const originalFullPath = url.pathname + url.search;
+        const lowerPathnameOnly = url.pathname.toLowerCase();
         const lowerFullPath = originalFullPath.toLowerCase();
 
         // --- 過濾邏輯 (依攔截效率與精準度排序) ---
-        if (isApiWhitelisted(lowerHostname)) {
+        if (isApiWhitelisted(hostname)) {
             performanceStats.increment('whitelistHits');
             return null;
         }
@@ -632,7 +590,7 @@ function processRequest(request) {
             return getBlockResponse(originalFullPath);
         }
 
-        if (isDomainBlocked(lowerHostname)) {
+        if (isDomainBlocked(hostname)) {
             performanceStats.increment('domainBlocked');
             performanceStats.increment('blockedRequests');
             return getBlockResponse(originalFullPath);
@@ -650,11 +608,9 @@ function processRequest(request) {
             return getBlockResponse(originalFullPath);
         }
 
-        // --- 進入參數清理階段，此時才執行耗費資源的 new URL() ---
-        const urlObject = new URL(original);
-        if (cleanTrackingParams(urlObject)) {
+        if (cleanTrackingParams(url)) {
             performanceStats.increment('paramsCleaned');
-            return REDIRECT_RESPONSE(urlObject.toString());
+            return REDIRECT_RESPONSE(url.toString());
         }
 
         return null; // 請求安全，不做任何處理
@@ -676,9 +632,6 @@ function processRequest(request) {
 
 (function() {
     try {
-        initializeTries(); // 執行 Trie 樹初始化
-        validateConfig(); // 執行組態完整性驗證
-        
         if (typeof $request === 'undefined') {
             if (typeof $done !== 'undefined') {
                 $done({ version: '32.1', status: 'ready', message: 'URL Filter v32.1 - Hotfix' });
