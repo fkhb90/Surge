@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V32.7-Final.js
- * @version     32.7 (Shopee Hotfix)
- * @description V30 Trie 樹架構的最終優化版本。此版本擴充了 API 白名單以修正蝦皮 App 的相容性問題。
+ * @file        URL-Ultimate-Filter-Surge-V32.8-Final.js
+ * @version     32.8 (Shopee Hotfix v2)
+ * @description V30 Trie 樹架構的最終優化版本。此版本透過擴充萬用字元白名單，以修正蝦皮 App 的相容性問題。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-04
  */
@@ -118,13 +118,15 @@ const CONFIG = {
         ['cdnjs.cloudflare.com', true], ['gstatic.com', true], ['fbcdn.net', true], ['twimg.com', true],
         // --- 閱讀器 & 新聞 ---
         ['inoreader.com', true], ['theoldreader.com', true], ['newsblur.com', true], ['flipboard.com', true],
-        ['itofoo.com', true], ['shopee.tw', true]
+        ['itofoo.com', true],
         // --- 開發 & 部署平台 ---
         ['github.io', true], ['gitlab.io', true], ['windows.net', true], ['pages.dev', true], ['vercel.app', true],
         ['netlify.app', true], ['azurewebsites.net', true], ['cloudfunctions.net', true], ['oraclecloud.com', true],
         ['digitaloceanspaces.com', true],
         // --- 認證 ---
         ['okta.com', true], ['auth0.com', true], ['atlassian.net', true],
+        // --- [新增] 蝦皮相容性修正 ---
+        ['shopee.tw', true],
         // --- 台灣地區銀行 ---
         ['fubon.com', true], ['bot.com.tw', true], ['megabank.com.tw', true], ['firstbank.com.tw', true],
         ['hncb.com.tw', true], ['chb.com.tw', true], ['taishinbank.com.tw', true], ['sinopac.com', true],
@@ -693,7 +695,7 @@ function processRequest(request) {
         
         if (typeof $request === 'undefined') {
             if (typeof $done !== 'undefined') {
-                $done({ version: '32.6', status: 'ready', message: 'URL Filter v32.6 - Compatibility Update' });
+                $done({ version: '32.7', status: 'ready', message: 'URL Filter v32.7 - Shopee Hotfix' });
             }
             return;
         }
@@ -709,28 +711,33 @@ function processRequest(request) {
 })();
 
 // =================================================================================================
-// ## 更新日誌 (V32.6)
+// ## 更新日誌 (V32.7)
 // =================================================================================================
 //
 // ### 📅 更新日期: 2025-09-04
 //
-// ### ✨ V32.5 -> V32.6 變更 (相容性更新):
+// ### ✨ V32.6 -> V32.7 變更 (相容性修正):
+//
+// 1.  **【相容性修正】新增蝦皮（Shopee）功能性域名白名單**:
+//     - 在 `API_WHITELIST_WILDCARDS` 中新增了 `'shopee.com'`, `'shopee.tw'`, `'shopeemobile.com'`。
+//     - 此項改進旨在透過豁免蝦皮的所有第一方域名，來徹底解決其 App 圖形驗證失敗的問題。
+//
+// ### ✨ V32.5 -> V32.6 變更回顧 (相容性更新):
 //
 // 1.  **【規則擴充】擴充參數白名單 (`PARAMS_TO_KEEP_WHITELIST`)**:
 //     - 新增了 `code`, `state` (OAuth 2.0), `callback`, `jsonp` (JSONP), `nonce` (安全性), 
 //       `_` (快取破壞者), `format`, `query` (API & 搜尋) 等 8 個功能性參數。
-//     - 此項改進旨在預防腳本誤傷網站的登入、API 請求與搜尋等核心功能，提升整體相容性。
 //
 // ### ✨ V32.4 -> V32.5 變更回顧 (規則擴充 & 性能再優化):
 //
 // 1.  **【極致效能優化】引入「反轉域名 Trie 樹」**:
-//     - 重構了域名黑、白名單的匹配邏輯，改用反轉域名 Trie 樹進行高效查詢，徹底消除了最後的潛在效能瓶頸。
+//     - 重構了域名黑、白名單的匹配邏輯，改用反轉域名 Trie 樹進行高效查詢。
 // 2.  **【規則擴充】擴大攔截覆蓋範圍**:
 //     - `CRITICAL_TRACKING_SCRIPTS`: 新增了 `fingerprint.js` 等 7 條規則。
 //     - `CRITICAL_TRACKING_PATTERNS`: 新增了 `/events/v1` 等 8 條規則。
 //
 // ### 🏆 總結:
 //
-// V32.6 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法、程式碼結構
+// V32.7 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法、程式碼結構
 // 與自動化驗證層面，解決了「效率」、「未來適應性」與「長期可維護性」的問題，是在手機 Surge 環境下，
 // 兼具正確性、極致性能與可持續發展的最終解決方案。
