@@ -122,7 +122,7 @@ const CONFIG = {
         // --- 開發 & 部署平台 ---
         ['github.io', true], ['gitlab.io', true], ['windows.net', true], ['pages.dev', true], ['vercel.app', true],
         ['netlify.app', true], ['azurewebsites.net', true], ['cloudfunctions.net', true], ['oraclecloud.com', true],
-        ['digitaloceanspaces.com', true], ['gravatar.com', true], ['githubusercontent', true]
+        ['digitaloceanspaces.com', true], ['gravatar.com', true], ['githubusercontent', true],
         // --- 認證 ---
         ['okta.com', true], ['auth0.com', true], ['atlassian.net', true],
         // --- 台灣地區銀行 ---
