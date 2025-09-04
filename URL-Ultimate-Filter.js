@@ -101,9 +101,6 @@ const CONFIG = {
         'ebank.megabank.com.tw', 'ibank.firstbank.com.tw', 'netbank.hncb.com.tw', 'mma.sinopac.com',
         'richart.tw', 'api.irentcar.com.tw', 'ebank.tcb-bank.com.tw', 'ibanking.scsb.com.tw',
         'ebank.taipeifubon.com.tw', 'nbe.standardchartered.com.tw', 'usiot.roborock.com', 'cmapi.tw.coupang.com',
-        // --- [新增] 蝦皮相容性修正 ---
-        'api.shopee.tw', 'cv.shopee.tw', 'deo.shopeemobile.com', 'dem.shopee.com', 'ubta.tracking.shopee.tw',
-        'dp.tracking.shopee.tw', 'apm.tracking.shopee.tw',
         // --- 其他 ---
         'duckduckgo.com', 'external-content.duckduckgo.com'
     ]),
@@ -121,7 +118,7 @@ const CONFIG = {
         ['cdnjs.cloudflare.com', true], ['gstatic.com', true], ['fbcdn.net', true], ['twimg.com', true],
         // --- 閱讀器 & 新聞 ---
         ['inoreader.com', true], ['theoldreader.com', true], ['newsblur.com', true], ['flipboard.com', true],
-        ['itofoo.com', true],
+        ['itofoo.com', true], ['shopee.tw', true]
         // --- 開發 & 部署平台 ---
         ['github.io', true], ['gitlab.io', true], ['windows.net', true], ['pages.dev', true], ['vercel.app', true],
         ['netlify.app', true], ['azurewebsites.net', true], ['cloudfunctions.net', true], ['oraclecloud.com', true],
