@@ -1,9 +1,10 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V33.1-Final.js
- * @version     33.1 (China Rule Update)
- * @description V30 Trie 樹架構的最終優化版本。此版本大規模更新了中國大陸地區的域名黑名單。
+ * @file        URL-Ultimate-Filter-Surge-V33.2-Final.js
+ * @version     33.2 (Ultimate Optimization)
+ * @description V30 Trie 樹架構的最終優化版本。此版本將所有性能優化（兩階段解析、反轉域名Trie）應用於最新的規則庫。
+ * 旨在達到極致的性能、穩定性與長期可維護性的最終形態。
  * @author      Claude & Gemini & Acterus
- * @lastUpdated 2025-09-04
+ * @lastUpdated 2025-09-05
  */
 
 // #################################################################################################
@@ -73,7 +74,6 @@ const CONFIG = {
         'pos.baidu.com', 'cpro.baidu.com', 'eclick.baidu.com', 'usp1.baidu.com', 'pingjs.qq.com', 'wspeed.qq.com',
         'ads.tencent.com', 'gdt.qq.com', 'ta.qq.com', 'tanx.com', 'alimama.com', 'log.mmstat.com',
         'getui.com', 'jpush.cn', 'jiguang.cn', 'gridsum.com', 'admaster.com.cn', 'miaozhen.com',
-        // --- [V33.1 新增] 中國大陸地區 ---
         'su.baidu.com', 'mobads.baidu.com', 'mta.qq.com', 'log.tmall.com', 'ad.kuaishou.com', 
         'pangolin-sdk-toutiao.com', 'zhugeio.com', 'growingio.com', 'youmi.net', 'adview.cn', 'igexin.com',
         // --- 其他 ---
@@ -101,16 +101,15 @@ const CONFIG = {
         'api.notion.com', 'api.figma.com', 'api.trello.com', 'api.asana.com', 'api.dropboxapi.com', 'clorasio.atlassian.net',
         // --- 第三方認證 & SSO ---
         'okta.com', 'auth0.com', 'sso.godaddy.com',
-        // --- 其他常用 API ---
-        'api.intercom.io', 'api.sendgrid.com', 'api.mailgun.com', 'hooks.slack.com', 'api.pagerduty.com',
-        'api.zende.sk', 'api.hubapi.com', 'secure.gravatar.com', 'legy.line-apps.com', 'obs.line-scdn.net',
         // --- 台灣地區服務 & 銀行 ---
         'api.ecpay.com.tw', 'payment.ecpay.com.tw', 'api.line.me', 'api.jkos.com', 'api.esunbank.com.tw',
         'api.cathaybk.com.tw', 'api.ctbcbank.com', 'tixcraft.com', 'kktix.com', 'netbank.bot.com.tw',
         'ebank.megabank.com.tw', 'ibank.firstbank.com.tw', 'netbank.hncb.com.tw', 'mma.sinopac.com',
         'richart.tw', 'api.irentcar.com.tw', 'ebank.tcb-bank.com.tw', 'ibanking.scsb.com.tw',
         'ebank.taipeifubon.com.tw', 'nbe.standardchartered.com.tw', 'usiot.roborock.com', 'cmapi.tw.coupang.com',
-        // --- 其他 ---
+        // --- 其他常用 API ---
+        'api.intercom.io', 'api.sendgrid.com', 'api.mailgun.com', 'hooks.slack.com', 'api.pagerduty.com',
+        'api.zende.sk', 'api.hubapi.com', 'secure.gravatar.com', 'legy.line-apps.com', 'obs.line-scdn.net',
         'duckduckgo.com', 'external-content.duckduckgo.com'
     ]),
 
@@ -134,7 +133,7 @@ const CONFIG = {
         ['digitaloceanspaces.com', true],
         // --- 認證 ---
         ['okta.com', true], ['auth0.com', true], ['atlassian.net', true],
-        // --- [修正] 蝦皮相容性修正 ---
+        // --- [修正] 蝦皮相容性 ---
         ['shopee.tw', true],
         // --- 台灣地區銀行 ---
         ['fubon.com', true], ['bot.com.tw', true], ['megabank.com.tw', true], ['firstbank.com.tw', true],
@@ -282,6 +281,7 @@ const CONFIG = {
         'utm_source_platform', 'utm_creative_format', 'utm_marketing_tactic',
         // --- Google ---
         'gclid', 'dclid', 'gclsrc', 'wbraid', 'gbraid', 'gad_source', 'gad', 'gcl_au',
+        '_ga', '_gid', '_gat', '__gads', '__gac'
         // --- Microsoft / Bing ---
         'msclkid', 'msad', 'mscampaignid', 'msadgroupid',
         // --- Facebook / Meta ---
@@ -310,10 +310,8 @@ const CONFIG = {
         'creative', 'adset', 'ad', 'pixel_id', 'event_id',
         // --- 搜尋 & 其他 ---
         'algolia_query', 'algolia_query_id', 'algolia_object_id', 'algolia_position',
-        // --- Google Analytics (Legacy) ---
-        '_ga', '_gid', '_gat', '__gads', '__gac'
     ]),
-    
+
     /**
      * [修正] 追蹤參數前綴集合 (移入 CONFIG 以修正 V32.0 的錯誤)
      */
@@ -586,12 +584,6 @@ function processRequest(request) {
         const lowerFullPath = originalFullPath.toLowerCase();
 
         // --- 過濾邏輯 (依攔截效率與精準度排序) ---
-        if (isDomainBlocked(hostname)) {
-            performanceStats.increment('domainBlocked');
-            performanceStats.increment('blockedRequests');
-            return getBlockResponse(originalFullPath);
-        }
-
         if (isApiWhitelisted(hostname)) {
             performanceStats.increment('whitelistHits');
             return null;
@@ -599,6 +591,12 @@ function processRequest(request) {
 
         if (isCriticalTrackingScript(lowerFullPath)) {
             performanceStats.increment('criticalTrackingBlocked');
+            performanceStats.increment('blockedRequests');
+            return getBlockResponse(originalFullPath);
+        }
+
+        if (isDomainBlocked(hostname)) {
+            performanceStats.increment('domainBlocked');
             performanceStats.increment('blockedRequests');
             return getBlockResponse(originalFullPath);
         }
