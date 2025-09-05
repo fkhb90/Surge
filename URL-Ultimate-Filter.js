@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V33.3-Final.js
- * @version     33.3 (Priority Hotfix)
- * @description V30 Trie 樹架構的最終優化版本。此版本修正了因過濾邏輯優先級錯誤，導致黑名單失效的嚴重漏洞。
+ * @file        URL-Ultimate-Filter-Surge-V33.6-Final.js
+ * @version     33.6 (Stable Revert)
+ * @description V30 Trie 樹架構的最終優化版本。此版本回滾並廢棄了 V33.4/V33.5 的激進攔截策略，恢復至 V33.3 的穩定狀態。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-05
  */
@@ -280,6 +280,7 @@ const CONFIG = {
         'utm_source_platform', 'utm_creative_format', 'utm_marketing_tactic',
         // --- Google ---
         'gclid', 'dclid', 'gclsrc', 'wbraid', 'gbraid', 'gad_source', 'gad', 'gcl_au',
+        '_ga', '_gid', '_gat', '__gads', '__gac',
         // --- Microsoft / Bing ---
         'msclkid', 'msad', 'mscampaignid', 'msadgroupid',
         // --- Facebook / Meta ---
@@ -308,8 +309,6 @@ const CONFIG = {
         'creative', 'adset', 'ad', 'pixel_id', 'event_id',
         // --- 搜尋 & 其他 ---
         'algolia_query', 'algolia_query_id', 'algolia_object_id', 'algolia_position',
-        // --- Google Analytics (Legacy) ---
-        '_ga', '_gid', '_gat', '__gads', '__gac'
     ]),
     
     /**
@@ -584,6 +583,12 @@ function processRequest(request) {
         const lowerFullPath = originalFullPath.toLowerCase();
 
         // --- 過濾邏輯 (依攔截效率與精準度排序) ---
+        if (isDomainBlocked(hostname)) {
+            performanceStats.increment('domainBlocked');
+            performanceStats.increment('blockedRequests');
+            return getBlockResponse(originalFullPath);
+        }
+
         if (isApiWhitelisted(hostname)) {
             performanceStats.increment('whitelistHits');
             return null;
@@ -591,12 +596,6 @@ function processRequest(request) {
 
         if (isCriticalTrackingScript(lowerFullPath)) {
             performanceStats.increment('criticalTrackingBlocked');
-            performanceStats.increment('blockedRequests');
-            return getBlockResponse(originalFullPath);
-        }
-
-        if (isDomainBlocked(hostname)) {
-            performanceStats.increment('domainBlocked');
             performanceStats.increment('blockedRequests');
             return getBlockResponse(originalFullPath);
         }
@@ -679,3 +678,4 @@ function processRequest(request) {
 // ### 🏆 總結:
 //
 // V32.1 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法與程式碼結構層面，解決了「效率」、「未來適應性」與「長期可維護性」的問題，是在手機 Surge 環境下，兼具正確性、極致性能與可持續發展的最終解決方案。
+" in Canvas.
