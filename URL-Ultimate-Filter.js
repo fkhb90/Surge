@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V33.3-Final.js
- * @version     33.3 (Priority Hotfix)
- * @description V30 Trie 樹架構的最終優化版本。此版本修正了因過濾邏輯優先級錯誤，導致黑名單失效的嚴重漏洞。
+ * @file        URL-Ultimate-Filter-Surge-V33.4-Final.js
+ * @version     33.4 (Aggressive Blocking Policy)
+ * @description V30 Trie 樹架構的最終優化版本。此版本依循「寧可錯殺，不可錯放」原則，移除了對 Next.js 框架的豁免。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-05
  */
@@ -179,6 +179,8 @@ const CONFIG = {
         'google.com/ads', 'google.com/pagead', '/pagead/gen_204', '/stats.g.doubleclick.net/j/collect', '/ads/ga-audiences',
         // --- Facebook ---
         'facebook.com/tr', 'facebook.com/tr/',
+        // --- [V33.4 新增] 激進攔截規則 ---
+        '/_next/static/chunks/',
         // --- 通用 API 端點 ---
         '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/',
         '/api/v1/track', '/intake', '/api/batch',
@@ -254,7 +256,7 @@ const CONFIG = {
         'badge.svg', 'modal.js', 'card.js', 'download', 'upload', 'payload', 'broadcast', 'roadmap', 'gradient',
         'shadow', 'board', 'dialog', 'blog', 'catalog', 'game', 'language', 'page', 'page-data.js', 'legacy.js',
         'article', 'assets', 'cart', 'chart', 'start', 'parts', 'partner', 'amp-anim', 'amp-animation', 'amp-iframe',
-        'icon.svg', 'logo.svg', 'favicon.ico', 'manifest.json', 'robots.txt', '_next/static/', '_app/', '_nuxt/',
+        'icon.svg', 'logo.svg', 'favicon.ico', 'manifest.json', 'robots.txt', '_app/', '_nuxt/',
         'static/js/', 'static/css/', 'static/media/', 'i18n/', 'locales/', 'theme.js', 'config.js', 'web.config',
         'sitemap.xml', 'chunk-vendors', 'chunk-common', 'component---'
     ]),
@@ -584,6 +586,12 @@ function processRequest(request) {
         const lowerFullPath = originalFullPath.toLowerCase();
 
         // --- 過濾邏輯 (依攔截效率與精準度排序) ---
+        if (isDomainBlocked(hostname)) {
+            performanceStats.increment('domainBlocked');
+            performanceStats.increment('blockedRequests');
+            return getBlockResponse(originalFullPath);
+        }
+
         if (isApiWhitelisted(hostname)) {
             performanceStats.increment('whitelistHits');
             return null;
@@ -591,12 +599,6 @@ function processRequest(request) {
 
         if (isCriticalTrackingScript(lowerFullPath)) {
             performanceStats.increment('criticalTrackingBlocked');
-            performanceStats.increment('blockedRequests');
-            return getBlockResponse(originalFullPath);
-        }
-
-        if (isDomainBlocked(hostname)) {
-            performanceStats.increment('domainBlocked');
             performanceStats.increment('blockedRequests');
             return getBlockResponse(originalFullPath);
         }
@@ -679,3 +681,4 @@ function processRequest(request) {
 // ### 🏆 總結:
 //
 // V32.1 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法與程式碼結構層面，解決了「效率」、「未來適應性」與「長期可維護性」的問題，是在手機 Surge 環境下，兼具正確性、極致性能與可持續發展的最終解決方案。
+" in Canvas.
