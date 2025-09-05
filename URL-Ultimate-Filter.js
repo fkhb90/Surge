@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V33.5-Final.js
- * @version     33.5 (Priority & Policy Hotfix)
- * @description V30 Trie 樹架構的最終優化版本。此版本修正了因過濾邏輯優先級錯誤導致的漏洞，並實施了激進攔截策略。
+ * @file        URL-Ultimate-Filter-Surge-V33.3-Final.js
+ * @version     33.3 (Priority Hotfix)
+ * @description V30 Trie 樹架構的最終優化版本。此版本修正了因過濾邏輯優先級錯誤，導致黑名單失效的嚴重漏洞。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-05
  */
@@ -215,8 +215,6 @@ const CONFIG = {
         'ad-specs', 'ad-verification', 'ad-viewability', 'ad-exchange', 'ad-network', 'ad-platform',
         'ad-response', 'ad-slot', 'ad-unit', 'ad-call', 'ad-code', 'ad-script', 'ad-telemetry', '/adserve/',
         '/adserving/', '/adframe/', '/adrequest/', '/adretrieve/', '/getads/', '/getad/', '/fetch_ads/',
-        // --- [V33.4 新增] 激進攔截規則 ---
-        '/_next/static/chunks/',
         // --- 追蹤 & 分析通用詞 ---
         '/track/', '/trace/', '/tracker/', '/tracking/', '/analytics/', '/analytic/', '/metric/', '/metrics/',
         '/telemetry/', '/measurement/', '/insight/', '/intelligence/', '/monitor/', '/monitoring/', '/log/',
@@ -256,7 +254,7 @@ const CONFIG = {
         'badge.svg', 'modal.js', 'card.js', 'download', 'upload', 'payload', 'broadcast', 'roadmap', 'gradient',
         'shadow', 'board', 'dialog', 'blog', 'catalog', 'game', 'language', 'page', 'page-data.js', 'legacy.js',
         'article', 'assets', 'cart', 'chart', 'start', 'parts', 'partner', 'amp-anim', 'amp-animation', 'amp-iframe',
-        'icon.svg', 'logo.svg', 'favicon.ico', 'manifest.json', 'robots.txt', '_app/', '_nuxt/',
+        'icon.svg', 'logo.svg', 'favicon.ico', 'manifest.json', 'robots.txt', '_next/static/', '_app/', '_nuxt/',
         'static/js/', 'static/css/', 'static/media/', 'i18n/', 'locales/', 'theme.js', 'config.js', 'web.config',
         'sitemap.xml', 'chunk-vendors', 'chunk-common', 'component---'
     ]),
@@ -586,12 +584,6 @@ function processRequest(request) {
         const lowerFullPath = originalFullPath.toLowerCase();
 
         // --- 過濾邏輯 (依攔截效率與精準度排序) ---
-        if (isDomainBlocked(hostname)) {
-            performanceStats.increment('domainBlocked');
-            performanceStats.increment('blockedRequests');
-            return getBlockResponse(originalFullPath);
-        }
-
         if (isApiWhitelisted(hostname)) {
             performanceStats.increment('whitelistHits');
             return null;
@@ -599,6 +591,12 @@ function processRequest(request) {
 
         if (isCriticalTrackingScript(lowerFullPath)) {
             performanceStats.increment('criticalTrackingBlocked');
+            performanceStats.increment('blockedRequests');
+            return getBlockResponse(originalFullPath);
+        }
+
+        if (isDomainBlocked(hostname)) {
+            performanceStats.increment('domainBlocked');
             performanceStats.increment('blockedRequests');
             return getBlockResponse(originalFullPath);
         }
