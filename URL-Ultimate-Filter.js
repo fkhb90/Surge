@@ -1,6 +1,6 @@
 /**
  * @file        URL-Ultimate-Filter-Surge-V33.6-Final.js
- * @version     33.6 (Stable Revert)
+ * @version     33.7 (Stable Revert)
  * @description V30 Trie 樹架構的最終優化版本。此版本回滾並廢棄了 V33.4/V33.5 的激進攔截策略，恢復至 V33.3 的穩定狀態。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-05
@@ -78,7 +78,7 @@ const CONFIG = {
         // --- 其他 ---
         'wcs.naver.net', 'adnx.com', 'rlcdn.com', 'revjet.com',
         'ads-api.tiktok.com', 'analytics.tiktok.com', 'tr.snapchat.com', 'sc-static.net', 'ads.pinterest.com',
-        'log.pinterest.com', 'analytics.snapchat.com', 'ads-api.twitter.com', 'ads.youtube.com', 'cint.com',
+        'log.pinterest.com', 'analytics.snapchat.com', 'ads-api.twitter.com', 'ads.youtube.com', 'cint.com'
     ]),
 
     /**
@@ -196,7 +196,7 @@ const CONFIG = {
         '/v1/pixel', 'ads.tiktok.com/i1n/pixel/events.js', 'ads-api.tiktok.com/api/v2/pixel',
         'analytics.snapchat.com/v1/batch', 'tr.snapchat.com', 'sc-static.net/scevent.min.js', '/ad/v1/event',
         'ads.pinterest.com/v3/conversions/events', 'ad.360yield.com', '/ad-call', '/adx/', '/adsales/',
-        '/adserver/', '/adsync/', '/adtech/',
+        '/adserver/', '/adsync/', '/adtech/'
     ]),
 
     /**
@@ -308,7 +308,7 @@ const CONFIG = {
         'adposition', 'network', 'placement', 'targetid', 'feeditemid', 'loc_physical_ms', 'loc_interest_ms',
         'creative', 'adset', 'ad', 'pixel_id', 'event_id',
         // --- 搜尋 & 其他 ---
-        'algolia_query', 'algolia_query_id', 'algolia_object_id', 'algolia_position',
+        'algolia_query', 'algolia_query_id', 'algolia_object_id', 'algolia_position'
     ]),
     
     /**
