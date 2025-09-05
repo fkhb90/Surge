@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V33.4-Final.js
- * @version     33.4 (Aggressive Blocking Policy)
- * @description V30 Trie 樹架構的最終優化版本。此版本依循「寧可錯殺，不可錯放」原則，移除了對 Next.js 框架的豁免。
+ * @file        URL-Ultimate-Filter-Surge-V33.5-Final.js
+ * @version     33.5 (Priority & Policy Hotfix)
+ * @description V30 Trie 樹架構的最終優化版本。此版本修正了因過濾邏輯優先級錯誤導致的漏洞，並實施了激進攔截策略。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-05
  */
@@ -179,8 +179,6 @@ const CONFIG = {
         'google.com/ads', 'google.com/pagead', '/pagead/gen_204', '/stats.g.doubleclick.net/j/collect', '/ads/ga-audiences',
         // --- Facebook ---
         'facebook.com/tr', 'facebook.com/tr/',
-        // --- [V33.4 新增] 激進攔截規則 ---
-        '/_next/static/chunks/',
         // --- 通用 API 端點 ---
         '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/',
         '/api/v1/track', '/intake', '/api/batch',
@@ -217,6 +215,8 @@ const CONFIG = {
         'ad-specs', 'ad-verification', 'ad-viewability', 'ad-exchange', 'ad-network', 'ad-platform',
         'ad-response', 'ad-slot', 'ad-unit', 'ad-call', 'ad-code', 'ad-script', 'ad-telemetry', '/adserve/',
         '/adserving/', '/adframe/', '/adrequest/', '/adretrieve/', '/getads/', '/getad/', '/fetch_ads/',
+        // --- [V33.4 新增] 激進攔截規則 ---
+        '/_next/static/chunks/',
         // --- 追蹤 & 分析通用詞 ---
         '/track/', '/trace/', '/tracker/', '/tracking/', '/analytics/', '/analytic/', '/metric/', '/metrics/',
         '/telemetry/', '/measurement/', '/insight/', '/intelligence/', '/monitor/', '/monitoring/', '/log/',
@@ -681,4 +681,3 @@ function processRequest(request) {
 // ### 🏆 總結:
 //
 // V32.1 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法與程式碼結構層面，解決了「效率」、「未來適應性」與「長期可維護性」的問題，是在手機 Surge 環境下，兼具正確性、極致性能與可持續發展的最終解決方案。
-" in Canvas.
