@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V33.3-Final.js
- * @version     33.3 (Priority Hotfix)
- * @description V30 Trie 樹架構的最終優化版本。此版本修正了因過濾邏輯優先級錯誤，導致黑名單失效的嚴重漏洞。
+ * @file        URL-Ultimate-Filter-Surge-V33.7-Final.js
+ * @version     33.7 (Stable Engine Revert)
+ * @description V30 Trie 樹架構的最終優化版本。此版本回滾至 V32.9 的穩定引擎，以修正 V33.2 引入的嚴重漏洞。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-05
  */
