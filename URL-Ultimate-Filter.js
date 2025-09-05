@@ -1,8 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V33.2-Final.js
- * @version     33.2 (Ultimate Optimization)
- * @description V30 Trie 樹架構的最終優化版本。此版本將所有性能優化（兩階段解析、反轉域名Trie）應用於最新的規則庫。
- * 旨在達到極致的性能、穩定性與長期可維護性的最終形態。
+ * @file        URL-Ultimate-Filter-Surge-V33.3-Final.js
+ * @version     33.3 (Priority Hotfix)
+ * @description V30 Trie 樹架構的最終優化版本。此版本修正了因過濾邏輯優先級錯誤，導致黑名單失效的嚴重漏洞。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-05
  */
@@ -281,7 +280,6 @@ const CONFIG = {
         'utm_source_platform', 'utm_creative_format', 'utm_marketing_tactic',
         // --- Google ---
         'gclid', 'dclid', 'gclsrc', 'wbraid', 'gbraid', 'gad_source', 'gad', 'gcl_au',
-        '_ga', '_gid', '_gat', '__gads', '__gac'
         // --- Microsoft / Bing ---
         'msclkid', 'msad', 'mscampaignid', 'msadgroupid',
         // --- Facebook / Meta ---
@@ -310,8 +308,10 @@ const CONFIG = {
         'creative', 'adset', 'ad', 'pixel_id', 'event_id',
         // --- 搜尋 & 其他 ---
         'algolia_query', 'algolia_query_id', 'algolia_object_id', 'algolia_position',
+        // --- Google Analytics (Legacy) ---
+        '_ga', '_gid', '_gat', '__gads', '__gac'
     ]),
-
+    
     /**
      * [修正] 追蹤參數前綴集合 (移入 CONFIG 以修正 V32.0 的錯誤)
      */
