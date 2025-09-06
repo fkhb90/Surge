@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V33.9-Final.js
- * @version     33.9 (Priority Hotfix v2)
- * @description V30 Trie 樹架構的最終優化版本。此版本修正了因過濾邏輯優先級錯誤導致的漏洞，恢復穩定攔截。
+ * @file        URL-Ultimate-Filter-Surge-V34.0-Final.js
+ * @version     34.0 (Strategic Engine Update)
+ * @description V30 Trie 樹架構的最終優化版本。此版本引入 Regex 攔截策略以修正 Sentry 攔截失效問題。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-06
  */
