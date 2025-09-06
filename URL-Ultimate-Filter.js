@@ -1,7 +1,7 @@
 /**
  * @file        URL-Ultimate-Filter-Surge-V34.0-Final.js
- * @version     34.0 (Stable Engine & Policy Update)
- * @description V30 Trie 樹架構的最終優化版本。此版本回滾至穩定引擎並引入 Regex 策略以修正 Sentry 攔截失效問題。
+ * @version     34.0 (Strategic Engine Update)
+ * @description V30 Trie 樹架構的最終優化版本。此版本引入 Regex 攔截策略以修正 Sentry 攔截失效問題。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-06
  */
@@ -582,21 +582,18 @@ function processRequest(request) {
         const lowerPathnameOnly = url.pathname.toLowerCase();
         const lowerFullPath = originalFullPath.toLowerCase();
 
-        // --- [修正] 過濾邏輯優先級 ---
-        // 1. **域名黑名單最優先**
+        // --- 過濾邏輯 (依攔截效率與精準度排序) ---
         if (isDomainBlocked(hostname)) {
             performanceStats.increment('domainBlocked');
             performanceStats.increment('blockedRequests');
             return getBlockResponse(originalFullPath);
         }
 
-        // 2. 其次檢查 API 白名單
         if (isApiWhitelisted(hostname)) {
             performanceStats.increment('whitelistHits');
             return null;
         }
 
-        // 3. 然後依序檢查其他黑名單
         if (isCriticalTrackingScript(lowerFullPath)) {
             performanceStats.increment('criticalTrackingBlocked');
             performanceStats.increment('blockedRequests');
@@ -615,7 +612,6 @@ function processRequest(request) {
             return getBlockResponse(originalFullPath);
         }
 
-        // 4. 最後才進行參數清理
         if (cleanTrackingParams(url)) {
             performanceStats.increment('paramsCleaned');
             return REDIRECT_RESPONSE(url.toString());
