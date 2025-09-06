@@ -1,6 +1,6 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V34.0-Final.js
- * @version     34.0 (Strategic Engine Update)
+ * @file        URL-Ultimate-Filter-Surge-V34.1-Final.js
+ * @version     34.1 (Strategic Engine Update)
  * @description V30 Trie 樹架構的最終優化版本。此版本引入 Regex 攔截策略以修正 Sentry 攔截失效問題。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-06
@@ -680,4 +680,3 @@ function processRequest(request) {
 // V33.9 (基於 V32.9 穩定引擎) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法、程式碼結構
 // 與自動化驗證層面，解決了「效率」、「未來適應性」與「長期可維護性」的問題，是在手機 Surge 環境下，
 // 兼具正確性、極致性能與可持續發展的最終解決方案。
-
