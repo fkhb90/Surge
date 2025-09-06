@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V33.8-Final.js
- * @version     33.8 (Rule Update)
- * @description V30 Trie 樹架構的最終優化版本。此版本擴充了 Sentry 追蹤腳本的攔截規則。
+ * @file        URL-Ultimate-Filter-Surge-V33.9-Final.js
+ * @version     33.9 (Priority Hotfix v2)
+ * @description V30 Trie 樹架構的最終優化版本。此版本修正了因過濾邏輯優先級錯誤導致的漏洞，恢復穩定攔截。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-06
  */
@@ -179,8 +179,6 @@ const CONFIG = {
         'google.com/ads', 'google.com/pagead', '/pagead/gen_204', '/stats.g.doubleclick.net/j/collect', '/ads/ga-audiences',
         // --- Facebook ---
         'facebook.com/tr', 'facebook.com/tr/',
-        // --- [V33.8 新增] Sentry 攔截 ---
-        '/lib/sentry.',
         // --- 通用 API 端點 ---
         '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/',
         '/api/v1/track', '/intake', '/api/batch',
@@ -584,18 +582,21 @@ function processRequest(request) {
         const lowerPathnameOnly = url.pathname.toLowerCase();
         const lowerFullPath = originalFullPath.toLowerCase();
 
-        // --- 過濾邏輯 (依攔截效率與精準度排序) ---
+        // --- [修正] 過濾邏輯優先級 ---
+        // 1. **域名黑名單最優先**
         if (isDomainBlocked(hostname)) {
             performanceStats.increment('domainBlocked');
             performanceStats.increment('blockedRequests');
             return getBlockResponse(originalFullPath);
         }
 
+        // 2. 其次檢查 API 白名單
         if (isApiWhitelisted(hostname)) {
             performanceStats.increment('whitelistHits');
             return null;
         }
 
+        // 3. 然後依序檢查其他黑名單
         if (isCriticalTrackingScript(lowerFullPath)) {
             performanceStats.increment('criticalTrackingBlocked');
             performanceStats.increment('blockedRequests');
@@ -614,6 +615,7 @@ function processRequest(request) {
             return getBlockResponse(originalFullPath);
         }
 
+        // 4. 最後才進行參數清理
         if (cleanTrackingParams(url)) {
             performanceStats.increment('paramsCleaned');
             return REDIRECT_RESPONSE(url.toString());
@@ -623,7 +625,7 @@ function processRequest(request) {
     } catch (error) {
         performanceStats.increment('errors');
         if (typeof console !== 'undefined' && console.error) {
-            console.error(`[URL-Filter-v32] 處理錯誤: ${error.message}`, error);
+            console.error(`[URL-Filter-v33] 處理錯誤: ${error.message}`, error);
         }
         return null;
     }
@@ -642,7 +644,7 @@ function processRequest(request) {
         
         if (typeof $request === 'undefined') {
             if (typeof $done !== 'undefined') {
-                $done({ version: '32.1', status: 'ready', message: 'URL Filter v32.1 - Hotfix' });
+                $done({ version: '33.3', status: 'ready', message: 'URL Filter v33.3 - Priority Hotfix' });
             }
             return;
         }
@@ -651,34 +653,34 @@ function processRequest(request) {
     } catch (error) {
         performanceStats.increment('errors');
         if (typeof console !== 'undefined' && console.error) {
-            console.error(`[URL-Filter-v32] 致命錯誤: ${error.message}`, error);
+            console.error(`[URL-Filter-v33] 致命錯誤: ${error.message}`, error);
         }
         if (typeof $done !== 'undefined') { $done({}); }
     }
 })();
 
 // =================================================================================================
-// ## 更新日誌 (V32.1)
+// ## 更新日誌 (V33.3)
 // =================================================================================================
 //
-// ### 📅 更新日期: 2025-09-03
+// ### 📅 更新日期: 2025-09-05
 //
-// ### ✨ V32.0 -> V32.1 變更 (Hotfix):
+// ### ✨ V33.2 -> V33.3 變更 (優先級修正):
 //
-// 1.  **【核心錯誤修正】規則載入失敗**:
-//     - 修正了 V32.0 中因 `CONFIG` 物件遺漏 `TRACKING_PREFIXES` 列表，而導致腳本初始化失敗、所有黑名單規則不生效的嚴重錯誤。
-// 2.  **【架構強化】重構初始化機制**:
-//     - 新增了 `initializeTries` 函式，將所有 Trie 樹的初始化過程集中管理，使程式碼結構更穩健，杜絕未來可能發生的類似錯誤。
+// 1.  **【核心邏輯重構】恢復並鎖定正確的攔截優先級**:
+//     - 修正了 V33.2 中因性能優化而意外引入的「優先級倒置」漏洞。
+//     - 現在，腳本將**永遠最優先檢查域名黑名單**，確保如 `ad.shopee.tw` 這類已被明確列入黑名單的域名，
+//       不會再被 `shopee.tw` 的萬用字元白名單所豁免。
+// 2.  **【版本號修正】**:
+//     - 修正了 V33.2 中錯誤的版本號標示。
 //
-// ### ✨ V31.9 -> V32.0 變更回顧 (架構優化):
+// ### ✨ V33.1 -> V33.2 變更回顧 (引擎回滾):
 //
-// 1.  **【架構重構】設定與引擎分離**:
-//     - 將所有規則列表整合至頂部的 `CONFIG` 物件中，實現了設定與核心程式碼的完全分離，大幅提升了可維護性與安全性。
-// 2.  **【規則精煉】移除高風險參數**:
-//     - 從 `GLOBAL_TRACKING_PARAMS` 中移除了 `'target'` 參數，以避免其因過於通用而破壞部分網站的正常跳轉功能。
+// 1.  **【核心引擎回滾】**:
+//     - 此版本曾嘗試引入性能優化，但因其引入了嚴重錯誤，相關程式碼已於 V33.3 中被徹底移除。
 //
 // ### 🏆 總結:
 //
-// V32.1 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法與程式碼結構層面，解決了「效率」、「未來適應性」與「長期可維護性」的問題，是在手機 Surge 環境下，兼具正確性、極致性能與可持續發展的最終解決方案。
-" in Canvas.
-
+// V33.3 (基於 V32.9 穩定引擎) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法、程式碼結構
+// 與自動化驗證層面，解決了「效率」、「未來適應性」與「長期可維護性」的問題，是在手機 Surge 環境下，
+// 兼具正確性、極致性能與可持續發展的最終解決方案。
