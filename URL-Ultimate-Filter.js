@@ -1,9 +1,9 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V33.7-Final.js
- * @version     33.7 (Stable Engine Revert)
- * @description V30 Trie 樹架構的最終優化版本。此版本回滾至 V32.9 的穩定引擎，以修正 V33.2 引入的嚴重漏洞。
+ * @file        URL-Ultimate-Filter-Surge-V33.8-Final.js
+ * @version     33.8 (Rule Update)
+ * @description V30 Trie 樹架構的最終優化版本。此版本擴充了 Sentry 追蹤腳本的攔截規則。
  * @author      Claude & Gemini & Acterus
- * @lastUpdated 2025-09-05
+ * @lastUpdated 2025-09-06
  */
 
 // #################################################################################################
@@ -179,6 +179,8 @@ const CONFIG = {
         'google.com/ads', 'google.com/pagead', '/pagead/gen_204', '/stats.g.doubleclick.net/j/collect', '/ads/ga-audiences',
         // --- Facebook ---
         'facebook.com/tr', 'facebook.com/tr/',
+        // --- [V33.8 新增] Sentry 攔截 ---
+        '/lib/sentry.',
         // --- 通用 API 端點 ---
         '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/',
         '/api/v1/track', '/intake', '/api/batch',
@@ -280,6 +282,7 @@ const CONFIG = {
         'utm_source_platform', 'utm_creative_format', 'utm_marketing_tactic',
         // --- Google ---
         'gclid', 'dclid', 'gclsrc', 'wbraid', 'gbraid', 'gad_source', 'gad', 'gcl_au',
+        '_ga', '_gid', '_gat', '__gads', '__gac',
         // --- Microsoft / Bing ---
         'msclkid', 'msad', 'mscampaignid', 'msadgroupid',
         // --- Facebook / Meta ---
@@ -307,9 +310,7 @@ const CONFIG = {
         'adposition', 'network', 'placement', 'targetid', 'feeditemid', 'loc_physical_ms', 'loc_interest_ms',
         'creative', 'adset', 'ad', 'pixel_id', 'event_id',
         // --- 搜尋 & 其他 ---
-        'algolia_query', 'algolia_query_id', 'algolia_object_id', 'algolia_position',
-        // --- Google Analytics (Legacy) ---
-        '_ga', '_gid', '_gat', '__gads', '__gac'
+        'algolia_query', 'algolia_query_id', 'algolia_object_id', 'algolia_position'
     ]),
     
     /**
@@ -584,6 +585,12 @@ function processRequest(request) {
         const lowerFullPath = originalFullPath.toLowerCase();
 
         // --- 過濾邏輯 (依攔截效率與精準度排序) ---
+        if (isDomainBlocked(hostname)) {
+            performanceStats.increment('domainBlocked');
+            performanceStats.increment('blockedRequests');
+            return getBlockResponse(originalFullPath);
+        }
+
         if (isApiWhitelisted(hostname)) {
             performanceStats.increment('whitelistHits');
             return null;
@@ -591,12 +598,6 @@ function processRequest(request) {
 
         if (isCriticalTrackingScript(lowerFullPath)) {
             performanceStats.increment('criticalTrackingBlocked');
-            performanceStats.increment('blockedRequests');
-            return getBlockResponse(originalFullPath);
-        }
-
-        if (isDomainBlocked(hostname)) {
-            performanceStats.increment('domainBlocked');
             performanceStats.increment('blockedRequests');
             return getBlockResponse(originalFullPath);
         }
@@ -679,3 +680,5 @@ function processRequest(request) {
 // ### 🏆 總結:
 //
 // V32.1 (基於 V30) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法與程式碼結構層面，解決了「效率」、「未來適應性」與「長期可維護性」的問題，是在手機 Surge 環境下，兼具正確性、極致性能與可持續發展的最終解決方案。
+" in Canvas.
+
