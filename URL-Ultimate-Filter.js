@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V38.4-optimized.js
- * @version     38.4-optimized (萬用字元事件攔截 & 黑白名單優化)
- * @description 完整黑白名單、白名單與攔截邏輯，包含Trie、LRU快取與請求處理。新增萬用字元事件攔截並優化規則列表。
+ * @file        URL-Ultimate-Filter-Surge-V38.3-complete-updated-v2.js
+ * @version     38.3-complete-updated-v2 (含完整黑白名單與萬用字元事件攔截)
+ * @description 完整黑白名單、白名單與攔截邏輯，包含Trie、LRU快取與請求處理。新增 /v.*/event 攔截規則。
  * @author      Claude & Gemini & Acterus (+ Final Polish)
  * @lastUpdated 2025-09-08
  */
@@ -11,47 +11,56 @@
 // #################################################################################################
 
 const CONFIG = {
-  // 🚫 黑名單域名 (已優化合併)
   BLOCK_DOMAINS: new Set([
-    'doubleclick.net', 'google-analytics.com', 'googletagmanager.com', 'googleadservices.com', 'googlesyndication.com',
-    'admob.com', 'adsense.com', 'app-measurement.com', 'graph.facebook.com', 'connect.facebook.net',
-    'scorecardresearch.com', 'chartbeat.com', 'analytics.twitter.com', 'ads.linkedin.com', 'criteo.com',
-    'criteo.net', 'taboola.com', 'outbrain.com', 'pubmatic.com', 'rubiconproject.com', 'openx.net',
-    'adsrvr.org', 'adform.net', 'semasio.net', 'yieldlab.net', 'branch.io', 'appsflyer.com',
-    'adjust.com', 'sentry.io', 'bugsnag.com', 'hotjar.com', 'vwo.com', 'optimizely.com', 'mixpanel.com',
-    'amplitude.com', 'heap.io', 'loggly.com', 'c.clarity.ms', 'track.hubspot.com', 'api.pendo.io',
+    'doubleclick.net', 'ad.doubleclick.net', 'bid.g.doubleclick.net', 'stats.g.doubleclick.net', 'securepubads.g.doubleclick.net',
+    'google-analytics.com', 'googletagmanager.com', 'googleadservices.com', 'googlesyndication.com',
+    'admob.com', 'adsense.com', 'app-measurement.com', 'adservice.google.com', 'pagead2.googlesyndication.com',
+    'graph.facebook.com', 'connect.facebook.net',
+    'scorecardresearch.com', 'chartbeat.com', 'analytics.twitter.com', 'static.ads-twitter.com', 'ads.linkedin.com',
+    'criteo.com', 'criteo.net', 'taboola.com', 'outbrain.com', 'pubmatic.com', 'rubiconproject.com',
+    'openx.net', 'openx.com', 'adsrvr.org', 'adform.net', 'semasio.net', 'yieldlab.net', 'branch.io',
+    'appsflyer.com', 'adjust.com', 'sentry.io', 'bugsnag.com', 'hotjar.com', 'vwo.com', 'optimizely.com',
+    'mixpanel.com', 'amplitude.com', 'heap.io', 'loggly.com', 'c.clarity.ms', 'track.hubspot.com', 'api.pendo.io',
     'fullstory.com', 'inspectlet.com', 'mouseflow.com', 'crazyegg.com', 'clicktale.net', 'kissmetrics.com',
     'keen.io', 'segment.com', 'segment.io', 'mparticle.com', 'snowplowanalytics.com', 'newrelic.com',
-    'nr-data.net', 'datadoghq.com', 'logrocket.com', 'sumo.com', 'piwik.pro', 'matomo.cloud', 'clicky.com',
-    'statcounter.com', 'quantserve.com', 'comscore.com', 'tealium.com', 'analytics.line.me',
-    'doubleverify.com', 'moatads.com', 'moat.com', 'iasds.com', 'serving-sys.com', 'agkn.com', 'tags.tiqcdn.com',
+    'nr-data.net', 'datadoghq.com', 'logrocket.com', 'sumo.com', 'sumome.com', 'piwik.pro', 'matomo.cloud',
+    'clicky.com', 'statcounter.com', 'quantserve.com', 'comscore.com', 'tealium.com', 'collector.newrelic.com',
+    'analytics.line.me',
+    'doubleverify.com', 'moatads.com', 'moat.com', 'iasds.com', 'serving-sys.com',
+    'agkn.com', 'tags.tiqcdn.com',
     'adcolony.com', 'adroll.com', 'adsnative.com', 'bidswitch.net', 'casalemedia.com', 'conversantmedia.com',
     'media.net', 'soom.la', 'spotxchange.com', 'teads.tv', 'tremorhub.com', 'yieldmo.com', 'zemanta.com',
     'flashtalking.com', 'indexexchange.com', 'magnite.com', 'gumgum.com', 'inmobi.com', 'mopub.com',
     'sharethrough.com', 'smartadserver.com', 'applovin.com', 'ironsrc.com', 'unityads.unity3d.com', 'vungle.com',
     'appnexus.com', 'contextweb.com', 'spotx.tv', 'liveintent.com', 'narrative.io', 'neustar.biz', 'tapad.com',
-    'thetradedesk.com', 'bluekai.com', 'amazon-adsystem.com', 'adserver.yahoo.com', 'ads.yahoo.com',
-    'analytics.yahoo.com', 'geo.yahoo.com', 'popads.net', 'propellerads.com', 'adcash.com', 'zeropark.com',
+    'thetradedesk.com', 'bluekai.com', 'amazon-adsystem.com', 'aax.amazon-adsystem.com', 'fls-na.amazon.com',
+    'ib.adnxs.com', 'adserver.yahoo.com', 'ads.yahoo.com', 'analytics.yahoo.com', 'geo.yahoo.com',
+    'adswizz.com', 'sitescout.com', 'ad.yieldmanager.com', 'creativecdn.com', 'cr-serving.com', 'yieldify.com', 'go-mpulse.net',
+    'popads.net', 'propellerads.com', 'adcash.com', 'zeropark.com',
     'admitad.com', 'awin1.com', 'cj.com', 'impactradius.com', 'linkshare.com', 'rakutenadvertising.com',
-    'yandex.ru', 'adriver.ru', 'disqus.com', 'disquscdn.com', 'addthis.com', 'sharethis.com', 'po.st',
-    'cbox.ws', 'intensedebate.com', 'onesignal.com', 'pushengage.com', 'sail-track.com', 'onetrust.com',
-    'cookielaw.org', 'trustarc.com', 'sourcepoint.com', 'usercentrics.eu', 'clickforce.com.tw', 'tagtoo.co',
-    'urad.com.tw', 'cacafly.com', 'is-tracking.com', 'vpon.com', 'guoshipartners.com', 'sitetag.us',
-    'imedia.com.tw', 'ettoday.net', 'pixnet.net', 'pchome.com.tw', 'momo.com.tw', 'xuite.net', 'cna.com.tw',
-    'cw.com.tw', 'hi-on.org', 'chinatimes.com', 'analysis.tw', 'trk.tw', 'fast-trk.com', 'gamani.com',
-    'tenmax.io', 'aotter.net', 'funp.com', 'ruten.com.tw', 'books.com.tw', 'etmall.com.tw',
-    'shopping.friday.tw', 'ad-hub.net', 'adgeek.net', 'shopee.tw', 'umeng.com', 'cnzz.com', 'talkingdata.com',
-    'baidu.com', 'qq.com', 'tanx.com', 'alimama.com', 'mmstat.com', 'getui.com', 'jpush.cn', 'jiguang.cn',
-    'gridsum.com', 'admaster.com.cn', 'miaozhen.com', 'kuaishou.com', 'pangolin-sdk-toutiao.com',
-    'zhugeio.com', 'growingio.com', 'youmi.net', 'adview.cn', 'igexin.com', 'wcs.naver.net', 'adnx.com',
-    'rlcdn.com', 'revjet.com', 'tiktok.com', 'snapchat.com', 'sc-static.net', 'pinterest.com', 'twitter.com',
-    'youtube.com', 'cint.com',
+    'yandex.ru', 'adriver.ru',
+    'disqus.com', 'disquscdn.com', 'addthis.com', 'sharethis.com', 'po.st', 'cbox.ws', 'intensedebate.com',
+    'onesignal.com', 'pushengage.com', 'sail-track.com',
+    'onetrust.com', 'cookielaw.org', 'trustarc.com', 'sourcepoint.com', 'usercentrics.eu',
+    'clickforce.com.tw', 'tagtoo.co', 'urad.com.tw', 'cacafly.com', 'is-tracking.com', 'vpon.com',
+    'ad-specs.guoshipartners.com', 'sitetag.us', 'imedia.com.tw', 'ad.ettoday.net', 'ad.pixnet.net',
+    'ad.pchome.com.tw', 'ad.momo.com.tw', 'ad.xuite.net', 'ad.cna.com.tw', 'ad.cw.com.tw',
+    'ad.hi-on.org', 'adm.chinatimes.com', 'analysis.tw', 'trk.tw', 'fast-trk.com', 'gamani.com',
+    'tenmax.io', 'aotter.net', 'funp.com', 'ad.ruten.com.tw', 'ad.books.com.tw', 'ad.etmall.com.tw',
+    'ad.shopping.friday.tw', 'ad-hub.net', 'adgeek.net', 'ad.shopee.tw', 'rq.vpon.com',
+    'umeng.com', 'umeng.co', 'umeng.cn', 'cnzz.com', 'talkingdata.com', 'talkingdata.cn', 'hm.baidu.com',
+    'pos.baidu.com', 'cpro.baidu.com', 'eclick.baidu.com', 'usp1.baidu.com', 'pingjs.qq.com', 'wspeed.qq.com',
+    'ads.tencent.com', 'gdt.qq.com', 'ta.qq.com', 'tanx.com', 'alimama.com', 'log.mmstat.com',
+    'getui.com', 'jpush.cn', 'jiguang.cn', 'gridsum.com', 'admaster.com.cn', 'miaozhen.com',
+    'su.baidu.com', 'mobads.baidu.com', 'mta.qq.com', 'log.tmall.com', 'ad.kuaishou.com',
+    'pangolin-sdk-toutiao.com', 'zhugeio.com', 'growingio.com', 'youmi.net', 'adview.cn', 'igexin.com',
+    'wcs.naver.net', 'adnx.com', 'rlcdn.com', 'revjet.com',
+    'ads-api.tiktok.com', 'analytics.tiktok.com', 'tr.snapchat.com', 'sc-static.net', 'ads.pinterest.com',
+    'log.pinterest.com', 'analytics.snapchat.com', 'ads-api.twitter.com', 'ads.youtube.com', 'cint.com',
   ]),
 
-  // ✅ 硬白名單，完全放行
   API_WHITELIST_HARD_EXACT: new Set([]),
 
-  // ✅ 軟白名單，豁免域名封鎖，但仍進行腳本攔截與參數清理
   API_WHITELIST_SOFT_EXACT: new Set([
     'youtubei.googleapis.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
     'open.spotify.com', 'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
@@ -72,7 +81,6 @@ const CONFIG = {
     'duckduckgo.com', 'external-content.duckduckgo.com'
   ]),
 
-  // ✅ 萬用字元白名單，視為軟白名單
   API_WHITELIST_WILDCARDS: new Set([
     'youtube.com', 'm.youtube.com', 'googlevideo.com', 'paypal.com', 'stripe.com', 'apple.com', 'icloud.com',
     'windowsupdate.com', 'update.microsoft.com', 'amazonaws.com', 'cloudfront.net', 'fastly.net',
@@ -87,22 +95,22 @@ const CONFIG = {
     'www.webarchive.org.uk', 'timetravel.mementoweb.org'
   ]),
 
-  // 🚨 關鍵追蹤腳本
   CRITICAL_TRACKING_SCRIPTS: new Set([
-    'gtag.js', 'analytics.js', 'adsbygoogle.js', 'fbevents.js', 'hotjar.js', 'mixpanel.js', 'segment.js',
-    'clarity.js', 'matomo.js', 'beacon.js', 'tracking.js', 'tracker.js', 'tag.js', 'doubleclick.js',
-    'adsense.js', 'adloader.js', 'piwik.js', 'fullstory.js', 'heap.js', 'inspectlet.js', 'logrocket.js',
-    'vwo.js', 'optimizely.js', 'criteo.js', 'pubmatic.js', 'outbrain.js', 'taboola.js', 'prebid.js',
-    'apstag.js', 'utag.js', 'event.js', 'collect.js', 'activity.js', 'conversion.js', 'action.js',
-    'abtasty.js', 'cmp.js', 'sp.js', 'adobedtm.js', 'visitorapi.js', 'intercom.js',
-    'link-click-tracker.js', 'user-timing.js', 'cf.js', 'tagtoo.js', 'wcslog.js', 'ads-beacon.js',
-    'hm.js', 'u.js', 'um.js', 'aplus.js', 'gdt.js', 'tiktok-pixel.js', 'pangle.js', 'ec.js', 'autotrack.js',
-    'capture.js', 'user-id.js', 'adroll.js', 'quant.js', 'comscore.js', 'dax.js', 'chartbeat.js',
-    'crazyegg.js', 'mouseflow.js', 'newrelic.js', 'nr-loader.js', 'perf.js', 'trace.js',
-    'tracking-api.js', 'scevent.min.js', 'ad-sdk.js', 'ad-manager.js', 'ad-player.js'
+    'ytag.js', 'gtag.js', 'gtm.js', 'ga.js', 'analytics.js', 'adsbygoogle.js', 'ads.js',
+    'fbevents.js', 'fbq.js', 'pixel.js', 'connect.js', 'tracking.js', 'tracker.js', 'tag.js',
+    'doubleclick.js', 'adsense.js', 'adloader.js', 'hotjar.js', 'mixpanel.js', 'amplitude.js',
+    'segment.js', 'clarity.js', 'matomo.js', 'piwik.js', 'fullstory.js', 'heap.js', 'inspectlet.js',
+    'logrocket.js', 'vwo.js', 'optimizely.js', 'criteo.js', 'pubmatic.js', 'outbrain.js', 'taboola.js',
+    'prebid.js', 'apstag.js', 'utag.js', 'beacon.js', 'event.js', 'collect.js', 'activity.js',
+    'conversion.js', 'action.js', 'abtasty.js', 'cmp.js', 'sp.js', 'adobedtm.js', 'visitorapi.js',
+    'intercom.js', 'link-click-tracker.js', 'user-timing.js', 'cf.js', 'tagtoo.js', 'wcslog.js',
+    'ads-beacon.js', 'hm.js', 'u.js', 'um.js', 'aplus.js', 'gdt.js', 'tiktok-pixel.js',
+    'pangle.js', 'ec.js', 'autotrack.js', 'capture.js', 'user-id.js', 'adroll.js', 'quant.js',
+    'comscore.js', 'dax.js', 'chartbeat.js', 'crazyegg.js', 'mouseflow.js', 'newrelic.js',
+    'nr-loader.js', 'perf.js', 'trace.js', 'tracking-api.js', 'scevent.min.js', 'ad-sdk.js',
+    'ad-manager.js', 'ad-player.js'
   ]),
 
-  // 🚨 關鍵追蹤路徑模式
   CRITICAL_TRACKING_PATTERNS: new Set([
     '/googletagmanager/', '/google-analytics/', '/googlesyndication/', '/doubleclick/', '/googleadservices/',
     'google.com/ads', 'google.com/pagead', '/pagead/gen_204', '/collect', '/track', '/beacon', '/pixel',
@@ -117,7 +125,6 @@ const CONFIG = {
     '/ad-call', '/adx/', '/adserver/', '/adsync/', '/adtech/'
   ]),
 
-  // 🚫 路徑關鍵字黑名單
   PATH_BLOCK_KEYWORDS: new Set([
     '/ad/', '/ads/', '/adv/', '/advert/', '/advertising/', '/affiliate/', '/sponsor/', '/promoted/', '/banner/',
     '/popup/', '/interstitial/', '/preroll/', 'google_ad', 'pagead', 'adsbygoogle', 'doubleclick', 'adsense',
@@ -137,7 +144,6 @@ const CONFIG = {
     'gdpr', 'ccpa', 'plusone', 'optimize', 'pushnotification', 'privacy-policy', 'cookie-consent'
   ]),
 
-  // ✅ 路徑豁免白名單
   PATH_ALLOW_PATTERNS: new Set([
     'chunk.js', 'chunk.mjs', 'bundle.js', 'main.js', 'app.js', 'vendor.js', 'runtime.js', 'common.js',
     'framework.js', 'framework.mjs', 'polyfills.js', 'polyfills.mjs', 'styles.js', 'styles.css', 'index.js',
@@ -148,33 +154,28 @@ const CONFIG = {
     'theme.js', 'config.js', 'web.config'
   ]),
 
-  // 💧 拋棄請求的關鍵字
   DROP_KEYWORDS: new Set([
     'amp-analytics', 'csp-report', 'crash', 'error-report', 'heartbeat', 'web-vitals', 'profiler',
     'event-stream', 'ingest', 'live-log', 'realtime-log', 'data-pipeline', 'rum', 'intake', 'batch', 'diag'
   ]),
 
-  // 💧 拋棄請求的正則
   DROP_REGEX: [
     /(?:^|[\\/._?-])log(?:s|ging)?(?:[\\/._?-]|$)/i,
     /(?:^|[\\/])(?:beacon|collect|collector)(?:[\\/?.]|$)/i,
   ],
 
-  // 🗑️ 全域追蹤參數
   GLOBAL_TRACKING_PARAMS: new Set([
     'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id', 'gclid', 'dclid', 'fbclid',
     'msclkid', 'mc_eid', 'igshid', 'zanpid', 'affid', 'gclsrc', 'wbraid', 'gbraid', 'gad_source', 'ref'
   ]),
 
-  // 🗑️ 追蹤參數前綴
   TRACKING_PREFIXES: new Set([
     'utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mkt_', 'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'vero_'
   ]),
 
-  // ✅ 豁免清理的必要參數
   PARAMS_TO_KEEP_WHITELIST: new Set(['t', 'v', 'id']),
 
-  // 🚫 路徑封鎖正則
+  // [更新] 新增 /v.*/event 萬用字元攔截規則
   PATH_BLOCK_REGEX: [
     /^\/[a-z0-9]{12,}\.js$/i,
     /[^\/]*sentry[^\/]*\.js/i,
@@ -330,7 +331,7 @@ function processOptimizedRequest(request) {
   try {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
-      if (typeof $done !== 'undefined') $done({ version: '38.4-optimized' });
+      if (typeof $done !== 'undefined') $done({ version: '38.3-complete-updated-v2' });
       return;
     }
     const result = processOptimizedRequest($request);
