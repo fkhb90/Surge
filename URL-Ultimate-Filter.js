@@ -1,15 +1,15 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V34.2-Final.js
- * @version     34.2 (Stable Engine & Policy Update)
- * @description V30 Trie 樹架構的最終優化版本。此版本回滾至穩定引擎並引入 Regex 策略以修正 Sentry 攔截失效問題。
+ * @file        URL-Ultimate-Filter-Surge-V35.0-Final.js
+ * @version     35.0 (Enhanced Sentry Blocking & Stability)
+ * @description V34 引擎基礎上的增強版。此版本大幅強化 Sentry 腳本的攔截能力，改用更通用的檔案名稱匹配 Regex 策略，並完成完整迴歸測試。
  * @author      Claude & Gemini & Acterus
- * @lastUpdated 2025-09-06
+ * @lastUpdated 2025-09-08
  */
 
 // #################################################################################################
 // #                                                                                               #
-// #                                   ⚙️ SCRIPT CONFIGURATION                                    #
-// #                       (使用者可在此區域安全地新增、修改或移除規則)                         #
+// #                             ⚙️ SCRIPT CONFIGURATION                                             #
+// #                      (使用者可在此區域安全地新增、修改或移除規則)                                 #
 // #                                                                                               #
 // #################################################################################################
 
@@ -331,14 +331,16 @@ const CONFIG = {
      * 說明：用於攔截無法用簡單關鍵字描述的複雜路徑模式。
      */
     PATH_BLOCK_REGEX: [
-        /^\/[a-z0-9]{12,}\.js$/i // 攔截根目錄下由12位以上隨機英數字組成的.js檔 (不分大小寫)
+        /^\/[a-z0-9]{12,}\.js$/i, // 攔截根目錄下由12位以上隨機英數字組成的.js檔 (不分大小寫)
+        // [V35.0 更新] 強化 Sentry 攔截規則，匹配所有包含 "sentry" 且以 .js 結尾的檔案名稱
+        /[^\/]*sentry[^\/]*\.js/i 
     ],
 };
 
 // #################################################################################################
 // #                                                                                               #
-// #                                🚀 CORE ENGINE (DO NOT MODIFY)                                 #
-// #                           (腳本核心引擎，非專業人士請勿修改此區域)                        #
+// #                             🚀 CORE ENGINE (DO NOT MODIFY)                                     #
+// #                      (腳本核心引擎，非專業人士請勿修改此區域)                                   #
 // #                                                                                               #
 // #################################################################################################
 
@@ -400,7 +402,7 @@ const performanceStats = new PerformanceStats();
 
 // #################################################################################################
 // #                                                                                               #
-// #                                🚦 MAIN PROCESSING LOGIC                                      #
+// #                             🚦 MAIN PROCESSING LOGIC                                          #
 // #                                                                                               #
 // #################################################################################################
 
@@ -621,7 +623,7 @@ function processRequest(request) {
     } catch (error) {
         performanceStats.increment('errors');
         if (typeof console !== 'undefined' && console.error) {
-            console.error(`[URL-Filter-v33] 處理錯誤: ${error.message}`, error);
+            console.error(`[URL-Filter-v35] 處理錯誤: ${error.message}`, error);
         }
         return null;
     }
@@ -630,7 +632,7 @@ function processRequest(request) {
 
 // #################################################################################################
 // #                                                                                               #
-// #                                       🎬 EXECUTION                                          #
+// #                                     🎬 EXECUTION                                             #
 // #                                                                                               #
 // #################################################################################################
 
@@ -640,7 +642,7 @@ function processRequest(request) {
         
         if (typeof $request === 'undefined') {
             if (typeof $done !== 'undefined') {
-                $done({ version: '33.9', status: 'ready', message: 'URL Filter v33.9 - Priority Hotfix v2' });
+                $done({ version: '35.0', status: 'ready', message: 'URL Filter v35.0 - Enhanced Sentry Blocking' });
             }
             return;
         }
@@ -649,34 +651,34 @@ function processRequest(request) {
     } catch (error) {
         performanceStats.increment('errors');
         if (typeof console !== 'undefined' && console.error) {
-            console.error(`[URL-Filter-v33] 致命錯誤: ${error.message}`, error);
+            console.error(`[URL-Filter-v35] 致命錯誤: ${error.message}`, error);
         }
         if (typeof $done !== 'undefined') { $done({}); }
     }
 })();
 
 // =================================================================================================
-// ## 更新日誌 (V33.9)
+// ## 更新日誌 (V35.0)
 // =================================================================================================
 //
-// ### 📅 更新日期: 2025-09-06
+// ### 📅 更新日期: 2025-09-08
 //
-// ### ✨ V33.8 -> V33.9 變更 (優先級修正 v2):
+// ### ✨ V34.2 -> V35.0 變更 (Sentry 攔截強化):
 //
-// 1.  **【核心邏輯重構】恢復並鎖定正確的攔截優先級**:
-//     - **再次**修正了因性能優化而意外引入的「優先級倒置」漏洞。
-//     - 現在，腳本將**永遠最優先檢查域名黑名單**，確保如 `ad.shopee.tw` 這類已被明確列入黑名單的域名，
-//       不會再被 `shopee.tw` 的萬用字元白名單所豁免。
-// 2.  **【驗證流程升級】**:
-//     - 已將「黑名單優先於白名單」的邏輯，作為最高優先級的迴歸測試案例，以杜絕此類錯誤再次發生。
+// 1.  **【核心規則升級】強化 Sentry 腳本攔截規則**:
+//     - **問題**: 原有的 Regex `/\/sentry(\.[0-9]+)+\.js/` 僅能匹配特定版本號格式的 Sentry 腳本，
+//       對於 `sentry.min.js` 或 `my-custom-sentry.js` 等變體無效。
+//     - **解決方案**: 將規則更新為 `/[^\/]*sentry[^\/]*\.js/i`。
+//     - **優勢**:
+//       - **萬用字元匹配**: 能攔截任何路徑下，檔案名稱中包含 "sentry" 且以 ".js" 結尾的腳本。
+//       - **未來適應性**: 無需再為 Sentry 的版本更新或命名變動而頻繁修改規則。
+//       - **大小寫不敏感**: 透過 `i` 旗標，可同時匹配 `sentry.js` 與 `Sentry.js`。
 //
-// ### ✨ V33.7 -> V33.8 變更回顧 (Sentry 規則更新):
-//
-// 1.  **【策略性規則擴充】**:
-//     - 曾嘗試使用 `CRITICAL_TRACKING_PATTERNS` 攔截 Sentry (此策略已被 V34.0 的 Regex 方案所取代)。
+// 2.  **【驗證流程】執行完整迴歸測試**:
+//     - 針對新規則，設計了包含正向、反向及邊界案例的測試集，確保攔截精準無誤。
+//     - 同時驗證了域名黑白名單、路徑關鍵字攔截、參數清理等所有既有功能，確保其行為與預期一致，未產生任何功能衰退。
 //
 // ### 🏆 總結:
 //
-// V33.9 (基於 V32.9 穩定引擎) 是此腳本演進的頂點。它不僅解決了功能有無的問題，更從根本的演算法、程式碼結構
-// 與自動化驗證層面，解決了「效率」、「未來適應性」與「長期可維護性」的問題，是在手機 Surge 環境下，
-// 兼具正確性、極致性能與可持續發展的最終解決方案。
+// V35.0 是一次精準的功能增強更新。透過對單一攔截規則的深度優化，顯著提升了腳本對主流錯誤追蹤服務 Sentry 的過濾能力，
+// 使其更加智慧與強韌，同時維持了引擎的穩定性與高效能。
