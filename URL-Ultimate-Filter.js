@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V38.3-complete-updated-v2.js
- * @version     38.3-complete-updated-v2 (含完整黑白名單與萬用字元事件攔截)
- * @description 完整黑白名單、白名單與攔截邏輯，包含Trie、LRU快取與請求處理。新增 /v.*/event 攔截規則。
+ * @file        URL-Ultimate-Filter-Surge-V38.3-complete-updated.js
+ * @version     38.3-complete-updated (含完整黑白名單與全功能核心代碼)
+ * @description 完整黑名單、白名單與攔截邏輯，包含Trie、LRU快取與請求處理。已新增 /v1/event 攔截規則。
  * @author      Claude & Gemini & Acterus (+ Final Polish)
  * @lastUpdated 2025-09-08
  */
@@ -81,72 +81,98 @@ const CONFIG = {
     'duckduckgo.com', 'external-content.duckduckgo.com'
   ]),
 
-  API_WHITELIST_WILDCARDS: new Set([
-    'youtube.com', 'm.youtube.com', 'googlevideo.com', 'paypal.com', 'stripe.com', 'apple.com', 'icloud.com',
-    'windowsupdate.com', 'update.microsoft.com', 'amazonaws.com', 'cloudfront.net', 'fastly.net',
-    'akamaihd.net', 'cloudflare.com', 'jsdelivr.net', 'unpkg.com', 'cdnjs.cloudflare.com', 'gstatic.com',
-    'fbcdn.net', 'twimg.com', 'inoreader.com', 'theoldreader.com', 'newsblur.com', 'flipboard.com',
-    'itofoo.com', 'github.io', 'gitlab.io', 'windows.net', 'pages.dev', 'vercel.app', 'netlify.app',
-    'azurewebsites.net', 'cloudfunctions.net', 'oraclecloud.com', 'digitaloceanspaces.com', 'okta.com',
-    'auth0.com', 'atlassian.net', 'shopee.tw', 'fubon.com', 'bot.com.tw', 'megabank.com.tw', 'firstbank.com.tw',
-    'hncb.com.tw', 'chb.com.tw', 'taishinbank.com.tw', 'sinopac.com', 'tcb-bank.com.tw', 'scsb.com.tw',
-    'standardchartered.com.tw', 'web.archive.org', 'web-static.archive.org', 'archive.is', 'archive.today',
-    'archive.ph', 'archive.li', 'archive.vn', 'webcache.googleusercontent.com', 'cc.bingj.com', 'perma.cc',
-    'www.webarchive.org.uk', 'timetravel.mementoweb.org'
+  API_WHITELIST_WILDCARDS: new Map([
+    ['youtube.com', true], ['m.youtube.com', true], ['googlevideo.com', true], ['paypal.com', true],
+    ['stripe.com', true], ['apple.com', true], ['icloud.com', true], ['windowsupdate.com', true],
+    ['update.microsoft.com', true], ['amazonaws.com', true], ['cloudfront.net', true], ['fastly.net', true],
+    ['akamaihd.net', true], ['cloudflare.com', true], ['jsdelivr.net', true], ['unpkg.com', true],
+    ['cdnjs.cloudflare.com', true], ['gstatic.com', true], ['fbcdn.net', true], ['twimg.com', true],
+    ['inoreader.com', true], ['theoldreader.com', true], ['newsblur.com', true], ['flipboard.com', true],
+    ['itofoo.com', true], ['github.io', true], ['gitlab.io', true], ['windows.net', true], ['pages.dev', true],
+    ['vercel.app', true], ['netlify.app', true], ['azurewebsites.net', true], ['cloudfunctions.net', true], ['oraclecloud.com', true],
+    ['digitaloceanspaces.com', true], ['okta.com', true], ['auth0.com', true], ['atlassian.net', true],
+    ['shopee.tw', true], ['fubon.com', true], ['bot.com.tw', true], ['megabank.com.tw', true], ['firstbank.com.tw', true],
+    ['hncb.com.tw', true], ['chb.com.tw', true], ['taishinbank.com.tw', true], ['sinopac.com', true],
+    ['tcb-bank.com.tw', true], ['scsb.com.tw', true], ['standardchartered.com.tw', true],
+    ['web.archive.org', true], ['web-static.archive.org', true], ['archive.is', true], ['archive.today', true],
+    ['archive.ph', true], ['archive.li', true], ['archive.vn', true], ['webcache.googleusercontent.com', true],
+    ['cc.bingj.com', true], ['perma.cc', true], ['www.webarchive.org.uk', true], ['timetravel.mementoweb.org', true]
   ]),
 
   CRITICAL_TRACKING_SCRIPTS: new Set([
     'ytag.js', 'gtag.js', 'gtm.js', 'ga.js', 'analytics.js', 'adsbygoogle.js', 'ads.js',
-    'fbevents.js', 'fbq.js', 'pixel.js', 'connect.js', 'tracking.js', 'tracker.js', 'tag.js',
-    'doubleclick.js', 'adsense.js', 'adloader.js', 'hotjar.js', 'mixpanel.js', 'amplitude.js',
-    'segment.js', 'clarity.js', 'matomo.js', 'piwik.js', 'fullstory.js', 'heap.js', 'inspectlet.js',
-    'logrocket.js', 'vwo.js', 'optimizely.js', 'criteo.js', 'pubmatic.js', 'outbrain.js', 'taboola.js',
-    'prebid.js', 'apstag.js', 'utag.js', 'beacon.js', 'event.js', 'collect.js', 'activity.js',
-    'conversion.js', 'action.js', 'abtasty.js', 'cmp.js', 'sp.js', 'adobedtm.js', 'visitorapi.js',
-    'intercom.js', 'link-click-tracker.js', 'user-timing.js', 'cf.js', 'tagtoo.js', 'wcslog.js',
-    'ads-beacon.js', 'hm.js', 'u.js', 'um.js', 'aplus.js', 'gdt.js', 'tiktok-pixel.js',
-    'pangle.js', 'ec.js', 'autotrack.js', 'capture.js', 'user-id.js', 'adroll.js', 'quant.js',
-    'comscore.js', 'dax.js', 'chartbeat.js', 'crazyegg.js', 'mouseflow.js', 'newrelic.js',
-    'nr-loader.js', 'perf.js', 'trace.js', 'tracking-api.js', 'scevent.min.js', 'ad-sdk.js',
-    'ad-manager.js', 'ad-player.js'
+    'fbevents.js', 'fbq.js', 'pixel.js', 'connect.js',
+    'tracking.js', 'tracker.js', 'tag.js', 'doubleclick.js', 'adsense.js', 'adloader.js',
+    'hotjar.js', 'mixpanel.js', 'amplitude.js', 'segment.js', 'clarity.js', 'matomo.js',
+    'piwik.js', 'fullstory.js', 'heap.js', 'inspectlet.js', 'logrocket.js', 'vwo.js',
+    'optimizely.js', 'criteo.js', 'pubmatic.js', 'outbrain.js', 'taboola.js', 'prebid.js',
+    'apstag.js', 'utag.js', 'beacon.js', 'event.js', 'collect.js', 'activity.js', 'conversion.js',
+    'action.js', 'abtasty.js', 'cmp.js', 'sp.js', 'adobedtm.js', 'visitorapi.js', 'intercom.js',
+    'link-click-tracker.js', 'user-timing.js', 'cf.js', 'tagtoo.js', 'wcslog.js', 'ads-beacon.js',
+    'essb-core.min.js', 'hm.js', 'u.js', 'um.js', 'aplus.js', 'aplus_wap.js', 'gdt.js',
+    'tiktok-pixel.js', 'tiktok-analytics.js', 'pangle.js', 'ec.js', 'autotrack.js', 'capture.js',
+    'user-id.js', 'adroll.js', 'adroll_pro.js', 'quant.js', 'quantcast.js', 'comscore.js',
+    'dax.js', 'chartbeat.js', 'crazyegg.js', 'mouseflow.js', 'newrelic.js', 'nr-loader.js',
+    'perf.js', 'trace.js', 'tracking-api.js', 'scevent.min.js', 'ad-sdk.js', 'ad-manager.js',
+    'ad-player.js', 'ad-lib.js', 'ad-core.js'
   ]),
 
   CRITICAL_TRACKING_PATTERNS: new Set([
+    // --- Google ---
     '/googletagmanager/', '/google-analytics/', '/googlesyndication/', '/doubleclick/', '/googleadservices/',
-    'google.com/ads', 'google.com/pagead', '/pagead/gen_204', '/collect', '/track', '/beacon', '/pixel',
-    '/telemetry', '/api/log', '/api/track', '/api/collect', '/api/v1/track', '/intake', '/api/batch',
-    'facebook.com/tr', 'scorecardresearch.com/beacon.js', 'analytics.twitter.com/li/track',
-    'amazon-adsystem.com/e/ec', 'segment.io/v1/track', 'heap.io/api/track', 'api.mixpanel.com/track',
-    'api.amplitude.com', 'api-iam.intercom.io/messenger/web/events', 'api.hubspot.com/events',
-    'hm.baidu.com/hm.js', 'cnzz.com/stat.php', '/log/aplus', '/v.gif', 'gdt.qq.com/gdt_mview.fcg',
-    '/abtesting/', '/feature-flag/', '/user-profile/', '/b/ss', '/i/adsct', 'cacafly/track', '/track/m',
-    '/track/pc', '/v1/pixel', 'ads.tiktok.com/i1n/pixel/events.js', 'analytics.snapchat.com/v1/batch',
-    'tr.snapchat.com', 'sc-static.net/scevent.min.js', '/ad/v1/event', 'ads.pinterest.com/v3/conversions/events',
-    '/ad-call', '/adx/', '/adserver/', '/adsync/', '/adtech/'
+    'google.com/ads', 'google.com/pagead', '/pagead/gen_204', '/stats.g.doubleclick.net/j/collect', '/ads/ga-audiences',
+    // --- Facebook ---
+    'facebook.com/tr', 'facebook.com/tr/',
+    // --- 通用 API 端點 ---
+    '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/',
+    '/api/v1/track', '/intake', '/api/batch',
+    // --- 主流服務端點 ---
+    'scorecardresearch.com/beacon.js', 'analytics.twitter.com', 'ads.linkedin.com/li/track', 'px.ads.linkedin.com',
+    'amazon-adsystem.com/e/ec', 'ads.yahoo.com/pixel', 'ads.bing.com/msclkid', 'segment.io/v1/track',
+    'heap.io/api/track', 'api.mixpanel.com/track', 'api.amplitude.com', 'api-iam.intercom.io/messenger/web/events',
+    'api.hubspot.com/events',
+    // --- 社群分享外掛 ---
+    '/plugins/easy-social-share-buttons/',
+    // --- 中國大陸地區 ---
+    'hm.baidu.com/hm.js', 'cnzz.com/stat.php', 'wgo.mmstat.com', '/log/aplus', '/v.gif', 'gdt.qq.com/gdt_mview.fcg',
+    // --- 其他 ---
+    '/abtesting/', '/feature-flag/', '/user-profile/', '/b/ss', '/i/adsct', 'cacafly/track', '/track/m', '/track/pc',
+    '/v1/pixel', 'ads.tiktok.com/i1n/pixel/events.js', 'ads-api.tiktok.com/api/v2/pixel',
+    'analytics.snapchat.com/v1/batch', 'tr.snapchat.com', 'sc-static.net/scevent.min.js', '/ad/v1/event',
+    'ads.pinterest.com/v3/conversions/events', 'ad.360yield.com', '/ad-call', '/adx/', '/adsales/',
+    '/adserver/', '/adsync/', '/adtech/',
+    // [新增] /v1/event 攔截
+    '/v1/event'
   ]),
 
   PATH_BLOCK_KEYWORDS: new Set([
-    '/ad/', '/ads/', '/adv/', '/advert/', '/advertising/', '/affiliate/', '/sponsor/', '/promoted/', '/banner/',
-    '/popup/', '/interstitial/', '/preroll/', 'google_ad', 'pagead', 'adsbygoogle', 'doubleclick', 'adsense',
-    'dfp', 'amp-ad', 'prebid', 'apstag', 'rtb', 'dsp', 'ssp', 'ad_logic', 'ad-choices', 'ad-manager',
-    'ad-server', 'ad-tag', 'ad_pixel', 'ad-request', 'ad-system', 'ad-tech', 'ad-wrapper', 'ad-loader',
-    'ad-placement', 'ad-metrics', 'ad-events', 'ad-impression', 'ad-click', 'ad-view', 'ad-break',
-    'ad_event', 'ad-inventory', 'ad-specs', 'ad-verification', 'ad-viewability', 'ad-exchange', 'ad-network',
-    'ad-platform', 'ad-response', 'ad-slot', 'ad-unit', 'ad-call', '/adserve/', '/adserving/', '/adframe/',
-    '/adrequest/', '/getads/', '/getad/', '/fetch_ads/', '/track/', '/trace/', '/tracker/', '/tracking/',
-    '/analytics/', '/metric/', '/metrics/', '/telemetry/', '/measurement/', '/insight/', '/monitor/', '/log/',
-    '/logs/', 'logger', '/logging/', '/audit/', '/beacon/', '/pixel/', '/collect?', '/collector/', '/report/',
-    '/sentry/', '/bugsnag/', '/crash/', '/error/', '/exception/', 'web-vitals', 'performance-tracking',
-    'user-analytics', 'behavioral-targeting', 'data-collection', 'fingerprinting', 'third-party-cookie',
-    'attribution', 'retargeting', 'audience', 'cohort', 'user-segment', 'session-replay', 'google-analytics',
-    'fbevents', 'fbq', 'addthis', 'sharethis', 'taboola', 'criteo', 'osano', 'onead', 'sailthru',
-    'tapfiliate', 'appier', 'hotjar', 'comscore', 'mixpanel', 'amplitude', 'utag.js', 'cookiepolicy',
-    'gdpr', 'ccpa', 'plusone', 'optimize', 'pushnotification', 'privacy-policy', 'cookie-consent'
+    '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/sponsor/',
+    '/promoted/', '/banner/', '/popup/', '/interstitial/', '/preroll/', '/midroll/', '/postroll/',
+    'google_ad', 'pagead', 'adsbygoogle', 'doubleclick', 'adsense', 'dfp', 'amp-ad', 'amp-analytics',
+    'amp-auto-ads', 'amp-sticky-ad', 'amp4ads', 'prebid', 'apstag', 'pwt.js', 'rtb', 'dsp', 'ssp',
+    'ad_logic', 'ad-choices', 'ad-manager', 'ad-server', 'ad-tag', 'ad_pixel', 'ad-request', 'ad-system',
+    'ad-tech', 'ad-wrapper', 'ad-loader', 'ad-placement', 'ad-metrics', 'ad-events', 'ad-impression',
+    'ad-click', 'ad-view', 'ad-engagement', 'ad-conversion', 'ad-break', 'ad_event', 'ad-inventory',
+    'ad-specs', 'ad-verification', 'ad-viewability', 'ad-exchange', 'ad-network', 'ad-platform',
+    'ad-response', 'ad-slot', 'ad-unit', 'ad-call', 'ad-code', 'ad-script', 'ad-telemetry', '/adserve/',
+    '/adserving/', '/adframe/', '/adrequest/', '/adretrieve/', '/getads/', '/getad/', '/fetch_ads/',
+    '/track/', '/trace/', '/tracker/', '/tracking/', '/analytics/', '/analytic/', '/metric/', '/metrics/',
+    '/telemetry/', '/measurement/', '/insight/', '/intelligence/', '/monitor/', '/monitoring/', '/log/',
+    '/logs/', 'logger', '/logging/', '/logrecord/', '/putlog/', '/audit/', '/beacon/', '/pixel/', '/collect?',
+    '/collector/', '/report/', '/reports/', '/reporting/',
+    '/sentry/', '/bugsnag/', '/crash/', '/error/', '/exception/', '/stacktrace/', 'web-vitals',
+    'performance-tracking', 'real-user-monitoring',
+    'user-analytics', 'behavioral-targeting', 'data-collection', 'data-sync', 'fingerprint',
+    'fingerprinting', 'third-party-cookie', 'user-cohort', 'attribution', 'retargeting', 'audience',
+    'cohort', 'user-segment', 'user-behavior', 'session-replay',
+    'google-analytics', 'fbevents', 'fbq', 'addthis', 'sharethis', 'taboola', 'criteo', 'osano',
+    'onead', 'sailthru', 'tapfiliate', 'appier', 'hotjar', 'comscore', 'mixpanel', 'amplitude', 'utag.js',
+    'cookiepolicy', 'gdpr', 'ccpa', 'plusone', 'optimize', 'pushnotification', 'privacy-policy', 'cookie-consent'
   ]),
 
   PATH_ALLOW_PATTERNS: new Set([
     'chunk.js', 'chunk.mjs', 'bundle.js', 'main.js', 'app.js', 'vendor.js', 'runtime.js', 'common.js',
-    'framework.js', 'framework.mjs', 'polyfills.js', 'polyfills.mjs', 'styles.js', 'styles.css', 'index.js',
+    'framework.js', 'framework.mjs', 'polyfills.js', 'polyfills.mjs', 'styles.js', 'styles.css', 'index.js', 'index.mjs',
     'polyfill.js', 'fetch-polyfill', 'browser.js', 'sw.js', 'loader.js', 'header.js', 'head.js', 'padding.css',
     'badge.svg', 'modal.js', 'card.js', 'icon.svg', 'logo.svg', 'favicon.ico', 'manifest.json', 'robots.txt',
     'page-data.js', 'legacy.js', 'sitemap.xml', 'chunk-vendors', 'chunk-common', 'component---',
@@ -155,32 +181,64 @@ const CONFIG = {
   ]),
 
   DROP_KEYWORDS: new Set([
-    'amp-analytics', 'csp-report', 'crash', 'error-report', 'heartbeat', 'web-vitals', 'profiler',
-    'event-stream', 'ingest', 'live-log', 'realtime-log', 'data-pipeline', 'rum', 'intake', 'batch', 'diag'
+    'amp-loader', 'amp-analytics', 'beacon', 'collect?', 'collector',
+    'telemetry', 'crash', 'error-report', 'insight', 'event-stream', 'ingest',
+    'live-log', 'realtime-log', 'data-pipeline', 'rum', 'intake', 'batch', 'diag', 'client-event',
+    'server-event', 'heartbeat', 'web-vitals', 'performance-entry',
+    'csp-report', 'profiler',
   ]),
 
   DROP_REGEX: [
     /(?:^|[\\/._?-])log(?:s|ging)?(?:[\\/._?-]|$)/i,
+    /(?:^|[?&])(?:csp-report|trace\.json|diagnostic\.log|usage\.log)(?:=|$)/i,
     /(?:^|[\\/])(?:beacon|collect|collector)(?:[\\/?.]|$)/i,
+    /(?:^|[\\/._-])heartbeat(?:[\\/?.]|$)/i,
+    /(?:^|[\\/._-])event-stream(?:[\\/?.]|$)/i,
+    /(?:^|[\\/._-])intake(?:[\\/?.]|$)/i,
+    /(?:^|[\\/._-])ingest(?:[\\/?.]|$)/i,
+    /(?:^|[\\/._-])rum(?:[\\/?.]|$)/i
   ],
 
   GLOBAL_TRACKING_PARAMS: new Set([
-    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id', 'gclid', 'dclid', 'fbclid',
-    'msclkid', 'mc_eid', 'igshid', 'zanpid', 'affid', 'gclsrc', 'wbraid', 'gbraid', 'gad_source', 'ref'
+    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id',
+    'utm_source_platform', 'utm_creative_format', 'utm_marketing_tactic',
+    'gclid', 'dclid', 'gclsrc', 'wbraid', 'gbraid', 'gad_source', 'gad', 'gcl_au',
+    '_ga', '_gid', '_gat', '__gads', '__gac',
+    'msclkid', 'msad', 'mscampaignid', 'msadgroupid',
+    'fbclid', 'fbadid', 'fbcampaignid', 'fbadsetid', 'fbplacementid', 'igshid', 'igsh',
+    'x-threads-app-object-id', 'mibextid',
+    'yclid', 'twclid', 'ttclid', 'li_fat_id', 'mc_cid', 'mc_eid', 'mkt_tok',
+    'zanpid', 'affid', 'affiliate_id', 'partner_id', 'sub_id', 'transaction_id', 'customid',
+    'click_id', 'clickid', 'offer_id', 'promo_code', 'coupon_code', 'deal_id', 'rb_clickid', 's_kwcid', 'ef_id',
+    'email_source', 'email_campaign', 'from', 'source', 'ref', 'referrer', 'campaign', 'medium', 'content',
+    'spm', 'scm', 'share_source', 'share_medium', 'share_plat', 'share_id', 'share_tag', 'from_source',
+    'from_channel', 'from_uid', 'from_user', 'tt_from', 'tt_medium', 'tt_campaign', 'share_token',
+    'share_app_id', 'xhsshare', 'xhs_share', 'app_platform', 'share_from', 'weibo_id', 'wechat_id',
+    'is_copy_url', 'is_from_webapp', 'pvid', 'fr', 'type', 'scene', 'traceid', 'request_id',
+    '__twitter_impression', '_openstat', 'hsCtaTracking', 'hsa_acc', 'hsa_cam', 'hsa_grp', 'hsa_ad',
+    'hsa_src', 'vero_conv', 'vero_id', 'ck_subscriber_id', 'action_object_map', 'action_type_map',
+    'action_ref_map', 'feature', 'src', 'si', 'trk', 'trk_params', 'epik', 'piwik_campaign',
+    'piwik_kwd', 'matomo_campaign', 'matomo_kwd', '_bta_c', '_bta_tid', 'oly_anon_id', 'oly_enc_id',
+    'redirect_log_mongo_id', 'redirect_mongo_id', 'sb_referer_host', 'ecid', 'from_ad', 'from_search',
+    'from_promo', 'camid', 'cupid', 'hmsr', 'hmpl', 'hmcu', 'hmkw', 'hmci', 'union_id', 'biz', 'mid', 'idx',
+    'ad_id', 'adgroup_id', 'campaign_id', 'creative_id', 'keyword', 'matchtype', 'device', 'devicemodel',
+    'adposition', 'network', 'placement', 'targetid', 'feeditemid', 'loc_physical_ms', 'loc_interest_ms',
+    'creative', 'adset', 'ad', 'pixel_id', 'event_id',
+    'algolia_query', 'algolia_query_id', 'algolia_object_id', 'algolia_position'
   ]),
 
   TRACKING_PREFIXES: new Set([
-    'utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mkt_', 'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'vero_'
+    'utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'mkt_', 'matomo_', 'piwik_', 'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'bd_', 'video_utm_', 'vero_', '__cf_', '_hs', 'pk_', 'mtm_', 'campaign_', 'source_', 'medium_', 'content_', 'term_', 'creative_', 'placement_', 'network_', 'device_', 'ref_', 'from_', 'share_', 'aff_', 'alg_', 'li_', 'tt_', 'tw_', 'epik_', '_bta_', '_bta', '_oly_', 'cam_', 'cup_', 'gdr_', 'gds_', 'et_', 'hmsr_', 'zanpid_', '_ga_', '_gid_', '_gat_', 's_'
   ]),
 
-  PARAMS_TO_KEEP_WHITELIST: new Set(['t', 'v', 'id']),
+  PARAMS_TO_KEEP_WHITELIST: new Set(['t', 'v', 'targetid']),
 
-  // [更新] 新增 /v.*/event 萬用字元攔截規則
   PATH_BLOCK_REGEX: [
     /^\/[a-z0-9]{12,}\.js$/i,
-    /[^\/]*sentry[^\/]*\.js/i,
-    /\/v.*\/event/i
-  ]
+    /[^\/]*sentry[^\/]*\.js/i
+  ],
+
+  DOMAIN_BLOCK_MEMO: { threshold: 3, windowMs: 10 * 60 * 1000 }
 };
 
 // #################################################################################################
@@ -191,150 +249,259 @@ const __now__ = (typeof performance !== 'undefined' && typeof performance.now ==
 
 const DECISION = Object.freeze({
   ALLOW: 1,
-  BLOCK: 2
+  BLOCK: 2,
+  PARAM_CLEAN: 3
 });
 
 const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 'image/gif' }, body: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" } };
 const REJECT_RESPONSE = { response: { status: 403 } };
+const DROP_RESPONSE = REJECT_RESPONSE;
 
-const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', 'jpg', 'jpeg', 'webp', 'ico']);
+const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.ico']);
 
 class OptimizedTrie {
-  constructor() { this.root = {}; }
-  insert(key) { let n = this.root; for(let c of key) { if (!n[c]) n[c] = {}; n = n[c]; } n.isEndOfWord = true; }
-  contains(text) { for (let i = 0; i < text.length; i++) { let n = this.root; for (let j = i; j < text.length; j++) { let c = text[j]; if (!n[c]) break; n = n[c]; if (n.isEndOfWord) return true; } } return false; }
-  startsWith(prefix) { let n = this.root; for(let c of prefix) { if (!n[c]) return false; n = n[c]; } return true; }
+  constructor() { this.root = Object.create(null); this._nodePool = []; }
+  _getNode() { return this._nodePool.pop() || Object.create(null); }
+  _returnNode(node) { for (const k in node) delete node[k]; if (this._nodePool.length < 100) this._nodePool.push(node); }
+  insert(word) { let n = this.root; for (let i = 0; i < word.length; i++) { const c = word[i]; if (!n[c]) n[c] = this._getNode(); n = n[c]; } n.isEndOfWord = true; }
+  startsWith(prefix) { let n = this.root; for (let i = 0; i < prefix.length; i++) { const c = prefix[i]; if (!n[c]) return false; n = n[c]; if (n.isEndOfWord) return true; } return false; }
+  contains(text) { const N = text.length; for (let i = 0; i < N; i++) { let n = this.root; for (let j = i; j < N; j++) { const c = text[j]; if (!n[c]) break; n = n[c]; if (n.isEndOfWord) return true; } } return false; }
 }
 
 class HighPerformanceLRUCache {
-    constructor(maxSize = 1000) { this.maxSize = maxSize; this.cache = new Map(); this.head = {k:null,v:null,p:null,n:null}; this.tail = {k:null,v:null,p:null,n:null}; this.head.n = this.tail; this.tail.p = this.head; }
-    _add(n) { n.p = this.head; n.n = this.head.n; this.head.n.p = n; this.head.n = n; }
-    _remove(n) { n.p.n = n.n; n.n.p = n.p; }
-    get(k) { const n = this.cache.get(k); if(n){this._remove(n);this._add(n);return n.v;} return null; }
-    set(k, v) { let n = this.cache.get(k); if(n){ n.v = v; this._remove(n); this._add(n); } else { n = {k,v,p:null,n:null}; if(this.cache.size >= this.maxSize){ const t = this.tail.p; this._remove(t); this.cache.delete(t.k); } this.cache.set(k,n); this._add(n); } }
+  constructor(maxSize = 1000) { this.maxSize = maxSize; this.cache = new Map(); this.head = { k: null, v: null, p: null, n: null }; this.tail = { k: null, v: null, p: null, n: null }; this.head.n = this.tail; this.tail.p = this.head; }
+  _add(node) { node.p = this.head; node.n = this.head.n; this.head.n.p = node; this.head.n = node; }
+  _remove(node) { node.p.n = node.n; node.n.p = node.p; }
+  _moveToHead(node) { this._remove(node); this._add(node); }
+  _popTail() { const last = this.tail.p; this._remove(last); return last; }
+  get(key) { const n = this.cache.get(key); if (n) { this._moveToHead(n); return n.v; } return null; }
+  set(key, value) { let n = this.cache.get(key); if (n) { n.v = value; this._moveToHead(n); } else { n = { k: key, v: value, p: null, n: null }; if (this.cache.size >= this.maxSize) { const tail = this._popTail(); this.cache.delete(tail.k); } this.cache.set(key, n); this._add(n); } }
+}
+
+class SmartCacheManager {
+  constructor() { this.primaryCache = new HighPerformanceLRUCache(800); this.frequencyCache = new HighPerformanceLRUCache(200); this.accessCount = new Map(); this.lastCleanup = Date.now(); this.cleanupInterval = 300000; }
+  get(key) { let r = this.frequencyCache.get(key); if (r !== null) return r; r = this.primaryCache.get(key); if (r !== null) { this._incrementAccess(key); return r; } return null; }
+  set(key, value) { const cnt = this.accessCount.get(key) || 0; if (cnt > 3) { this.frequencyCache.set(key, value); } else { this.primaryCache.set(key, value); } this._cleanup(); }
+  _incrementAccess(key) { const cnt = (this.accessCount.get(key) || 0) + 1; this.accessCount.set(key, cnt); if (cnt > 3) { const v = this.primaryCache.get(key); if (v !== null) this.frequencyCache.set(key, v); } }
+  _cleanup() { const now = Date.now(); if (now - this.lastCleanup > this.cleanupInterval) { for (const [k, c] of this.accessCount.entries()) { if (c < 2) this.accessCount.delete(k); } this.lastCleanup = now; } }
 }
 
 class MultiLevelCacheManager {
-    constructor() { this.l1 = new HighPerformanceLRUCache(256); this.l2 = new HighPerformanceLRUCache(1024); this.urlObj = new HighPerformanceLRUCache(64); }
-    getDomainDecision(h) { return this.l1.get(h); }
-    setDomainDecision(h,d) { this.l1.set(h,d); }
-    getUrlDecision(k) { return this.l2.get(k); }
-    setUrlDecision(k,d) { this.l2.set(k,d); }
-    getUrlObject(r) { return this.urlObj.get(r); }
-    setUrlObject(r,o) { this.urlObj.set(r,o); }
+  constructor() {
+    this.l1DomainCache = new HighPerformanceLRUCache(256);
+    this.l2SmartCache = new SmartCacheManager();
+    this.urlObjectCache = new HighPerformanceLRUCache(64);
+  }
+  getDomainDecision(h) { return this.l1DomainCache.get(h); }
+  setDomainDecision(h, d) { this.l1DomainCache.set(h, d); }
+  getUrlDecision(k) { return this.l2SmartCache.get(k); }
+  setUrlDecision(k, d) { this.l2SmartCache.set(k, d); }
+  getUrlObject(rawUrl) { return this.urlObjectCache.get(rawUrl); }
+  setUrlObject(rawUrl, urlObj) { this.urlObjectCache.set(rawUrl, urlObj); }
 }
 
 const multiLevelCache = new MultiLevelCacheManager();
 const OPTIMIZED_TRIES = {
-  prefix: new OptimizedTrie(), criticalPattern: new OptimizedTrie(), pathBlock: new OptimizedTrie(),
-  allow: new OptimizedTrie(), drop: new OptimizedTrie()
+  prefix: new OptimizedTrie(),
+  criticalPattern: new OptimizedTrie(),
+  pathBlock: new OptimizedTrie(),
+  allow: new OptimizedTrie(),
+  drop: new OptimizedTrie()
 };
 
 function initializeOptimizedTries() {
-    for(let k of CONFIG.TRACKING_PREFIXES) OPTIMIZED_TRIES.prefix.insert(k);
-    for(let k of CONFIG.CRITICAL_TRACKING_PATTERNS) OPTIMIZED_TRIES.criticalPattern.insert(k);
-    for(let k of CONFIG.PATH_BLOCK_KEYWORDS) OPTIMIZED_TRIES.pathBlock.insert(k);
-    for(let k of CONFIG.PATH_ALLOW_PATTERNS) OPTIMIZED_TRIES.allow.insert(k);
-    for(let k of CONFIG.DROP_KEYWORDS) OPTIMIZED_TRIES.drop.insert(k);
+  CONFIG.TRACKING_PREFIXES.forEach(p => OPTIMIZED_TRIES.prefix.insert(String(p).toLowerCase()));
+  CONFIG.CRITICAL_TRACKING_PATTERNS.forEach(p => OPTIMIZED_TRIES.criticalPattern.insert(String(p).toLowerCase()));
+  CONFIG.PATH_BLOCK_KEYWORDS.forEach(p => OPTIMIZED_TRIES.pathBlock.insert(String(p).toLowerCase()));
+  CONFIG.PATH_ALLOW_PATTERNS.forEach(p => OPTIMIZED_TRIES.allow.insert(String(p).toLowerCase()));
+  CONFIG.DROP_KEYWORDS.forEach(p => OPTIMIZED_TRIES.drop.insert(String(p).toLowerCase()));
 }
 
 function getWhitelistStatus(host) {
-    if (CONFIG.API_WHITELIST_HARD_EXACT.has(host)) return 2;
-    let current = host;
-    while(true){
-        if(CONFIG.API_WHITELIST_SOFT_EXACT.has(current) || CONFIG.API_WHITELIST_WILDCARDS.has(current)) return 1;
-        const d = current.indexOf('.'); if (d === -1) break; current = current.slice(d+1);
-    }
-    return 0;
+  if (CONFIG.API_WHITELIST_HARD_EXACT.has(host)) return 2;
+  if (CONFIG.API_WHITELIST_SOFT_EXACT.has(host)) return 1;
+  let current = host;
+  while (true) {
+    const d = current.indexOf('.');
+    if (d === -1) break;
+    current = current.slice(d + 1);
+    if (CONFIG.API_WHITELIST_WILDCARDS.has(current)) return 1;
+  }
+  if (CONFIG.API_WHITELIST_WILDCARDS.has(host)) return 1;
+  return 0;
 }
 
 function isOptimizedDomainBlocked(h) {
-    let c = h;
-    while(c){ if(CONFIG.BLOCK_DOMAINS.has(c)) return true; const i=c.indexOf('.'); if(i === -1)break; c=c.slice(i+1); }
-    return false;
+  let c = h;
+  while (c) {
+    if (CONFIG.BLOCK_DOMAINS.has(c)) return true;
+    const i = c.indexOf('.');
+    if (i === -1) break;
+    c = c.slice(i + 1);
+  }
+  return false;
 }
 
 function isOptimizedCriticalTrackingScript(path) {
-    const k = `crit:${path}`; const c = multiLevelCache.getUrlDecision(k); if(c!==null) return c;
-    const s = path.lastIndexOf('/'); const n = s !== -1 ? path.slice(s+1).split('?')[0] : path.split('?')[0];
-    const b = CONFIG.CRITICAL_TRACKING_SCRIPTS.has(n) || OPTIMIZED_TRIES.criticalPattern.contains(path);
-    multiLevelCache.setUrlDecision(k,b); return b;
+  const k = `crit:${path}`;
+  const c = multiLevelCache.getUrlDecision(k);
+  if (c !== null) return c;
+  const q = path.indexOf('?');
+  const p = q !== -1 ? path.slice(0, q) : path;
+  const s = p.lastIndexOf('/');
+  const n = s !== -1 ? p.slice(s + 1) : p;
+  let b = n && CONFIG.CRITICAL_TRACKING_SCRIPTS.has(n);
+  if (!b) b = OPTIMIZED_TRIES.criticalPattern.contains(path);
+  multiLevelCache.setUrlDecision(k, b);
+  return b;
 }
 
 function isOptimizedPathBlocked(path) {
-    const k = `path:${path}`; const c = multiLevelCache.getUrlDecision(k); if(c!==null) return c;
-    const r = OPTIMIZED_TRIES.pathBlock.contains(path) && !OPTIMIZED_TRIES.allow.contains(path);
-    multiLevelCache.setUrlDecision(k,r); return r;
+  const k = `path:${path}`;
+  const c = multiLevelCache.getUrlDecision(k);
+  if (c !== null) return c;
+  let r = false;
+  if (OPTIMIZED_TRIES.pathBlock.contains(path)) {
+    if (!OPTIMIZED_TRIES.allow.contains(path)) r = true;
+  }
+  multiLevelCache.setUrlDecision(k, r);
+  return r;
 }
 
 function isOptimizedPathBlockedByRegex(path) {
-    const k = `regex:${path}`; const c = multiLevelCache.getUrlDecision(k); if(c!==null) return c;
-    for(const regex of CONFIG.PATH_BLOCK_REGEX){ if(regex.test(path)){multiLevelCache.setUrlDecision(k,true);return true;} }
-    multiLevelCache.setUrlDecision(k,false); return false;
+  const k = `regex:${path}`;
+  const c = multiLevelCache.getUrlDecision(k);
+  if (c !== null) return c;
+  for (let i = 0; i < CONFIG.PATH_BLOCK_REGEX.length; i++) {
+    if (CONFIG.PATH_BLOCK_REGEX[i].test(path)) {
+      multiLevelCache.setUrlDecision(k, true);
+      return true;
+    }
+  }
+  multiLevelCache.setUrlDecision(k, false);
+  return false;
 }
 
 function isDropPath(pathLower) {
-    for(const regex of CONFIG.DROP_REGEX){ if(regex.test(pathLower)) return true; }
-    return OPTIMIZED_TRIES.drop.contains(pathLower);
+  for (let i = 0; i < CONFIG.DROP_REGEX.length; i++) {
+    if (CONFIG.DROP_REGEX[i].test(pathLower)) return true;
+  }
+  return OPTIMIZED_TRIES.drop.contains(pathLower);
+}
+
+function optimizedCleanTrackingParamsImmutable(urlObj) {
+  const cloned = new URL(urlObj.toString());
+  let toDelete = null;
+  for (const key of cloned.searchParams.keys()) {
+    const lowerKey = key.toLowerCase();
+    if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(lowerKey)) continue;
+    if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) || OPTIMIZED_TRIES.prefix.startsWith(lowerKey)) {
+      if (!toDelete) toDelete = [];
+      toDelete.push(key);
+    }
+  }
+  if (toDelete) {
+    toDelete.forEach(k => cloned.searchParams.delete(k));
+    return cloned;
+  }
+  return null;
 }
 
 function getOptimizedBlockResponse(path) {
-    if(isDropPath(path.toLowerCase())) return REJECT_RESPONSE;
-    const dot = path.lastIndexOf('.');
-    if(dot !== -1 && IMAGE_EXTENSIONS.has(path.slice(dot+1).toLowerCase())) return TINY_GIF_RESPONSE;
-    return REJECT_RESPONSE;
-}
-
-function optimizedCleanTrackingParams(urlObj) {
-    const cloned = new URL(urlObj.href); let toDelete = null;
-    for (const key of cloned.searchParams.keys()) {
-        if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(key)) continue;
-        if (CONFIG.GLOBAL_TRACKING_PARAMS.has(key) || OPTIMIZED_TRIES.prefix.startsWith(key)) {
-            if (!toDelete) toDelete = []; toDelete.push(key);
-        }
-    }
-    if (toDelete) { toDelete.forEach(k => cloned.searchParams.delete(k)); return cloned; }
-    return null;
+  const lower = path.toLowerCase();
+  if (isDropPath(lower)) return REJECT_RESPONSE;
+  const dot = path.lastIndexOf('.');
+  if (dot !== -1) {
+    const ext = path.slice(dot).toLowerCase();
+    if (IMAGE_EXTENSIONS.has(ext)) return TINY_GIF_RESPONSE;
+  }
+  return REJECT_RESPONSE;
 }
 
 function processOptimizedRequest(request) {
-    try {
-        if (!request?.url || request.url.length < 10) return null;
-        const rawUrl = request.url;
-        let url = multiLevelCache.getUrlObject(rawUrl);
-        if (!url) { try { url = new URL(rawUrl); multiLevelCache.setUrlObject(rawUrl, url); } catch (e) { return null; } }
-        const hostname = url.hostname.toLowerCase();
-        const wl = getWhitelistStatus(hostname);
-        if (wl === 2) return null;
-        const isSoftWhitelist = wl === 1;
-        if (!isSoftWhitelist && multiLevelCache.getDomainDecision(hostname) === DECISION.BLOCK) {
-            return getOptimizedBlockResponse(url.pathname + url.search);
-        }
-        if (isOptimizedDomainBlocked(hostname)) {
-            if (!isSoftWhitelist) multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
-            return getOptimizedBlockResponse(url.pathname + url.search);
-        }
-        const fullPath = url.pathname + url.search;
-        if (isOptimizedCriticalTrackingScript(fullPath) || isOptimizedPathBlocked(fullPath) || isOptimizedPathBlockedByRegex(url.pathname)) {
-            if (!isSoftWhitelist) multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
-            return getOptimizedBlockResponse(fullPath);
-        }
-        const cleaned = optimizedCleanTrackingParams(url);
-        if (cleaned && cleaned.href !== url.href) {
-            return { response: { status: 302, headers: { Location: cleaned.href } } };
-        }
+  try {
+    if (!request || !request.url || typeof request.url !== 'string' || request.url.length < 10) return null;
+
+    const rawUrl = request.url;
+    let url = multiLevelCache.getUrlObject(rawUrl);
+    if (!url) {
+      try {
+        url = new URL(rawUrl);
+        multiLevelCache.setUrlObject(rawUrl, url);
+      } catch (e) {
+        if (typeof console !== 'undefined' && console.error) console.error(`[URL-Filter-v38.3-complete] URL解析失敗: "${rawUrl}", ${e.message}`);
         return null;
-    } catch (e) { return null; }
+      }
+    }
+
+    const hostname = url.hostname.toLowerCase();
+
+    const wl = getWhitelistStatus(hostname);
+    if (wl === 2) return null; // HARD白名單允許全通過
+    const isSoftWhitelist = wl === 1;
+
+    if (!isSoftWhitelist) {
+      const l1Decision = multiLevelCache.getDomainDecision(hostname);
+      if (l1Decision === DECISION.BLOCK) return getOptimizedBlockResponse(url.pathname + url.search);
+    }
+
+    if (isOptimizedDomainBlocked(hostname)) {
+      multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
+      return getOptimizedBlockResponse(url.pathname + url.search);
+    }
+
+    const originalFullPath = url.pathname + url.search;
+    const lowerPathnameOnly = url.pathname.toLowerCase();
+    const lowerFullPath = originalFullPath.toLowerCase();
+
+    if (isOptimizedCriticalTrackingScript(lowerFullPath)) {
+      if (!isSoftWhitelist) multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
+      return getOptimizedBlockResponse(originalFullPath);
+    }
+
+    if (isOptimizedPathBlocked(lowerFullPath)) {
+      if (!isSoftWhitelist) multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
+      return getOptimizedBlockResponse(originalFullPath);
+    }
+
+    if (isOptimizedPathBlockedByRegex(lowerPathnameOnly)) {
+      if (!isSoftWhitelist) multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
+      return getOptimizedBlockResponse(originalFullPath);
+    }
+
+    const cleaned = optimizedCleanTrackingParamsImmutable(url);
+    if (cleaned && cleaned.search !== url.search) {
+      // 靜默清理參數，避免破壞視覺流程
+      return { response: { status: 302, headers: { Location: cleaned.toString() } } };
+    }
+
+    return null;
+  } catch (error) {
+    if (typeof console !== 'undefined' && console.error) {
+      console.error(`[URL-Filter-v38.3-complete] 處理請求錯誤: ${error.message}`, error.stack);
+    }
+    return null;
+  }
 }
+
+// 初始化 Trie 和執行入口
 
 (function () {
   try {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
-      if (typeof $done !== 'undefined') $done({ version: '38.3-complete-updated-v2' });
+      if (typeof $done !== 'undefined') {
+        const cacheStats = multiLevelCache.getStats();
+        $done({ version: '38.3-complete-updated', status: 'ready', message: 'URL Filter v38.3-complete - Full version with blacklist & whitelist', cache: cacheStats });
+      }
       return;
     }
     const result = processOptimizedRequest($request);
     if (typeof $done !== 'undefined') $done(result || {});
-  } catch (e) { if (typeof $done !== 'undefined') $done({}); }
+  } catch (error) {
+    if (typeof console !== 'undefined' && console.error) {
+      console.error(`[URL-Filter-v38.3-complete] 致命錯誤: ${error.message}`, error.stack);
+    }
+    if (typeof $done !== 'undefined') $done({});
+  }
 })();
