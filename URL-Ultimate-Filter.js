@@ -94,6 +94,7 @@ const CONFIG = {
         // --- 開發 & 部署平台 ---
         'api.vercel.com', 'api.netlify.com', 'api.heroku.com', 'api.digitalocean.com', 'firestore.googleapis.com',
         'database.windows.net', 'auth.docker.io', 'login.docker.com', 'api.cloudflare.com', 'api.fastly.com',
+        'api.revenuecat.com',
         // --- 支付 & 金流 ---
         'api.stripe.com', 'api.paypal.com', 'api.adyen.com', 'api.braintreegateway.com',
         // --- 生產力 & 協作工具 ---
