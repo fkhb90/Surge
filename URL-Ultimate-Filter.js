@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V37.0-Final.js
- * @version     37.0 (Hybrid Strategy Engine)
- * @description V37 引入「混合策略引擎」，透過規則分類化、延遲編譯與偵錯模式，兼具 V36 的極致效能與 Trie 結構的靈活性及功能性。
+ * @file        URL-Ultimate-Filter-Surge-V37.1-Final.js
+ * @version     37.1 (Critical Fix & Logic Refactor)
+ * @description V37.1 為一個緊急修復更新。此版本重構了核心處理邏輯，修正了 V37.0 中因優先級錯亂導致的白名單失效問題，確保過濾規則的正確性。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-08
  */
@@ -12,45 +12,113 @@
 // #                                                                                               #
 // #################################################################################################
 
-/**
- * 偵錯模式開關
- * 說明：設置為 true 時，當請求被攔截，主控台將輸出詳細的 URL 及所命中的規則分類。
- */
 const DEBUG_MODE = false;
 
-/**
- * [V37.0 架構] 核心設定
- * 說明：此處存放非路徑關鍵字匹配的核心規則，如域名黑白名單、參數列表等。
- */
 const CORE_CONFIG = {
     BLOCK_DOMAINS: new Set([
-        // ... (域名黑名單內容與 V36.0 相同，為保持篇幅簡潔此處省略，實際代碼中包含完整列表)
-        'doubleclick.net', 'google-analytics.com', 'sentry.io', 'umeng.com', 'ad.shopee.tw', // 示意
+        // --- Google / DoubleClick ---
+        'doubleclick.net', 'ad.doubleclick.net', 'bid.g.doubleclick.net', 'stats.g.doubleclick.net', 'securepubads.g.doubleclick.net',
+        'google-analytics.com', 'googletagmanager.com', 'googleadservices.com', 'googlesyndication.com',
+        'admob.com', 'adsense.com', 'app-measurement.com', 'adservice.google.com', 'pagead2.googlesyndication.com',
+        // --- Facebook / Meta ---
+        'graph.facebook.com', 'connect.facebook.net',
+        // --- 主流分析 & 追蹤服務 ---
+        'scorecardresearch.com', 'chartbeat.com', 'analytics.twitter.com', 'static.ads-twitter.com', 'ads.linkedin.com',
+        'criteo.com', 'criteo.net', 'taboola.com', 'outbrain.com', 'pubmatic.com', 'rubiconproject.com',
+        'openx.net', 'openx.com', 'adsrvr.org', 'adform.net', 'semasio.net', 'yieldlab.net', 'branch.io',
+        'appsflyer.com', 'adjust.com', 'sentry.io', 'bugsnag.com', 'hotjar.com', 'vwo.com', 'optimizely.com',
+        'mixpanel.com', 'amplitude.com', 'heap.io', 'loggly.com', 'c.clarity.ms', 'track.hubspot.com', 'api.pendo.io',
+        'fullstory.com', 'inspectlet.com', 'mouseflow.com', 'crazyegg.com', 'clicktale.net', 'kissmetrics.com',
+        'keen.io', 'segment.com', 'segment.io', 'mparticle.com', 'snowplowanalytics.com', 'newrelic.com',
+        'nr-data.net', 'datadoghq.com', 'logrocket.com', 'sumo.com', 'sumome.com', 'piwik.pro', 'matomo.cloud',
+        'clicky.com', 'statcounter.com', 'quantserve.com', 'comscore.com', 'tealium.com', 'collector.newrelic.com',
+        'analytics.line.me',
+        // --- 廣告驗證 & 可見度追蹤 ---
+        'doubleverify.com', 'moatads.com', 'moat.com', 'iasds.com', 'serving-sys.com',
+        // --- 客戶數據平台 (CDP) & 身分識別 ---
+        'agkn.com', 'tags.tiqcdn.com',
+        // --- 主流廣告聯播網 & 平台 ---
+        'adcolony.com', 'adroll.com', 'adsnative.com', 'bidswitch.net', 'casalemedia.com', 'conversantmedia.com',
+        'media.net', 'soom.la', 'spotxchange.com', 'teads.tv', 'tremorhub.com', 'yieldmo.com', 'zemanta.com',
+        'flashtalking.com', 'indexexchange.com', 'magnite.com', 'gumgum.com', 'inmobi.com', 'mopub.com',
+        'sharethrough.com', 'smartadserver.com', 'applovin.com', 'ironsrc.com', 'unityads.unity3d.com', 'vungle.com',
+        'appnexus.com', 'contextweb.com', 'spotx.tv', 'liveintent.com', 'narrative.io', 'neustar.biz', 'tapad.com',
+        'thetradedesk.com', 'bluekai.com', 'amazon-adsystem.com', 'aax.amazon-adsystem.com', 'fls-na.amazon.com',
+        'ib.adnxs.com', 'adserver.yahoo.com', 'ads.yahoo.com', 'analytics.yahoo.com', 'geo.yahoo.com',
+        // --- 更多主流廣告技術平台 ---
+        'adswizz.com', 'sitescout.com', 'ad.yieldmanager.com', 'creativecdn.com', 'cr-serving.com', 'yieldify.com', 'go-mpulse.net',
+        // --- 彈出式 & 其他廣告 ---
+        'popads.net', 'propellerads.com', 'adcash.com', 'zeropark.com',
+        // --- 聯盟行銷 ---
+        'admitad.com', 'awin1.com', 'cj.com', 'impactradius.com', 'linkshare.com', 'rakutenadvertising.com',
+        // --- 俄羅斯 ---
+        'yandex.ru', 'adriver.ru',
+        // --- 內容管理 & 推播 ---
+        'disqus.com', 'disquscdn.com', 'addthis.com', 'sharethis.com', 'po.st', 'cbox.ws', 'intensedebate.com',
+        'onesignal.com', 'pushengage.com', 'sail-track.com',
+        // --- 隱私權 & Cookie 同意管理 ---
+        'onetrust.com', 'cookielaw.org', 'trustarc.com', 'sourcepoint.com', 'usercentrics.eu',
+        // --- 台灣地區 ---
+        'clickforce.com.tw', 'tagtoo.co', 'urad.com.tw', 'cacafly.com', 'is-tracking.com', 'vpon.com',
+        'ad-specs.guoshipartners.com', 'sitetag.us', 'imedia.com.tw', 'ad.ettoday.net', 'ad.pixnet.net',
+        'ad.pchome.com.tw', 'ad.momo.com.tw', 'ad.xuite.net', 'ad.cna.com.tw', 'ad.cw.com.tw',
+        'ad.hi-on.org', 'adm.chinatimes.com', 'analysis.tw', 'trk.tw', 'fast-trk.com', 'gamani.com',
+        'tenmax.io', 'aotter.net', 'funp.com', 'ad.ruten.com.tw', 'ad.books.com.tw', 'ad.etmall.com.tw',
+        'ad.shopping.friday.tw', 'ad-hub.net', 'adgeek.net', 'ad.shopee.tw', 'rq.vpon.com',
+        // --- 中國大陸地區 ---
+        'umeng.com', 'umeng.co', 'umeng.cn', 'cnzz.com', 'talkingdata.com', 'talkingdata.cn', 'hm.baidu.com',
+        'pos.baidu.com', 'cpro.baidu.com', 'eclick.baidu.com', 'usp1.baidu.com', 'pingjs.qq.com', 'wspeed.qq.com',
+        'ads.tencent.com', 'gdt.qq.com', 'ta.qq.com', 'tanx.com', 'alimama.com', 'log.mmstat.com',
+        'getui.com', 'jpush.cn', 'jiguang.cn', 'gridsum.com', 'admaster.com.cn', 'miaozhen.com',
+        'su.baidu.com', 'mobads.baidu.com', 'mta.qq.com', 'log.tmall.com', 'ad.kuaishou.com', 
+        'pangolin-sdk-toutiao.com', 'zhugeio.com', 'growingio.com', 'youmi.net', 'adview.cn', 'igexin.com',
+        // --- 其他 ---
+        'wcs.naver.net', 'adnx.com', 'rlcdn.com', 'revjet.com',
+        'ads-api.tiktok.com', 'analytics.tiktok.com', 'tr.snapchat.com', 'sc-static.net', 'ads.pinterest.com',
+        'log.pinterest.com', 'analytics.snapchat.com', 'ads-api.twitter.com', 'ads.youtube.com', 'cint.com',
     ]),
     API_WHITELIST_EXACT: new Set([
-        // ... (精確白名單內容與 V36.0 相同)
-        'youtubei.googleapis.com', 'api.github.com', 'api.line.me', // 示意
+        'youtubei.googleapis.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
+        'open.spotify.com', 'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
+        'api.github.com', 'api.openai.com', 'api.anthropic.com', 'a-api.anthropic.com', 'api.cohere.ai',
+        'gemini.google.com', 'api.telegram.org', 'api.slack.com', 'api.discord.com', 'api.twitch.tv',
+        'api.vercel.com', 'api.netlify.com', 'api.heroku.com', 'api.digitalocean.com', 'firestore.googleapis.com',
+        'database.windows.net', 'auth.docker.io', 'login.docker.com', 'api.cloudflare.com', 'api.fastly.com',
+        'api.stripe.com', 'api.paypal.com', 'api.adyen.com', 'api.braintreegateway.com',
+        'api.notion.com', 'api.figma.com', 'api.trello.com', 'api.asana.com', 'api.dropboxapi.com', 'clorasio.atlassian.net',
+        'okta.com', 'auth0.com', 'sso.godaddy.com',
+        'api.ecpay.com.tw', 'payment.ecpay.com.tw', 'api.line.me', 'api.jkos.com', 'api.esunbank.com.tw',
+        'api.cathaybk.com.tw', 'api.ctbcbank.com', 'tixcraft.com', 'kktix.com', 'netbank.bot.com.tw',
+        'ebank.megabank.com.tw', 'ibank.firstbank.com.tw', 'netbank.hncb.com.tw', 'mma.sinopac.com',
+        'richart.tw', 'api.irentcar.com.tw', 'ebank.tcb-bank.com.tw', 'ibanking.scsb.com.tw',
+        'ebank.taipeifubon.com.tw', 'nbe.standardchartered.com.tw', 'usiot.roborock.com', 'cmapi.tw.coupang.com',
+        'api.intercom.io', 'api.sendgrid.com', 'api.mailgun.com', 'hooks.slack.com', 'api.pagerduty.com',
+        'api.zende.sk', 'api.hubapi.com', 'secure.gravatar.com', 'legy.line-apps.com', 'obs.line-scdn.net',
+        'duckduckgo.com', 'external-content.duckduckgo.com'
     ]),
     API_WHITELIST_WILDCARDS: new Map([
-        // ... (萬用字元白名單內容與 V36.0 相同)
-        ['youtube.com', true], ['apple.com', true], ['shopee.tw', true], // 示意
+        ['youtube.com', true], ['m.youtube.com', true], ['googlevideo.com', true], ['paypal.com', true],
+        ['stripe.com', true], ['apple.com', true], ['icloud.com', true], ['windowsupdate.com', true],
+        ['update.microsoft.com', true], ['amazonaws.com', true], ['cloudfront.net', true], ['fastly.net', true],
+        ['akamaihd.net', true], ['cloudflare.com', true], ['jsdelivr.net', true], ['unpkg.com', true],
+        ['cdnjs.cloudflare.com', true], ['gstatic.com', true], ['fbcdn.net', true], ['twimg.com', true],
+        ['inoreader.com', true], ['theoldreader.com', true], ['newsblur.com', true], ['flipboard.com', true],
+        ['itofoo.com', true],
+        ['github.io', true], ['gitlab.io', true], ['windows.net', true], ['pages.dev', true], ['vercel.app', true],
+        ['netlify.app', true], ['azurewebsites.net', true], ['cloudfunctions.net', true], ['oraclecloud.com', true],
+        ['digitaloceanspaces.com', true], ['okta.com', true], ['auth0.com', true], ['atlassian.net', true],
+        ['shopee.tw', true], ['fubon.com', true], ['bot.com.tw', true], ['megabank.com.tw', true], ['firstbank.com.tw', true],
+        ['hncb.com.tw', true], ['chb.com.tw', true], ['taishinbank.com.tw', true], ['sinopac.com', true],
+        ['tcb-bank.com.tw', true], ['scsb.com.tw', true], ['standardchartered.com.tw', true],
+        ['web.archive.org', true], ['web-static.archive.org', true], ['archive.is', true], ['archive.today', true],
+        ['archive.ph', true], ['archive.li', true], ['archive.vn', true], ['webcache.googleusercontent.com', true],
+        ['cc.bingj.com', true], ['perma.cc', true], ['www.webarchive.org.uk', true], ['timetravel.mementoweb.org', true]
     ]),
-    CRITICAL_TRACKING_SCRIPTS: new Set([
-        // ... (關鍵腳本檔名列表與 V36.0 相同)
-        'gtag.js', 'analytics.js', 'fbevents.js', // 示意
-    ]),
-    PATH_ALLOW_PATTERNS: new Set([
-        // ... (路徑豁免關鍵字與 V36.0 相同)
-        'chunk.js', 'api', 'login', 'assets', // 示意
-    ]),
-    GLOBAL_TRACKING_PARAMS: new Set([
-        // ... (全域追蹤參數列表與 V36.0 相同)
-        'utm_source', 'fbclid', 'gclid', 'msclkid', // 示意
-    ]),
-    TRACKING_PREFIXES: new Set([
-        // ... (追蹤參數前綴列表與 V36.0 相同)
-        'utm_', 'gcl_', 'fb_', // 示意
-    ]),
+    CRITICAL_TRACKING_SCRIPTS: new Set(['ytag.js', 'gtag.js', 'gtm.js', 'ga.js', 'analytics.js', 'adsbygoogle.js', 'ads.js', 'fbevents.js', 'fbq.js', 'pixel.js', 'connect.js', 'tracking.js', 'tracker.js', 'tag.js', 'doubleclick.js', 'adsense.js', 'adloader.js', 'hotjar.js', 'mixpanel.js', 'amplitude.js', 'segment.js', 'clarity.js', 'matomo.js', 'piwik.js', 'fullstory.js', 'heap.js', 'inspectlet.js', 'logrocket.js', 'vwo.js', 'optimizely.js', 'criteo.js', 'pubmatic.js', 'outbrain.js', 'taboola.js', 'prebid.js', 'apstag.js', 'utag.js', 'beacon.js', 'event.js', 'collect.js', 'activity.js', 'conversion.js', 'action.js', 'abtasty.js', 'cmp.js', 'sp.js', 'adobedtm.js', 'visitorapi.js', 'intercom.js', 'link-click-tracker.js', 'user-timing.js', 'cf.js', 'tagtoo.js', 'wcslog.js', 'ads-beacon.js', 'essb-core.min.js', 'hm.js', 'u.js', 'um.js', 'aplus.js', 'aplus_wap.js', 'gdt.js', 'tiktok-pixel.js', 'tiktok-analytics.js', 'pangle.js', 'ec.js', 'autotrack.js', 'capture.js', 'user-id.js', 'adroll.js', 'adroll_pro.js', 'quant.js', 'quantcast.js', 'comscore.js', 'dax.js', 'chartbeat.js', 'crazyegg.js', 'mouseflow.js', 'newrelic.js', 'nr-loader.js', 'perf.js', 'trace.js', 'tracking-api.js', 'scevent.min.js', 'ad-sdk.js', 'ad-manager.js', 'ad-player.js', 'ad-lib.js', 'ad-core.js']),
+    PATH_ALLOW_PATTERNS: new Set(['chunk.js', 'chunk.mjs', 'bundle.js', 'main.js', 'app.js', 'vendor.js', 'runtime.js', 'common.js', 'framework.js', 'framework.mjs', 'polyfills.js', 'polyfills.mjs', 'styles.js', 'styles.css', 'index.js', 'index.mjs', 'api', 'service', 'endpoint', 'webhook', 'callback', 'oauth', 'auth', 'login', 'register', 'profile', 'dashboard', 'admin', 'config', 'settings', 'preference', 'notification', 'message', 'chat', 'comment', 'review', 'rating', 'search', 'filter', 'sort', 'category', 'media', 'image', 'video', 'audio', 'document', 'pdf', 'export', 'import', 'backup', 'restore', 'sync', 'feed', 'rss', 'atom', 'xml', 'opml', 'subscription', 'subscribe', 'collections', 'boards', 'streams', 'contents', 'preferences', 'folders', 'entries', 'items', 'posts', 'articles', 'sources', 'categories', 'polyfill.js', 'fetch-polyfill', 'browser.js', 'sw.js', 'loader.js', 'header.js', 'head.js', 'padding.css', 'badge.svg', 'modal.js', 'card.js', 'download', 'upload', 'payload', 'broadcast', 'roadmap', 'gradient', 'shadow', 'board', 'dialog', 'blog', 'catalog', 'game', 'language', 'page', 'page-data.js', 'legacy.js', 'article', 'assets', 'cart', 'chart', 'start', 'parts', 'partner', 'amp-anim', 'amp-animation', 'amp-iframe', 'icon.svg', 'logo.svg', 'favicon.ico', 'manifest.json', 'robots.txt', '_next/static/', '_app/', '_nuxt/', 'static/js/', 'static/css/', 'static/media/', 'i18n/', 'locales/', 'theme.js', 'config.js', 'web.config', 'sitemap.xml', 'chunk-vendors', 'chunk-common', 'component---']),
+    DROP_KEYWORDS: new Set(['log', 'logs', 'logger', 'logging', 'amp-loader', 'amp-analytics', 'beacon', 'collect?', 'collector', 'telemetry', 'crash', 'error-report', 'metric', 'insight', 'audit', 'event-stream', 'ingest', 'live-log', 'realtime-log', 'data-pipeline', 'rum', 'intake', 'batch', 'diag', 'client-event', 'server-event', 'heartbeat', 'web-vitals', 'performance-entry', 'diagnostic.log', 'user-action', 'stacktrace', 'csp-report', 'profiler', 'trace.json', 'usage.log']),
+    GLOBAL_TRACKING_PARAMS: new Set(['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id', 'utm_source_platform', 'utm_creative_format', 'utm_marketing_tactic', 'gclid', 'dclid', 'gclsrc', 'wbraid', 'gbraid', 'gad_source', 'gad', 'gcl_au', '_ga', '_gid', '_gat', '__gads', '__gac', 'msclkid', 'msad', 'mscampaignid', 'msadgroupid', 'fbclid', 'fbadid', 'fbcampaignid', 'fbadsetid', 'fbplacementid', 'igshid', 'igsh', 'x-threads-app-object-id', 'mibextid', 'yclid', 'twclid', 'ttclid', 'li_fat_id', 'mc_cid', 'mc_eid', 'mkt_tok', 'zanpid', 'affid', 'affiliate_id', 'partner_id', 'sub_id', 'transaction_id', 'customid', 'click_id', 'clickid', 'offer_id', 'promo_code', 'coupon_code', 'deal_id', 'rb_clickid', 's_kwcid', 'ef_id', 'email_source', 'email_campaign', 'from', 'source', 'ref', 'referrer', 'campaign', 'medium', 'content', 'spm', 'scm', 'share_source', 'share_medium', 'share_plat', 'share_id', 'share_tag', 'from_source', 'from_channel', 'from_uid', 'from_user', 'tt_from', 'tt_medium', 'tt_campaign', 'share_token', 'share_app_id', 'xhsshare', 'xhs_share', 'app_platform', 'share_from', 'weibo_id', 'wechat_id', 'is_copy_url', 'is_from_webapp', 'pvid', 'fr', 'type', 'scene', 'traceid', 'request_id', '__twitter_impression', '_openstat', 'hsCtaTracking', 'hsa_acc', 'hsa_cam', 'hsa_grp', 'hsa_ad', 'hsa_src', 'vero_conv', 'vero_id', 'ck_subscriber_id', 'action_object_map', 'action_type_map', 'action_ref_map', 'feature', 'src', 'si', 'trk', 'trk_params', 'epik', 'piwik_campaign', 'piwik_kwd', 'matomo_campaign', 'matomo_kwd', '_bta_c', '_bta_tid', 'oly_anon_id', 'oly_enc_id', 'redirect_log_mongo_id', 'redirect_mongo_id', 'sb_referer_host', 'ecid', 'from_ad', 'from_search', 'from_promo', 'camid', 'cupid', 'hmsr', 'hmpl', 'hmcu', 'hmkw', 'hmci', 'union_id', 'biz', 'mid', 'idx', 'ad_id', 'adgroup_id', 'campaign_id', 'creative_id', 'keyword', 'matchtype', 'device', 'devicemodel', 'adposition', 'network', 'placement', 'targetid', 'feeditemid', 'loc_physical_ms', 'loc_interest_ms', 'creative', 'adset', 'ad', 'pixel_id', 'event_id', 'algolia_query', 'algolia_query_id', 'algolia_object_id', 'algolia_position']),
+    TRACKING_PREFIXES: new Set(['utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'mkt_', 'matomo_', 'piwik_', 'hsa_', 'ad_', 'trk_', 'spm_', 'scm_', 'bd_', 'video_utm_', 'vero_', '__cf_', '_hs', 'pk_', 'mtm_', 'campaign_', 'source_', 'medium_', 'content_', 'term_', 'creative_', 'placement_', 'network_', 'device_', 'ref_', 'from_', 'share_', 'aff_', 'alg_', 'li_', 'tt_', 'tw_', 'epik_', '_bta_', '_bta', '_oly_', 'cam_', 'cup_', 'gdr_', 'gds_', 'et_', 'hmsr_', 'zanpid_', '_ga_', '_gid_', '_gat_', 's_']),
     PARAMS_TO_KEEP_WHITELIST: new Set(['t', 'v', 'targetid']),
     PATH_BLOCK_REGEX_LITERALS: [
         /^\/[a-z0-9]{12,}\.js$/i,
@@ -58,46 +126,20 @@ const CORE_CONFIG = {
     ],
 };
 
-// --- [V37.0 新增] 規則分類化引擎 ---
 const REJECT_RESPONSE = { response: { status: 403 } };
 const DROP_RESPONSE = { response: {} };
 const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 'image/gif' }, body: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" }};
 
 const RULE_SETS = {
-    ADVERTISING_GENERIC: {
-        keywords: new Set(['/ad/', '/ads/', '/adv/', '/advert/', 'doubleclick', 'pagead', 'google_ad', 'adsbygoogle', 'adsense', 'ad-specs']),
-        action: REJECT_RESPONSE
-    },
-    TRACKING_GENERIC: {
-        keywords: new Set(['/track/', '/tracker/', '/tracking/', '/beacon/', '/pixel/', '/collect?', '/telemetry/', '/v1/pixel', 'hm.baidu.com']),
-        action: DROP_RESPONSE
-    },
-    BEHAVIOR_MONITORING: {
-        keywords: new Set(['hotjar', 'fullstory', 'clarity.ms', 'mouseflow', 'crazyegg', 'inspectlet', 'logrocket', 'vwo.js', 'session-replay']),
-        action: REJECT_RESPONSE
-    },
-    ERROR_MONITORING: {
-        keywords: new Set(['/bugsnag/', '/crash/', '/error/', '/exception/', '/stacktrace/']),
-        action: REJECT_RESPONSE
-    },
-    PRIVACY_CONSENT: {
-        keywords: new Set(['onetrust', 'cookielaw', 'trustarc', 'sourcepoint', 'usercentrics', 'cookie-consent', 'gdpr']),
-        action: REJECT_RESPONSE
-    },
-    SOCIAL_PLUGINS: {
-        keywords: new Set(['fbevents', 'fbq', 'connect.facebook.net', 'addthis', 'sharethis', 'disqus', 'intensedebate']),
-        action: REJECT_RESPONSE
-    },
-    CN_ANALYTICS: {
-        keywords: new Set(['umeng', 'cnzz', 'talkingdata', 'miaozhen', 'growingio', 'zhugeio']),
-        action: DROP_RESPONSE
-    },
-    AD_PROVIDERS_SPECIAL: {
-        keywords: new Set(['criteo', 'taboola', 'outbrain', 'pubmatic', 'rubiconproject', 'openx', 'adroll', 'appnexus']),
-        action: REJECT_RESPONSE
-    }
+    ADVERTISING_GENERIC: { keywords: new Set(['/ad/', '/ads/', '/adv/', '/advert/', 'doubleclick', 'pagead', 'google_ad', 'adsbygoogle', 'adsense', 'ad-specs']), action: REJECT_RESPONSE },
+    TRACKING_GENERIC: { keywords: new Set(['/track/', '/tracker/', '/tracking/', '/beacon/', '/pixel/', '/collect?', '/telemetry/', '/v1/pixel', 'hm.baidu.com']), action: DROP_RESPONSE },
+    BEHAVIOR_MONITORING: { keywords: new Set(['hotjar', 'fullstory', 'clarity.ms', 'mouseflow', 'crazyegg', 'inspectlet', 'logrocket', 'vwo.js', 'session-replay']), action: REJECT_RESPONSE },
+    ERROR_MONITORING: { keywords: new Set(['/bugsnag/', '/crash/', '/error/', '/exception/', '/stacktrace/']), action: REJECT_RESPONSE },
+    PRIVACY_CONSENT: { keywords: new Set(['onetrust', 'cookielaw', 'trustarc', 'sourcepoint', 'usercentrics', 'cookie-consent', 'gdpr']), action: REJECT_RESPONSE },
+    SOCIAL_PLUGINS: { keywords: new Set(['fbevents', 'fbq', 'connect.facebook.net', 'addthis', 'sharethis', 'disqus', 'intensedebate']), action: REJECT_RESPONSE },
+    CN_ANALYTICS: { keywords: new Set(['umeng', 'cnzz', 'talkingdata', 'miaozhen', 'growingio', 'zhugeio']), action: DROP_RESPONSE },
+    AD_PROVIDERS_SPECIAL: { keywords: new Set(['criteo', 'taboola', 'outbrain', 'pubmatic', 'rubiconproject', 'openx', 'adroll', 'appnexus']), action: REJECT_RESPONSE }
 };
-
 
 // #################################################################################################
 // #                                                                                               #
@@ -105,51 +147,50 @@ const RULE_SETS = {
 // #                                                                                               #
 // #################################################################################################
 
-// --- 全域快取與編譯器 ---
 const globalCache = new LRUCache(500);
 const compiledRegexCache = new Map();
 const paramPrefixTrie = new Trie();
-let PRECOMPILED_ALLOW_REGEX;
+let PRECOMPILED_REGEX = {};
 
-// --- 核心類別 (與 V36.0 相同) ---
 class LRUCache { constructor(maxSize = 500) { this.maxSize = maxSize; this.cache = new Map(); } get(key) { if (!this.cache.has(key)) return null; const value = this.cache.get(key); this.cache.delete(key); this.cache.set(key, value); return value; } set(key, value) { if (this.cache.has(key)) this.cache.delete(key); else if (this.cache.size >= this.maxSize) { this.cache.delete(this.cache.keys().next().value); } this.cache.set(key, value); } }
 class Trie { constructor() { this.root = {}; } insert(word) { let node = this.root; for (const char of word) { node = node[char] = node[char] || {}; } node.isEndOfWord = true; } startsWith(prefix) { let node = this.root; const lowerPrefix = prefix.toLowerCase(); for (const char of lowerPrefix) { if (!node[char]) return false; node = node[char]; } return true; } }
 
-// --- 輔助函式 ---
 const REDIRECT_RESPONSE = (url) => ({ response: { status: 302, headers: { 'Location': url } }});
 const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', 'png', 'jpg', 'jpeg', 'webp', '.ico']);
 function buildRegexFromKeywords(keywords, flags = 'i') { if (!keywords || keywords.size === 0) return /(?!)/; const pattern = Array.from(keywords, k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'); return new RegExp(pattern, flags); }
 
-/**
- * [V37.0 新增] 延遲編譯 (Lazy Compilation) 函式
- */
-function getCompiledRegex(category) {
-    if (compiledRegexCache.has(category)) {
-        return compiledRegexCache.get(category);
-    }
-    const keywords = RULE_SETS[category]?.keywords;
-    if (!keywords) return /(?!)/;
-    const newRegex = buildRegexFromKeywords(keywords);
-    compiledRegexCache.set(category, newRegex);
-    return newRegex;
-}
+function getCompiledRegex(category) { if (compiledRegexCache.has(category)) return compiledRegexCache.get(category); const keywords = RULE_SETS[category]?.keywords; if (!keywords) return /(?!)/; const newRegex = buildRegexFromKeywords(keywords); compiledRegexCache.set(category, newRegex); return newRegex; }
 
-/**
- * [V37.0 優化] 集中初始化，僅預處理必要項目
- */
 function initializeRules() {
     CORE_CONFIG.TRACKING_PREFIXES.forEach(p => paramPrefixTrie.insert(p));
-    PRECOMPILED_ALLOW_REGEX = buildRegexFromKeywords(CORE_CONFIG.PATH_ALLOW_PATTERNS);
+    PRECOMPILED_REGEX = {
+        ALLOW: buildRegexFromKeywords(CORE_CONFIG.PATH_ALLOW_PATTERNS),
+        DROP: buildRegexFromKeywords(CORE_CONFIG.DROP_KEYWORDS)
+    };
 }
 
-// --- 主要處理邏輯 (與 V36.0 相似，但經過重構) ---
 function lightParseUrl(urlString) { try { const pathStartIndex = urlString.indexOf('/', 8); if (pathStartIndex === -1) { const host = urlString.substring(urlString.indexOf('//') + 2); return { hostname: host.toLowerCase(), pathname: '/', search: '' }; } const host = urlString.substring(urlString.indexOf('//') + 2, pathStartIndex); const pathAndQuery = urlString.substring(pathStartIndex); const queryStartIndex = pathAndQuery.indexOf('?'); if (queryStartIndex === -1) { return { hostname: host.toLowerCase(), pathname: pathAndQuery, search: '' }; } const path = pathAndQuery.substring(0, queryStartIndex); const query = pathAndQuery.substring(queryStartIndex); return { hostname: host.toLowerCase(), pathname: path, search: query }; } catch (e) { return null; } }
 function isApiWhitelisted(hostname) { if (CORE_CONFIG.API_WHITELIST_EXACT.has(hostname)) return true; for (const [domain] of CORE_CONFIG.API_WHITELIST_WILDCARDS) { if (hostname === domain || hostname.endsWith('.' + domain)) return true; } return false; }
 function isDomainBlocked(hostname) { const parts = hostname.split('.'); for (let i = 0; i < parts.length; ++i) { const subdomain = parts.slice(i).join('.'); if (CORE_CONFIG.BLOCK_DOMAINS.has(subdomain)) return true; } return false; }
 function getCleanedUrl(urlObject) { let paramsChanged = false; for (const key of [...urlObject.searchParams.keys()]) { if (CORE_CONFIG.PARAMS_TO_KEEP_WHITELIST.has(key.toLowerCase())) continue; if (CORE_CONFIG.GLOBAL_TRACKING_PARAMS.has(key) || paramPrefixTrie.startsWith(key)) { urlObject.searchParams.delete(key); paramsChanged = true; } } return paramsChanged ? urlObject.toString() : null; }
 
 /**
- * [V37.0 重構] 處理單一請求的主函式
+ * [V37.1 新增] 統一的攔截回應生成器
+ */
+function getBlockResponse(lowerFullPath) {
+    if (PRECOMPILED_REGEX.DROP.test(lowerFullPath)) {
+        return DROP_RESPONSE;
+    }
+    const pathOnly = lowerFullPath.split('?')[0];
+    const ext = pathOnly.substring(pathOnly.lastIndexOf('.'));
+    if (IMAGE_EXTENSIONS.has(ext)) {
+        return TINY_GIF_RESPONSE;
+    }
+    return REJECT_RESPONSE;
+}
+
+/**
+ * [V37.1 重構] 處理單一請求的主函式
  */
 function processRequest(request) {
     try {
@@ -162,67 +203,72 @@ function processRequest(request) {
         if (!parsedUrl) return null;
 
         const { hostname, pathname, search } = parsedUrl;
+        
+        // --- 1. API 白名單 (最高優先級：立即放行) ---
+        if (isApiWhitelisted(hostname)) {
+            globalCache.set(request.url, null);
+            return null;
+        }
+
         const lowerPathname = pathname.toLowerCase();
         const lowerFullPath = lowerPathname + search.toLowerCase();
 
-        let decision = null;
-
-        // --- 1. 域名黑白名單 (最優先) ---
+        // --- 2. 域名黑名單 ---
         if (isDomainBlocked(hostname)) {
-            decision = REJECT_RESPONSE;
-        } else if (isApiWhitelisted(hostname)) {
-            decision = null;
+            const decision = getBlockResponse(lowerFullPath);
+            globalCache.set(request.url, decision);
+            return decision;
         }
 
-        if (decision === null) {
-            // --- 2. 關鍵腳本檔名 & 特殊 Regex 規則 ---
-            const scriptName = pathname.substring(pathname.lastIndexOf('/') + 1).toLowerCase();
-            if (CORE_CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName)) {
-                decision = REJECT_RESPONSE;
-            } else {
-                for (const regex of CORE_CONFIG.PATH_BLOCK_REGEX_LITERALS) {
-                    if (regex.test(lowerPathname)) {
-                        decision = REJECT_RESPONSE;
-                        break;
-                    }
+        // --- 3. 關鍵腳本檔名 & 特殊 Regex 規則 ---
+        const scriptName = pathname.substring(pathname.lastIndexOf('/') + 1).toLowerCase();
+        if (CORE_CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName)) {
+            if (!PRECOMPILED_REGEX.ALLOW.test(lowerFullPath)) {
+                const decision = getBlockResponse(lowerFullPath);
+                globalCache.set(request.url, decision);
+                return decision;
+            }
+        }
+        for (const regex of CORE_CONFIG.PATH_BLOCK_REGEX_LITERALS) {
+            if (regex.test(lowerPathname)) {
+                if (!PRECOMPILED_REGEX.ALLOW.test(lowerFullPath)) {
+                    const decision = getBlockResponse(lowerFullPath);
+                    globalCache.set(request.url, decision);
+                    return decision;
                 }
             }
         }
         
-        // --- 3. [V37.0 核心] 分類化規則引擎 ---
-        if (decision === null) {
-            for (const category of Object.keys(RULE_SETS)) {
-                const regex = getCompiledRegex(category);
-                if (regex.test(lowerFullPath)) {
-                    if (!PRECOMPILED_ALLOW_REGEX.test(lowerFullPath)) {
-                        // 命中攔截規則，且未命中豁免規則
-                        decision = RULE_SETS[category].action;
-                        if (DEBUG_MODE) {
-                            console.log(`[URL-Filter-V37] Blocked by Category "${category}": ${request.url}`);
-                        }
-                        break;
-                    }
+        // --- 4. 分類化規則引擎 ---
+        for (const category of Object.keys(RULE_SETS)) {
+            const regex = getCompiledRegex(category);
+            if (regex.test(lowerFullPath)) {
+                if (!PRECOMPILED_REGEX.ALLOW.test(lowerFullPath)) {
+                    const decision = RULE_SETS[category].action;
+                    if (DEBUG_MODE) console.log(`[URL-Filter-V37.1] Blocked by Category "${category}": ${request.url}`);
+                    globalCache.set(request.url, decision);
+                    return decision;
                 }
             }
         }
         
-        // --- 4. 參數清理 (僅在未被攔截時執行) ---
-        if (decision === null && search) {
+        // --- 5. 參數清理 (僅在未被攔截時執行) ---
+        if (search) {
             const fullUrlObject = new URL(request.url);
             const cleanedUrl = getCleanedUrl(fullUrlObject);
             if (cleanedUrl) {
-                decision = REDIRECT_RESPONSE(cleanedUrl);
+                const decision = REDIRECT_RESPONSE(cleanedUrl);
+                globalCache.set(request.url, decision);
+                return decision;
             }
         }
-
-        // --- 5. 寫入全域快取並返回 ---
-        globalCache.set(request.url, decision);
-        return decision;
+        
+        // --- 6. 全部通過，最終放行 ---
+        globalCache.set(request.url, null);
+        return null;
 
     } catch (error) {
-        if (typeof console !== 'undefined' && console.error) {
-            console.error(`[URL-Filter-v37] 處理錯誤: ${error.message} @ ${request.url}`, error);
-        }
+        if (typeof console !== 'undefined' && console.error) console.error(`[URL-Filter-v37.1] 處理錯誤: ${error.message} @ ${request.url}`, error);
         return null;
     }
 }
@@ -237,46 +283,43 @@ function processRequest(request) {
     try {
         initializeRules();
         if (typeof $request === 'undefined') {
-            if (typeof $done !== 'undefined') $done({ version: '37.0', status: 'ready', message: 'URL Filter v37.0 - Hybrid Strategy Engine' });
+            if (typeof $done !== 'undefined') $done({ version: '37.1', status: 'ready', message: 'URL Filter v37.1 - Critical Fix & Logic Refactor' });
             return;
         }
         const result = processRequest($request);
         if (typeof $done !== 'undefined') $done(result || {});
     } catch (error) {
-        if (typeof console !== 'undefined' && console.error) console.error(`[URL-Filter-v37] 致命錯誤: ${error.message}`, error);
+        if (typeof console !== 'undefined' && console.error) console.error(`[URL-Filter-v37.1] 致命錯誤: ${error.message}`, error);
         if (typeof $done !== 'undefined') $done({});
     }
 })();
-
 // =================================================================================================
-// ## 更新日誌 (V37.0)
+// ## 更新日誌 (V37.1)
 // =================================================================================================
 //
 // ### 📅 更新日期: 2025-09-08
 //
-// ### ✨ V36.0 -> V37.0 變更 (混合策略引擎):
+// ### ✨ V37.0 -> V37.1 變更 (緊急修正與邏輯重構):
 //
-// V37.0 是一次架構上的重大躍遷，旨在結合 V36 版本原生 RegExp 的極致效能與傳統 Trie 結構的靈活性。
-// 透過引入「混合策略引擎」，此版本在保留高效能的同時，克服了 V36 架構的潛在缺點。
+// **這是一個至關重要的穩定性更新，強烈建議所有 V37.0 使用者升級。**
 //
-// 1.  **【核心架構】引入「規則分類化」(Rule Categorization)**:
-//     - **變更**: 將原先龐大、單一的路徑關鍵字黑名單，重構為按語意功能劃分的多個 `RULE_SETS` (規則集)，
-//       例如 `ADVERTISING`, `GENERIC_TRACKING`, `ERROR_MONITORING` 等。
-//     - **效益**:
-//         - **功能性**: 現在可以為不同類型的攔截目標指定不同的應對策略（如廣告 `REJECT`，追蹤 `DROP`），實現了更精細化的過濾。
-//         - **靈活性與可維護性**: 更新或調整規則時，只需修改對應的小分類，無需再處理龐大的單一列表，大幅提升了可維護性。
+// 1.  **【核心錯誤修正】修復 API 白名單失效的邏輯缺陷**:
+//     - **問題**: 在 V37.0 版本中，`isApiWhitelisted` 函式命中後，腳本沒有立即終止並放行請求，而是會繼續執行後續的攔截規則，導致白名單功能在大部分情況下失效。例如，`shopee.tw` 在白名單中，但 `ad.shopee.tw/analytics/` 仍可能被路徑規則錯誤攔截。
+//     - **解決方案**: **徹底重構了 `processRequest` 函式的執行流程**。現在，API 白名單檢查是整個腳本的**最高優先級**。一旦請求的域名命中白名單，腳本將**立即返回 `null` 以放行請求**，不再執行任何後續的黑名單或路徑檢查。
 //
-// 2.  **【效能優化】實施「延遲編譯」(Lazy Compilation)**:
-//     - **變更**: 每個規則分類的 `RegExp` 不再於腳本啟動時全部編譯，而是推遲到該分類**首次被需要**時才進行編譯，並將結果快取。
-//     - **效益**: 實現了幾乎「零」的腳本冷啟動開銷，將編譯成本分散到運行時，對 Surge 的啟動速度和響應性更友好。
+// 2.  **【邏輯流程優化】重建正確的攔截優先級**:
+//     - **問題**: V37.0 的攔截判斷流程較為扁平，缺乏嚴格的優先級順序。
+//     - **解決方案**: 新的邏輯嚴格遵循以下金字塔模型，確保行為的一致性與可預測性：
+//         1.  **API 白名單** (絕對優先放行)
+//         2.  **域名黑名單** (次高優先級攔截)
+//         3.  **關鍵腳本與特殊 Regex** (路徑攔截)
+//         4.  **分類化規則引擎** (路徑攔截)
+//         5.  **追蹤參數清理** (最後的處理)
 //
-// 3.  **【開發與除錯】新增「偵錯模式」(Debug Mode)**:
-//     - **變更**: 在腳本頂部加入了 `DEBUG_MODE` 開關。
-//     - **效益**: 當遇到預期外的攔截或放行時，開啟此模式即可在主控台看到每一個被攔截請求的 URL 及其命中的規則分類，
-//       使 `RegExp` 引擎的「黑箱」行為完全透明化，極大簡化了問題排查的過程。
+// 3.  **【功能恢復】統一攔截回應生成器**:
+//     - **問題**: V37.0 中，部分攔截規則（如域名黑名單）的回應被硬編碼為 `REJECT`，失去了動態判斷 `DROP` 或 `TINY_GIF` 的能力。
+//     - **解決方案**: 重新引入了 `getBlockResponse` 輔助函式，所有非分類化規則的攔截決策都將通過此函式，以生成最恰當的回應（`REJECT`, `DROP`, 或 `TINY_GIF`）。
 //
 // ### 🏆 總結:
 //
-// V37.0 的「混合策略引擎」不僅僅是一次優化，更是一次演進。它標誌著此腳本從一個單純追求速度的過濾器，
-// 轉變為一個兼具**極致效能、高度靈活性、精細化控制與強大可觀測性**的智慧型網路規則中樞，
-// 為應對未來更複雜的過濾需求打下了堅實的架構基礎。
+// V37.1 透過對核心處理邏輯的嚴謹重構，徹底修正了 V37.0 版本中存在的嚴重缺陷，恢復了黑白名單應有的功能與優先級。現在，腳本的過濾行為不僅高效，而且穩定、可靠，嚴格遵循設計預期。
