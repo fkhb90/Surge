@@ -1,6 +1,6 @@
 /**
  * @file        URL-Ultimate-Filter-Surge-V37.0.js
- * @version     37.0 (Multi-Level Caching & Algorithmic Acceleration)
+ * @version     37.1 (Multi-Level Caching & Algorithmic Acceleration)
  * @description V36 引擎基礎上的多層快取與演算法加速版。新增域名決策快取，顯著提升主機級別的過濾效能，並強化演算法以降低延遲。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-08
@@ -181,8 +181,8 @@ const CONFIG = {
         // --- Facebook ---
         'facebook.com/tr', 'facebook.com/tr/',
         // --- 通用 API 端點 ---
-        '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/',
-        '/api/v1/track', '/intake', '/api/batch',
+        '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/', '/v2/collect/',
+        '/api/v1/track', '/intake', '/api/batch', '/v1/collect/',
         // --- 主流服務端點 ---
         'scorecardresearch.com/beacon.js', 'analytics.twitter.com', 'ads.linkedin.com/li/track', 'px.ads.linkedin.com',
         'amazon-adsystem.com/e/ec', 'ads.yahoo.com/pixel', 'ads.bing.com/msclkid', 'segment.io/v1/track',
