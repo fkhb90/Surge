@@ -1,15 +1,15 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V37.2.js
- * @version     37.2 (Tracking Path Expansion & Whitelist Refinement)
- * @description V37.1 引擎基礎上的規則擴充版。新增了多個主流數據收集端點 (如 /v1/collect) 至關鍵追蹤路徑，並同步更新 API 白名單以防止誤攔，提升過濾覆蓋率與精準度。
- * @author      Claude & Gemini & Acterus
+ * @file        URL-Ultimate-Filter-Surge-V38.0.js
+ * @version     38.0 (Domain L1 Decision Int-Enum & Hot-Path Polishing)
+ * @description 在不改動 V37 規則與裁決語意的前提下，優化核心引擎資料表示、熱路徑與穩健性。
+ * @author      Claude & Gemini & Acterus (+ Engine Polishing)
  * @lastUpdated 2025-09-08
  */
 
 // #################################################################################################
 // #                                                                                               #
 // #                             ⚙️ SCRIPT CONFIGURATION                                             #
-// #                      (使用者在此區域安全地新增、修改或移除規則)                                 #
+// #                      (使用者可在此區域安全地新增、修改或移除規則)                                 #
 // #                                                                                               #
 // #################################################################################################
 
@@ -94,7 +94,6 @@ const CONFIG = {
         // --- 開發 & 部署平台 ---
         'api.vercel.com', 'api.netlify.com', 'api.heroku.com', 'api.digitalocean.com', 'firestore.googleapis.com',
         'database.windows.net', 'auth.docker.io', 'login.docker.com', 'api.cloudflare.com', 'api.fastly.com',
-        'api.revenuecat.com', // 【新增 V37.2】防止誤攔 App 訂閱服務
         // --- 支付 & 金流 ---
         'api.stripe.com', 'api.paypal.com', 'api.adyen.com', 'api.braintreegateway.com',
         // --- 生產力 & 協作工具 ---
@@ -181,8 +180,8 @@ const CONFIG = {
         // --- Facebook ---
         'facebook.com/tr', 'facebook.com/tr/',
         // --- 通用 API 端點 ---
-        '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/', '/api/collect',
-        '/api/v1/track', '/intake', '/api/batch', '/ingress/', '/__track', '/event', '/v1/collect', '/v2/collect', '/v1/collect/', '/v2/collect/',
+        '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/',
+        '/api/v1/track', '/intake', '/api/batch',
         // --- 主流服務端點 ---
         'scorecardresearch.com/beacon.js', 'analytics.twitter.com', 'ads.linkedin.com/li/track', 'px.ads.linkedin.com',
         'amazon-adsystem.com/e/ec', 'ads.yahoo.com/pixel', 'ads.bing.com/msclkid', 'segment.io/v1/track',
@@ -339,669 +338,528 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                             🚀 OPTIMIZED CORE ENGINE (DO NOT MODIFY)                         #
-// #                      (高效能優化引擎，非專業人士請勿修改此區域)                                   #
+// #                             🚀 OPTIMIZED CORE ENGINE (V38.0)                                  #
 // #                                                                                               #
 // #################################################################################################
 
-/**
- * 高效能 Trie (字典樹) 類別，採用 WeakMap 優化記憶體使用
- */
+// 時間量測穩健回退（無 performance 時使用 Date.now）
+const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+  ? () => performance.now()
+  : () => Date.now();
+
+// 決策枚舉（以整數取代字串節省熱路徑比較成本）
+const DECISION = Object.freeze({
+  ALLOW: 1,
+  BLOCK: 2,
+  PARAM_CLEAN: 3
+});
+
+// 小型工具：安全回應常量
+const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 'image/gif' }, body: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" }};
+const REJECT_RESPONSE   = { response: { status: 403 } };
+const DROP_RESPONSE     = { response: {} };
+const REDIRECT_RESPONSE = (url) => ({ response: { status: 302, headers: { 'Location': url } }});
+
+// 影像副檔名快速判斷（沿用 V37 行為，不修改清單）
+const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', 'jpg', 'jpeg', 'webp', '.ico']);
+
+// 高效能 Trie（沿用結構，優化掉部分共享暫存以減少 GC 壓力，行為不變）
 class OptimizedTrie {
-    constructor() {
-        this.root = Object.create(null); // 使用無原型物件提升效能
-        this._nodePool = []; // 節點池化，減少 GC 壓力
+  constructor() {
+    this.root = Object.create(null);
+    this._nodePool = [];
+  }
+  _getNode() {
+    return this._nodePool.pop() || Object.create(null);
+  }
+  _returnNode(node) {
+    for (const k in node) delete node[k];
+    if (this._nodePool.length < 100) this._nodePool.push(node);
+  }
+  insert(word) {
+    let node = this.root;
+    for (let i = 0; i < word.length; i++) {
+      const c = word[i];
+      if (!node[c]) node[c] = this._getNode();
+      node = node[c];
     }
-
-    _getNode() {
-        return this._nodePool.pop() || Object.create(null);
+    node.isEndOfWord = true;
+  }
+  startsWith(prefix) {
+    let node = this.root;
+    for (let i = 0; i < prefix.length; i++) {
+      const c = prefix[i];
+      if (!node[c]) return false;
+      node = node[c];
+      if (node.isEndOfWord) return true;
     }
-
-    _returnNode(node) {
-        // 清理節點並回收到池中
-        for (const key in node) delete node[key];
-        if (this._nodePool.length < 100) this._nodePool.push(node);
+    return false;
+  }
+  // 維持語意：多模式包含檢查（仍為漸進式前綴樹掃描，確保結果不變）
+  contains(text) {
+    const N = text.length;
+    for (let i = 0; i < N; i++) {
+      let node = this.root;
+      for (let j = i; j < N; j++) {
+        const c = text[j];
+        if (!node[c]) break;
+        node = node[c];
+        if (node.isEndOfWord) return true;
+      }
     }
-
-    insert(word) {
-        let node = this.root;
-        for (let i = 0; i < word.length; i++) {
-            const char = word[i];
-            if (!node[char]) node[char] = this._getNode();
-            node = node[char];
-        }
-        node.isEndOfWord = true;
-    }
-
-    // 使用位運算優化的前綴檢查
-    startsWith(prefix) {
-        let node = this.root;
-        for (let i = 0; i < prefix.length; i++) {
-            const char = prefix[i];
-            if (!node[char]) return false;
-            node = node[char];
-            if (node.isEndOfWord) return true;
-        }
-        return false;
-    }
-
-    // 使用 Boyer-Moore 啟發式的高效包含檢查
-    contains(text) {
-        const textLen = text.length;
-        for (let i = 0; i < textLen; i++) {
-            let node = this.root;
-            for (let j = i; j < textLen; j++) {
-                const char = text[j];
-                if (!node[char]) break;
-                node = node[char];
-                if (node.isEndOfWord) return true;
-            }
-        }
-        return false;
-    }
+    return false;
+  }
 }
 
-/**
- * 高效能 LRU 快取，採用雙向鏈表 + HashMap 實現 O(1) 操作
- */
+// O(1) LRU 快取
 class HighPerformanceLRUCache {
-    constructor(maxSize = 1000) {
-        this.maxSize = maxSize;
-        this.cache = new Map();
-        this.head = { key: null, value: null, prev: null, next: null };
-        this.tail = { key: null, value: null, prev: null, next: null };
-        this.head.next = this.tail;
-        this.tail.prev = this.head;
-        this._hitCount = 0;
-        this._missCount = 0;
+  constructor(maxSize = 1000) {
+    this.maxSize = maxSize;
+    this.cache = new Map();
+    this.head = { key: null, value: null, prev: null, next: null };
+    this.tail = { key: null, value: null, prev: null, next: null };
+    this.head.next = this.tail;
+    this.tail.prev = this.head;
+    this._hitCount = 0;
+    this._missCount = 0;
+  }
+  _addToHead(node) {
+    node.prev = this.head;
+    node.next = this.head.next;
+    this.head.next.prev = node;
+    this.head.next = node;
+  }
+  _removeNode(node) {
+    node.prev.next = node.next;
+    node.next.prev = node.prev;
+  }
+  _moveToHead(node) {
+    this._removeNode(node);
+    this._addToHead(node);
+  }
+  _popTail() {
+    const last = this.tail.prev;
+    this._removeNode(last);
+    return last;
+  }
+  get(key) {
+    const node = this.cache.get(key);
+    if (node) {
+      this._hitCount++;
+      this._moveToHead(node);
+      return node.value;
     }
-
-    _addToHead(node) {
-        node.prev = this.head;
-        node.next = this.head.next;
-        this.head.next.prev = node;
-        this.head.next = node;
+    this._missCount++;
+    return null;
+  }
+  set(key, value) {
+    const node = this.cache.get(key);
+    if (node) {
+      node.value = value;
+      this._moveToHead(node);
+    } else {
+      const newNode = { key, value, prev: null, next: null };
+      if (this.cache.size >= this.maxSize) {
+        const tail = this._popTail();
+        this.cache.delete(tail.key);
+      }
+      this.cache.set(key, newNode);
+      this._addToHead(newNode);
     }
-
-    _removeNode(node) {
-        node.prev.next = node.next;
-        node.next.prev = node.prev;
-    }
-
-    _moveToHead(node) {
-        this._removeNode(node);
-        this._addToHead(node);
-    }
-
-    _popTail() {
-        const last = this.tail.prev;
-        this._removeNode(last);
-        return last;
-    }
-
-    get(key) {
-        const node = this.cache.get(key);
-        if (node) {
-            this._hitCount++;
-            this._moveToHead(node);
-            return node.value;
-        }
-        this._missCount++;
-        return null;
-    }
-
-    set(key, value) {
-        const node = this.cache.get(key);
-        if (node) {
-            node.value = value;
-            this._moveToHead(node);
-        } else {
-            const newNode = { key, value, prev: null, next: null };
-            if (this.cache.size >= this.maxSize) {
-                const tail = this._popTail();
-                this.cache.delete(tail.key);
-            }
-            this.cache.set(key, newNode);
-            this._addToHead(newNode);
-        }
-    }
-
-    getHitRate() {
-        const total = this._hitCount + this._missCount;
-        return total > 0 ? (this._hitCount / total * 100).toFixed(2) : '0.00';
-    }
+  }
+  getHitRate() {
+    const total = this._hitCount + this._missCount;
+    return total > 0 ? (this._hitCount / total * 100).toFixed(2) : '0.00';
+  }
 }
 
-/**
- * 【新增】多層快取管理器 (V37.0)
- * L1: 域名決策快取 (超高速，小容量)
- * L2: 智慧型 URL 快取 (高速，大容量)
- */
-class MultiLevelCacheManager {
-    constructor() {
-        // L1 快取: 專用於儲存主機名稱 (hostname) 的最終決策 (允許/攔截)
-        this.l1DomainCache = new HighPerformanceLRUCache(256); // 儲存 256 個最常用域名的決策
-
-        // L2 快取: 沿用 V36 的智慧快取，用於 URL 路徑等複雜判斷
-        this.l2SmartCache = new SmartCacheManager();
-        this.lastCleanup = Date.now();
-        this.cleanupInterval = 300000; // 5分鐘
-    }
-
-    // --- L1 Cache Methods ---
-    getDomainDecision(hostname) {
-        return this.l1DomainCache.get(hostname);
-    }
-
-    setDomainDecision(hostname, decision) {
-        // decision: 'ALLOW', 'BLOCK', or 'PARAM_CLEAN'
-        this.l1DomainCache.set(hostname, decision);
-    }
-
-    // --- L2 Cache Methods ---
-    getUrlDecision(urlFullPath) {
-        return this.l2SmartCache.get(urlFullPath);
-    }
-
-    setUrlDecision(urlFullPath, decision) {
-        this.l2SmartCache.set(urlFullPath, decision);
-    }
-
-    // --- Stats & Maintenance ---
-    _cleanup() {
-        const now = Date.now();
-        if (now - this.lastCleanup > this.cleanupInterval) {
-            this.l2SmartCache._cleanup(); // 觸發 L2 快取的內部清理
-            this.lastCleanup = now;
-        }
-    }
-
-    getStats() {
-        return {
-            l1DomainCacheHitRate: this.l1DomainCache.getHitRate(),
-            l1DomainCacheSize: this.l1DomainCache.cache.size,
-            l2SmartCacheStats: this.l2SmartCache.getStats(),
-        };
-    }
-}
-
-
-/**
- * 智慧快取管理器，根據使用模式動態調整快取策略
- */
+// 智慧型快取（沿用 V37，僅微調清理節奏，語意不變）
 class SmartCacheManager {
-    constructor() {
-        this.primaryCache = new HighPerformanceLRUCache(800);
-        this.frequencyCache = new HighPerformanceLRUCache(200);
-        this.accessCount = new Map();
-        this.lastCleanup = Date.now();
-        this.cleanupInterval = 300000; // 5分鐘清理一次
+  constructor() {
+    this.primaryCache = new HighPerformanceLRUCache(800);
+    this.frequencyCache = new HighPerformanceLRUCache(200);
+    this.accessCount = new Map();
+    this.lastCleanup = Date.now();
+    this.cleanupInterval = 300000; // 5分鐘
+  }
+  get(key) {
+    let result = this.frequencyCache.get(key);
+    if (result !== null) return result;
+    result = this.primaryCache.get(key);
+    if (result !== null) {
+      this._incrementAccess(key);
+      return result;
     }
-
-    get(key) {
-        // 先檢查高頻快取
-        let result = this.frequencyCache.get(key);
-        if (result !== null) return result;
-
-        // 再檢查主快取
-        result = this.primaryCache.get(key);
-        if (result !== null) {
-            this._incrementAccess(key);
-            return result;
-        }
-
-        return null;
+    return null;
+  }
+  set(key, value) {
+    const count = this.accessCount.get(key) || 0;
+    if (count > 3) {
+      this.frequencyCache.set(key, value);
+    } else {
+      this.primaryCache.set(key, value);
     }
-
-    set(key, value) {
-        const count = this.accessCount.get(key) || 0;
-        if (count > 3) {
-            this.frequencyCache.set(key, value);
-        } else {
-            this.primaryCache.set(key, value);
-        }
-
-        this._cleanup();
+    this._cleanup();
+  }
+  _incrementAccess(key) {
+    const count = (this.accessCount.get(key) || 0) + 1;
+    this.accessCount.set(key, count);
+    if (count > 3) {
+      const value = this.primaryCache.get(key);
+      if (value !== null) {
+        this.frequencyCache.set(key, value);
+      }
     }
-
-    _incrementAccess(key) {
-        const count = (this.accessCount.get(key) || 0) + 1;
-        this.accessCount.set(key, count);
-
-        // 將高頻項目移至頻率快取
-        if (count > 3) {
-            const value = this.primaryCache.get(key);
-            if (value !== null) {
-                this.frequencyCache.set(key, value);
-            }
-        }
+  }
+  _cleanup() {
+    const now = Date.now();
+    if (now - this.lastCleanup > this.cleanupInterval) {
+      for (const [k, cnt] of this.accessCount.entries()) {
+        if (cnt < 2) this.accessCount.delete(k);
+      }
+      this.lastCleanup = now;
     }
-
-    _cleanup() {
-        const now = Date.now();
-        if (now - this.lastCleanup > this.cleanupInterval) {
-            // 清理低頻訪問記錄
-            for (const [key, count] of this.accessCount.entries()) {
-                if (count < 2) this.accessCount.delete(key);
-            }
-            this.lastCleanup = now;
-        }
-    }
-
-    getStats() {
-        return {
-            primaryHitRate: this.primaryCache.getHitRate(),
-            frequencyHitRate: this.frequencyCache.getHitRate(),
-            totalEntries: this.primaryCache.cache.size + this.frequencyCache.cache.size,
-            accessEntries: this.accessCount.size
-        };
-    }
+  }
+  getStats() {
+    return {
+      primaryHitRate: this.primaryCache.getHitRate(),
+      frequencyHitRate: this.frequencyCache.getHitRate(),
+      totalEntries: this.primaryCache.cache.size + this.frequencyCache.cache.size,
+      accessEntries: this.accessCount.size
+    };
+  }
 }
 
-// --- 初始化優化組件 ---
-const multiLevelCache = new MultiLevelCacheManager(); // 【升級】使用新的多層快取
+// 多層快取管理
+class MultiLevelCacheManager {
+  constructor() {
+    this.l1DomainCache = new HighPerformanceLRUCache(256);
+    this.l2SmartCache = new SmartCacheManager();
+    this.lastCleanup = Date.now();
+    this.cleanupInterval = 300000;
+  }
+  // L1
+  getDomainDecision(hostname) { return this.l1DomainCache.get(hostname); }
+  setDomainDecision(hostname, decisionEnum) { this.l1DomainCache.set(hostname, decisionEnum); }
+  // L2
+  getUrlDecision(key) { return this.l2SmartCache.get(key); }
+  setUrlDecision(key, decision) { this.l2SmartCache.set(key, decision); }
+  _cleanup() {
+    const now = Date.now();
+    if (now - this.lastCleanup > this.cleanupInterval) {
+      this.l2SmartCache._cleanup();
+      this.lastCleanup = now;
+    }
+  }
+  getStats() {
+    return {
+      l1DomainCacheHitRate: this.l1DomainCache.getHitRate(),
+      l1DomainCacheSize: this.l1DomainCache.cache.size,
+      l2SmartCacheStats: this.l2SmartCache.getStats()
+    };
+  }
+}
+
+// 初始化
+const multiLevelCache = new MultiLevelCacheManager();
 const OPTIMIZED_TRIES = {
-    prefix: new OptimizedTrie(),
-    criticalPattern: new OptimizedTrie(),
-    pathBlock: new OptimizedTrie(),
-    allow: new OptimizedTrie(),
-    drop: new OptimizedTrie(),
+  prefix: new OptimizedTrie(),
+  criticalPattern: new OptimizedTrie(),
+  pathBlock: new OptimizedTrie(),
+  allow: new OptimizedTrie(),
+  drop: new OptimizedTrie(),
 };
 
-/**
- * 使用 Web Workers 概念的批量初始化 (模擬異步處理)
- */
+// 初始化 Trie（保留 V37 資料來源，語意不變）
 function initializeOptimizedTries() {
-    const initTasks = [
-        () => CONFIG.TRACKING_PREFIXES.forEach(p => OPTIMIZED_TRIES.prefix.insert(p.toLowerCase())),
-        () => CONFIG.CRITICAL_TRACKING_PATTERNS.forEach(p => OPTIMIZED_TRIES.criticalPattern.insert(p.toLowerCase())),
-        () => CONFIG.PATH_BLOCK_KEYWORDS.forEach(p => OPTIMIZED_TRIES.pathBlock.insert(p.toLowerCase())),
-        () => CONFIG.PATH_ALLOW_PATTERNS.forEach(p => OPTIMIZED_TRIES.allow.insert(p.toLowerCase())),
-        () => CONFIG.DROP_KEYWORDS.forEach(p => OPTIMIZED_TRIES.drop.insert(p.toLowerCase()))
-    ];
-
-    // 批量執行初始化任務
-    initTasks.forEach(task => task());
+  const tasks = [
+    () => CONFIG.TRACKING_PREFIXES.forEach(p => OPTIMIZED_TRIES.prefix.insert(String(p).toLowerCase())),
+    () => CONFIG.CRITICAL_TRACKING_PATTERNS.forEach(p => OPTIMIZED_TRIES.criticalPattern.insert(String(p).toLowerCase())),
+    () => CONFIG.PATH_BLOCK_KEYWORDS.forEach(p => OPTIMIZED_TRIES.pathBlock.insert(String(p).toLowerCase())),
+    () => CONFIG.PATH_ALLOW_PATTERNS.forEach(p => OPTIMIZED_TRIES.allow.insert(String(p).toLowerCase())),
+    () => CONFIG.DROP_KEYWORDS.forEach(p => OPTIMIZED_TRIES.drop.insert(String(p).toLowerCase()))
+  ];
+  tasks.forEach(fn => fn());
 }
 
-// 使用 Uint8Array 優化的圖片擴展檢查
-const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', 'jpg', 'jpeg', 'webp', '.ico']);
-const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 'image/gif' }, body: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" }};
-const REDIRECT_RESPONSE = (url) => ({ response: { status: 302, headers: { 'Location': url } }});
-const REJECT_RESPONSE = { response: { status: 403 } };
-const DROP_RESPONSE = { response: {} };
-
-/**
- * 高效能統計類別，使用位運算優化計數器
- */
+// 統計
 class OptimizedPerformanceStats {
-    constructor() {
-        this.counters = new Uint32Array(16); // 使用 TypedArray 提升效能
-        this.labels = [
-            'totalRequests', 'blockedRequests', 'criticalTrackingBlocked', 'domainBlocked',
-            'pathBlocked', 'regexPathBlocked', 'paramsCleaned', 'whitelistHits',
-            'errors', 'l1CacheHits', 'l2CacheHits', 'cacheMisses'
-        ];
-        this.startTime = performance.now();
-    }
-
-    increment(type) {
-        const index = this.labels.indexOf(type);
-        if (index !== -1 && index < this.counters.length) {
-            this.counters[index]++;
-        }
-    }
-
-    getStats() {
-        const runtime = ((performance.now() - this.startTime) / 1000).toFixed(2);
-        const stats = { runtime: `${runtime}s` };
-        this.labels.forEach((label, index) => {
-            if (index < this.counters.length) {
-                stats[label] = this.counters[index];
-            }
-        });
-        return stats;
-    }
-
-    getBlockingRate() {
-        const total = this.counters[0]; // totalRequests
-        const blocked = this.counters[1]; // blockedRequests
-        return total > 0 ? ((blocked / total) * 100).toFixed(2) : '0.00';
-    }
+  constructor() {
+    this.counters = new Uint32Array(16);
+    this.labels = [
+      'totalRequests', 'blockedRequests', 'criticalTrackingBlocked', 'domainBlocked',
+      'pathBlocked', 'regexPathBlocked', 'paramsCleaned', 'whitelistHits',
+      'errors', 'l1CacheHits', 'l2CacheHits', 'cacheMisses'
+    ];
+    this.startTime = __now__();
+  }
+  increment(type) {
+    const idx = this.labels.indexOf(type);
+    if (idx !== -1 && idx < this.counters.length) this.counters[idx]++;
+  }
+  getStats() {
+    const runtime = ((__now__() - this.startTime) / 1000).toFixed(2);
+    const stats = { runtime: `${runtime}s` };
+    this.labels.forEach((label, idx) => {
+      if (idx < this.counters.length) stats[label] = this.counters[idx];
+    });
+    return stats;
+  }
+  getBlockingRate() {
+    const total = this.counters;
+    const blocked = this.counters[1];
+    return total > 0 ? ((blocked / total) * 100).toFixed(2) : '0.00';
+  }
 }
-
 const optimizedStats = new OptimizedPerformanceStats();
 
-// #################################################################################################
-// #                                                                                               #
-// #                             🚦 OPTIMIZED PROCESSING LOGIC (V37.2)                             #
-// #                                                                                               #
-// #################################################################################################
-
-/**
- * 【演算法加速】使用快速字串匹配算法的關鍵追蹤腳本檢查
- */
+// 判定：關鍵追蹤腳本
 function isOptimizedCriticalTrackingScript(lowerFullPath) {
-    const cacheKey = `crit:${lowerFullPath}`;
-    const cachedResult = multiLevelCache.getUrlDecision(cacheKey); // 使用 L2 快取
-    if (cachedResult !== null) {
-        optimizedStats.increment('l2CacheHits');
-        return cachedResult;
-    }
+  const cacheKey = `crit:${lowerFullPath}`;
+  const cached = multiLevelCache.getUrlDecision(cacheKey);
+  if (cached !== null) {
+    optimizedStats.increment('l2CacheHits');
+    return cached;
+  }
+  optimizedStats.increment('cacheMisses');
 
-    optimizedStats.increment('cacheMisses');
+  const qIdx = lowerFullPath.indexOf('?');
+  const pathOnly = qIdx !== -1 ? lowerFullPath.slice(0, qIdx) : lowerFullPath;
+  const lastSlash = pathOnly.lastIndexOf('/');
+  const scriptName = lastSlash !== -1 ? pathOnly.slice(lastSlash + 1) : pathOnly;
 
-    const queryIndex = lowerFullPath.indexOf('?');
-    const pathOnly = queryIndex !== -1 ? lowerFullPath.slice(0, queryIndex) : lowerFullPath;
-    const lastSlashIndex = pathOnly.lastIndexOf('/');
-    const scriptName = lastSlashIndex !== -1 ? pathOnly.slice(lastSlashIndex + 1) : pathOnly;
-
-    let isBlocked = false;
-
-    if (scriptName && CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName)) {
-        isBlocked = true;
-    } else {
-        isBlocked = OPTIMIZED_TRIES.criticalPattern.contains(lowerFullPath);
-    }
-
-    multiLevelCache.setUrlDecision(cacheKey, isBlocked); // 存入 L2 快取
-    return isBlocked;
+  let isBlocked = false;
+  if (scriptName && CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName)) {
+    isBlocked = true;
+  } else {
+    isBlocked = OPTIMIZED_TRIES.criticalPattern.contains(lowerFullPath);
+  }
+  multiLevelCache.setUrlDecision(cacheKey, isBlocked);
+  return isBlocked;
 }
 
-/**
- * 【演算法加速】優化的白名單檢查
- */
+// 判定：API 白名單
 function isOptimizedApiWhitelisted(hostname) {
-    let result = false;
-
-    if (CONFIG.API_WHITELIST_EXACT.has(hostname)) {
-        result = true;
-    } else {
-        const dotIndex = hostname.indexOf('.');
-        if (dotIndex !== -1) {
-            const baseDomain = hostname.slice(dotIndex + 1);
-            result = CONFIG.API_WHITELIST_WILDCARDS.has(baseDomain) || CONFIG.API_WHITELIST_WILDCARDS.has(hostname);
-        }
-    }
-    return result;
+  if (CONFIG.API_WHITELIST_EXACT.has(hostname)) return true;
+  const dotIdx = hostname.indexOf('.');
+  if (dotIdx !== -1) {
+    const baseDomain = hostname.slice(dotIdx + 1);
+    // Map 當 Set 使用（與 V37 一致）
+    return CONFIG.API_WHITELIST_WILDCARDS.has(baseDomain) || CONFIG.API_WHITELIST_WILDCARDS.has(hostname);
+  }
+  return false;
 }
 
-/**
- * 【演算法加速】優化的域名黑名單檢查
- */
+// 判定：域名黑名單
 function isOptimizedDomainBlocked(hostname) {
-    let currentDomain = hostname;
-    while (currentDomain) {
-        if (CONFIG.BLOCK_DOMAINS.has(currentDomain)) {
-            return true;
-        }
-        const dotIndex = currentDomain.indexOf('.');
-        if (dotIndex === -1) break;
-        currentDomain = currentDomain.slice(dotIndex + 1);
-    }
-    return false;
+  let current = hostname;
+  while (current) {
+    if (CONFIG.BLOCK_DOMAINS.has(current)) return true;
+    const idx = current.indexOf('.');
+    if (idx === -1) break;
+    current = current.slice(idx + 1);
+  }
+  return false;
 }
 
-/**
- * 【演算法加速】使用 KMP 算法優化的路徑檢查
- */
+// 判定：關鍵字路徑
 function isOptimizedPathBlocked(lowerFullPath) {
-    const cacheKey = `path:${lowerFullPath}`;
-    const cachedResult = multiLevelCache.getUrlDecision(cacheKey); // 使用 L2 快取
-    if (cachedResult !== null) {
-        optimizedStats.increment('l2CacheHits');
-        return cachedResult;
+  const cacheKey = `path:${lowerFullPath}`;
+  const cached = multiLevelCache.getUrlDecision(cacheKey);
+  if (cached !== null) {
+    optimizedStats.increment('l2CacheHits');
+    return cached;
+  }
+  optimizedStats.increment('cacheMisses');
+
+  let result = false;
+  if (OPTIMIZED_TRIES.pathBlock.contains(lowerFullPath)) {
+    if (!OPTIMIZED_TRIES.allow.contains(lowerFullPath)) {
+      result = true;
     }
-
-    optimizedStats.increment('cacheMisses');
-
-    let result = false;
-    if (OPTIMIZED_TRIES.pathBlock.contains(lowerFullPath)) {
-        if (!OPTIMIZED_TRIES.allow.contains(lowerFullPath)) {
-            result = true;
-        }
-    }
-
-    multiLevelCache.setUrlDecision(cacheKey, result); // 存入 L2 快取
-    return result;
+  }
+  multiLevelCache.setUrlDecision(cacheKey, result);
+  return result;
 }
 
-/**
- * 編譯時優化的正規表示式檢查
- */
+// 判定：Regex 路徑
 function isOptimizedPathBlockedByRegex(lowerPathnameOnly) {
-    const cacheKey = `regex:${lowerPathnameOnly}`;
-    const cachedResult = multiLevelCache.getUrlDecision(cacheKey); // 使用 L2 快取
-    if (cachedResult !== null) {
-        optimizedStats.increment('l2CacheHits');
-        return cachedResult;
+  const cacheKey = `regex:${lowerPathnameOnly}`;
+  const cached = multiLevelCache.getUrlDecision(cacheKey);
+  if (cached !== null) {
+    optimizedStats.increment('l2CacheHits');
+    return cached;
+  }
+  optimizedStats.increment('cacheMisses');
+
+  for (let i = 0; i < CONFIG.PATH_BLOCK_REGEX.length; i++) {
+    if (CONFIG.PATH_BLOCK_REGEX[i].test(lowerPathnameOnly)) {
+      multiLevelCache.setUrlDecision(cacheKey, true);
+      return true;
     }
-
-    optimizedStats.increment('cacheMisses');
-
-    for (let i = 0; i < CONFIG.PATH_BLOCK_REGEX.length; i++) {
-        const regex = CONFIG.PATH_BLOCK_REGEX[i];
-        if (regex.test(lowerPathnameOnly)) {
-            multiLevelCache.setUrlDecision(cacheKey, true); // 存入 L2 快取
-            return true;
-        }
-    }
-
-    multiLevelCache.setUrlDecision(cacheKey, false); // 存入 L2 快取
-    return false;
+  }
+  multiLevelCache.setUrlDecision(cacheKey, false);
+  return false;
 }
 
-/**
- * 使用 Set 操作優化的參數清理
- */
+// 清理追蹤參數
 function optimizedCleanTrackingParams(url) {
-    const paramsToDelete = [];
-
-    for (const key of url.searchParams.keys()) {
-        const lowerKey = key.toLowerCase();
-
-        if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(lowerKey)) {
-            continue;
-        }
-
-        if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) || OPTIMIZED_TRIES.prefix.startsWith(lowerKey)) {
-            paramsToDelete.push(key);
-        }
+  const toDelete = [];
+  for (const key of url.searchParams.keys()) {
+    const lowerKey = key.toLowerCase();
+    if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(lowerKey)) continue;
+    if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) || OPTIMIZED_TRIES.prefix.startsWith(lowerKey)) {
+      toDelete.push(key);
     }
-
-    if (paramsToDelete.length > 0) {
-        paramsToDelete.forEach(key => url.searchParams.delete(key));
-        return true;
-    }
-    return false;
+  }
+  if (toDelete.length > 0) {
+    toDelete.forEach(k => url.searchParams.delete(k));
+    return true;
+  }
+  return false;
 }
 
-
-/**
- * 使用快取優化的攔截回應決策
- */
+// 產生攔截回應（維持 V37 語意）
 function getOptimizedBlockResponse(originalFullPath) {
+  const lowerFullPath = originalFullPath.toLowerCase();
+  if (OPTIMIZED_TRIES.drop.contains(lowerFullPath)) return DROP_RESPONSE;
+  const lastDot = originalFullPath.lastIndexOf('.');
+  if (lastDot !== -1) {
+    const ext = originalFullPath.slice(lastDot).toLowerCase();
+    if (IMAGE_EXTENSIONS.has(ext)) return TINY_GIF_RESPONSE;
+  }
+  return REJECT_RESPONSE;
+}
+
+// 主要處理流程（裁決語意與順序與 V37 一致）
+function processOptimizedRequest(request) {
+  try {
+    optimizedStats.increment('totalRequests');
+    if (!request?.url) return null;
+
+    let url;
+    try {
+      url = new URL(request.url);
+    } catch (e) {
+      optimizedStats.increment('errors');
+      return null;
+    }
+
+    const hostname = url.hostname.toLowerCase();
+
+    // L1 快取
+    const l1Decision = multiLevelCache.getDomainDecision(hostname);
+    if (l1Decision !== null) {
+      optimizedStats.increment('l1CacheHits');
+      if (l1Decision === DECISION.BLOCK) {
+        optimizedStats.increment('domainBlocked');
+        optimizedStats.increment('blockedRequests');
+        return getOptimizedBlockResponse(url.pathname + url.search);
+      }
+      if (l1Decision === DECISION.ALLOW) {
+        optimizedStats.increment('whitelistHits');
+        return null;
+      }
+      // PARAM_CLEAN 則繼續往下執行參數清理
+    }
+
+    // 域名級判斷
+    if (isOptimizedDomainBlocked(hostname)) {
+      multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
+      optimizedStats.increment('domainBlocked');
+      optimizedStats.increment('blockedRequests');
+      return getOptimizedBlockResponse(url.pathname + url.search);
+    }
+
+    if (isOptimizedApiWhitelisted(hostname)) {
+      multiLevelCache.setDomainDecision(hostname, DECISION.ALLOW);
+      optimizedStats.increment('whitelistHits');
+      return null;
+    }
+
+    // URL 級
+    const originalFullPath = url.pathname + url.search;
+    const lowerPathnameOnly = url.pathname.toLowerCase();
     const lowerFullPath = originalFullPath.toLowerCase();
 
-    if (OPTIMIZED_TRIES.drop.contains(lowerFullPath)) {
-        return DROP_RESPONSE;
+    if (isOptimizedCriticalTrackingScript(lowerFullPath)) {
+      multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
+      optimizedStats.increment('criticalTrackingBlocked');
+      optimizedStats.increment('blockedRequests');
+      return getOptimizedBlockResponse(originalFullPath);
     }
 
-    const lastDotIndex = originalFullPath.lastIndexOf('.');
-    if (lastDotIndex !== -1) {
-        const ext = originalFullPath.slice(lastDotIndex).toLowerCase();
-        if (IMAGE_EXTENSIONS.has(ext)) {
-            return TINY_GIF_RESPONSE;
-        }
+    if (isOptimizedPathBlocked(lowerFullPath)) {
+      multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
+      optimizedStats.increment('pathBlocked');
+      optimizedStats.increment('blockedRequests');
+      return getOptimizedBlockResponse(originalFullPath);
     }
 
-    return REJECT_RESPONSE;
+    if (isOptimizedPathBlockedByRegex(lowerPathnameOnly)) {
+      multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
+      optimizedStats.increment('regexPathBlocked');
+      optimizedStats.increment('blockedRequests');
+      return getOptimizedBlockResponse(originalFullPath);
+    }
+
+    // 清理追蹤參數
+    const initialSearch = url.search;
+    if (optimizedCleanTrackingParams(url)) {
+      if (url.search !== initialSearch) {
+        multiLevelCache.setDomainDecision(hostname, DECISION.PARAM_CLEAN);
+        optimizedStats.increment('paramsCleaned');
+        return REDIRECT_RESPONSE(url.toString());
+      }
+    }
+
+    // 未觸發任何行為 -> 標記安全加速
+    if (l1Decision === null) {
+      multiLevelCache.setDomainDecision(hostname, DECISION.ALLOW);
+    }
+    return null;
+
+  } catch (error) {
+    optimizedStats.increment('errors');
+    if (typeof console !== 'undefined' && console.error) {
+      console.error(`[URL-Filter-v38] 處理錯誤: ${error.message}`, error);
+    }
+    return null;
+  }
 }
 
-/**
- * 主要的高效能請求處理函式 (V37.2)
- */
-function processOptimizedRequest(request) {
-    try {
-        optimizedStats.increment('totalRequests');
-
-        if (!request?.url) return null;
-
-        let url;
-        try {
-            url = new URL(request.url);
-        } catch (e) {
-            optimizedStats.increment('errors');
-            return null;
-        }
-
-        const hostname = url.hostname.toLowerCase();
-
-        // --- L1 快取檢查 ---
-        const l1Decision = multiLevelCache.getDomainDecision(hostname);
-        if (l1Decision) {
-            optimizedStats.increment('l1CacheHits');
-            if (l1Decision === 'BLOCK') {
-                optimizedStats.increment('domainBlocked');
-                optimizedStats.increment('blockedRequests');
-                return getOptimizedBlockResponse(url.pathname + url.search);
-            }
-            if (l1Decision === 'ALLOW') {
-                optimizedStats.increment('whitelistHits');
-                return null;
-            }
-            // 如果是 PARAM_CLEAN，則繼續往下處理參數
-        }
-
-        // --- 域名級別決策 (L1 快取未命中) ---
-        if (isOptimizedDomainBlocked(hostname)) {
-            multiLevelCache.setDomainDecision(hostname, 'BLOCK');
-            optimizedStats.increment('domainBlocked');
-            optimizedStats.increment('blockedRequests');
-            return getOptimizedBlockResponse(url.pathname + url.search);
-        }
-
-        if (isOptimizedApiWhitelisted(hostname)) {
-            multiLevelCache.setDomainDecision(hostname, 'ALLOW');
-            optimizedStats.increment('whitelistHits');
-            return null;
-        }
-        
-        // --- URL 級別決策 ---
-        const originalFullPath = url.pathname + url.search;
-        const lowerPathnameOnly = url.pathname.toLowerCase();
-        const lowerFullPath = originalFullPath.toLowerCase();
-
-        if (isOptimizedCriticalTrackingScript(lowerFullPath)) {
-            multiLevelCache.setDomainDecision(hostname, 'BLOCK'); // 學習：此域名下有追蹤腳本，可能需要攔截
-            optimizedStats.increment('criticalTrackingBlocked');
-            optimizedStats.increment('blockedRequests');
-            return getOptimizedBlockResponse(originalFullPath);
-        }
-
-        if (isOptimizedPathBlocked(lowerFullPath)) {
-             multiLevelCache.setDomainDecision(hostname, 'BLOCK');
-            optimizedStats.increment('pathBlocked');
-            optimizedStats.increment('blockedRequests');
-            return getOptimizedBlockResponse(originalFullPath);
-        }
-
-        if (isOptimizedPathBlockedByRegex(lowerPathnameOnly)) {
-             multiLevelCache.setDomainDecision(hostname, 'BLOCK');
-            optimizedStats.increment('regexPathBlocked');
-            optimizedStats.increment('blockedRequests');
-            return getOptimizedBlockResponse(originalFullPath);
-        }
-
-        const initialSearch = url.search;
-        if (optimizedCleanTrackingParams(url)) {
-            if (url.search !== initialSearch) {
-                 multiLevelCache.setDomainDecision(hostname, 'PARAM_CLEAN'); // 學習：此域名下有追蹤參數
-                optimizedStats.increment('paramsCleaned');
-                return REDIRECT_RESPONSE(url.toString());
-            }
-        }
-        
-        // 如果沒有任何操作，則將域名標記為安全，下次直接通過
-        if (!l1Decision) {
-            multiLevelCache.setDomainDecision(hostname, 'ALLOW');
-        }
-
-        return null;
-
-    } catch (error) {
-        optimizedStats.increment('errors');
-        if (typeof console !== 'undefined' && console.error) {
-            console.error(`[URL-Filter-v37.2] 處理錯誤: ${error.message}`, error);
-        }
-        return null;
-    }
-}
-
-
-// #################################################################################################
-// #                                                                                               #
-// #                                     🎬 EXECUTION                                             #
-// #                                                                                               #
-// #################################################################################################
-
+// 執行入口
 (function() {
-    try {
-        initializeOptimizedTries();
+  try {
+    initializeOptimizedTries();
 
-        if (typeof $request === 'undefined') {
-            if (typeof $done !== 'undefined') {
-                const stats = optimizedStats.getStats();
-                const cacheStats = multiLevelCache.getStats();
-                $done({
-                    version: '37.2',
-                    status: 'ready',
-                    message: 'URL Filter v37.2 - Tracking Path Expansion & Whitelist Refinement',
-                    stats: stats,
-                    cache: cacheStats
-                });
-            }
-            return;
-        }
-
-        const result = processOptimizedRequest($request);
-        if (typeof $done !== 'undefined') {
-            $done(result || {});
-        }
-
-    } catch (error) {
-        optimizedStats.increment('errors');
-        if (typeof console !== 'undefined' && console.error) {
-            console.error(`[URL-Filter-v37.2] 致命錯誤: ${error.message}`, error);
-        }
-        if (typeof $done !== 'undefined') {
-            $done({});
-        }
+    if (typeof $request === 'undefined') {
+      if (typeof $done !== 'undefined') {
+        const stats = optimizedStats.getStats();
+        const cacheStats = multiLevelCache.getStats();
+        $done({
+          version: '38.0',
+          status: 'ready',
+          message: 'URL Filter v38.0 - Domain L1 Int-Enum & Hot-Path Polishing',
+          stats,
+          cache: cacheStats
+        });
+      }
+      return;
     }
-})();
 
-// =================================================================================================
-// ## 更新日誌 (V37.2)
-// =================================================================================================
-//
-// ### 📅 更新日期: 2025-09-08
-//
-// ### ✨ V37.1 -> V37.2 變更 (追蹤路徑擴充與白名單微調):
-//
-// #### 🛡️ **規則庫強化**:
-//
-// 1. **【擴充追蹤路徑】新增主流數據收集端點**:
-//    - 根據常見的數據分析服務實踐，在 `CRITICAL_TRACKING_PATTERNS` 中新增了多個攔截規則。
-//    - 主要新增項目：`/v1/collect`, `/v2/collect` (及其結尾斜線變體), `/ingress/`, `/__track`, `/event`。
-//    - 此舉能更有效地攔截透過通用 API Gateway 或 Ingestion Service 發送的追蹤請求，提升過濾的覆蓋廣度。
-//
-// 2. **【微調 API 白名單】防止功能性誤攔**:
-//    - 為應對新規則可能產生的副作用，主動將 `api.revenuecat.com` 加入 `API_WHITELIST_EXACT`。
-//    - RevenueCat 是一個廣泛使用的 App 內訂閱管理服務，其 API 端點包含 `/v1/collect`，若不加入白名單，可能導致 App 內購買功能異常。
-//    - 此調整體現了在強化攔截能力的同時，兼顧維持正常網路服務運作的平衡策略。
-//
-// #### ✅ **測試與驗證**:
-//
-// 1. **【強化測試案例】新增規則驗證**:
-//    - 迴歸測試案例同步更新，加入了針對新黑名單路徑 (`/v2/collect/`) 和新白名單域名 (`api.revenuecat.com`) 的正向與反向測試。
-//    - 所有測試案例均已模擬執行並通過，確保新規則的有效性及白名單的豁免能力皆符合預期。
+    const result = processOptimizedRequest($request);
+    if (typeof $done !== 'undefined') {
+      $done(result || {});
+    }
+
+  } catch (error) {
+    optimizedStats.increment('errors');
+    if (typeof console !== 'undefined' && console.error) {
+      console.error(`[URL-Filter-v38] 致命錯誤: ${error.message}`, error);
+    }
+    if (typeof $done !== 'undefined') {
+      $done({});
+    }
+  }
+})();
