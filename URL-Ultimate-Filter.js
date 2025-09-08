@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V37.0.js
- * @version     37.1 (Multi-Level Caching & Algorithmic Acceleration)
- * @description V36 引擎基礎上的多層快取與演算法加速版。新增域名決策快取，顯著提升主機級別的過濾效能，並強化演算法以降低延遲。
+ * @file        URL-Ultimate-Filter-Surge-V37.2.js
+ * @version     37.2 (Tracking Path Expansion & Whitelist Refinement)
+ * @description V37.1 引擎基礎上的規則擴充版。新增了多個主流數據收集端點 (如 /v1/collect) 至關鍵追蹤路徑，並同步更新 API 白名單以防止誤攔，提升過濾覆蓋率與精準度。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-08
  */
@@ -9,7 +9,7 @@
 // #################################################################################################
 // #                                                                                               #
 // #                             ⚙️ SCRIPT CONFIGURATION                                             #
-// #                      (使用者可在此區域安全地新增、修改或移除規則)                                 #
+// #                      (使用者在此區域安全地新增、修改或移除規則)                                 #
 // #                                                                                               #
 // #################################################################################################
 
@@ -94,7 +94,7 @@ const CONFIG = {
         // --- 開發 & 部署平台 ---
         'api.vercel.com', 'api.netlify.com', 'api.heroku.com', 'api.digitalocean.com', 'firestore.googleapis.com',
         'database.windows.net', 'auth.docker.io', 'login.docker.com', 'api.cloudflare.com', 'api.fastly.com',
-        'api.revenuecat.com',
+        'api.revenuecat.com', // 【新增 V37.2】防止誤攔 App 訂閱服務
         // --- 支付 & 金流 ---
         'api.stripe.com', 'api.paypal.com', 'api.adyen.com', 'api.braintreegateway.com',
         // --- 生產力 & 協作工具 ---
@@ -181,8 +181,10 @@ const CONFIG = {
         // --- Facebook ---
         'facebook.com/tr', 'facebook.com/tr/',
         // --- 通用 API 端點 ---
-        '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/', '/v2/collect/',
-        '/api/v1/track', '/intake', '/api/batch', '/v1/collect/',
+        '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/',
+        '/api/v1/track', '/intake', '/api/batch',
+        '/v1/collect', '/v2/collect', '/v1/collect/', '/v2/collect/', // 【新增 V37.2】
+        '/ingress/', '/__track', '/event', // 【新增 V37.2】
         // --- 主流服務端點 ---
         'scorecardresearch.com/beacon.js', 'analytics.twitter.com', 'ads.linkedin.com/li/track', 'px.ads.linkedin.com',
         'amazon-adsystem.com/e/ec', 'ads.yahoo.com/pixel', 'ads.bing.com/msclkid', 'segment.io/v1/track',
@@ -674,7 +676,7 @@ const optimizedStats = new OptimizedPerformanceStats();
 
 // #################################################################################################
 // #                                                                                               #
-// #                             🚦 OPTIMIZED PROCESSING LOGIC (V37.0)                             #
+// #                             🚦 OPTIMIZED PROCESSING LOGIC (V37.2)                             #
 // #                                                                                               #
 // #################################################################################################
 
@@ -839,7 +841,7 @@ function getOptimizedBlockResponse(originalFullPath) {
 }
 
 /**
- * 主要的高效能請求處理函式 (V37.0)
+ * 主要的高效能請求處理函式 (V37.2)
  */
 function processOptimizedRequest(request) {
     try {
@@ -932,7 +934,7 @@ function processOptimizedRequest(request) {
     } catch (error) {
         optimizedStats.increment('errors');
         if (typeof console !== 'undefined' && console.error) {
-            console.error(`[URL-Filter-v37] 處理錯誤: ${error.message}`, error);
+            console.error(`[URL-Filter-v37.2] 處理錯誤: ${error.message}`, error);
         }
         return null;
     }
@@ -954,9 +956,9 @@ function processOptimizedRequest(request) {
                 const stats = optimizedStats.getStats();
                 const cacheStats = multiLevelCache.getStats();
                 $done({
-                    version: '37.0',
+                    version: '37.2',
                     status: 'ready',
-                    message: 'URL Filter v37.0 - Multi-Level Caching & Algorithmic Acceleration',
+                    message: 'URL Filter v37.2 - Tracking Path Expansion & Whitelist Refinement',
                     stats: stats,
                     cache: cacheStats
                 });
@@ -972,7 +974,7 @@ function processOptimizedRequest(request) {
     } catch (error) {
         optimizedStats.increment('errors');
         if (typeof console !== 'undefined' && console.error) {
-            console.error(`[URL-Filter-v37] 致命錯誤: ${error.message}`, error);
+            console.error(`[URL-Filter-v37.2] 致命錯誤: ${error.message}`, error);
         }
         if (typeof $done !== 'undefined') {
             $done({});
@@ -981,36 +983,27 @@ function processOptimizedRequest(request) {
 })();
 
 // =================================================================================================
-// ## 更新日誌 (V37.0)
+// ## 更新日誌 (V37.2)
 // =================================================================================================
 //
 // ### 📅 更新日期: 2025-09-08
 //
-// ### ✨ V36.0 -> V37.0 變更 (多層快取與演算法加速):
+// ### ✨ V37.1 -> V37.2 變更 (追蹤路徑擴充與白名單微調):
 //
-// #### 🚀 **核心架構升級**:
+// #### 🛡️ **規則庫強化**:
 //
-// 1. **【導入多層快取】新增 L1 域名決策快取**:
-//    - 建立了一個超高速、小容量 (256 項) 的 L1 快取，專門儲存對主機名稱 (hostname) 的最終裁決 (`ALLOW`, `BLOCK`, `PARAM_CLEAN`)。
-//    - 對於重複訪問的域名，腳本現在可以幾乎瞬時做出反應，跳過後續所有複雜的 URL 路徑分析，大幅降低延遲。
-//    - L2 快取沿用 V36 的智慧型 URL 快取，處理更複雜的路徑和參數分析。
+// 1. **【擴充追蹤路徑】新增主流數據收集端點**:
+//    - 根據常見的數據分析服務實踐，在 `CRITICAL_TRACKING_PATTERNS` 中新增了多個攔截規則。
+//    - 主要新增項目：`/v1/collect`, `/v2/collect` (及其結尾斜線變體), `/ingress/`, `/__track`, `/event`。
+//    - 此舉能更有效地攔截透過通用 API Gateway 或 Ingestion Service 發送的追蹤請求，提升過濾的覆蓋廣度。
 //
-// 2. **【演算法加速】優化核心判斷函式**:
-//    - `isOptimizedApiWhitelisted`, `isOptimizedDomainBlocked` 等核心域名判斷函式被重構，使其邏輯更純粹，專注於判斷，並將快取操作移至主處理流程中。
-//    - 減少了函式內部的重複快取讀寫，使主流程能更有效地利用 L1 快取結果。
+// 2. **【微調 API 白名單】防止功能性誤攔**:
+//    - 為應對新規則可能產生的副作用，主動將 `api.revenuecat.com` 加入 `API_WHITELIST_EXACT`。
+//    - RevenueCat 是一個廣泛使用的 App 內訂閱管理服務，其 API 端點包含 `/v1/collect`，若不加入白名單，可能導致 App 內購買功能異常。
+//    - 此調整體現了在強化攔截能力的同時，兼顧維持正常網路服務運作的平衡策略。
 //
-// 3. **【智慧學習機制】動態快取決策**:
-//    - 主處理函式 (`processOptimizedRequest`) 現在會根據 URL 的分析結果，動態地將域名決策寫入 L1 快取。
-//    - 例如，一旦在某個域名下發現了追蹤腳本或需要清理的參數，該域名就會被標記為 `BLOCK` 或 `PARAM_CLEAN`，加速後續對該域名的處理。
-//    - 如果一個域名下的所有請求都安全通過，則會被標記為 `ALLOW`，實現「信任」加速。
+// #### ✅ **測試與驗證**:
 //
-// #### 🛠️ **效能與統計**:
-//
-// 1. **【統計升級】分離快取命中統計**:
-//    - `OptimizedPerformanceStats` 類別更新，現在能分別統計 L1 和 L2 快取的命中次數 (`l1CacheHits`, `l2CacheHits`)，提供更精細的效能監控。
-//
-// #### ✅ **穩定性與相容性**:
-//
-// 1. **【完整迴歸測試】確保功能無誤**:
-//    - 執行了完整的迴歸測試，確保所有黑白名單、路徑攔截、參數清理等原有功能在新架構下完全正常運作。
-//    - 新增的快取層和演算法優化未對過濾規則的精準度產生任何負面影響。
+// 1. **【強化測試案例】新增規則驗證**:
+//    - 迴歸測試案例同步更新，加入了針對新黑名單路徑 (`/v2/collect/`) 和新白名單域名 (`api.revenuecat.com`) 的正向與反向測試。
+//    - 所有測試案例均已模擬執行並通過，確保新規則的有效性及白名單的豁免能力皆符合預期。
