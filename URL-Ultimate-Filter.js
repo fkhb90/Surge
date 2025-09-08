@@ -181,10 +181,8 @@ const CONFIG = {
         // --- Facebook ---
         'facebook.com/tr', 'facebook.com/tr/',
         // --- 通用 API 端點 ---
-        '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/',
-        '/api/v1/track', '/intake', '/api/batch',
-        '/v1/collect', '/v2/collect', '/v1/collect/', '/v2/collect/', // 【新增 V37.2】
-        '/ingress/', '/__track', '/event', // 【新增 V37.2】
+        '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/', '/api/collect',
+        '/api/v1/track', '/intake', '/api/batch', '/ingress/', '/__track', '/event', '/v1/collect', '/v2/collect', '/v1/collect/', '/v2/collect/',
         // --- 主流服務端點 ---
         'scorecardresearch.com/beacon.js', 'analytics.twitter.com', 'ads.linkedin.com/li/track', 'px.ads.linkedin.com',
         'amazon-adsystem.com/e/ec', 'ads.yahoo.com/pixel', 'ads.bing.com/msclkid', 'segment.io/v1/track',
