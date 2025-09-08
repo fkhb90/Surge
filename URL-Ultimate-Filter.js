@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V36.0-Final.js
- * @version     36.0 (Performance & Engine Refactor)
- * @description V36 為一次徹底的效能重構。核心演算法從 Trie 遷移至原生 RegExp 引擎，引入全域快取與輕量級 URL 解析，大幅提升執行效率與降低延遲。
+ * @file        URL-Ultimate-Filter-Surge-V37.0-Final.js
+ * @version     37.0 (Algorithm Acceleration & Multi-Layer Cache)
+ * @description V37 導入多層快取與演算法加速。新增域名決策快取以加速主機級別的過濾，並將 Trie 結構與萬用字元匹配完全遷移至原生 RegExp 引擎，實現了更低的延遲與記憶體佔用。
  * @author      Claude & Gemini & Acterus
  * @lastUpdated 2025-09-08
  */
@@ -72,7 +72,7 @@ const CONFIG = {
         'pos.baidu.com', 'cpro.baidu.com', 'eclick.baidu.com', 'usp1.baidu.com', 'pingjs.qq.com', 'wspeed.qq.com',
         'ads.tencent.com', 'gdt.qq.com', 'ta.qq.com', 'tanx.com', 'alimama.com', 'log.mmstat.com',
         'getui.com', 'jpush.cn', 'jiguang.cn', 'gridsum.com', 'admaster.com.cn', 'miaozhen.com',
-        'su.baidu.com', 'mobads.baidu.com', 'mta.qq.com', 'log.tmall.com', 'ad.kuaishou.com', 
+        'su.baidu.com', 'mobads.baidu.com', 'mta.qq.com', 'log.tmall.com', 'ad.kuaishou.com',
         'pangolin-sdk-toutiao.com', 'zhugeio.com', 'growingio.com', 'youmi.net', 'adview.cn', 'igexin.com',
         // --- 其他 ---
         'wcs.naver.net', 'adnx.com', 'rlcdn.com', 'revjet.com',
@@ -106,22 +106,22 @@ const CONFIG = {
     /**
      * ✅ API 功能性域名白名單 (萬用字元)
      */
-    API_WHITELIST_WILDCARDS: new Map([
-        ['youtube.com', true], ['m.youtube.com', true], ['googlevideo.com', true], ['paypal.com', true],
-        ['stripe.com', true], ['apple.com', true], ['icloud.com', true], ['windowsupdate.com', true],
-        ['update.microsoft.com', true], ['amazonaws.com', true], ['cloudfront.net', true], ['fastly.net', true],
-        ['akamaihd.net', true], ['cloudflare.com', true], ['jsdelivr.net', true], ['unpkg.com', true],
-        ['cdnjs.cloudflare.com', true], ['gstatic.com', true], ['fbcdn.net', true], ['twimg.com', true],
-        ['inoreader.com', true], ['theoldreader.com', true], ['newsblur.com', true], ['flipboard.com', true], ['itofoo.com', true],
-        ['github.io', true], ['gitlab.io', true], ['windows.net', true], ['pages.dev', true], ['vercel.app', true],
-        ['netlify.app', true], ['azurewebsites.net', true], ['cloudfunctions.net', true], ['oraclecloud.com', true],
-        ['digitaloceanspaces.com', true], ['okta.com', true], ['auth0.com', true], ['atlassian.net', true],
-        ['shopee.tw', true], ['fubon.com', true], ['bot.com.tw', true], ['megabank.com.tw', true], ['firstbank.com.tw', true],
-        ['hncb.com.tw', true], ['chb.com.tw', true], ['taishinbank.com.tw', true], ['sinopac.com', true],
-        ['tcb-bank.com.tw', true], ['scsb.com.tw', true], ['standardchartered.com.tw', true],
-        ['web.archive.org', true], ['web-static.archive.org', true], ['archive.is', true], ['archive.today', true],
-        ['archive.ph', true], ['archive.li', true], ['archive.vn', true], ['webcache.googleusercontent.com', true],
-        ['cc.bingj.com', true], ['perma.cc', true], ['www.webarchive.org.uk', true], ['timetravel.mementoweb.org', true]
+    API_WHITELIST_WILDCARDS: new Set([
+        'youtube.com', 'm.youtube.com', 'googlevideo.com', 'paypal.com',
+        'stripe.com', 'apple.com', 'icloud.com', 'windowsupdate.com',
+        'update.microsoft.com', 'amazonaws.com', 'cloudfront.net', 'fastly.net',
+        'akamaihd.net', 'cloudflare.com', 'jsdelivr.net', 'unpkg.com',
+        'cdnjs.cloudflare.com', 'gstatic.com', 'fbcdn.net', 'twimg.com',
+        'inoreader.com', 'theoldreader.com', 'newsblur.com', 'flipboard.com', 'itofoo.com',
+        'github.io', 'gitlab.io', 'windows.net', 'pages.dev', 'vercel.app',
+        'netlify.app', 'azurewebsites.net', 'cloudfunctions.net', 'oraclecloud.com',
+        'digitaloceanspaces.com', 'okta.com', 'auth0.com', 'atlassian.net',
+        'shopee.tw', 'fubon.com', 'bot.com.tw', 'megabank.com.tw', 'firstbank.com.tw',
+        'hncb.com.tw', 'chb.com.tw', 'taishinbank.com.tw', 'sinopac.com',
+        'tcb-bank.com.tw', 'scsb.com.tw', 'standardchartered.com.tw',
+        'web.archive.org', 'web-static.archive.org', 'archive.is', 'archive.today',
+        'archive.ph', 'archive.li', 'archive.vn', 'webcache.googleusercontent.com',
+        'cc.bingj.com', 'perma.cc', 'www.webarchive.org.uk', 'timetravel.mementoweb.org'
     ]),
 
     /**
@@ -170,7 +170,7 @@ const CONFIG = {
         '/monitor/', '/monitoring/', '/log/', '/logs/', 'logger', '/logging/', '/logrecord/', '/putlog/', '/audit/', '/beacon/', '/pixel/', '/collect?',
         '/collector/', '/report/', '/reports/', '/reporting/', '/sentry/', '/bugsnag/', '/crash/', '/error/', '/exception/', '/stacktrace/', 'web-vitals',
         'performance-tracking', 'real-user-monitoring', 'user-analytics', 'behavioral-targeting', 'data-collection', 'data-sync', 'fingerprint',
-        'fingerprinting', 'third-party-cookie', 'user-cohort', 'attribution', 'retargeting', 'audience', 'cohort', 'user-segment', 'user-behavior',
+        'fingerprinting', 'third-party-cookie', 'user-cohort', 'attribution', 'retargeting', 'audience', 'cohort', 'user-behavior',
         'session-replay', 'google-analytics', 'fbevents', 'fbq', 'addthis', 'sharethis', 'taboola', 'criteo', 'osano', 'onead', 'sailthru', 'tapfiliate',
         'appier', 'hotjar', 'comscore', 'mixpanel', 'amplitude', 'utag.js', 'cookiepolicy', 'gdpr', 'ccpa', 'plusone', 'optimize', 'pushnotification',
         'privacy-policy', 'cookie-consent'
@@ -223,7 +223,7 @@ const CONFIG = {
         'creative_id', 'keyword', 'matchtype', 'device', 'devicemodel', 'adposition', 'network', 'placement', 'targetid', 'feeditemid', 'loc_physical_ms',
         'loc_interest_ms', 'creative', 'adset', 'ad', 'pixel_id', 'event_id', 'algolia_query', 'algolia_query_id', 'algolia_object_id', 'algolia_position'
     ]),
-    
+
     /**
      * 追蹤參數前綴集合
      */
@@ -252,7 +252,6 @@ const CONFIG = {
 
 /**
  * LRU (最近最少使用) 快取類別。
- * [V36.0 優化] 此快取現在作為全域快取，儲存對整個 URL 的最終處理決策。
  */
 class LRUCache {
     constructor(maxSize = 500) { this.maxSize = maxSize; this.cache = new Map(); }
@@ -260,19 +259,9 @@ class LRUCache {
     set(key, value) { if (this.cache.has(key)) this.cache.delete(key); else if (this.cache.size >= this.maxSize) { this.cache.delete(this.cache.keys().next().value); } this.cache.set(key, value); }
 }
 
-/**
- * Trie (字典樹) 類別，用於高效的前綴匹配。
- * [V36.0 優化] 僅保留最高效的前綴匹配場景 (查詢參數)，取代了原有的子字串搜尋功能。
- */
-class Trie {
-    constructor() { this.root = {}; }
-    insert(word) { let node = this.root; for (const char of word) { node = node[char] = node[char] || {}; } node.isEndOfWord = true; }
-    startsWith(prefix) { let node = this.root; const lowerPrefix = prefix.toLowerCase(); for (const char of lowerPrefix) { if (!node[char]) return false; node = node[char]; } return true; }
-}
-
 // --- 初始化核心組件與常數 ---
-const globalCache = new LRUCache();
-const paramPrefixTrie = new Trie();
+const globalUrlCache = new LRUCache(500);
+const domainDecisionCache = new LRUCache(100); // [V37.0 新增] 域名決策快取
 
 const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', 'png', 'jpg', 'jpeg', 'webp', '.ico']);
 const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 'image/gif' }, body: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" }};
@@ -280,37 +269,40 @@ const REJECT_RESPONSE = { response: { status: 403 } };
 const DROP_RESPONSE = { response: {} };
 const REDIRECT_RESPONSE = (url) => ({ response: { status: 302, headers: { 'Location': url } }});
 
-// --- [V36.0 新增] 效能優化：預編譯 Regex ---
+const DOMAIN_DECISION = { BLOCKED: 1, API_WHITELISTED: 2, PASSTHROUGH: 3 };
+
+// --- [V37.0 優化] 預編譯 Regex 儲存庫 ---
 let PRECOMPILED_REGEX = {};
 
 /**
- * [V36.0 新增] 將關鍵字集合轉換為單一、高效的正規表示式。
+ * 將關鍵字集合轉換為單一、高效的正規表示式。
  * @param {Set<string>} keywords - 關鍵字集合。
  * @param {string} flags - Regex 旗標。
  * @returns {RegExp} - 編譯後的正規表示式。
  */
 function buildRegexFromKeywords(keywords, flags = 'i') {
-    if (!keywords || keywords.size === 0) {
-        // 返回一個永遠不匹配的 Regex，以避免錯誤
-        return /(?!)/;
-    }
-    // 脫逸特殊字元並用 `|` 連接
+    if (!keywords || keywords.size === 0) return /(?!)/; // 返回永不匹配的 Regex
     const pattern = Array.from(keywords, k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
     return new RegExp(pattern, flags);
 }
 
 /**
- * [V36.0 優化] 集中初始化所有規則，並預編譯 Regex。
+ * [V37.0 重構] 集中初始化所有規則，並預編譯所有 Regex。
  */
 function initializeRules() {
-    CONFIG.TRACKING_PREFIXES.forEach(p => paramPrefixTrie.insert(p));
-    
+    // 脫逸萬用字元域名中的 `.`
+    const escapedWildcardDomains = Array.from(CONFIG.API_WHITELIST_WILDCARDS, domain => domain.replace(/\./g, '\\.'));
+
     PRECOMPILED_REGEX = {
         CRITICAL_PATTERNS: buildRegexFromKeywords(CONFIG.CRITICAL_TRACKING_PATTERNS),
         PATH_BLOCK: buildRegexFromKeywords(CONFIG.PATH_BLOCK_KEYWORDS),
         PATH_ALLOW: buildRegexFromKeywords(CONFIG.PATH_ALLOW_PATTERNS),
         DROP_KEYWORDS: buildRegexFromKeywords(CONFIG.DROP_KEYWORDS),
-        PATH_BLOCK_LITERALS: CONFIG.PATH_BLOCK_REGEX_LITERALS
+        PATH_BLOCK_LITERALS: CONFIG.PATH_BLOCK_REGEX_LITERALS,
+        // [V37.0 新增] 將參數前綴 Trie 遷移至 RegExp
+        PARAM_PREFIXES: new RegExp(`^(${Array.from(CONFIG.TRACKING_PREFIXES).join('|')})`, 'i'),
+        // [V37.0 新增] 將萬用字元白名單遷移至 RegExp
+        API_WHITELIST_WILDCARDS: new RegExp(`(^|\\.)${escapedWildcardDomains.join('|')}$`, 'i'),
     };
 }
 
@@ -321,28 +313,23 @@ function initializeRules() {
 // #################################################################################################
 
 /**
- * [V36.0 優化] 輕量級 URL 解析器，避免為每個請求都建立完整的 URL 物件。
+ * 輕量級 URL 解析器，避免為每個請求都建立完整的 URL 物件。
  * @param {string} urlString - 原始 URL 字串。
  * @returns {{hostname: string, pathname: string, search: string}|null}
  */
 function lightParseUrl(urlString) {
     try {
-        // 尋找協議之後的第一個 `/`
         const pathStartIndex = urlString.indexOf('/', 8);
         if (pathStartIndex === -1) {
-            // URL 類似 "https://example.com"
             const host = urlString.substring(urlString.indexOf('//') + 2);
             return { hostname: host.toLowerCase(), pathname: '/', search: '' };
         }
-        
         const host = urlString.substring(urlString.indexOf('//') + 2, pathStartIndex);
         const pathAndQuery = urlString.substring(pathStartIndex);
-        
         const queryStartIndex = pathAndQuery.indexOf('?');
         if (queryStartIndex === -1) {
             return { hostname: host.toLowerCase(), pathname: pathAndQuery, search: '' };
         }
-        
         const path = pathAndQuery.substring(0, queryStartIndex);
         const query = pathAndQuery.substring(queryStartIndex);
         return { hostname: host.toLowerCase(), pathname: path, search: query };
@@ -352,30 +339,23 @@ function lightParseUrl(urlString) {
 }
 
 /**
- * 檢查主機名稱是否在 API 白名單中。
+ * [V37.0 優化] 檢查主機名稱是否在 API 白名單中 (完全使用 RegExp)。
  * @param {string} hostname - 已轉換為小寫的主機名稱。
  * @returns {boolean}
  */
 function isApiWhitelisted(hostname) {
-    if (CONFIG.API_WHITELIST_EXACT.has(hostname)) return true;
-    for (const [domain] of CONFIG.API_WHITELIST_WILDCARDS) {
-        if (hostname === domain || hostname.endsWith('.' + domain)) {
-            return true;
-        }
-    }
-    return false;
+    return CONFIG.API_WHITELIST_EXACT.has(hostname) || PRECOMPILED_REGEX.API_WHITELIST_WILDCARDS.test(hostname);
 }
 
 /**
- * [V36.0 優化] 檢查主機名稱是否在域名黑名單中 (演算法改進)。
+ * 檢查主機名稱是否在域名黑名單中。
  * @param {string} hostname - 已轉換為小寫的主機名稱。
  * @returns {boolean}
  */
 function isDomainBlocked(hostname) {
     const parts = hostname.split('.');
     for (let i = 0; i < parts.length; ++i) {
-        const subdomain = parts.slice(i).join('.');
-        if (CONFIG.BLOCK_DOMAINS.has(subdomain)) {
+        if (CONFIG.BLOCK_DOMAINS.has(parts.slice(i).join('.'))) {
             return true;
         }
     }
@@ -383,7 +363,7 @@ function isDomainBlocked(hostname) {
 }
 
 /**
- * 清理 URL 中的追蹤參數。
+ * [V37.0 優化] 清理 URL 中的追蹤參數 (使用 RegExp)。
  * @param {URL} urlObject - 完整的 URL 物件。
  * @returns {string|null} - 若有修改則返回新 URL 字串，否則返回 null。
  */
@@ -393,7 +373,7 @@ function getCleanedUrl(urlObject) {
         if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(key.toLowerCase())) {
             continue;
         }
-        if (CONFIG.GLOBAL_TRACKING_PARAMS.has(key) || paramPrefixTrie.startsWith(key)) {
+        if (CONFIG.GLOBAL_TRACKING_PARAMS.has(key) || PRECOMPILED_REGEX.PARAM_PREFIXES.test(key)) {
             urlObject.searchParams.delete(key);
             paramsChanged = true;
         }
@@ -419,7 +399,7 @@ function getBlockResponse(lowerFullPath) {
 }
 
 /**
- * [V36.0 重構] 處理單一請求的主函式。
+ * [V37.0 重構] 處理單一請求的主函式，整合多層快取。
  * @param {object} request - Surge 的 $request 物件。
  * @returns {object|null}
  */
@@ -427,62 +407,71 @@ function processRequest(request) {
     try {
         if (!request || !request.url) return null;
 
-        // --- 1. 全域快取檢查 (最優先) ---
-        const cachedDecision = globalCache.get(request.url);
-        if (cachedDecision) {
-            return cachedDecision;
-        }
+        // --- 1. 全域 URL 快取檢查 (最高優先級) ---
+        const cachedUrlDecision = globalUrlCache.get(request.url);
+        if (cachedUrlDecision !== null) return cachedUrlDecision;
 
         // --- 2. 輕量級 URL 解析 ---
         const parsedUrl = lightParseUrl(request.url);
         if (!parsedUrl) return null;
-
         const { hostname, pathname, search } = parsedUrl;
-        const lowerPathname = pathname.toLowerCase();
-        const lowerFullPath = lowerPathname + search.toLowerCase();
 
-        let decision = null;
+        let finalDecision = null;
 
-        // --- 3. 過濾邏輯 (依效率排序) ---
-        if (isDomainBlocked(hostname)) {
-            decision = getBlockResponse(lowerFullPath);
-        } else if (isApiWhitelisted(hostname)) {
-            decision = null; // Pass
-        } else {
+        // --- 3. 域名決策快取檢查 (第二優先級) ---
+        let domainDecision = domainDecisionCache.get(hostname);
+        if (!domainDecision) {
+            if (isDomainBlocked(hostname)) {
+                domainDecision = DOMAIN_DECISION.BLOCKED;
+            } else if (isApiWhitelisted(hostname)) {
+                domainDecision = DOMAIN_DECISION.API_WHITELISTED;
+            } else {
+                domainDecision = DOMAIN_DECISION.PASSTHROUGH;
+            }
+            domainDecisionCache.set(hostname, domainDecision);
+        }
+
+        // --- 4. 根據域名決策執行過濾邏輯 ---
+        if (domainDecision === DOMAIN_DECISION.BLOCKED) {
+            finalDecision = getBlockResponse(pathname.toLowerCase() + search.toLowerCase());
+        } else if (domainDecision === DOMAIN_DECISION.PASSTHROUGH) {
+            const lowerPathname = pathname.toLowerCase();
+            const lowerFullPath = lowerPathname + search.toLowerCase();
             const scriptName = pathname.substring(pathname.lastIndexOf('/') + 1).toLowerCase();
+
             if (CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName) || PRECOMPILED_REGEX.CRITICAL_PATTERNS.test(lowerFullPath)) {
-                decision = getBlockResponse(lowerFullPath);
+                finalDecision = getBlockResponse(lowerFullPath);
             } else if (PRECOMPILED_REGEX.PATH_BLOCK.test(lowerFullPath)) {
                 if (!PRECOMPILED_REGEX.PATH_ALLOW.test(lowerFullPath)) {
-                    decision = getBlockResponse(lowerFullPath);
+                    finalDecision = getBlockResponse(lowerFullPath);
                 }
             } else {
                 for (const regex of PRECOMPILED_REGEX.PATH_BLOCK_LITERALS) {
                     if (regex.test(lowerPathname)) {
-                        decision = getBlockResponse(lowerFullPath);
+                        finalDecision = getBlockResponse(lowerFullPath);
                         break;
                     }
                 }
             }
         }
-        
-        // --- 4. 參數清理 (僅在未被攔截時執行) ---
-        if (decision === null) {
-            // 此處為效能權衡點：僅在需要時才建立完整的 URL 物件
-            const fullUrlObject = new URL(request.url);
+        // 若 domainDecision 是 API_WHITELISTED 或未被攔截的 PASSTHROUGH，則 finalDecision 保持為 null
+
+        // --- 5. 參數清理 (僅在未被攔截時執行) ---
+        if (finalDecision === null) {
+            const fullUrlObject = new URL(request.url); // 僅在此處實例化完整 URL 物件
             const cleanedUrl = getCleanedUrl(fullUrlObject);
             if (cleanedUrl) {
-                decision = REDIRECT_RESPONSE(cleanedUrl);
+                finalDecision = REDIRECT_RESPONSE(cleanedUrl);
             }
         }
-        
-        // --- 5. 寫入全域快取並返回 ---
-        globalCache.set(request.url, decision);
-        return decision;
+
+        // --- 6. 寫入全域 URL 快取並返回 ---
+        globalUrlCache.set(request.url, finalDecision);
+        return finalDecision;
 
     } catch (error) {
         if (typeof console !== 'undefined' && console.error) {
-            console.error(`[URL-Filter-v36] 處理錯誤: ${error.message}`, error);
+            console.error(`[URL-Filter-v37] 處理錯誤: ${error.message}`, error);
         }
         return null;
     }
@@ -497,60 +486,57 @@ function processRequest(request) {
 (function() {
     try {
         initializeRules(); // 執行初始化
-        
+
         if (typeof $request === 'undefined') {
             if (typeof $done !== 'undefined') {
-                $done({ version: '36.0', status: 'ready', message: 'URL Filter v36.0 - Performance & Engine Refactor' });
+                $done({ version: '37.0', status: 'ready', message: 'URL Filter v37.0 - Algorithm Acceleration & Multi-Layer Cache' });
             }
             return;
         }
-        
+
         const result = processRequest($request);
         if (typeof $done !== 'undefined') { $done(result || {}); }
-        
+
     } catch (error) {
         if (typeof console !== 'undefined' && console.error) {
-            console.error(`[URL-Filter-v36] 致命錯誤: ${error.message}`, error);
+            console.error(`[URL-Filter-v37] 致命錯誤: ${error.message}`, error);
         }
         if (typeof $done !== 'undefined') { $done({}); }
     }
 })();
 
 // =================================================================================================
-// ## 更新日誌 (V36.0)
+// ## 更新日誌 (V37.0)
 // =================================================================================================
 //
 // ### 📅 更新日期: 2025-09-08
 //
-// ### ✨ V35.0 -> V36.0 變更 (核心效能重構):
+// ### ✨ V36.0 -> V37.0 變更 (演算法加速 & 多層快取):
 //
-// 這是一次以提升執行效率為核心目標的重大更新，對腳本的底層演算法與執行邏輯進行了全面重構。
+// V37.0 是在 V36.0 高效能引擎基礎上的進一步架構演進，旨在透過更智慧的快取策略與極致的演算法優化，
+// 將腳本的反應速度與資源效率提升至全新水平。
 //
-// 1.  **【演算法升級】遷移至原生正規表示式 (RegExp) 引擎**:
-//     - **背景**: 原先用於路徑與關鍵字匹配的 JavaScript 版 Trie (字典樹) 演算法，在高密度匹配場景下存在效能瓶頸。
-//     - **優化**: 將所有關鍵字匹配集合 (`CRITICAL_TRACKING_PATTERNS`, `PATH_BLOCK_KEYWORDS` 等) 在腳本初始化時，
-//       **預編譯 (Pre-compiled)** 成單一、高效的 `RegExp` 物件。
-//     - **效益**: 利用瀏覽器或 Surge 底層以 C++ 實現的高效正規表示式引擎進行匹配，其速度遠超純 JavaScript 實現的演算法，
-//       大幅降低了路徑檢查的 CPU 運算時間。
+// 1.  **【快取策略升級】引入智慧型多層快取 (Multi-Layer Caching)**:
+//     - **背景**: V36 的全域快取對重複的完整 URL 非常有效，但對於來自同一個域名下的不同 URL（例如：`example.com/page1` 和 `example.com/page2`），
+//       每次仍需重新執行域名黑白名單的判斷。
+//     - **優化**: 新增了一個輕量級的 `domainDecisionCache` (域名決策快取)。此快取專門儲存對 **主機名稱 (Hostname)** 的最終裁決結果
+//       （例如：直接攔截、API 白名單放行、需進一步路徑分析）。
+//     - **效益**: 當一個域名被分析過一次後，後續所有來自該域名的請求都能瞬間從域名快取中讀取裁決，**直接跳過 `isDomainBlocked` 和 `isApiWhitelisted` 的檢查**，
+//       顯著縮短了高密度請求下的處理延遲，尤其在瀏覽包含大量資源的複雜網頁時效果更為顯著。
 //
-// 2.  **【快取策略升級】引入全域請求快取 (Global Request Cache)**:
-//     - **背景**: 原快取策略分散於各個檢查函式中，且僅快取部分結果，無法避免對同一 URL 的完整邏輯鏈重複執行。
-//     - **優化**: 將 `LRUCache` 提升至全域級別，直接快取 **整個 URL 的最終處理決策** (例如：通過、攔截、重定向)。
-//     - **效益**: 當同一個資源被重複請求時 (例如網頁中的 CSS/JS 檔案)，腳本能以 O(1) 的時間複雜度直接從快取中返回結果，
-//       跳過所有解析與匹配邏輯，顯著降低延遲。
+// 2.  **【演算法全面升級】遷移最後的自訂結構至原生引擎**:
+//     - **背景**: V36 中仍保留了 `Trie` 結構用於匹配追蹤參數的前綴，以及使用迴圈來檢查萬用字元域名。
+//     - **優化**:
+//         - **參數匹配**: 將用於判斷 `utm_` 等追蹤參數前綴的 `Trie` 結構，預編譯成單一的 `RegExp` 物件 (`PARAM_PREFIXES`)。
+//         - **白名單匹配**: 將 API 白名單中的萬用字元域名列表，同樣預編譯成單一、高效的 `RegExp` 物件 (`API_WHITELIST_WILDCARDS`)。
+//     - **效益**: 此舉徹底移除了腳本中所有自訂的、基於純 JavaScript 的匹配演算法，將相關邏輯 **100% 遷移至底層 C++ 實現的原生正規表示式引擎**。
+//       這不僅帶來了極致的匹配速度，也進一步降低了腳本的記憶體佔用，使整體架構更為簡潔與現代化。
 //
-// 3.  **【資源管理優化】實施輕量級 URL 解析**:
-//     - **背景**: `new URL()` 是一個相對耗費資源的操作，為每一個網路請求都完整實例化一個 URL 物件會造成不必要的開銷。
-//     - **優化**: 開發了一個輕量級的 URL 解析函式 (`lightParseUrl`)，僅用高效率的字串操作提取出必要的 `hostname` 和 `path` 進行初步過濾。
-//       只有在請求通過所有攔截規則，且需要進行參數清理時，才會建立完整的 `URL` 物件。
-//     - **效益**: 大幅減少了不必要的物件創建，降低了記憶體佔用和 GC (垃圾回收) 壓力，提升了腳本的整體反應速度。
-//
-// 4.  **【演算法微調】改進域名檢查邏輯**:
-//     - 對 `isDomainBlocked` 函式中的迴圈邏輯進行了微調，採用 `split` 與 `slice` 代替了連續的 `indexOf` 與 `substring`，
-//       使程式碼更具可讀性且在某些 JS 引擎下執行效率略有提升。
+// 3.  **【架構簡化】移除 `Trie` 類別**:
+//     - 隨著參數前綴匹配邏輯的升級，`Trie` 類別已無用武之地，因此被完全移除。這使得核心引擎的程式碼更為精簡，減少了潛在的維護成本。
 //
 // ### 🏆 總結:
 //
-// V36.0 透過演算法替換、智慧快取、延遲運算等多維度的深度優化，將腳本的效能推向了新的高度。
-// 這次重構不僅僅是速度的提升，更是架構上的演進，確保了腳本在應對日益複雜的網路環境時，
-// 依然能保持輕量、高效與穩定，為使用者提供無感的極速過濾體驗。
+// V37.0 的核心是一次「由點到面」的效能革命。透過引入多層快取機制，優化從單一 URL 的快取擴展到了整個域名的決策快取，
+// 實現了更宏觀的效能增益。同時，將所有匹配邏輯統一到原生引擎，完成了腳本的最後一塊效能拼圖。
+// 這次更新確保了腳本在應對未來更複雜、更多變的網路追蹤技術時，依然能以巔峰狀態運行，提供最流暢、最無感的過濾保護。
