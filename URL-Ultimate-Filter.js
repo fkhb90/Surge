@@ -76,7 +76,7 @@ const CONFIG = {
     // --- 其他常用 API ---
     'api.intercom.io', 'api.sendgrid.com', 'api.mailgun.com', 'hooks.slack.com', 'api.pagerduty.com',
     'api.zendesk.com', 'api.hubapi.com', 'secure.gravatar.com', 'legy.line-apps.com', 'obs.line-scdn.net',
-    'duckduckgo.com', 'external-content.duckduckgo.com'
+    'duckduckgo.com', 'external-content.duckduckgo.com',
   ]),
 
   /**
@@ -241,7 +241,7 @@ const CONFIG = {
     // --- Pinterest Tag / Reddit Pixel / 事件上報 ---
     's.pinimg.com/ct/core.js', 'ct.pinterest.com/v3', 'www.redditstatic.com/ads/pixel.js', 'events.redditmedia.com/v1',
     // --- Discord 遙測（science）/ VK（社交平台）像素/重定向 ---
-    'discord.com/api/v9/science', 'discord.com/api/v10/science', 'vk.com/rtrg'
+    'discord.com/api/v9/science', 'discord.com/api/v10/science', 'vk.com/rtrg',
     // --- 其他 ---
     '/abtesting/', '/feature-flag/', '/user-profile/', '/b/ss', '/i/adsct', 'cacafly/track', '/track/m', '/track/pc',
   ]),
@@ -304,7 +304,7 @@ const CONFIG = {
     // --- 常見主題或設定檔（檔名級）---
     'theme.js', 'config.js', 'web.config',
     // --- [收斂] 避免 /blog, /catalog, /dialog 等被誤殺 ---
-    'blog', 'catalog', 'dialog', 'login'
+    'blog', 'catalog', 'dialog', 'login',
   ]),
 
   /**
@@ -318,7 +318,7 @@ const CONFIG = {
     'rum', 'intake', 'batch', 'client-event', 'server-event', 'heartbeat', 'web-vitals',
     // --- 錯誤 & 診斷 (Error & Diagnostics) ---
     'crash-report', 'error-report', 'stacktrace', 'csp-report', 'profiler', 'trace.json',
-    'diagnostic.log', '/diag/', '?diag='
+    'diagnostic.log', '/diag/', '?diag=',
   ]),
 
   /**
