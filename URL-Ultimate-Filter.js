@@ -1,8 +1,8 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V39.1.js
- * @version     39.1 (Whitelist Refinement & Critical Services Elevation)
- * @description 基於 V39.0 的回饋，將硬白名單擴展為「精確匹配」與「萬用字元」兩種模式。並將所有銀行、
- * 支付、系統更新、網頁存檔等關鍵服務全部提升至硬白名單層級，確保最高穩定性與相容性。
+ * @file        URL-Ultimate-Filter-Surge-V39.2.js
+ * @version     39.2 (YouTube Compatibility Hotfix)
+ * @description 緊急修正 V39.1 中因規則衝突導致 YouTube 無法播放的問題。將 youtube.com 從域名黑名單中移除，
+ * 確保其能正確被軟白名單規則處理，恢復正常功能。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-09
  */
@@ -152,7 +152,7 @@ const CONFIG = {
     // --- 其他 ---
     'wcs.naver.net', 'adnx.com', 'rlcdn.com', 'revjet.com',
     'tiktok.com', 'snapchat.com', 'sc-static.net', 'pinterest.com',
-    'twitter.com', 'youtube.com', 'cint.com',
+    'twitter.com', 'cint.com',
   ]),
 
   /**
@@ -317,7 +317,7 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                             🚀 OPTIMIZED CORE ENGINE (V39.1)                                  #
+// #                             🚀 OPTIMIZED CORE ENGINE (V39.2)                                  #
 // #                                                                                               #
 // #################################################################################################
 
@@ -434,7 +434,7 @@ function processRequest(request) {
             multiLevelCache.setUrlObject(rawUrl, Object.freeze(url));
         } catch (e) {
             optimizedStats.increment('errors');
-            console.error(`[URL-Filter-v39.1] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v39.2] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -500,7 +500,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v39.1] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v39.2] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -512,7 +512,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '39.1', status: 'ready', message: 'URL Filter v39.1 - Whitelist Refinement & Critical Services Elevation', stats: optimizedStats.getStats() });
+        $done({ version: '39.2', status: 'ready', message: 'URL Filter v39.2 - YouTube Compatibility Hotfix', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -521,7 +521,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v39.1] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v39.2] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
