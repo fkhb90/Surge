@@ -1,15 +1,15 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.0.js
- * @version     40.0 (Refined Tracking Parameters & First-Party Analytics Blocking)
- * @description 新增 Yahoo 特有追蹤參數至黑名單，並加入對 Feedly 等第一方平台
- * 內部追蹤域名的攔截，進一步提升過濾的廣度與深度。
+ * @file        URL-Ultimate-Filter-Surge-V40.3.js
+ * @version     40.3 (Expanded Tracking & Analytics Coverage)
+ * @description 擴充對第一方與第三方追蹤服務的覆蓋。新增對主流 CDP、行銷自動化平台、
+ * 行動應用歸因服務的域名攔截，並加入對 Reddit、Pinterest 等社群平台分析端點的路徑過濾。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-09
  */
 
 // #################################################################################################
 // #                                                                                               #
-// #                             ⚙️ SCRIPT CONFIGURATION                                             #
+// #                             ⚙️ SCRIPT CONFIGURATION                                          #
 // #                      (使用者在此區域安全地新增、修改或移除規則)                                 #
 // #                                                                                               #
 // #################################################################################################
@@ -106,7 +106,7 @@ const CONFIG = {
     // --- Facebook / Meta ---
     'graph.facebook.com', 'connect.facebook.net',
     // --- 平台內部追蹤 & 分析 ---
-    'visuals.feedly.com',
+    'visuals.feedly.com', 'spclient.wg.spotify.com',
     // --- 主流分析 & 追蹤服務 ---
     'scorecardresearch.com', 'chartbeat.com', 'analytics.twitter.com', 'static.ads-twitter.com', 'ads.linkedin.com',
     'criteo.com', 'criteo.net', 'taboola.com', 'outbrain.com', 'pubmatic.com', 'rubiconproject.com',
@@ -121,7 +121,11 @@ const CONFIG = {
     // --- 廣告驗證 & 可見度追蹤 ---
     'doubleverify.com', 'moatads.com', 'moat.com', 'iasds.com', 'serving-sys.com',
     // --- 客戶數據平台 (CDP) & 身分識別 ---
-    'agkn.com', 'tags.tiqcdn.com',
+    'agkn.com', 'tags.tiqcdn.com', 'liveramp.com', 'id5-sync.com', 'permutive.com',
+    // --- CDP & 行銷自動化 ---
+    'klaviyo.com', 'marketo.com', 'mktoresp.com', 'pardot.com',
+    // --- Mobile & Performance ---
+    'kochava.com', 'singular.net', 'raygun.io', 'instana.io', 'launchdarkly.com',
     // --- 主流廣告聯播網 & 平台 ---
     'adcolony.com', 'adroll.com', 'adsnative.com', 'bidswitch.net', 'casalemedia.com', 'conversantmedia.com',
     'media.net', 'soom.la', 'spotxchange.com', 'teads.tv', 'tremorhub.com', 'yieldmo.com', 'zemanta.com',
@@ -129,7 +133,7 @@ const CONFIG = {
     'sharethrough.com', 'smartadserver.com', 'applovin.com', 'ironsrc.com', 'unityads.unity3d.com', 'vungle.com',
     'appnexus.com', 'contextweb.com', 'spotx.tv', 'liveintent.com', 'narrative.io', 'neustar.biz', 'tapad.com',
     'thetradedesk.com', 'bluekai.com', 'amazon-adsystem.com', 'adserver.yahoo.com', 'ads.yahoo.com', 'analytics.yahoo.com',
-    'geo.yahoo.com',
+    'geo.yahoo.com', 'pbd.yahoo.com',
     // --- 更多主流廣告技術平台 ---
     'adswizz.com', 'sitescout.com', 'ad.yieldmanager.com', 'creativecdn.com', 'cr-serving.com', 'yieldify.com', 'go-mpulse.net',
     // --- 彈出式 & 其他廣告 ---
@@ -201,7 +205,7 @@ const CONFIG = {
     'facebook.com/tr', 'facebook.com/tr/',
     // --- 通用 API 端點 ---
     '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/',
-    '/api/v1/track', '/intake', '/api/batch', '/v1/pixel',
+    '/api/v1/track', '/intake', '/api/batch', '/v1/pixel', '/api/v1/events', '/ingest/', '/p.gif', '/t.gif',
     // --- 主流服務端點 ---
     'scorecardresearch.com/beacon.js', 'analytics.twitter.com', 'ads.linkedin.com/li/track', 'px.ads.linkedin.com',
     'amazon-adsystem.com/e/ec', 'ads.yahoo.com/pixel', 'ads.bing.com/msclkid', 'segment.io/v1/track',
@@ -210,6 +214,7 @@ const CONFIG = {
     // --- 社群 & 其他 ---
     'ads.tiktok.com/i1n/pixel/events.js', 'ads-api.tiktok.com/api/v2/pixel', 'analytics.snapchat.com/v1/batch',
     'tr.snapchat.com', 'sc-static.net/scevent.min.js', 'ads.pinterest.com/v3/conversions/events',
+    'events.reddit.com/v1/pixel', 'log.pinterest.com/', 'analytics.pinterest.com/', 'q.quora.com/',
     '/plugins/easy-social-share-buttons/',
     // --- 中國大陸地區 ---
     'hm.baidu.com/hm.js', 'cnzz.com/stat.php', 'wgo.mmstat.com', '/log/aplus', '/v.gif', 'gdt.qq.com/gdt_mview.fcg',
@@ -295,8 +300,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🗑️ 全域追蹤參數黑名單 (精簡版)
-   * 說明：移除了 from, source, ref, type 等高風險通用參數，降低誤殺率。
+   * 🗑️ 全域追蹤參數黑名單 (V40.1 標準化為全小寫)
    */
   GLOBAL_TRACKING_PARAMS: new Set([
     // --- UTM 家族 ---
@@ -324,7 +328,7 @@ const CONFIG = {
     'xhsshare', 'xhs_share', 'app_platform', 'share_from', 'weibo_id', 'wechat_id', 'is_copy_url',
     'is_from_webapp', '__twitter_impression',
     // --- 特定服務 (Service Specific) ---
-    '_openstat', 'hsCtaTracking', 'hsa_acc', 'hsa_cam', 'hsa_grp', 'hsa_ad', 'hsa_src', 'vero_conv',
+    '_openstat', 'hsctatracking', 'hsa_acc', 'hsa_cam', 'hsa_grp', 'hsa_ad', 'hsa_src', 'vero_conv',
     'vero_id', 'ck_subscriber_id', 'action_object_map', 'action_type_map', 'action_ref_map',
     'piwik_campaign', 'piwik_kwd', 'matomo_campaign', 'matomo_kwd', '_bta_c', '_bta_tid', 'oly_anon_id',
     'oly_enc_id', 'redirect_log_mongo_id', 'redirect_mongo_id', 'sb_referer_host', 'from_ad',
@@ -336,16 +340,16 @@ const CONFIG = {
     'creative', 'adset', 'ad', 'pixel_id', 'event_id',
     // --- 搜尋特定 (Search Specific) ---
     'algolia_query', 'algolia_query_id', 'algolia_object_id', 'algolia_position',
-    // --- [V40.0] Yahoo 特定參數 ---
-    '.tsrc', 'tsrc', 'spaceid', 'test_id', 'rapidKeys'
+    // --- Yahoo 特定參數 ---
+    '.tsrc', 'tsrc', 'spaceid', 'test_id', 'rapidkeys'
   ]),
 
   /**
-   * 🗑️ 追蹤參數前綴黑名單
+   * 🗑️ 追蹤參數前綴黑名單 (V40.1 標準化為全小寫)
    */
   TRACKING_PREFIXES: new Set([
     'utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'mkt_', 'matomo_', 'piwik_', 'hsa_', 'ad_', 'trk_',
-    'spm_', 'scm', 'bd_', 'video_utm_', 'vero_', '__cf_', '_hs', 'pk_', 'mtm_', 'campaign_', 'source_',
+    'spm_', 'scm_', 'bd_', 'video_utm_', 'vero_', '__cf_', '_hs', 'pk_', 'mtm_', 'campaign_', 'source_',
     'medium_', 'content_', 'term_', 'creative_', 'placement_', 'network_', 'device_', 'ref_', 'from_',
     'share_', 'aff_', 'alg_', 'li_', 'tt_', 'tw_', 'epik_', '_bta_', '_bta', '_oly_', 'cam_', 'cup_',
     'gdr_', 'gds_', 'et_', 'hmsr_', 'zanpid_', '_ga_', '_gid_', '_gat_', 's_'
@@ -362,7 +366,7 @@ const CONFIG = {
    * 🚫 基於正規表示式的路徑黑名單
    */
   PATH_BLOCK_REGEX: [
-    /^\/((?!_next\/static\/|static\/|assets\/)[a-z0-9]{12,})\.js$/i, // 根目錄長雜湊 js (排除靜態目錄)
+    /^\/((?!_next\/static\/|static\/|assets\/)[a-z09]{12,})\.js$/i, // 根目錄長雜湊 js (排除靜態目錄)
     /[^\/]*sentry[^\/]*\.js/i,        // 檔名含 sentry 且以 .js 結尾
     /\/v\d+\/event/i                   // 通用事件API版本 (如 /v1/event, /v2/event)
   ],
@@ -370,7 +374,7 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                             🚀 OPTIMIZED CORE ENGINE (V40.0)                                  #
+// #                             🚀 OPTIMIZED CORE ENGINE (V40.1)                                  #
 // #                                                                                               #
 // #################################################################################################
 
@@ -500,7 +504,7 @@ function processRequest(request) {
             multiLevelCache.setUrlObject(rawUrl, Object.freeze(url));
         } catch (e) {
             optimizedStats.increment('errors');
-            console.error(`[URL-Filter-v40.0] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.3] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -566,7 +570,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.0] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.3] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -578,7 +582,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.0', status: 'ready', message: 'URL Filter v40.0 - Refined Tracking Parameters & First-Party Analytics Blocking', stats: optimizedStats.getStats() });
+        $done({ version: '40.3', status: 'ready', message: 'URL Filter v40.3 - Expanded Tracking & Analytics Coverage', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -587,7 +591,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.0] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.3] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
