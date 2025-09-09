@@ -49,7 +49,7 @@ const CONFIG = {
     'bot.com.tw', 'megabank.com.tw', 'firstbank.com.tw', 'hncb.com.tw', 'sinopac.com', 'tcb-bank.com.tw',
     'scsb.com.tw', 'fubon.com', 'standardchartered.com.tw', 'taishinbank.com.tw', 'chb.com.tw',
     // --- 核心登入 & 協作平台 ---
-    'okta.com', 'auth0.com', 'atlassian.net',
+    'okta.com', 'auth0.com', 'atlassian.net', 'shopee.tw',
     // --- 系統 & 平台核心服務 ---
     'apple.com', 'icloud.com', 'windowsupdate.com', 'update.microsoft.com',
     // --- 網頁存檔服務 (對參數極度敏感) ---
@@ -92,7 +92,7 @@ const CONFIG = {
     'github.io', 'gitlab.io', 'windows.net', 'pages.dev', 'vercel.app', 'netlify.app',
     'azurewebsites.net', 'cloudfunctions.net', 'oraclecloud.com', 'digitaloceanspaces.com',
     // --- 社群平台相容性 ---
-    'shopee.tw', 'instagram.com', 'threads.net'
+    'instagram.com', 'threads.net'
   ]),
 
   /**
