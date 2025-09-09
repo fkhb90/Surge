@@ -159,6 +159,10 @@ const CONFIG = {
     'qq.com', 'tencent.com', 'tanx.com', 'alimama.com', 'mmstat.com',
     'getui.com', 'jpush.cn', 'jiguang.cn', 'gridsum.com', 'admaster.com.cn', 'miaozhen.com',
     'kuaishou.com', 'pangolin-sdk-toutiao.com', 'zhugeio.com', 'growingio.com', 'youmi.net', 'adview.cn', 'igexin.com',
+    // --- 雲端與平台分析/廣告像素 ---
+    'bat.bing.com', 'cloudflareinsights.com', 'static.cloudflareinsights.com', 'monorail-edge.shopifysvc.com',
+    'demdex.net', 'omtrdc.net', 'everesttech.net', 'vitals.vercel-insights.com', 'cdn.vercel-insights.com',
+    'plausible.io', 'hs-analytics.net', 'hs-scripts.com',
     // --- 其他 ---
     'wcs.naver.net', 'adnx.com', 'rlcdn.com', 'revjet.com',
     'tiktok.com', 'snapchat.com', 'sc-static.net', 'cint.com',
@@ -187,6 +191,8 @@ const CONFIG = {
     'tiktok-pixel.js', 'tiktok-analytics.js', 'pangle.js', 'intercom.js', 'tagtoo.js', 'essb-core.min.js',
     // --- 中國大陸地區 ---
     'hm.js', 'u.js', 'um.js', 'aplus.js', 'aplus_wap.js', 'gdt.js', 'ec.js',
+    // --- Cloudflare / Bing / Plausible ---
+    'beacon.min.js', 'bat.js', 'plausible.outbound-links.js',
     // --- 通用 & 其他 ---
     'tracking.js', 'tracker.js', 'beacon.js', 'event.js', 'collect.js', 'activity.js', 'conversion.js',
     'action.js', 'abtasty.js', 'cmp.js', 'sp.js', 'link-click-tracker.js', 'user-timing.js', 'cf.js',
@@ -220,6 +226,18 @@ const CONFIG = {
     'hm.baidu.com/hm.js', 'cnzz.com/stat.php', 'wgo.mmstat.com', '/log/aplus', '/v.gif', 'gdt.qq.com/gdt_mview.fcg',
     // --- 通用廣告路徑 ---
     '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/',
+    // --- Cloudflare Web Analytics / RUM ---
+    'static.cloudflareinsights.com/beacon.min.js', 'cloudflareinsights.com/cdn-cgi/rum',
+    // --- Shopify Monorail ---
+    'monorail-edge.shopifysvc.com/v1/produce', 
+    // --- Bing UET ---
+    'bat.bing.com/action',
+    // --- Vercel Speed Insights ---
+    'vitals.vercel-insights.com/v1/vitals',
+    // --- Plausible Analytics ---
+    'plausible.io/api/event',
+    // --- Yahoo Benji/Logs ---
+    'pbd.yahoo.com/data/logs',
     // --- 其他 ---
     '/abtesting/', '/feature-flag/', '/user-profile/', '/b/ss', '/i/adsct', 'cacafly/track', '/track/m', '/track/pc',
   ]),
