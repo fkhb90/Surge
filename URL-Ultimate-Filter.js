@@ -20,7 +20,7 @@ const CONFIG = {
    */
   HARD_WHITELIST_EXACT: new Set([
     // --- 高互動性服務 API ---
-    'api.twitch.tv', 'api.discord.com', 'open.spotify.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
+    'api.twitch.tv', 'api.discord.com', 'spotify.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
     // --- YouTube 核心 API ---
     'youtubei.googleapis.com',
     // --- 支付 & 金流 API ---
