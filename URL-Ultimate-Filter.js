@@ -20,11 +20,13 @@ const CONFIG = {
    */
   HARD_WHITELIST_EXACT: new Set([
     // --- 高互動性服務 API ---
-    'api.twitch.tv', 'api.discord.com', 'open.spotify.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
+    'api.twitch.tv', 'api.discord.com', 'open.spotify.com', 'i.instagram.com',
+    'graph.instagram.com', 'graph.threads.net', 'tw.fd-api.com',
     // --- YouTube 核心 API ---
     'youtubei.googleapis.com',
     // --- 支付 & 金流 API ---
-    'api.stripe.com', 'api.paypal.com', 'api.adyen.com', 'api.braintreegateway.com', 'payment.ecpay.com.tw', 'api.ecpay.com.tw', 'api.jkos.com',
+    'api.stripe.com', 'api.paypal.com', 'api.adyen.com', 'api.braintreegateway.com', 
+    'payment.ecpay.com.tw', 'api.ecpay.com.tw', 'api.jkos.com',
     // --- 銀行服務 (特定子域名) ---
     'netbank.bot.com.tw', 'ebank.megabank.com.tw', 'ibank.firstbank.com.tw', 'netbank.hncb.com.tw',
     'mma.sinopac.com', 'richart.tw', 'ebank.tcb-bank.com.tw', 'ibanking.scsb.com.tw', 'ebank.taipeifubon.com.tw',
