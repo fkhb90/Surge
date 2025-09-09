@@ -1,14 +1,14 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.5.js
- * @version     40.5 (Critical Bug Fixes & Policy Refinement)
- * @description 根據社群回饋修正 4 項關鍵錯誤與策略：修復 WebP 副檔名、路徑正則表達式、臨界追蹤模式匹配邏輯，並調整參數清理策略以提升相容性。
+ * @file        URL-Ultimate-Filter-Surge-V40.6.js
+ * @version     40.6 (Security Hardening & Refinement)
+ * @description 針對 V40.5 進行 3 項關鍵安全修復：強化路徑白名單匹配邏輯以防止繞過、移除錯誤日誌中的敏感查詢參數、並為核心引擎增加長度限制以防禦效能攻擊。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-09
  */
 
 // #################################################################################################
 // #                                                                                               #
-// #                             ⚙️ SCRIPT CONFIGURATION                                          #
+// #                             ⚙️ SCRIPT CONFIGURATION                                             #
 // #                      (使用者在此區域安全地新增、修改或移除規則)                                 #
 // #                                                                                               #
 // #################################################################################################
@@ -289,11 +289,12 @@ const CONFIG = {
   PATH_ALLOW_PREFIXES: new Set([
       '/.well-known/'
   ]),
-
+  
   /**
-   * ✅ 路徑關鍵字白名單
+   * ✅ [V40.6 安全強化] 路徑白名單 - 後綴 (Path Allowlist - Suffixes)
+   * 說明：當路徑以此處的字串結尾時，將豁免 `PATH_BLOCK_KEYWORDS` 檢查。
    */
-  PATH_ALLOW_PATTERNS: new Set([
+  PATH_ALLOW_SUFFIXES: new Set([
     // --- 框架 & 套件常用檔 ---
     'chunk.js', 'chunk.mjs', 'bundle.js', 'main.js', 'app.js', 'vendor.js', 'runtime.js', 'common.js',
     'framework.js', 'framework.mjs', 'polyfills.js', 'polyfills.mjs', 'styles.js', 'styles.css', 'index.js', 'index.mjs',
@@ -301,11 +302,23 @@ const CONFIG = {
     'polyfill.js', 'fetch-polyfill', 'browser.js', 'sw.js', 'loader.js', 'header.js', 'head.js', 'padding.css',
     'badge.svg', 'modal.js', 'card.js', 'icon.svg', 'logo.svg', 'favicon.ico', 'manifest.json', 'robots.txt',
     'page-data.js', 'legacy.js', 'sitemap.xml', 'chunk-vendors', 'chunk-common', 'component---',
-    // --- 典型靜態路徑前綴 ---
-    '_next/static/', '_app/', '_nuxt/', 'static/js/', 'static/css/', 'static/media/', 'i18n/', 'locales/',
-    // --- 常見主題或設定檔（檔名級）---
+    // --- 常見主題或設定檔 ---
     'theme.js', 'config.js', 'web.config',
-    // --- [收斂] 避免 /blog, /catalog, /dialog 等被誤殺 ---
+  ]),
+
+  /**
+   * ✅ [V40.6 安全強化] 路徑白名單 - 子字串 (Path Allowlist - Substrings)
+   * 說明：當路徑包含此處的字串時，將豁免 `PATH_BLOCK_KEYWORDS` 檢查 (用於典型靜態路徑)。
+   */
+  PATH_ALLOW_SUBSTRINGS: new Set([
+    '_next/static/', '_app/', '_nuxt/', 'static/js/', 'static/css/', 'static/media/', 'i18n/', 'locales/',
+  ]),
+
+  /**
+   * ✅ [V40.6 安全強化] 路徑白名單 - 區段 (Path Allowlist - Segments)
+   * 說明：當路徑被 '/' 分割後，若任一區段完全匹配此處的字串，將豁免 `PATH_BLOCK_KEYWORDS` 檢查 (用於避免誤殺功能性路徑)。
+   */
+  PATH_ALLOW_SEGMENTS: new Set([
     'blog', 'catalog', 'dialog', 'login',
   ]),
 
@@ -400,7 +413,7 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                             🚀 OPTIMIZED CORE ENGINE (V40.5)                                  #
+// #                             🚀 OPTIMIZED CORE ENGINE (V40.6)                                  #
 // #                                                                                               #
 // #################################################################################################
 
@@ -409,14 +422,11 @@ const __now__ = (typeof performance !== 'undefined' && typeof performance.now ==
   : () => Date.now();
 
 const DECISION = Object.freeze({ ALLOW: 1, BLOCK: 2, PARAM_CLEAN: 3, SOFT_WHITELISTED: 4 });
-
 const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 'image/gif', 'Content-Length': '43' }, body: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" } };
 const REJECT_RESPONSE   = { response: { status: 403 } };
 const DROP_RESPONSE     = { response: {} };
 const NO_CONTENT_RESPONSE = { response: { status: 204 } };
 const REDIRECT_RESPONSE = (url) => ({ response: { status: 302, headers: { 'Location': url } } });
-
-// V40.5 修正: '..webp' -> '.webp'
 const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.ico']);
 const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs', '.css']);
 
@@ -424,7 +434,20 @@ class OptimizedTrie {
   constructor() { this.root = Object.create(null); }
   insert(word) { let n = this.root; for (let i = 0; i < word.length; i++) { const c = word[i]; n = n[c] || (n[c] = Object.create(null)); } n.isEndOfWord = true; }
   startsWith(prefix) { let n = this.root; for (let i = 0; i < prefix.length; i++) { const c = prefix[i]; if (!n[c]) return false; n = n[c]; if (n.isEndOfWord) return true; } return false; }
-  contains(text) { const N = text.length; for (let i = 0; i < N; i++) { let n = this.root; for (let j = i; j < N; j++) { const c = text[j]; if (!n[c]) break; n = n[c]; if (n.isEndOfWord) return true; } } return false; }
+  contains(text) {
+    // V40.6 安全強化: 增加長度上限，防禦 ReDoS 攻擊
+    const N = Math.min(text.length, 1024);
+    for (let i = 0; i < N; i++) {
+        let n = this.root;
+        for (let j = i; j < N; j++) {
+            const c = text[j];
+            if (!n[c]) break;
+            n = n[c];
+            if (n.isEndOfWord) return true;
+        }
+    }
+    return false;
+  }
 }
 
 class HighPerformanceLRUCache {
@@ -448,13 +471,12 @@ class MultiLevelCacheManager {
 }
 
 const multiLevelCache = new MultiLevelCacheManager();
-const OPTIMIZED_TRIES = { prefix: new OptimizedTrie(), criticalPattern: new OptimizedTrie(), pathBlock: new OptimizedTrie(), allow: new OptimizedTrie(), drop: new OptimizedTrie() };
+const OPTIMIZED_TRIES = { prefix: new OptimizedTrie(), criticalPattern: new OptimizedTrie(), pathBlock: new OptimizedTrie(), drop: new OptimizedTrie() };
 
 function initializeOptimizedTries() {
   CONFIG.TRACKING_PREFIXES.forEach(p => OPTIMIZED_TRIES.prefix.insert(String(p).toLowerCase()));
   CONFIG.CRITICAL_TRACKING_PATTERNS.forEach(p => OPTIMIZED_TRIES.criticalPattern.insert(String(p).toLowerCase()));
   CONFIG.PATH_BLOCK_KEYWORDS.forEach(p => OPTIMIZED_TRIES.pathBlock.insert(String(p).toLowerCase()));
-  CONFIG.PATH_ALLOW_PATTERNS.forEach(p => OPTIMIZED_TRIES.allow.insert(String(p).toLowerCase()));
   CONFIG.DROP_KEYWORDS.forEach(p => OPTIMIZED_TRIES.drop.insert(String(p).toLowerCase()));
 }
 
@@ -481,9 +503,8 @@ function isHardWhitelisted(h) { return isWhitelisted(h, CONFIG.HARD_WHITELIST_EX
 function isSoftWhitelisted(h) { return isWhitelisted(h, CONFIG.SOFT_WHITELIST_EXACT, CONFIG.SOFT_WHITELIST_WILDCARDS); }
 function isDomainBlocked(h) { let c = h; while (c) { if (CONFIG.BLOCK_DOMAINS.has(c)) return true; const i = c.indexOf('.'); if (i === -1) break; c = c.slice(i + 1); } return false; }
 
-// V40.5 修正: 檢查 hostname + path 以確保含主機名的規則能被命中
 function isCriticalTrackingScript(hostname, path) { 
-    const key = `crit:${hostname}:${path}`; 
+    const key = `crit:${hostname}:${path}`;
     const cachedDecision = multiLevelCache.getUrlDecision(key); 
     if (cachedDecision !== null) return cachedDecision; 
     
@@ -504,8 +525,57 @@ function isCriticalTrackingScript(hostname, path) {
     return shouldBlock;
 }
 
-function isPathBlocked(path) { const k = `path:${path}`; const c = multiLevelCache.getUrlDecision(k); if (c !== null) return c; let r = false; if (OPTIMIZED_TRIES.pathBlock.contains(path) && !OPTIMIZED_TRIES.allow.contains(path)) { r = true; } multiLevelCache.setUrlDecision(k, r); return r; }
-function isPathBlockedByRegex(path) { const k = `regex:${path}`; const c = multiLevelCache.getUrlDecision(k); if (c !== null) return c; for (const prefix of CONFIG.PATH_ALLOW_PREFIXES) { if (path.startsWith(prefix)) { multiLevelCache.setUrlDecision(k, false); return false; } } for (let i = 0; i < CONFIG.PATH_BLOCK_REGEX.length; i++) { if (CONFIG.PATH_BLOCK_REGEX[i].test(path)) { multiLevelCache.setUrlDecision(k, true); return true; } } multiLevelCache.setUrlDecision(k, false); return false; }
+/**
+ * V40.6 安全強化: 新增精確的路徑豁免檢查函式
+ * 說明：取代舊有的 `allow.contains`，以更嚴格的後綴、子字串和路徑區段匹配來避免繞過。
+ */
+function isPathExplicitlyAllowed(path) {
+    for (const suffix of CONFIG.PATH_ALLOW_SUFFIXES) {
+        if (path.endsWith(suffix)) return true;
+    }
+    for (const substring of CONFIG.PATH_ALLOW_SUBSTRINGS) {
+        if (path.includes(substring)) return true;
+    }
+    // 檢查路徑區段，移除開頭的'/'並過濾空字串
+    const segments = path.startsWith('/') ? path.substring(1).split('/') : path.split('/');
+    for (const segment of segments) {
+        if (segment && CONFIG.PATH_ALLOW_SEGMENTS.has(segment)) return true;
+    }
+    return false;
+}
+
+function isPathBlocked(path) { 
+    const k = `path:${path}`;
+    const c = multiLevelCache.getUrlDecision(k); 
+    if (c !== null) return c; 
+    let r = false;
+    // V40.6 安全強化: 使用 isPathExplicitlyAllowed 進行更嚴格的檢查
+    if (OPTIMIZED_TRIES.pathBlock.contains(path) && !isPathExplicitlyAllowed(path)) { 
+        r = true; 
+    } 
+    multiLevelCache.setUrlDecision(k, r); 
+    return r; 
+}
+
+function isPathBlockedByRegex(path) { 
+    const k = `regex:${path}`;
+    const c = multiLevelCache.getUrlDecision(k); 
+    if (c !== null) return c;
+    for (const prefix of CONFIG.PATH_ALLOW_PREFIXES) { 
+        if (path.startsWith(prefix)) { 
+            multiLevelCache.setUrlDecision(k, false); 
+            return false;
+        } 
+    } 
+    for (let i = 0; i < CONFIG.PATH_BLOCK_REGEX.length; i++) { 
+        if (CONFIG.PATH_BLOCK_REGEX[i].test(path)) { 
+            multiLevelCache.setUrlDecision(k, true); 
+            return true;
+        } 
+    } 
+    multiLevelCache.setUrlDecision(k, false); 
+    return false; 
+}
 
 function getBlockResponse(path) {
     const lowerPath = path.toLowerCase();
@@ -554,7 +624,9 @@ function processRequest(request) {
             multiLevelCache.setUrlObject(rawUrl, Object.freeze(url));
         } catch (e) {
             optimizedStats.increment('errors');
-            console.error(`[URL-Filter-v40.5] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
+            // V40.6 安全強化: 移除日誌中的查詢參數，避免敏感資訊外洩
+            const sanitizedUrl = rawUrl.split('?')[0];
+            console.error(`[URL-Filter-v40.6] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -588,7 +660,6 @@ function processRequest(request) {
     const originalFullPath = url.pathname + url.search;
     const lowerFullPath = originalFullPath.toLowerCase();
 
-    // V40.5 修正: 傳入 hostname 以進行更精準的匹配
     if (isCriticalTrackingScript(hostname, lowerFullPath)) {
         optimizedStats.increment('criticalScriptBlocked');
         optimizedStats.increment('blockedRequests');
@@ -621,7 +692,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.5] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.6] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -633,7 +704,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.5', status: 'ready', message: 'URL Filter v40.5 - Critical Bug Fixes & Policy Refinement', stats: optimizedStats.getStats() });
+        $done({ version: '40.6', status: 'ready', message: 'URL Filter v40.6 - Security Hardening & Refinement', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -642,7 +713,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.5] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.6] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
