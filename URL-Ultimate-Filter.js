@@ -1,8 +1,9 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V39.3.js
- * @version     39.3 (Critical Asset Whitelisting Hotfix)
- * @description 緊急修正 V39.2 中因缺少對 `ytimg.com` 的豁免，導致 YouTube 播放器無法載入而播放失敗的問題。
- * 同時，移除了對 `twitter.com` 和 `pinterest.com` 等主域名的過度封鎖，提升了腳本的相容性。
+ * @file        URL-Ultimate-Filter-Surge-V39.4.js
+ * @version     39.4 (YouTube Hard Whitelisting Hotfix)
+ * @description 根據 V38.3 的行為模式，將所有 YouTube 相關域名 (`youtube.com`, `googlevideo.com`, 
+ * `ytimg.com`, `youtubei.googleapis.com`) 從軟白名單提升至硬白名單。此舉旨在賦予其最高豁免權，
+ * 徹底解決因關鍵 API 路徑被誤判為追蹤請求而導致的播放失敗問題。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-09
  */
@@ -20,6 +21,8 @@ const CONFIG = {
    * 說明：完全豁免所有檢查。此處的域名需要完整且精確的匹配。
    */
   HARD_WHITELIST_EXACT: new Set([
+    // --- [修正 V39.4] YouTube 核心 API ---
+    'youtubei.googleapis.com',
     // --- 支付 & 金流 API ---
     'api.stripe.com', 'api.paypal.com', 'api.adyen.com', 'api.braintreegateway.com', 'payment.ecpay.com.tw', 'api.ecpay.com.tw', 'api.jkos.com',
     // --- 銀行服務 (特定子域名) ---
@@ -37,6 +40,8 @@ const CONFIG = {
    * 說明：完全豁免所有檢查。此處的域名會匹配自身及其所有子域名 (例如 apple.com 會匹配 a.apple.com)。
    */
   HARD_WHITELIST_WILDCARDS: new Set([
+    // --- [修正 V39.4] YouTube 核心服務 ---
+    'youtube.com', 'm.youtube.com', 'googlevideo.com', 'ytimg.com',
     // --- 支付 & 金流 (根域名) ---
     'stripe.com', 'paypal.com',
     // --- 銀行服務 (根域名) ---
@@ -58,7 +63,7 @@ const CONFIG = {
    */
   SOFT_WHITELIST_EXACT: new Set([
     // --- 主流服務 API ---
-    'youtubei.googleapis.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
+    'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
     'open.spotify.com', 'api.github.com', 'api.openai.com', 'api.anthropic.com', 'a-api.anthropic.com', 'api.cohere.ai',
     'gemini.google.com', 'api.telegram.org', 'api.slack.com', 'api.discord.com', 'api.twitch.tv',
     // --- 開發 & 部署平台 ---
@@ -78,8 +83,7 @@ const CONFIG = {
    * ✅ 軟白名單 - 萬用字元 (Soft Whitelist - Wildcards)
    */
   SOFT_WHITELIST_WILDCARDS: new Set([
-    // --- 核心服務 & CDN ---
-    'youtube.com', 'm.youtube.com', 'googlevideo.com', 'ytimg.com', // [修正] 新增 ytimg.com 以確保播放器正常載入
+    // --- 核心 CDN ---
     'amazonaws.com', 'cloudfront.net', 'fastly.net', 'akamaihd.net', 'cloudflare.com', 'jsdelivr.net',
     'unpkg.com', 'cdnjs.cloudflare.com', 'gstatic.com', 'fbcdn.net', 'twimg.com',
     // --- 閱讀器 & 新聞 ---
@@ -316,7 +320,7 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                             🚀 OPTIMIZED CORE ENGINE (V39.3)                                  #
+// #                             🚀 OPTIMIZED CORE ENGINE (V39.4)                                  #
 // #                                                                                               #
 // #################################################################################################
 
@@ -433,7 +437,7 @@ function processRequest(request) {
             multiLevelCache.setUrlObject(rawUrl, Object.freeze(url));
         } catch (e) {
             optimizedStats.increment('errors');
-            console.error(`[URL-Filter-v39.3] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v39.4] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -499,7 +503,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v39.3] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v39.4] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -511,7 +515,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '39.3', status: 'ready', message: 'URL Filter v39.3 - Critical Asset Whitelisting Hotfix', stats: optimizedStats.getStats() });
+        $done({ version: '39.4', status: 'ready', message: 'URL Filter v39.4 - YouTube Hard Whitelisting Hotfix', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -520,7 +524,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v39.3] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v39.4] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
