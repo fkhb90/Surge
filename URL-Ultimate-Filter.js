@@ -1,8 +1,8 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V39.8.js
- * @version     39.8 (Tiered Whitelisting for Threads)
- * @description 比照 Instagram 策略，對 Threads 採用分層豁免模型。將其主域名移至軟白名單，
- * 以在保障功能的同時，依然能有效清理其追蹤參數，確保過濾策略的一致性。
+ * @file        URL-Ultimate-Filter-Surge-V39.9.js
+ * @version     39.9 (Observability & Refinement Update)
+ * @description 引入多項專業級優化：增強 L2 快取監控、精簡化通用參數清理、
+ * 採用 URL 片段標記（#）防止重導循環，並優化攔截回應策略以提升客戶端相容性。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-09
  */
@@ -21,7 +21,7 @@ const CONFIG = {
    */
   HARD_WHITELIST_EXACT: new Set([
     // --- 高互動性服務 API ---
-    'api.twitch.tv', 'api.discord.com', 'open.spotify.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.com',
+    'api.twitch.tv', 'api.discord.com', 'open.spotify.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
     // --- YouTube 核心 API ---
     'youtubei.googleapis.com',
     // --- 支付 & 金流 API ---
@@ -92,7 +92,7 @@ const CONFIG = {
     'github.io', 'gitlab.io', 'windows.net', 'pages.dev', 'vercel.app', 'netlify.app',
     'azurewebsites.net', 'cloudfunctions.net', 'oraclecloud.com', 'digitaloceanspaces.com',
     // --- 社群平台相容性 ---
-    'shopee.tw', 'instagram.com', 'threads.com'
+    'shopee.tw', 'instagram.com', 'threads.net'
   ]),
 
   /**
@@ -147,7 +147,7 @@ const CONFIG = {
     'pchome.com.tw', 'momo.com.tw', 'xuite.net', 'cna.com.tw', 'cw.com.tw',
     'hi-on.org', 'chinatimes.com', 'analysis.tw', 'trk.tw', 'fast-trk.com', 'gamani.com',
     'tenmax.io', 'aotter.net', 'funp.com', 'ruten.com.tw', 'books.com.tw', 'etmall.com.tw',
-    'friday.tw', 'ad-hub.net', 'adgeek.net', 'shopee.tw',
+    'friday.tw', 'ad-hub.net', 'adgeek.net',
     // --- 中國大陸地區 ---
     'umeng.com', 'umeng.co', 'umeng.cn', 'cnzz.com', 'talkingdata.com', 'talkingdata.cn', 'baidu.com',
     'qq.com', 'tencent.com', 'tanx.com', 'alimama.com', 'mmstat.com',
@@ -293,7 +293,8 @@ const CONFIG = {
   ]),
 
   /**
-   * 🗑️ 全域追蹤參數黑名單
+   * 🗑️ 全域追蹤參數黑名單 (精簡版)
+   * 說明：移除了 from, source, ref, type 等高風險通用參數，降低誤殺率。
    */
   GLOBAL_TRACKING_PARAMS: new Set([
     // --- UTM 家族 ---
@@ -313,8 +314,7 @@ const CONFIG = {
     'zanpid', 'affid', 'affiliate_id', 'partner_id', 'sub_id', 'transaction_id', 'customid',
     'click_id', 'clickid', 'offer_id', 'promo_code', 'coupon_code', 'deal_id', 'rb_clickid', 's_kwcid', 'ef_id',
     // --- 通用 & 其他 (Generic & Misc) ---
-    'email_source', 'email_campaign', 'from', 'source', 'ref', 'referrer', 'campaign', 'medium', 'content',
-    'spm', 'scm', 'pvid', 'fr', 'type', 'scene', 'traceid', 'request_id', 'feature', 'src', 'si',
+    'spm', 'scm', 'pvid', 'fr', 'scene', 'traceid', 'request_id', 'feature', 'src', 'si',
     'trk', 'trk_params', 'epik', 'ecid',
     // --- 社群分享特定 (Social Sharing) ---
     'share_source', 'share_medium', 'share_plat', 'share_id', 'share_tag', 'from_source', 'from_channel',
@@ -366,7 +366,7 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                             🚀 OPTIMIZED CORE ENGINE (V39.8)                                  #
+// #                             🚀 OPTIMIZED CORE ENGINE (V39.9)                                  #
 // #                                                                                               #
 // #################################################################################################
 
@@ -376,12 +376,14 @@ const __now__ = (typeof performance !== 'undefined' && typeof performance.now ==
 
 const DECISION = Object.freeze({ ALLOW: 1, BLOCK: 2, PARAM_CLEAN: 3, SOFT_WHITELISTED: 4 });
 
-const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 'image/gif' }, body: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" } };
+const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 'image/gif', 'Content-Length': '43' }, body: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" } };
 const REJECT_RESPONSE   = { response: { status: 403 } };
 const DROP_RESPONSE     = { response: {} };
+const NO_CONTENT_RESPONSE = { response: { status: 204 } };
 const REDIRECT_RESPONSE = (url) => ({ response: { status: 302, headers: { 'Location': url } } });
 
-const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.ico']);
+const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', '.jpg', '.jpeg', '..webp', '.ico']);
+const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs', '.css']);
 
 class OptimizedTrie {
   constructor() { this.root = Object.create(null); }
@@ -404,7 +406,7 @@ class MultiLevelCacheManager {
   constructor() { this.l1DomainCache = new HighPerformanceLRUCache(256); this.l2UrlDecisionCache = new HighPerformanceLRUCache(1024); this.urlObjectCache = new HighPerformanceLRUCache(64); }
   getDomainDecision(h) { return this.l1DomainCache.get(h); }
   setDomainDecision(h, d) { this.l1DomainCache.set(h, d); }
-  getUrlDecision(k) { return this.l2UrlDecisionCache.get(k); }
+  getUrlDecision(k) { const decision = this.l2UrlDecisionCache.get(k); if (decision !== null) optimizedStats.increment('l2CacheHits'); return decision; }
   setUrlDecision(k, d) { this.l2UrlDecisionCache.set(k, d); }
   getUrlObject(rawUrl) { return this.urlObjectCache.get(rawUrl); }
   setUrlObject(rawUrl, urlObj) { this.urlObjectCache.set(rawUrl, urlObj); }
@@ -446,7 +448,18 @@ function isDomainBlocked(h) { let c = h; while (c) { if (CONFIG.BLOCK_DOMAINS.ha
 function isCriticalTrackingScript(path) { const k = `crit:${path}`; const c = multiLevelCache.getUrlDecision(k); if (c !== null) return c; const q = path.indexOf('?'); const p = q !== -1 ? path.slice(0, q) : path; const s = p.lastIndexOf('/'); const n = s !== -1 ? p.slice(s + 1) : p; let b = false; if (n && CONFIG.CRITICAL_TRACKING_SCRIPTS.has(n)) { b = true; } else { b = OPTIMIZED_TRIES.criticalPattern.contains(path); } multiLevelCache.setUrlDecision(k, b); return b; }
 function isPathBlocked(path) { const k = `path:${path}`; const c = multiLevelCache.getUrlDecision(k); if (c !== null) return c; let r = false; if (OPTIMIZED_TRIES.pathBlock.contains(path) && !OPTIMIZED_TRIES.allow.contains(path)) { r = true; } multiLevelCache.setUrlDecision(k, r); return r; }
 function isPathBlockedByRegex(path) { const k = `regex:${path}`; const c = multiLevelCache.getUrlDecision(k); if (c !== null) return c; for (const prefix of CONFIG.PATH_ALLOW_PREFIXES) { if (path.startsWith(prefix)) { multiLevelCache.setUrlDecision(k, false); return false; } } for (let i = 0; i < CONFIG.PATH_BLOCK_REGEX.length; i++) { if (CONFIG.PATH_BLOCK_REGEX[i].test(path)) { multiLevelCache.setUrlDecision(k, true); return true; } } multiLevelCache.setUrlDecision(k, false); return false; }
-function getBlockResponse(path) { const lower = path.toLowerCase(); if (OPTIMIZED_TRIES.drop.contains(lower)) return DROP_RESPONSE; const dot = path.lastIndexOf('.'); if (dot !== -1) { const ext = path.slice(dot).toLowerCase(); if (IMAGE_EXTENSIONS.has(ext)) return TINY_GIF_RESPONSE; } return REJECT_RESPONSE; }
+
+function getBlockResponse(path) {
+    const lowerPath = path.toLowerCase();
+    const dotIndex = lowerPath.lastIndexOf('.');
+    if (dotIndex !== -1) {
+        const ext = lowerPath.substring(dotIndex);
+        if (IMAGE_EXTENSIONS.has(ext)) return TINY_GIF_RESPONSE;
+        if (SCRIPT_EXTENSIONS.has(ext)) return NO_CONTENT_RESPONSE;
+    }
+    if (OPTIMIZED_TRIES.drop.contains(lowerPath)) return DROP_RESPONSE;
+    return REJECT_RESPONSE;
+}
 
 function cleanTrackingParams(url) {
     const newUrl = new URL(url.toString());
@@ -462,7 +475,7 @@ function cleanTrackingParams(url) {
     }
     if (modified) {
         toDelete.forEach(k => newUrl.searchParams.delete(k));
-        newUrl.searchParams.set('cleaned', '1');
+        newUrl.hash = 'cleaned';
         return newUrl.toString();
     }
     return null;
@@ -483,12 +496,12 @@ function processRequest(request) {
             multiLevelCache.setUrlObject(rawUrl, Object.freeze(url));
         } catch (e) {
             optimizedStats.increment('errors');
-            console.error(`[URL-Filter-v39.8] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v39.9] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
     
-    if (url.searchParams.has('cleaned')) {
+    if (url.hash === '#cleaned') {
         return null;
     }
 
@@ -549,7 +562,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v39.8] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v39.9] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -561,7 +574,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '39.8', status: 'ready', message: 'URL Filter v39.8 - Tiered Whitelisting for Threads', stats: optimizedStats.getStats() });
+        $done({ version: '39.9', status: 'ready', message: 'URL Filter v39.9 - Observability & Refinement Update', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -570,7 +583,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v39.8] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v39.9] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
