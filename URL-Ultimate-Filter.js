@@ -1,8 +1,8 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V39.6.js
- * @version     39.6 (Rule Categorization & Readability)
- * @description 為主要黑白名單增加了詳細的分類註解，參照 `BLOCK_DOMAINS` 的結構化方式，
- * 大幅提升了規則的可讀性、可維護性與擴展性。
+ * @file        URL-Ultimate-Filter-Surge-V39.8.js
+ * @version     39.8 (Tiered Whitelisting for Threads)
+ * @description 比照 Instagram 策略，對 Threads 採用分層豁免模型。將其主域名移至軟白名單，
+ * 以在保障功能的同時，依然能有效清理其追蹤參數，確保過濾策略的一致性。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-09
  */
@@ -20,8 +20,8 @@ const CONFIG = {
    * 說明：完全豁免所有檢查。此處的域名需要完整且精確的匹配。
    */
   HARD_WHITELIST_EXACT: new Set([
-    // --- [修正 V39.5] 提升高互動性服務 ---
-    'api.twitch.tv', 'api.discord.com', 'open.spotify.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
+    // --- 高互動性服務 API ---
+    'api.twitch.tv', 'api.discord.com', 'open.spotify.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.com',
     // --- YouTube 核心 API ---
     'youtubei.googleapis.com',
     // --- 支付 & 金流 API ---
@@ -91,8 +91,8 @@ const CONFIG = {
     // --- 開發 & 部署平台 ---
     'github.io', 'gitlab.io', 'windows.net', 'pages.dev', 'vercel.app', 'netlify.app',
     'azurewebsites.net', 'cloudfunctions.net', 'oraclecloud.com', 'digitaloceanspaces.com',
-    // --- 網站相容性 ---
-    'shopee.tw',
+    // --- 社群平台相容性 ---
+    'shopee.tw', 'instagram.com', 'threads.com'
   ]),
 
   /**
@@ -366,7 +366,7 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                             🚀 OPTIMIZED CORE ENGINE (V39.6)                                  #
+// #                             🚀 OPTIMIZED CORE ENGINE (V39.8)                                  #
 // #                                                                                               #
 // #################################################################################################
 
@@ -483,7 +483,7 @@ function processRequest(request) {
             multiLevelCache.setUrlObject(rawUrl, Object.freeze(url));
         } catch (e) {
             optimizedStats.increment('errors');
-            console.error(`[URL-Filter-v39.6] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v39.8] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -549,7 +549,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v39.6] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v39.8] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -561,7 +561,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '39.6', status: 'ready', message: 'URL Filter v39.6 - Rule Categorization & Readability', stats: optimizedStats.getStats() });
+        $done({ version: '39.8', status: 'ready', message: 'URL Filter v39.8 - Tiered Whitelisting for Threads', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -570,7 +570,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v39.6] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v39.8] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
