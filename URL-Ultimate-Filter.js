@@ -1,7 +1,7 @@
 /**
  * @file        URL-Ultimate-Filter-Surge-V40.5.js
- * @version     40.5 (Coupang Login Compatibility Fix)
- * @description 新增對台灣 Coupang (酷澎) 的硬白名單規則，以修復登入狀態判斷異常問題。
+ * @version     40.5 (Critical Bug Fixes & Policy Refinement)
+ * @description 根據社群回饋修正 4 項關鍵錯誤與策略：修復 WebP 副檔名、路徑正則表達式、臨界追蹤模式匹配邏輯，並調整參數清理策略以提升相容性。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-09
  */
@@ -20,7 +20,7 @@ const CONFIG = {
    */
   HARD_WHITELIST_EXACT: new Set([
     // --- 高互動性服務 API ---
-    'api.twitch.tv', 'api.discord.com', 'spotify.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
+    'api.twitch.tv', 'api.discord.com', 'open.spotify.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
     // --- YouTube 核心 API ---
     'youtubei.googleapis.com',
     // --- 支付 & 金流 API ---
@@ -49,8 +49,6 @@ const CONFIG = {
     'scsb.com.tw', 'fubon.com', 'standardchartered.com.tw', 'taishinbank.com.tw', 'chb.com.tw',
     // --- 核心登入 & 協作平台 ---
     'okta.com', 'auth0.com', 'atlassian.net',
-    // --- 電商平台相容性 ---
-    'coupang.tw', 'coupang.com',
     // --- 系統 & 平台核心服務 ---
     'apple.com', 'icloud.com', 'windowsupdate.com', 'update.microsoft.com',
     // --- 網頁存檔服務 (對參數極度敏感) ---
@@ -73,7 +71,7 @@ const CONFIG = {
     // --- 生產力 & 協作工具 ---
     'api.notion.com', 'api.figma.com', 'api.trello.com', 'api.asana.com', 'api.dropboxapi.com', 'clorasio.atlassian.net',
     // --- 台灣地區服務 ---
-    'api.irentcar.com.tw', 'usiot.roborock.com',
+    'api.irentcar.com.tw', 'usiot.roborock.com', 'cmapi.tw.coupang.com',
     // --- 其他常用 API ---
     'api.intercom.io', 'api.sendgrid.com', 'api.mailgun.com', 'hooks.slack.com', 'api.pagerduty.com',
     'api.zendesk.com', 'api.hubapi.com', 'secure.gravatar.com', 'legy.line-apps.com', 'obs.line-scdn.net',
@@ -107,7 +105,7 @@ const CONFIG = {
     // --- Facebook / Meta ---
     'graph.facebook.com', 'connect.facebook.net',
     // --- 平台內部追蹤 & 分析 ---
-    'visuals.feedly.com',
+    'visuals.feedly.com', 'spclient.wg.spotify.com',
     // --- 主流分析 & 追蹤服務 ---
     'scorecardresearch.com', 'chartbeat.com', 'analytics.twitter.com', 'static.ads-twitter.com', 'ads.linkedin.com',
     'criteo.com', 'criteo.net', 'taboola.com', 'outbrain.com', 'pubmatic.com', 'rubiconproject.com',
@@ -371,28 +369,30 @@ const CONFIG = {
   ]),
 
   /**
-   * 🗑️ 追蹤參數前綴黑名單 (V40.1 標準化為全小寫)
+   * 🗑️ 追蹤參數前綴黑名單 (V40.5 移除 s_ 與 ul_ 以提升相容性)
    */
   TRACKING_PREFIXES: new Set([
     'utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'mkt_', 'matomo_', 'piwik_', 'hsa_', 'ad_', 'trk_',
     'spm_', 'scm_', 'bd_', 'video_utm_', 'vero_', '__cf_', '_hs', 'pk_', 'mtm_', 'campaign_', 'source_',
     'medium_', 'content_', 'term_', 'creative_', 'placement_', 'network_', 'device_', 'ref_', 'from_',
     'share_', 'aff_', 'alg_', 'li_', 'tt_', 'tw_', 'epik_', '_bta_', '_bta', '_oly_', 'cam_', 'cup_',
-    'gdr_', 'gds_', 'et_', 'hmsr_', 'zanpid_', '_ga_', '_gid_', '_gat_', 's_', 'ul_'
+    'gdr_', 'gds_', 'et_', 'hmsr_', 'zanpid_', '_ga_', '_gid_', '_gat_'
   ]),
 
   /**
-   * ✅ 必要參數白名單
+   * ✅ 必要參數白名單 (V40.5 擴充以提升相容性)
+   * 說明：此處的參數永遠不會被清理，以避免破壞網站核心功能。
    */
   PARAMS_TO_KEEP_WHITELIST: new Set([
+    'id', 'q', 'query', 'search', 'item', 'page', 'code', 'state', 'token', 'session_id', 'product_id',
     't', 'v', 'targetid'
   ]),
 
   /**
-   * 🚫 基於正規表示式的路徑黑名單
+   * 🚫 基於正規表示式的路徑黑名單 (V40.5 修正正則)
    */
   PATH_BLOCK_REGEX: [
-    /^\/((?!_next\/static\/|static\/|assets\/)[a-z09]{12,})\.js$/i, // 根目錄長雜湊 js (排除靜態目錄)
+    /^\/((?!_next\/static\/|static\/|assets\/)[a-z0-9]{12,})\.js$/i, // 根目錄長雜湊 js (排除靜態目錄)，修正 [a-z0-9]
     /[^\/]*sentry[^\/]*\.js/i,        // 檔名含 sentry 且以 .js 結尾
     /\/v\d+\/event/i                   // 通用事件API版本 (如 /v1/event, /v2/event)
   ],
@@ -400,7 +400,7 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                             🚀 OPTIMIZED CORE ENGINE (V40.1)                                  #
+// #                             🚀 OPTIMIZED CORE ENGINE (V40.5)                                  #
 // #                                                                                               #
 // #################################################################################################
 
@@ -416,7 +416,8 @@ const DROP_RESPONSE     = { response: {} };
 const NO_CONTENT_RESPONSE = { response: { status: 204 } };
 const REDIRECT_RESPONSE = (url) => ({ response: { status: 302, headers: { 'Location': url } } });
 
-const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', '.jpg', '.jpeg', '..webp', '.ico']);
+// V40.5 修正: '..webp' -> '.webp'
+const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.ico']);
 const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs', '.css']);
 
 class OptimizedTrie {
@@ -479,7 +480,30 @@ function isWhitelisted(hostname, exactSet, wildcardSet) {
 function isHardWhitelisted(h) { return isWhitelisted(h, CONFIG.HARD_WHITELIST_EXACT, CONFIG.HARD_WHITELIST_WILDCARDS); }
 function isSoftWhitelisted(h) { return isWhitelisted(h, CONFIG.SOFT_WHITELIST_EXACT, CONFIG.SOFT_WHITELIST_WILDCARDS); }
 function isDomainBlocked(h) { let c = h; while (c) { if (CONFIG.BLOCK_DOMAINS.has(c)) return true; const i = c.indexOf('.'); if (i === -1) break; c = c.slice(i + 1); } return false; }
-function isCriticalTrackingScript(path) { const k = `crit:${path}`; const c = multiLevelCache.getUrlDecision(k); if (c !== null) return c; const q = path.indexOf('?'); const p = q !== -1 ? path.slice(0, q) : path; const s = p.lastIndexOf('/'); const n = s !== -1 ? p.slice(s + 1) : p; let b = false; if (n && CONFIG.CRITICAL_TRACKING_SCRIPTS.has(n)) { b = true; } else { b = OPTIMIZED_TRIES.criticalPattern.contains(path); } multiLevelCache.setUrlDecision(k, b); return b; }
+
+// V40.5 修正: 檢查 hostname + path 以確保含主機名的規則能被命中
+function isCriticalTrackingScript(hostname, path) { 
+    const key = `crit:${hostname}:${path}`; 
+    const cachedDecision = multiLevelCache.getUrlDecision(key); 
+    if (cachedDecision !== null) return cachedDecision; 
+    
+    const urlFragment = hostname + path;
+    const queryIndex = path.indexOf('?');
+    const pathOnly = queryIndex !== -1 ? path.slice(0, queryIndex) : path;
+    const slashIndex = pathOnly.lastIndexOf('/');
+    const scriptName = slashIndex !== -1 ? pathOnly.slice(slashIndex + 1) : pathOnly;
+    
+    let shouldBlock = false;
+    if (scriptName && CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName)) {
+        shouldBlock = true;
+    } else {
+        shouldBlock = OPTIMIZED_TRIES.criticalPattern.contains(urlFragment);
+    }
+    
+    multiLevelCache.setUrlDecision(key, shouldBlock);
+    return shouldBlock;
+}
+
 function isPathBlocked(path) { const k = `path:${path}`; const c = multiLevelCache.getUrlDecision(k); if (c !== null) return c; let r = false; if (OPTIMIZED_TRIES.pathBlock.contains(path) && !OPTIMIZED_TRIES.allow.contains(path)) { r = true; } multiLevelCache.setUrlDecision(k, r); return r; }
 function isPathBlockedByRegex(path) { const k = `regex:${path}`; const c = multiLevelCache.getUrlDecision(k); if (c !== null) return c; for (const prefix of CONFIG.PATH_ALLOW_PREFIXES) { if (path.startsWith(prefix)) { multiLevelCache.setUrlDecision(k, false); return false; } } for (let i = 0; i < CONFIG.PATH_BLOCK_REGEX.length; i++) { if (CONFIG.PATH_BLOCK_REGEX[i].test(path)) { multiLevelCache.setUrlDecision(k, true); return true; } } multiLevelCache.setUrlDecision(k, false); return false; }
 
@@ -564,7 +588,8 @@ function processRequest(request) {
     const originalFullPath = url.pathname + url.search;
     const lowerFullPath = originalFullPath.toLowerCase();
 
-    if (isCriticalTrackingScript(lowerFullPath)) {
+    // V40.5 修正: 傳入 hostname 以進行更精準的匹配
+    if (isCriticalTrackingScript(hostname, lowerFullPath)) {
         optimizedStats.increment('criticalScriptBlocked');
         optimizedStats.increment('blockedRequests');
         return getBlockResponse(originalFullPath);
@@ -608,7 +633,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.5', status: 'ready', message: 'URL Filter v40.5 - Coupang Login Compatibility Fix', stats: optimizedStats.getStats() });
+        $done({ version: '40.5', status: 'ready', message: 'URL Filter v40.5 - Critical Bug Fixes & Policy Refinement', stats: optimizedStats.getStats() });
       }
       return;
     }
