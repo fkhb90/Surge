@@ -1,8 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.3.js
- * @version     40.3 (Expanded Tracking & Analytics Coverage)
- * @description 擴充對第一方與第三方追蹤服務的覆蓋。新增對主流 CDP、行銷自動化平台、
- * 行動應用歸因服務的域名攔截，並加入對 Reddit、Pinterest 等社群平台分析端點的路徑過濾。
+ * @file        URL-Ultimate-Filter-Surge-V40.4.js
+ * @version     40.4 (Enhanced Endpoint Blocking & Param Cleaning)
+ * @description 新增對微博 (Weibo) 日誌與 citiesocial 數據收集端點的封鎖，並根據其特徵擴充參數清理規則。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-09
  */
@@ -215,6 +214,9 @@ const CONFIG = {
     // --- 通用 API 端點 ---
     '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/',
     '/api/v1/track', '/intake', '/api/batch', '/v1/pixel', '/api/v1/events', '/ingest/', '/p.gif', '/t.gif',
+    // --- 特定服務端點 ---
+    '/2/client/addlog_batch', // Weibo log
+    '/api/collect', // Generic collect endpoint without trailing slash (e.g., citiesocial)
     // --- 主流服務端點 ---
     'scorecardresearch.com/beacon.js', 'analytics.twitter.com', 'ads.linkedin.com/li/track', 'px.ads.linkedin.com',
     'amazon-adsystem.com/e/ec', 'ads.yahoo.com/pixel', 'ads.bing.com/msclkid', 'segment.io/v1/track',
@@ -330,7 +332,7 @@ const CONFIG = {
     'utm_source_platform', 'utm_creative_format', 'utm_marketing_tactic',
     // --- Google ---
     'gclid', 'dclid', 'gclsrc', 'wbraid', 'gbraid', 'gad_source', 'gad', 'gcl_au',
-    '_ga', '_gid', '_gat', '__gads', '__gac',
+    '_ga', '_gid', '_gat', '__gads', '__gac', 'gsid',
     // --- Microsoft / Bing ---
     'msclkid', 'msad', 'mscampaignid', 'msadgroupid',
     // --- Facebook / Meta ---
@@ -374,7 +376,7 @@ const CONFIG = {
     'spm_', 'scm_', 'bd_', 'video_utm_', 'vero_', '__cf_', '_hs', 'pk_', 'mtm_', 'campaign_', 'source_',
     'medium_', 'content_', 'term_', 'creative_', 'placement_', 'network_', 'device_', 'ref_', 'from_',
     'share_', 'aff_', 'alg_', 'li_', 'tt_', 'tw_', 'epik_', '_bta_', '_bta', '_oly_', 'cam_', 'cup_',
-    'gdr_', 'gds_', 'et_', 'hmsr_', 'zanpid_', '_ga_', '_gid_', '_gat_', 's_'
+    'gdr_', 'gds_', 'et_', 'hmsr_', 'zanpid_', '_ga_', '_gid_', '_gat_', 's_', 'ul_'
   ]),
 
   /**
@@ -526,7 +528,7 @@ function processRequest(request) {
             multiLevelCache.setUrlObject(rawUrl, Object.freeze(url));
         } catch (e) {
             optimizedStats.increment('errors');
-            console.error(`[URL-Filter-v40.3] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.4] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -592,7 +594,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.3] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.4] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -604,7 +606,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.3', status: 'ready', message: 'URL Filter v40.3 - Expanded Tracking & Analytics Coverage', stats: optimizedStats.getStats() });
+        $done({ version: '40.4', status: 'ready', message: 'URL Filter v40.4 - Enhanced Endpoint Blocking & Param Cleaning', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -613,7 +615,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.3] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.4] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
