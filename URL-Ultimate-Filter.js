@@ -1,9 +1,8 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V39.4.js
- * @version     39.4 (YouTube Hard Whitelisting Hotfix)
- * @description 根據 V38.3 的行為模式，將所有 YouTube 相關域名 (`youtube.com`, `googlevideo.com`, 
- * `ytimg.com`, `youtubei.googleapis.com`) 從軟白名單提升至硬白名單。此舉旨在賦予其最高豁免權，
- * 徹底解決因關鍵 API 路徑被誤判為追蹤請求而導致的播放失敗問題。
+ * @file        URL-Ultimate-Filter-Surge-V39.5.js
+ * @version     39.5 (Proactive Hard Whitelisting)
+ * @description 根據社群反饋與預防性分析，將 Twitch, Discord, Spotify, Instagram 等功能複雜的服務
+ * 提升至硬白名單，以最大化相容性，避免潛在的核心功能中斷問題。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-09
  */
@@ -21,7 +20,9 @@ const CONFIG = {
    * 說明：完全豁免所有檢查。此處的域名需要完整且精確的匹配。
    */
   HARD_WHITELIST_EXACT: new Set([
-    // --- [修正 V39.4] YouTube 核心 API ---
+    // --- [修正 V39.5] 提升高互動性服務 ---
+    'api.twitch.tv', 'api.discord.com', 'open.spotify.com', 'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
+    // --- YouTube 核心 API ---
     'youtubei.googleapis.com',
     // --- 支付 & 金流 API ---
     'api.stripe.com', 'api.paypal.com', 'api.adyen.com', 'api.braintreegateway.com', 'payment.ecpay.com.tw', 'api.ecpay.com.tw', 'api.jkos.com',
@@ -40,7 +41,7 @@ const CONFIG = {
    * 說明：完全豁免所有檢查。此處的域名會匹配自身及其所有子域名 (例如 apple.com 會匹配 a.apple.com)。
    */
   HARD_WHITELIST_WILDCARDS: new Set([
-    // --- [修正 V39.4] YouTube 核心服務 ---
+    // --- YouTube 核心服務 ---
     'youtube.com', 'm.youtube.com', 'googlevideo.com', 'ytimg.com',
     // --- 支付 & 金流 (根域名) ---
     'stripe.com', 'paypal.com',
@@ -63,9 +64,8 @@ const CONFIG = {
    */
   SOFT_WHITELIST_EXACT: new Set([
     // --- 主流服務 API ---
-    'i.instagram.com', 'graph.instagram.com', 'graph.threads.net',
-    'open.spotify.com', 'api.github.com', 'api.openai.com', 'api.anthropic.com', 'a-api.anthropic.com', 'api.cohere.ai',
-    'gemini.google.com', 'api.telegram.org', 'api.slack.com', 'api.discord.com', 'api.twitch.tv',
+    'api.github.com', 'api.openai.com', 'api.anthropic.com', 'a-api.anthropic.com', 'api.cohere.ai',
+    'gemini.google.com', 'api.telegram.org', 'api.slack.com',
     // --- 開發 & 部署平台 ---
     'api.vercel.com', 'api.netlify.com', 'api.heroku.com', 'api.digitalocean.com', 'firestore.googleapis.com',
     'database.windows.net', 'auth.docker.io', 'login.docker.com', 'api.cloudflare.com', 'api.fastly.com',
@@ -320,7 +320,7 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                             🚀 OPTIMIZED CORE ENGINE (V39.4)                                  #
+// #                             🚀 OPTIMIZED CORE ENGINE (V39.5)                                  #
 // #                                                                                               #
 // #################################################################################################
 
@@ -437,7 +437,7 @@ function processRequest(request) {
             multiLevelCache.setUrlObject(rawUrl, Object.freeze(url));
         } catch (e) {
             optimizedStats.increment('errors');
-            console.error(`[URL-Filter-v39.4] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v39.5] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -503,7 +503,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v39.4] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v39.5] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -515,7 +515,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '39.4', status: 'ready', message: 'URL Filter v39.4 - YouTube Hard Whitelisting Hotfix', stats: optimizedStats.getStats() });
+        $done({ version: '39.5', status: 'ready', message: 'URL Filter v39.5 - Proactive Hard Whitelisting', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -524,7 +524,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v39.4] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v39.5] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
