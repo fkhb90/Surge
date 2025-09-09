@@ -1,8 +1,8 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V39.5.js
- * @version     39.5 (Proactive Hard Whitelisting)
- * @description 根據社群反饋與預防性分析，將 Twitch, Discord, Spotify, Instagram 等功能複雜的服務
- * 提升至硬白名單，以最大化相容性，避免潛在的核心功能中斷問題。
+ * @file        URL-Ultimate-Filter-Surge-V39.6.js
+ * @version     39.6 (Rule Categorization & Readability)
+ * @description 為主要黑白名單增加了詳細的分類註解，參照 `BLOCK_DOMAINS` 的結構化方式，
+ * 大幅提升了規則的可讀性、可維護性與擴展性。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-09
  */
@@ -162,48 +162,69 @@ const CONFIG = {
    * 🚨 關鍵追蹤腳本攔截清單
    */
   CRITICAL_TRACKING_SCRIPTS: new Set([
+    // --- Google ---
     'ytag.js', 'gtag.js', 'gtm.js', 'ga.js', 'analytics.js', 'adsbygoogle.js', 'ads.js',
-    'fbevents.js', 'fbq.js', 'pixel.js', 'connect.js', 'tracking.js', 'tracker.js', 'tag.js',
-    'doubleclick.js', 'adsense.js', 'adloader.js', 'hotjar.js', 'mixpanel.js', 'amplitude.js',
-    'segment.js', 'clarity.js', 'matomo.js', 'piwik.js', 'fullstory.js', 'heap.js',
-    'inspectlet.js', 'logrocket.js', 'vwo.js', 'optimizely.js', 'criteo.js', 'pubmatic.js',
-    'outbrain.js', 'taboola.js', 'prebid.js', 'apstag.js', 'utag.js', 'beacon.js', 'event.js',
-    'collect.js', 'activity.js', 'conversion.js', 'action.js', 'abtasty.js', 'cmp.js',
-    'sp.js', 'adobedtm.js', 'visitorapi.js', 'intercom.js', 'link-click-tracker.js',
-    'user-timing.js', 'cf.js', 'tagtoo.js', 'wcslog.js', 'ads-beacon.js', 'essb-core.min.js',
-    'hm.js', 'u.js', 'um.js', 'aplus.js', 'aplus_wap.js', 'gdt.js', 'tiktok-pixel.js',
-    'tiktok-analytics.js', 'pangle.js', 'ec.js', 'autotrack.js', 'capture.js', 'user-id.js',
-    'adroll.js', 'adroll_pro.js', 'quant.js', 'quantcast.js', 'comscore.js', 'dax.js',
-    'chartbeat.js', 'crazyegg.js', 'mouseflow.js', 'newrelic.js', 'nr-loader.js', 'perf.js',
-    'trace.js', 'tracking-api.js', 'scevent.min.js', 'ad-sdk.js', 'ad-manager.js',
-    'ad-player.js', 'ad-lib.js', 'ad-core.js'
+    // --- Facebook / Meta ---
+    'fbevents.js', 'fbq.js', 'pixel.js', 'connect.js',
+    // --- 主流分析平台 ---
+    'hotjar.js', 'mixpanel.js', 'amplitude.js', 'segment.js', 'clarity.js', 'matomo.js',
+    'piwik.js', 'fullstory.js', 'heap.js', 'inspectlet.js', 'logrocket.js', 'vwo.js', 'optimizely.js',
+    'comscore.js', 'quant.js', 'quantcast.js', 'chartbeat.js', 'crazyegg.js', 'mouseflow.js',
+    // --- 廣告技術平台 (Ad Tech) ---
+    'criteo.js', 'pubmatic.js', 'outbrain.js', 'taboola.js', 'prebid.js', 'apstag.js', 'adroll.js',
+    'doubleclick.js', 'adsense.js', 'adloader.js', 'ad-sdk.js', 'ad-manager.js', 'ad-player.js',
+    // --- 內容傳遞 & 標籤管理 ---
+    'utag.js', 'tag.js', 'dax.js', 'adobedtm.js', 'visitorapi.js',
+    // --- 效能監控 ---
+    'newrelic.js', 'nr-loader.js', 'perf.js', 'trace.js',
+    // --- 社群 & 其他 ---
+    'tiktok-pixel.js', 'tiktok-analytics.js', 'pangle.js', 'intercom.js', 'tagtoo.js', 'essb-core.min.js',
+    // --- 中國大陸地區 ---
+    'hm.js', 'u.js', 'um.js', 'aplus.js', 'aplus_wap.js', 'gdt.js', 'ec.js',
+    // --- 通用 & 其他 ---
+    'tracking.js', 'tracker.js', 'beacon.js', 'event.js', 'collect.js', 'activity.js', 'conversion.js',
+    'action.js', 'abtasty.js', 'cmp.js', 'sp.js', 'link-click-tracker.js', 'user-timing.js', 'cf.js',
+    'wcslog.js', 'ads-beacon.js', 'autotrack.js', 'capture.js', 'user-id.js', 'adroll_pro.js',
+    'tracking-api.js', 'scevent.min.js', 'ad-lib.js', 'ad-core.js',
   ]),
 
   /**
    * 🚨 關鍵追蹤路徑模式
    */
   CRITICAL_TRACKING_PATTERNS: new Set([
+    // --- Google ---
     '/googletagmanager/', '/google-analytics/', '/googlesyndication/', '/doubleclick/', '/googleadservices/',
     'google.com/ads', 'google.com/pagead', '/pagead/gen_204', '/stats.g.doubleclick.net/j/collect', '/ads/ga-audiences',
-    'facebook.com/tr', 'facebook.com/tr/', '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/',
-    '/api/log/', '/api/track/', '/api/collect/', '/api/v1/track', '/intake', '/api/batch',
+    // --- Facebook / Meta ---
+    'facebook.com/tr', 'facebook.com/tr/',
+    // --- 通用 API 端點 ---
+    '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/',
+    '/api/v1/track', '/intake', '/api/batch', '/v1/pixel',
+    // --- 主流服務端點 ---
     'scorecardresearch.com/beacon.js', 'analytics.twitter.com', 'ads.linkedin.com/li/track', 'px.ads.linkedin.com',
     'amazon-adsystem.com/e/ec', 'ads.yahoo.com/pixel', 'ads.bing.com/msclkid', 'segment.io/v1/track',
     'heap.io/api/track', 'api.mixpanel.com/track', 'api.amplitude.com', 'api-iam.intercom.io/messenger/web/events',
-    'api.hubspot.com/events', '/plugins/easy-social-share-buttons/', 'hm.baidu.com/hm.js', 'cnzz.com/stat.php',
-    'wgo.mmstat.com', '/log/aplus', '/v.gif', 'gdt.qq.com/gdt_mview.fcg', '/abtesting/', '/feature-flag/',
-    '/user-profile/', '/b/ss', '/i/adsct', 'cacafly/track', '/track/m', '/track/pc', '/v1/pixel',
+    'api.hubspot.com/events', 'ad.360yield.com',
+    // --- 社群 & 其他 ---
     'ads.tiktok.com/i1n/pixel/events.js', 'ads-api.tiktok.com/api/v2/pixel', 'analytics.snapchat.com/v1/batch',
     'tr.snapchat.com', 'sc-static.net/scevent.min.js', 'ads.pinterest.com/v3/conversions/events',
-    'ad.360yield.com', '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/',
+    '/plugins/easy-social-share-buttons/',
+    // --- 中國大陸地區 ---
+    'hm.baidu.com/hm.js', 'cnzz.com/stat.php', 'wgo.mmstat.com', '/log/aplus', '/v.gif', 'gdt.qq.com/gdt_mview.fcg',
+    // --- 通用廣告路徑 ---
+    '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/',
+    // --- 其他 ---
+    '/abtesting/', '/feature-flag/', '/user-profile/', '/b/ss', '/i/adsct', 'cacafly/track', '/track/m', '/track/pc',
   ]),
 
   /**
    * 🚫 路徑關鍵字黑名單
    */
   PATH_BLOCK_KEYWORDS: new Set([
+    // --- 通用廣告詞 (Ad Generic) ---
     '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/sponsor/',
     '/promoted/', '/banner/', '/popup/', '/interstitial/', '/preroll/', '/midroll/', '/postroll/',
+    // --- 廣告技術平台關鍵字 (Ad Tech) ---
     'google_ad', 'pagead', 'adsbygoogle', 'doubleclick', 'adsense', 'dfp', 'amp-ad', 'amp-analytics',
     'amp-auto-ads', 'amp-sticky-ad', 'amp4ads', 'prebid', 'apstag', 'pwt.js', 'rtb', 'dsp', 'ssp',
     'ad_logic', 'ad-choices', 'ad-manager', 'ad-server', 'ad-tag', 'ad_pixel', 'ad-request', 'ad-system',
@@ -212,20 +233,26 @@ const CONFIG = {
     'ad-specs', 'ad-verification', 'ad-viewability', 'ad-exchange', 'ad-network', 'ad-platform',
     'ad-response', 'ad-slot', 'ad-unit', 'ad-call', 'ad-code', 'ad-script', 'ad-telemetry', '/adserve/',
     '/adserving/', '/adframe/', '/adrequest/', '/adretrieve/', '/getads/', '/getad/', '/fetch_ads/',
+    // --- 通用追蹤與分析 (Tracking & Analytics) ---
     '/track/', '/trace/', '/tracker/', '/tracking/', '/analytics/', '/analytic/', '/metric/', '/metrics/',
     '/telemetry/', '/measurement/', '/insight/', '/intelligence/', '/monitor/', '/monitoring/', '/audit/',
     '/beacon/', '/pixel/', '/collect?', '/collector/', '/report/', '/reports/', '/reporting/',
+    // --- 錯誤 & 效能監控 (Error & Performance) ---
     '/sentry/', '/bugsnag/', '/crash/', '/error/', '/exception/', '/stacktrace/', 'web-vitals',
-    'performance-tracking', 'real-user-monitoring', 'user-analytics', 'behavioral-targeting',
-    'data-collection', 'data-sync', 'fingerprint', 'fingerprinting', 'third-party-cookie', 'user-cohort',
-    'attribution', 'retargeting', 'audience', 'cohort', 'user-segment', 'user-behavior', 'session-replay',
+    'performance-tracking', 'real-user-monitoring',
+    // --- 使用者行為 & 定向 (User Behavior) ---
+    'user-analytics', 'behavioral-targeting', 'data-collection', 'data-sync', 'fingerprint',
+    'fingerprinting', 'third-party-cookie', 'user-cohort', 'attribution', 'retargeting', 'audience',
+    'cohort', 'user-segment', 'user-behavior', 'session-replay',
+    // --- 第三方服務名稱 (3rd Party Services) ---
     'google-analytics', 'fbevents', 'fbq', 'addthis', 'sharethis', 'taboola', 'criteo', 'osano',
     'onead', 'sailthru', 'tapfiliate', 'appier', 'hotjar', 'comscore', 'mixpanel', 'amplitude', 'utag.js',
+    // --- 隱私權 & 同意管理 (Privacy & Consent) ---
     'cookiepolicy', 'gdpr', 'ccpa', 'plusone', 'optimize', 'pushnotification', 'privacy-policy', 'cookie-consent'
   ]),
     
   /**
-   * ✅ [新增] 路徑前綴白名單
+   * ✅ 路徑前綴白名單
    * 說明：用於豁免正則表達式封鎖，避免誤殺 SPA/CDN 的合法資源。
    */
   PATH_ALLOW_PREFIXES: new Set([
@@ -236,12 +263,16 @@ const CONFIG = {
    * ✅ 路徑關鍵字白名單
    */
   PATH_ALLOW_PATTERNS: new Set([
+    // --- 框架 & 套件常用檔 ---
     'chunk.js', 'chunk.mjs', 'bundle.js', 'main.js', 'app.js', 'vendor.js', 'runtime.js', 'common.js',
     'framework.js', 'framework.mjs', 'polyfills.js', 'polyfills.mjs', 'styles.js', 'styles.css', 'index.js', 'index.mjs',
+    // --- 靜態資產與固定檔名 ---
     'polyfill.js', 'fetch-polyfill', 'browser.js', 'sw.js', 'loader.js', 'header.js', 'head.js', 'padding.css',
     'badge.svg', 'modal.js', 'card.js', 'icon.svg', 'logo.svg', 'favicon.ico', 'manifest.json', 'robots.txt',
     'page-data.js', 'legacy.js', 'sitemap.xml', 'chunk-vendors', 'chunk-common', 'component---',
+    // --- 典型靜態路徑前綴 ---
     '_next/static/', '_app/', '_nuxt/', 'static/js/', 'static/css/', 'static/media/', 'i18n/', 'locales/',
+    // --- 常見主題或設定檔（檔名級）---
     'theme.js', 'config.js', 'web.config',
     // --- [收斂] 避免 /blog, /catalog, /dialog 等被誤殺 ---
     'blog', 'catalog', 'dialog', 'login'
@@ -252,11 +283,11 @@ const CONFIG = {
    * 說明：改為更精準的匹配，需包含分隔符或位於詞界，避免誤殺。
    */
   DROP_KEYWORDS: new Set([
-    // --- 日誌 & 遙測 ---
+    // --- 日誌 & 遙測 (Logging & Telemetry) ---
     '/log/', '/logs/', '/logging/', '.log', '?log=', '-log.', 'log-event', 'amp-analytics', 'beacon',
     'collect?', 'collector', 'telemetry', 'ingest', 'live-log', 'realtime-log', 'data-pipeline',
     'rum', 'intake', 'batch', 'client-event', 'server-event', 'heartbeat', 'web-vitals',
-    // --- 錯誤 & 診斷 ---
+    // --- 錯誤 & 診斷 (Error & Diagnostics) ---
     'crash-report', 'error-report', 'stacktrace', 'csp-report', 'profiler', 'trace.json',
     'diagnostic.log', '/diag/', '?diag='
   ]),
@@ -265,33 +296,48 @@ const CONFIG = {
    * 🗑️ 全域追蹤參數黑名單
    */
   GLOBAL_TRACKING_PARAMS: new Set([
+    // --- UTM 家族 ---
     'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id',
-    'utm_source_platform', 'utm_creative_format', 'utm_marketing_tactic', 'gclid', 'dclid',
-    'gclsrc', 'wbraid', 'gbraid', 'gad_source', 'gad', 'gcl_au', '_ga', '_gid', '_gat', '__gads', '__gac',
-    'msclkid', 'msad', 'mscampaignid', 'msadgroupid', 'fbclid', 'fbadid', 'fbcampaignid',
-    'fbadsetid', 'fbplacementid', 'igshid', 'igsh', 'x-threads-app-object-id', 'mibextid',
-    'yclid', 'twclid', 'ttclid', 'li_fat_id', 'mc_cid', 'mc_eid', 'mkt_tok', 'zanpid',
-    'affid', 'affiliate_id', 'partner_id', 'sub_id', 'transaction_id', 'customid', 'click_id',
-    'clickid', 'offer_id', 'promo_code', 'coupon_code', 'deal_id', 'rb_clickid', 's_kwcid', 'ef_id',
-    'email_source', 'email_campaign', 'from', 'source', 'ref', 'referrer', 'campaign', 'medium',
-    'content', 'spm', 'scm', 'share_source', 'share_medium', 'share_plat', 'share_id', 'share_tag',
-    'from_source', 'from_channel', 'from_uid', 'from_user', 'tt_from', 'tt_medium', 'tt_campaign',
-    'share_token', 'share_app_id', 'xhsshare', 'xhs_share', 'app_platform', 'share_from', 'weibo_id',
-    'wechat_id', 'is_copy_url', 'is_from_webapp', 'pvid', 'fr', 'type', 'scene', 'traceid',
-    'request_id', '__twitter_impression', '_openstat', 'hsCtaTracking', 'hsa_acc', 'hsa_cam', 'hsa_grp',
-    'hsa_ad', 'hsa_src', 'vero_conv', 'vero_id', 'ck_subscriber_id', 'action_object_map',
-    'action_type_map', 'action_ref_map', 'feature', 'src', 'si', 'trk', 'trk_params', 'epik',
+    'utm_source_platform', 'utm_creative_format', 'utm_marketing_tactic',
+    // --- Google ---
+    'gclid', 'dclid', 'gclsrc', 'wbraid', 'gbraid', 'gad_source', 'gad', 'gcl_au',
+    '_ga', '_gid', '_gat', '__gads', '__gac',
+    // --- Microsoft / Bing ---
+    'msclkid', 'msad', 'mscampaignid', 'msadgroupid',
+    // --- Facebook / Meta ---
+    'fbclid', 'fbadid', 'fbcampaignid', 'fbadsetid', 'fbplacementid', 'igshid', 'igsh',
+    'x-threads-app-object-id', 'mibextid',
+    // --- 其他主流平台 (Yandex, Twitter, TikTok, LinkedIn, Mailchimp) ---
+    'yclid', 'twclid', 'ttclid', 'li_fat_id', 'mc_cid', 'mc_eid', 'mkt_tok',
+    // --- 聯盟行銷 & 點擊 ID (Affiliate & Click ID) ---
+    'zanpid', 'affid', 'affiliate_id', 'partner_id', 'sub_id', 'transaction_id', 'customid',
+    'click_id', 'clickid', 'offer_id', 'promo_code', 'coupon_code', 'deal_id', 'rb_clickid', 's_kwcid', 'ef_id',
+    // --- 通用 & 其他 (Generic & Misc) ---
+    'email_source', 'email_campaign', 'from', 'source', 'ref', 'referrer', 'campaign', 'medium', 'content',
+    'spm', 'scm', 'pvid', 'fr', 'type', 'scene', 'traceid', 'request_id', 'feature', 'src', 'si',
+    'trk', 'trk_params', 'epik', 'ecid',
+    // --- 社群分享特定 (Social Sharing) ---
+    'share_source', 'share_medium', 'share_plat', 'share_id', 'share_tag', 'from_source', 'from_channel',
+    'from_uid', 'from_user', 'tt_from', 'tt_medium', 'tt_campaign', 'share_token', 'share_app_id',
+    'xhsshare', 'xhs_share', 'app_platform', 'share_from', 'weibo_id', 'wechat_id', 'is_copy_url',
+    'is_from_webapp', '__twitter_impression',
+    // --- 特定服務 (Service Specific) ---
+    '_openstat', 'hsCtaTracking', 'hsa_acc', 'hsa_cam', 'hsa_grp', 'hsa_ad', 'hsa_src', 'vero_conv',
+    'vero_id', 'ck_subscriber_id', 'action_object_map', 'action_type_map', 'action_ref_map',
     'piwik_campaign', 'piwik_kwd', 'matomo_campaign', 'matomo_kwd', '_bta_c', '_bta_tid', 'oly_anon_id',
-    'oly_enc_id', 'redirect_log_mongo_id', 'redirect_mongo_id', 'sb_referer_host', 'ecid', 'from_ad',
+    'oly_enc_id', 'redirect_log_mongo_id', 'redirect_mongo_id', 'sb_referer_host', 'from_ad',
     'from_search', 'from_promo', 'camid', 'cupid', 'hmsr', 'hmpl', 'hmcu', 'hmkw', 'hmci',
-    'union_id', 'biz', 'mid', 'idx', 'ad_id', 'adgroup_id', 'campaign_id', 'creative_id',
-    'keyword', 'matchtype', 'device', 'devicemodel', 'adposition', 'network', 'placement',
-    'targetid', 'feeditemid', 'loc_physical_ms', 'loc_interest_ms', 'creative', 'adset', 'ad',
-    'pixel_id', 'event_id', 'algolia_query', 'algolia_query_id', 'algolia_object_id', 'algolia_position'
+    'union_id', 'biz', 'mid', 'idx',
+    // --- 廣告參數 (Ad Parameters) ---
+    'ad_id', 'adgroup_id', 'campaign_id', 'creative_id', 'keyword', 'matchtype', 'device', 'devicemodel',
+    'adposition', 'network', 'placement', 'targetid', 'feeditemid', 'loc_physical_ms', 'loc_interest_ms',
+    'creative', 'adset', 'ad', 'pixel_id', 'event_id',
+    // --- 搜尋特定 (Search Specific) ---
+    'algolia_query', 'algolia_query_id', 'algolia_object_id', 'algolia_position'
   ]),
 
   /**
-   * 追蹤參數前綴集合
+   * 🗑️ 追蹤參數前綴黑名單
    */
   TRACKING_PREFIXES: new Set([
     'utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'mkt_', 'matomo_', 'piwik_', 'hsa_', 'ad_', 'trk_',
@@ -320,7 +366,7 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                             🚀 OPTIMIZED CORE ENGINE (V39.5)                                  #
+// #                             🚀 OPTIMIZED CORE ENGINE (V39.6)                                  #
 // #                                                                                               #
 // #################################################################################################
 
@@ -437,7 +483,7 @@ function processRequest(request) {
             multiLevelCache.setUrlObject(rawUrl, Object.freeze(url));
         } catch (e) {
             optimizedStats.increment('errors');
-            console.error(`[URL-Filter-v39.5] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v39.6] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -503,7 +549,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v39.5] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v39.6] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -515,7 +561,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '39.5', status: 'ready', message: 'URL Filter v39.5 - Proactive Hard Whitelisting', stats: optimizedStats.getStats() });
+        $done({ version: '39.6', status: 'ready', message: 'URL Filter v39.6 - Rule Categorization & Readability', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -524,7 +570,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v39.5] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v39.6] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
