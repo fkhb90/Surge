@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.4.js
- * @version     40.4 (Enhanced Endpoint Blocking & Param Cleaning)
- * @description 新增對微博 (Weibo) 日誌與 citiesocial 數據收集端點的封鎖，並根據其特徵擴充參數清理規則。
+ * @file        URL-Ultimate-Filter-Surge-V40.5.js
+ * @version     40.5 (Coupang Login Compatibility Fix)
+ * @description 新增對台灣 Coupang (酷澎) 的硬白名單規則，以修復登入狀態判斷異常問題。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-09
  */
@@ -49,6 +49,8 @@ const CONFIG = {
     'scsb.com.tw', 'fubon.com', 'standardchartered.com.tw', 'taishinbank.com.tw', 'chb.com.tw',
     // --- 核心登入 & 協作平台 ---
     'okta.com', 'auth0.com', 'atlassian.net',
+    // --- 電商平台相容性 ---
+    'coupang.tw', 'coupang.com',
     // --- 系統 & 平台核心服務 ---
     'apple.com', 'icloud.com', 'windowsupdate.com', 'update.microsoft.com',
     // --- 網頁存檔服務 (對參數極度敏感) ---
@@ -71,7 +73,7 @@ const CONFIG = {
     // --- 生產力 & 協作工具 ---
     'api.notion.com', 'api.figma.com', 'api.trello.com', 'api.asana.com', 'api.dropboxapi.com', 'clorasio.atlassian.net',
     // --- 台灣地區服務 ---
-    'api.irentcar.com.tw', 'usiot.roborock.com', 'cmapi.tw.coupang.com',
+    'api.irentcar.com.tw', 'usiot.roborock.com',
     // --- 其他常用 API ---
     'api.intercom.io', 'api.sendgrid.com', 'api.mailgun.com', 'hooks.slack.com', 'api.pagerduty.com',
     'api.zendesk.com', 'api.hubapi.com', 'secure.gravatar.com', 'legy.line-apps.com', 'obs.line-scdn.net',
@@ -528,7 +530,7 @@ function processRequest(request) {
             multiLevelCache.setUrlObject(rawUrl, Object.freeze(url));
         } catch (e) {
             optimizedStats.increment('errors');
-            console.error(`[URL-Filter-v40.4] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.5] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -594,7 +596,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.4] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.5] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -606,7 +608,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.4', status: 'ready', message: 'URL Filter v40.4 - Enhanced Endpoint Blocking & Param Cleaning', stats: optimizedStats.getStats() });
+        $done({ version: '40.5', status: 'ready', message: 'URL Filter v40.5 - Coupang Login Compatibility Fix', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -615,7 +617,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.4] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.5] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
