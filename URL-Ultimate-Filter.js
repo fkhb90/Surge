@@ -1,8 +1,8 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V38.2.js
- * @version     38.2 (Engine Hardening Fixes & Allow-Scope Tightening)
- * @description 在 V38.1 基礎上修復快取/統計/副檔名等缺陷、收斂 allow 規則並強化萬用白名單匹配，避免漏攔與誤豁免。
- * @author      Claude & Gemini & Acterus (+ Hardening)
+ * @file        URL-Ultimate-Filter-Surge-V38.3.js
+ * @version     38.3 (URL Object Caching & Logic Annotation)
+ * @description 在 V38.2 的安全基礎上，引入 URL 物件快取以彌補部分效能開銷，並為核心快取邏輯增加註解，提升引擎在嚴謹性、效能與可維護性之間的最終平衡。
+ * @author      Claude & Gemini & Acterus (+ Final Polish)
  * @lastUpdated 2025-09-08
  */
 
@@ -324,7 +324,7 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                             🚀 OPTIMIZED CORE ENGINE (V38.2)                                  #
+// #                             🚀 OPTIMIZED CORE ENGINE (V38.3)                                  #
 // #                                                                                               #
 // #################################################################################################
 
@@ -333,227 +333,69 @@ const __now__ = (typeof performance !== 'undefined' && typeof performance.now ==
   ? () => performance.now()
   : () => Date.now();
 
-// 決策枚舉（以整數取代字串）
+// 決策枚舉
 const DECISION = Object.freeze({
   ALLOW: 1,
   BLOCK: 2,
   PARAM_CLEAN: 3
 });
 
-// 小型工具：安全回應常量
+// 安全回應常量
 const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 'image/gif' }, body: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" } };
 const REJECT_RESPONSE   = { response: { status: 403 } };
 const DROP_RESPONSE     = { response: {} };
-// 如需更嚴謹對非 GET 時行為，可改為 308
 const REDIRECT_RESPONSE = (url) => ({ response: { status: 302, headers: { 'Location': url } } });
 
-// 影像副檔名快速判斷（修正：全部使用含點格式）
+// 影像副檔名
 const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.ico']);
 
 // 高效能 Trie
 class OptimizedTrie {
-  constructor() {
-    this.root = Object.create(null);
-    this._nodePool = [];
-  }
-  _getNode() {
-    return this._nodePool.pop() || Object.create(null);
-  }
-  _returnNode(node) {
-    for (const k in node) delete node[k];
-    if (this._nodePool.length < 100) this._nodePool.push(node);
-  }
-  insert(word) {
-    let node = this.root;
-    for (let i = 0; i < word.length; i++) {
-      const c = word[i];
-      if (!node[c]) node[c] = this._getNode();
-      node = node[c];
-    }
-    node.isEndOfWord = true;
-  }
-  startsWith(prefix) {
-    let node = this.root;
-    for (let i = 0; i < prefix.length; i++) {
-      const c = prefix[i];
-      if (!node[c]) return false;
-      node = node[c];
-      if (node.isEndOfWord) return true;
-    }
-    return false;
-  }
-  // 滑動視窗式子字串掃描
-  contains(text) {
-    const N = text.length;
-    for (let i = 0; i < N; i++) {
-      let node = this.root;
-      for (let j = i; j < N; j++) {
-        const c = text[j];
-        if (!node[c]) break;
-        node = node[c];
-        if (node.isEndOfWord) return true;
-      }
-    }
-    return false;
-  }
+  constructor() { this.root = Object.create(null); this._nodePool = []; }
+  _getNode() { return this._nodePool.pop() || Object.create(null); }
+  _returnNode(node) { for (const k in node) delete node[k]; if (this._nodePool.length < 100) this._nodePool.push(node); }
+  insert(word) { let n = this.root; for (let i = 0; i < word.length; i++) { const c = word[i]; if (!n[c]) n[c] = this._getNode(); n = n[c]; } n.isEndOfWord = true; }
+  startsWith(prefix) { let n = this.root; for (let i = 0; i < prefix.length; i++) { const c = prefix[i]; if (!n[c]) return false; n = n[c]; if (n.isEndOfWord) return true; } return false; }
+  contains(text) { const N = text.length; for (let i = 0; i < N; i++) { let n = this.root; for (let j = i; j < N; j++) { const c = text[j]; if (!n[c]) break; n = n[c]; if (n.isEndOfWord) return true; } } return false; }
 }
 
 // O(1) LRU 快取
 class HighPerformanceLRUCache {
-  constructor(maxSize = 1000) {
-    this.maxSize = maxSize;
-    this.cache = new Map();
-    this.head = { key: null, value: null, prev: null, next: null };
-    this.tail = { key: null, value: null, prev: null, next: null };
-    this.head.next = this.tail;
-    this.tail.prev = this.head;
-    this._hitCount = 0;
-    this._missCount = 0;
-  }
-  _addToHead(node) {
-    node.prev = this.head;
-    node.next = this.head.next;
-    this.head.next.prev = node;
-    this.head.next = node;
-  }
-  _removeNode(node) {
-    node.prev.next = node.next;
-    node.next.prev = node.prev;
-  }
-  _moveToHead(node) {
-    this._removeNode(node);
-    this._addToHead(node);
-  }
-  _popTail() {
-    const last = this.tail.prev;
-    this._removeNode(last);
-    return last;
-  }
-  get(key) {
-    const node = this.cache.get(key);
-    if (node) {
-      this._hitCount++;
-      this._moveToHead(node);
-      return node.value;
-    }
-    this._missCount++;
-    return null;
-  }
-  set(key, value) {
-    const node = this.cache.get(key);
-    if (node) {
-      node.value = value;
-      this._moveToHead(node);
-    } else {
-      const newNode = { key, value, prev: null, next: null };
-      if (this.cache.size >= this.maxSize) {
-        const tail = this._popTail();
-        this.cache.delete(tail.key);
-      }
-      this.cache.set(key, newNode);
-      this._addToHead(newNode);
-    }
-  }
-  getHitRate() {
-    const total = this._hitCount + this._missCount;
-    return total > 0 ? (this._hitCount / total * 100).toFixed(2) : '0.00';
-  }
+  constructor(maxSize = 1000) { this.maxSize = maxSize; this.cache = new Map(); this.head = { k: null, v: null, p: null, n: null }; this.tail = { k: null, v: null, p: null, n: null }; this.head.n = this.tail; this.tail.p = this.head; this._h = 0; this._m = 0; }
+  _add(node) { node.p = this.head; node.n = this.head.n; this.head.n.p = node; this.head.n = node; }
+  _remove(node) { node.p.n = node.n; node.n.p = node.p; }
+  _moveToHead(node) { this._remove(node); this._add(node); }
+  _popTail() { const last = this.tail.p; this._remove(last); return last; }
+  get(key) { const n = this.cache.get(key); if (n) { this._h++; this._moveToHead(n); return n.v; } this._m++; return null; }
+  set(key, value) { let n = this.cache.get(key); if (n) { n.v = value; this._moveToHead(n); } else { n = { k: key, v: value, p: null, n: null }; if (this.cache.size >= this.maxSize) { const tail = this._popTail(); this.cache.delete(tail.k); } this.cache.set(key, n); this._add(n); } }
+  getHitRate() { const total = this._h + this._m; return total > 0 ? (this._h / total * 100).toFixed(2) : '0.00'; }
 }
 
 // 智慧型快取
 class SmartCacheManager {
-  constructor() {
-    this.primaryCache = new HighPerformanceLRUCache(800);
-    this.frequencyCache = new HighPerformanceLRUCache(200);
-    this.accessCount = new Map();
-    this.lastCleanup = Date.now();
-    this.cleanupInterval = 300000;
-  }
-  get(key) {
-    let result = this.frequencyCache.get(key);
-    if (result !== null) return result;
-    result = this.primaryCache.get(key);
-    if (result !== null) {
-      this._incrementAccess(key);
-      return result;
-    }
-    return null;
-  }
-  set(key, value) {
-    const count = this.accessCount.get(key) || 0;
-    if (count > 3) {
-      this.frequencyCache.set(key, value);
-    } else {
-      this.primaryCache.set(key, value);
-    }
-    this._cleanup();
-  }
-  _incrementAccess(key) {
-    const count = (this.accessCount.get(key) || 0) + 1;
-    this.accessCount.set(key, count);
-    if (count > 3) {
-      const value = this.primaryCache.get(key);
-      if (value !== null) {
-        this.frequencyCache.set(key, value);
-      }
-    }
-  }
-  _cleanup() {
-    const now = Date.now();
-    if (now - this.lastCleanup > this.cleanupInterval) {
-      for (const [k, cnt] of this.accessCount.entries()) {
-        if (cnt < 2) this.accessCount.delete(k);
-      }
-      this.lastCleanup = now;
-    }
-  }
-  getStats() {
-    return {
-      primaryHitRate: this.primaryCache.getHitRate(),
-      frequencyHitRate: this.frequencyCache.getHitRate(),
-      totalEntries: this.primaryCache.cache.size + this.frequencyCache.cache.size,
-      accessEntries: this.accessCount.size
-    };
-  }
+  constructor() { this.primaryCache = new HighPerformanceLRUCache(800); this.frequencyCache = new HighPerformanceLRUCache(200); this.accessCount = new Map(); this.lastCleanup = Date.now(); this.cleanupInterval = 300000; }
+  get(key) { let r = this.frequencyCache.get(key); if (r !== null) return r; r = this.primaryCache.get(key); if (r !== null) { this._incrementAccess(key); return r; } return null; }
+  set(key, value) { const cnt = this.accessCount.get(key) || 0; if (cnt > 3) { this.frequencyCache.set(key, value); } else { this.primaryCache.set(key, value); } this._cleanup(); }
+  _incrementAccess(key) { const cnt = (this.accessCount.get(key) || 0) + 1; this.accessCount.set(key, cnt); if (cnt > 3) { const v = this.primaryCache.get(key); if (v !== null) this.frequencyCache.set(key, v); } }
+  _cleanup() { const now = Date.now(); if (now - this.lastCleanup > this.cleanupInterval) { for (const [k, c] of this.accessCount.entries()) { if (c < 2) this.accessCount.delete(k); } this.lastCleanup = now; } }
+  getStats() { return { primaryHitRate: this.primaryCache.getHitRate(), frequencyHitRate: this.frequencyCache.getHitRate(), totalEntries: this.primaryCache.cache.size + this.frequencyCache.cache.size, accessEntries: this.accessCount.size }; }
 }
 
 // 多層快取管理
 class MultiLevelCacheManager {
-  constructor() {
-    this.l1DomainCache = new HighPerformanceLRUCache(256);
-    this.l2SmartCache = new SmartCacheManager();
-    this.lastCleanup = Date.now();
-    this.cleanupInterval = 300000;
-  }
-  getDomainDecision(hostname) { return this.l1DomainCache.get(hostname); }
-  setDomainDecision(hostname, decisionEnum) { this.l1DomainCache.set(hostname, decisionEnum); }
-  getUrlDecision(key) { return this.l2SmartCache.get(key); }
-  setUrlDecision(key, decision) { this.l2SmartCache.set(key, decision); }
-  _cleanup() {
-    const now = Date.now();
-    if (now - this.lastCleanup > this.cleanupInterval) {
-      this.l2SmartCache._cleanup();
-      this.lastCleanup = now;
-    }
-  }
-  getStats() {
-    return {
-      l1DomainCacheHitRate: this.l1DomainCache.getHitRate(),
-      l1DomainCacheSize: this.l1DomainCache.cache.size,
-      l2SmartCacheStats: this.l2SmartCache.getStats()
-    };
-  }
+  constructor() { this.l1DomainCache = new HighPerformanceLRUCache(256); this.l2SmartCache = new SmartCacheManager(); this.urlObjectCache = new HighPerformanceLRUCache(64); } // 【新增 V38.3】URL 物件快取
+  getDomainDecision(h) { return this.l1DomainCache.get(h); }
+  setDomainDecision(h, d) { this.l1DomainCache.set(h, d); }
+  getUrlDecision(k) { return this.l2SmartCache.get(k); }
+  setUrlDecision(k, d) { this.l2SmartCache.set(k, d); }
+  getUrlObject(rawUrl) { return this.urlObjectCache.get(rawUrl); } // 【新增 V38.3】
+  setUrlObject(rawUrl, urlObj) { this.urlObjectCache.set(rawUrl, urlObj); } // 【新增 V38.3】
+  getStats() { return { l1DomainCacheHitRate: this.l1DomainCache.getHitRate(), l1DomainCacheSize: this.l1DomainCache.cache.size, urlObjectCacheHitRate: this.urlObjectCache.getHitRate(), l2SmartCacheStats: this.l2SmartCache.getStats() }; }
 }
 
 // 初始化
 const multiLevelCache = new MultiLevelCacheManager();
-const OPTIMIZED_TRIES = {
-  prefix: new OptimizedTrie(),
-  criticalPattern: new OptimizedTrie(),
-  pathBlock: new OptimizedTrie(),
-  allow: new OptimizedTrie(),
-  drop: new OptimizedTrie(),
-};
+const OPTIMIZED_TRIES = { prefix: new OptimizedTrie(), criticalPattern: new OptimizedTrie(), pathBlock: new OptimizedTrie(), allow: new OptimizedTrie(), drop: new OptimizedTrie() };
 
 function initializeOptimizedTries() {
   const tasks = [
@@ -568,192 +410,54 @@ function initializeOptimizedTries() {
 
 // 統計
 class OptimizedPerformanceStats {
-  constructor() {
-    this.counters = new Uint32Array(16);
-    this.labels = [
-      'totalRequests', 'blockedRequests', 'criticalTrackingBlocked', 'domainBlocked',
-      'pathBlocked', 'regexPathBlocked', 'paramsCleaned', 'whitelistHits',
-      'errors', 'l1CacheHits', 'l2CacheHits', 'cacheMisses'
-    ];
-    this.startTime = __now__();
-  }
-  increment(type) {
-    const idx = this.labels.indexOf(type);
-    if (idx !== -1 && idx < this.counters.length) this.counters[idx]++;
-  }
-  getStats() {
-    const runtime = ((__now__() - this.startTime) / 1000).toFixed(2);
-    const stats = { runtime: `${runtime}s` };
-    this.labels.forEach((label, idx) => {
-      if (idx < this.counters.length) stats[label] = this.counters[idx];
-    });
-    return stats;
-  }
-  // 修正：以 totalRequests 與 blockedRequests 計算
-  getBlockingRate() {
-    const total = this.counters;   // totalRequests
-    const blocked = this.counters[1]; // blockedRequests
-    return total > 0 ? ((blocked / total) * 100).toFixed(2) : '0.00';
-  }
+  constructor() { this.counters = new Uint32Array(16); this.labels = ['totalRequests', 'blockedRequests', 'criticalTrackingBlocked', 'domainBlocked', 'pathBlocked', 'regexPathBlocked', 'paramsCleaned', 'whitelistHits', 'errors', 'l1CacheHits', 'l2CacheHits', 'urlCacheHits', 'cacheMisses']; this.startTime = __now__(); }
+  increment(type) { const idx = this.labels.indexOf(type); if (idx !== -1) this.counters[idx]++; }
+  getStats() { const runtime = ((__now__() - this.startTime) / 1000).toFixed(2); const stats = { runtime: `${runtime}s` }; this.labels.forEach((l, i) => { stats[l] = this.counters[i]; }); return stats; }
+  getBlockingRate() { const total = this.counters[0]; const blocked = this.counters[1]; return total > 0 ? ((blocked / total) * 100).toFixed(2) : '0.00'; }
 }
 const optimizedStats = new OptimizedPerformanceStats();
 
-// 判定：關鍵追蹤腳本
-function isOptimizedCriticalTrackingScript(lowerFullPath) {
-  const cacheKey = `crit:${lowerFullPath}`;
-  const cached = multiLevelCache.getUrlDecision(cacheKey);
-  if (cached !== null) {
-    optimizedStats.increment('l2CacheHits');
-    return cached;
-  }
-  optimizedStats.increment('cacheMisses');
-
-  const qIdx = lowerFullPath.indexOf('?');
-  const pathOnly = qIdx !== -1 ? lowerFullPath.slice(0, qIdx) : lowerFullPath;
-  const lastSlash = pathOnly.lastIndexOf('/');
-  const scriptName = lastSlash !== -1 ? pathOnly.slice(lastSlash + 1) : pathOnly;
-
-  let isBlocked = false;
-  if (scriptName && CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName)) {
-    isBlocked = true;
-  } else {
-    isBlocked = OPTIMIZED_TRIES.criticalPattern.contains(lowerFullPath);
-  }
-  multiLevelCache.setUrlDecision(cacheKey, isBlocked);
-  return isBlocked;
-}
-
-// 判定：API 白名單（強化：逐層 suffix 比對）
-function isOptimizedApiWhitelisted(hostname) {
-  if (CONFIG.API_WHITELIST_EXACT.has(hostname)) return true;
-  let h = hostname;
-  while (true) {
-    const dot = h.indexOf('.');
-    if (dot === -1) break;
-    h = h.slice(dot + 1);
-    if (CONFIG.API_WHITELIST_WILDCARDS.has(h)) return true;
-  }
-  // 再檢查一次完整主機（少數清單可能列全名）
-  return CONFIG.API_WHITELIST_WILDCARDS.has(hostname);
-}
-
-// 判定：域名黑名單（逐層右縮）
-function isOptimizedDomainBlocked(hostname) {
-  let current = hostname;
-  while (current) {
-    if (CONFIG.BLOCK_DOMAINS.has(current)) return true;
-    const idx = current.indexOf('.');
-    if (idx === -1) break;
-    current = current.slice(idx + 1);
-  }
-  return false;
-}
-
-// 判定：關鍵字路徑
-function isOptimizedPathBlocked(lowerFullPath) {
-  const cacheKey = `path:${lowerFullPath}`;
-  const cached = multiLevelCache.getUrlDecision(cacheKey);
-  if (cached !== null) {
-    optimizedStats.increment('l2CacheHits');
-    return cached;
-  }
-  optimizedStats.increment('cacheMisses');
-
-  let result = false;
-  if (OPTIMIZED_TRIES.pathBlock.contains(lowerFullPath)) {
-    if (!OPTIMIZED_TRIES.allow.contains(lowerFullPath)) {
-      result = true;
-    }
-  }
-  multiLevelCache.setUrlDecision(cacheKey, result);
-  return result;
-}
-
-// 判定：Regex 路徑
-function isOptimizedPathBlockedByRegex(lowerPathnameOnly) {
-  const cacheKey = `regex:${lowerPathnameOnly}`;
-  const cached = multiLevelCache.getUrlDecision(cacheKey);
-  if (cached !== null) {
-    optimizedStats.increment('l2CacheHits');
-    return cached;
-  }
-  optimizedStats.increment('cacheMisses');
-
-  for (let i = 0; i < CONFIG.PATH_BLOCK_REGEX.length; i++) {
-    if (CONFIG.PATH_BLOCK_REGEX[i].test(lowerPathnameOnly)) {
-      multiLevelCache.setUrlDecision(cacheKey, true);
-      return true;
-    }
-  }
-  multiLevelCache.setUrlDecision(cacheKey, false);
-  return false;
-}
-
-// 清理追蹤參數
-function optimizedCleanTrackingParams(url) {
-  const toDelete = [];
-  for (const key of url.searchParams.keys()) {
-    const lowerKey = key.toLowerCase();
-    if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(lowerKey)) continue;
-    if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) || OPTIMIZED_TRIES.prefix.startsWith(lowerKey)) {
-      toDelete.push(key);
-    }
-  }
-  if (toDelete.length > 0) {
-    toDelete.forEach(k => url.searchParams.delete(k));
-    return true;
-  }
-  return false;
-}
-
-// 產生攔截回應
-function getOptimizedBlockResponse(originalFullPath) {
-  const lowerFullPath = originalFullPath.toLowerCase();
-  if (OPTIMIZED_TRIES.drop.contains(lowerFullPath)) return DROP_RESPONSE;
-  const lastDot = originalFullPath.lastIndexOf('.');
-  if (lastDot !== -1) {
-    const ext = originalFullPath.slice(lastDot).toLowerCase();
-    if (IMAGE_EXTENSIONS.has(ext)) return TINY_GIF_RESPONSE;
-  }
-  return REJECT_RESPONSE;
-}
+// 判定
+function isOptimizedCriticalTrackingScript(path) { const k = `crit:${path}`; const c = multiLevelCache.getUrlDecision(k); if (c !== null) { optimizedStats.increment('l2CacheHits'); return c; } optimizedStats.increment('cacheMisses'); const q = path.indexOf('?'); const p = q !== -1 ? path.slice(0, q) : path; const s = p.lastIndexOf('/'); const n = s !== -1 ? p.slice(s + 1) : p; let b = false; if (n && CONFIG.CRITICAL_TRACKING_SCRIPTS.has(n)) { b = true; } else { b = OPTIMIZED_TRIES.criticalPattern.contains(path); } multiLevelCache.setUrlDecision(k, b); return b; }
+function isOptimizedApiWhitelisted(h) { if (CONFIG.API_WHITELIST_EXACT.has(h)) return true; let current = h; while (true) { const d = current.indexOf('.'); if (d === -1) break; current = current.slice(d + 1); if (CONFIG.API_WHITELIST_WILDCARDS.has(current)) return true; } return CONFIG.API_WHITELIST_WILDCARDS.has(h); }
+function isOptimizedDomainBlocked(h) { let c = h; while (c) { if (CONFIG.BLOCK_DOMAINS.has(c)) return true; const i = c.indexOf('.'); if (i === -1) break; c = c.slice(i + 1); } return false; }
+function isOptimizedPathBlocked(path) { const k = `path:${path}`; const c = multiLevelCache.getUrlDecision(k); if (c !== null) { optimizedStats.increment('l2CacheHits'); return c; } optimizedStats.increment('cacheMisses'); let r = false; if (OPTIMIZED_TRIES.pathBlock.contains(path)) { if (!OPTIMIZED_TRIES.allow.contains(path)) { r = true; } } multiLevelCache.setUrlDecision(k, r); return r; }
+function isOptimizedPathBlockedByRegex(path) { const k = `regex:${path}`; const c = multiLevelCache.getUrlDecision(k); if (c !== null) { optimizedStats.increment('l2CacheHits'); return c; } optimizedStats.increment('cacheMisses'); for (let i = 0; i < CONFIG.PATH_BLOCK_REGEX.length; i++) { if (CONFIG.PATH_BLOCK_REGEX[i].test(path)) { multiLevelCache.setUrlDecision(k, true); return true; } } multiLevelCache.setUrlDecision(k, false); return false; }
+function optimizedCleanTrackingParams(url) { let toDelete = null; for (const key of url.searchParams.keys()) { const lowerKey = key.toLowerCase(); if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(lowerKey)) continue; if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) || OPTIMIZED_TRIES.prefix.startsWith(lowerKey)) { if (!toDelete) toDelete = []; toDelete.push(key); } } if (toDelete) { toDelete.forEach(k => url.searchParams.delete(k)); return true; } return false; }
+function getOptimizedBlockResponse(path) { const lower = path.toLowerCase(); if (OPTIMIZED_TRIES.drop.contains(lower)) return DROP_RESPONSE; const dot = path.lastIndexOf('.'); if (dot !== -1) { const ext = path.slice(dot).toLowerCase(); if (IMAGE_EXTENSIONS.has(ext)) return TINY_GIF_RESPONSE; } return REJECT_RESPONSE; }
 
 // 主要處理流程
 function processOptimizedRequest(request) {
   try {
     optimizedStats.increment('totalRequests');
+    if (!request?.url || typeof request.url !== 'string' || request.url.length < 10) return null;
 
-    // 基礎校驗
-    if (!request || !request.url || typeof request.url !== 'string' || request.url.length < 10) {
-      return null;
-    }
-
-    let url;
-    try {
-      url = new URL(request.url);
-    } catch (e) {
-      optimizedStats.increment('errors');
-      if (typeof console !== 'undefined' && console.error) {
-        console.error(`[URL-Filter-v38.2] URL 解析失敗: "${request.url}", 錯誤: ${e.message}`);
+    const rawUrl = request.url;
+    let url = multiLevelCache.getUrlObject(rawUrl);
+    if (url) {
+      optimizedStats.increment('urlCacheHits');
+    } else {
+      try {
+        url = new URL(rawUrl);
+        multiLevelCache.setUrlObject(rawUrl, url);
+      } catch (e) {
+        optimizedStats.increment('errors');
+        console.error(`[URL-Filter-v38.3] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
+        return null;
       }
-      return null;
     }
 
     const hostname = url.hostname.toLowerCase();
-
-    // L1 快取：只對 BLOCK 短路，不對 ALLOW 短路（避免永久放行）
+    
+    // 【註解 V38.3】L1 快取僅對 BLOCK 決策進行短路，避免因快取 ALLOW 而永久豁免整個域名。
     const l1Decision = multiLevelCache.getDomainDecision(hostname);
-    if (l1Decision !== null) {
+    if (l1Decision === DECISION.BLOCK) {
       optimizedStats.increment('l1CacheHits');
-      if (l1Decision === DECISION.BLOCK) {
-        optimizedStats.increment('domainBlocked');
-        optimizedStats.increment('blockedRequests');
-        return getOptimizedBlockResponse(url.pathname + url.search);
-      }
-      // 其他決策（如 PARAM_CLEAN）不短路，繼續往下檢查
+      optimizedStats.increment('domainBlocked');
+      optimizedStats.increment('blockedRequests');
+      return getOptimizedBlockResponse(url.pathname + url.search);
     }
 
-    // 域名級判斷
     if (isOptimizedDomainBlocked(hostname)) {
       multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
       optimizedStats.increment('domainBlocked');
@@ -761,27 +465,22 @@ function processOptimizedRequest(request) {
       return getOptimizedBlockResponse(url.pathname + url.search);
     }
 
-    // API 白名單（完全豁免）
     if (isOptimizedApiWhitelisted(hostname)) {
       optimizedStats.increment('whitelistHits');
       return null;
     }
 
-    // URL 級
     const originalFullPath = url.pathname + url.search;
     const lowerPathnameOnly = url.pathname.toLowerCase();
     const lowerFullPath = originalFullPath.toLowerCase();
 
-    // 關鍵追蹤腳本
     if (isOptimizedCriticalTrackingScript(lowerFullPath)) {
-      // 仍採用網域 BLOCK 快取以提速；若需降低過封，可改為僅 URL 級快取或加 TTL
       multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
       optimizedStats.increment('criticalTrackingBlocked');
       optimizedStats.increment('blockedRequests');
       return getOptimizedBlockResponse(originalFullPath);
     }
 
-    // 關鍵字路徑
     if (isOptimizedPathBlocked(lowerFullPath)) {
       multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
       optimizedStats.increment('pathBlocked');
@@ -789,31 +488,25 @@ function processOptimizedRequest(request) {
       return getOptimizedBlockResponse(originalFullPath);
     }
 
-    // Regex 路徑
     if (isOptimizedPathBlockedByRegex(lowerPathnameOnly)) {
       multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
       optimizedStats.increment('regexPathBlocked');
       optimizedStats.increment('blockedRequests');
       return getOptimizedBlockResponse(originalFullPath);
     }
-
-    // 參數清洗
+    
     const initialSearch = url.search;
-    if (optimizedCleanTrackingParams(url)) {
-      if (url.search !== initialSearch) {
-        // 不對 ALLOW 進行網域層快取，僅回覆導向
-        optimizedStats.increment('paramsCleaned');
-        return REDIRECT_RESPONSE(url.toString());
-      }
+    if (optimizedCleanTrackingParams(url) && url.search !== initialSearch) {
+      optimizedStats.increment('paramsCleaned');
+      return REDIRECT_RESPONSE(url.toString());
     }
-
-    // 不再在流程結尾寫入 ALLOW（避免永久放行整域）
+    
     return null;
 
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v38.2] 處理請求 "${request && request.url}" 時發生錯誤: ${error && error.message}`, error && error.stack);
+      console.error(`[URL-Filter-v38.3] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -823,34 +516,21 @@ function processOptimizedRequest(request) {
 (function () {
   try {
     initializeOptimizedTries();
-
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
         const stats = optimizedStats.getStats();
         const cacheStats = multiLevelCache.getStats();
-        $done({
-          version: '38.2',
-          status: 'ready',
-          message: 'URL Filter v38.2 - Engine Hardening Fixes & Allow-Scope Tightening',
-          stats,
-          cache: cacheStats
-        });
+        $done({ version: '38.3', status: 'ready', message: 'URL Filter v38.3 - URL Object Caching & Logic Annotation', stats, cache: cacheStats });
       }
       return;
     }
-
     const result = processOptimizedRequest($request);
-    if (typeof $done !== 'undefined') {
-      $done(result || {});
-    }
-
+    if (typeof $done !== 'undefined') $done(result || {});
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v38.2] 致命錯誤: ${error && error.message}`, error && error.stack);
+      console.error(`[URL-Filter-v38.3] 致命錯誤: ${error?.message}`, error?.stack);
     }
-    if (typeof $done !== 'undefined') {
-      $done({});
-    }
+    if (typeof $done !== 'undefined') $done({});
   }
 })();
