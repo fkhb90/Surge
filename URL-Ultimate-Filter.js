@@ -163,6 +163,9 @@ const CONFIG = {
     'bat.bing.com', 'cloudflareinsights.com', 'static.cloudflareinsights.com', 'monorail-edge.shopifysvc.com',
     'demdex.net', 'omtrdc.net', 'everesttech.net', 'vitals.vercel-insights.com', 'cdn.vercel-insights.com',
     'plausible.io', 'hs-analytics.net', 'hs-scripts.com',
+    // --- 社交平台：LinkedIn / Twitch / TikTok / Pinterest / Tumblr ---
+    'snap.licdn.com', 'spade.twitch.tv', 'business-api.tiktok.com', 'analytics.tiktok.com', 'ct.pinterest.com',
+    'px.srvcs.tumblr.com', 'events.redditmedia.com',
     // --- 其他 ---
     'wcs.naver.net', 'adnx.com', 'rlcdn.com', 'revjet.com',
     'tiktok.com', 'snapchat.com', 'sc-static.net', 'cint.com',
@@ -187,8 +190,8 @@ const CONFIG = {
     'utag.js', 'tag.js', 'dax.js', 'adobedtm.js', 'visitorapi.js',
     // --- 效能監控 ---
     'newrelic.js', 'nr-loader.js', 'perf.js', 'trace.js',
-    // --- 社群 & 其他 ---
-    'tiktok-pixel.js', 'tiktok-analytics.js', 'pangle.js', 'intercom.js', 'tagtoo.js', 'essb-core.min.js',
+    // --- 社群 & LinkedIn Insight ---
+    'tiktok-pixel.js', 'tiktok-analytics.js', 'pangle.js', 'intercom.js', 'tagtoo.js', 'essb-core.min.js', 'insight.min.js',
     // --- 中國大陸地區 ---
     'hm.js', 'u.js', 'um.js', 'aplus.js', 'aplus_wap.js', 'gdt.js', 'ec.js',
     // --- Cloudflare / Bing / Plausible ---
@@ -228,16 +231,17 @@ const CONFIG = {
     '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/',
     // --- Cloudflare Web Analytics / RUM ---
     'static.cloudflareinsights.com/beacon.min.js', 'cloudflareinsights.com/cdn-cgi/rum',
-    // --- Shopify Monorail ---
-    'monorail-edge.shopifysvc.com/v1/produce', 
-    // --- Bing UET ---
-    'bat.bing.com/action',
-    // --- Vercel Speed Insights ---
-    'vitals.vercel-insights.com/v1/vitals',
-    // --- Plausible Analytics ---
-    'plausible.io/api/event',
-    // --- Yahoo Benji/Logs ---
-    'pbd.yahoo.com/data/logs',
+    // --- Shopify Monorail / Bing UET / Vercel Speed Insights ---
+    'monorail-edge.shopifysvc.com/v1/produce', 'bat.bing.com/action', 'vitals.vercel-insights.com/v1/vitals',
+    // --- Plausible Analytics / Yahoo Benji/Logs ---
+    'plausible.io/api/event', 'pbd.yahoo.com/data/logs',
+    // --- LinkedIn Insight / TikTok Pixel / Events API ---
+    'snap.licdn.com/li.lms-analytics/insight.min.js', 'analytics.tiktok.com/i18n/pixel/events.js', 'business-api.tiktok.com/open_api',
+    'business-api.tiktok.com/open_api/v1', 'business-api.tiktok.com/open_api/v2',
+    // --- Pinterest Tag / Reddit Pixel / 事件上報 ---
+    's.pinimg.com/ct/core.js', 'ct.pinterest.com/v3', 'www.redditstatic.com/ads/pixel.js', 'events.redditmedia.com/v1',
+    // --- Discord 遙測（science）/ VK（社交平台）像素/重定向 ---
+    'discord.com/api/v9/science', 'discord.com/api/v10/science', 'vk.com/rtrg'
     // --- 其他 ---
     '/abtesting/', '/feature-flag/', '/user-profile/', '/b/ss', '/i/adsct', 'cacafly/track', '/track/m', '/track/pc',
   ]),
