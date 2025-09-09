@@ -1,8 +1,8 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V39.2.js
- * @version     39.2 (YouTube Compatibility Hotfix)
- * @description 緊急修正 V39.1 中因規則衝突導致 YouTube 無法播放的問題。將 youtube.com 從域名黑名單中移除，
- * 確保其能正確被軟白名單規則處理，恢復正常功能。
+ * @file        URL-Ultimate-Filter-Surge-V39.3.js
+ * @version     39.3 (Critical Asset Whitelisting Hotfix)
+ * @description 緊急修正 V39.2 中因缺少對 `ytimg.com` 的豁免，導致 YouTube 播放器無法載入而播放失敗的問題。
+ * 同時，移除了對 `twitter.com` 和 `pinterest.com` 等主域名的過度封鎖，提升了腳本的相容性。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-09
  */
@@ -79,9 +79,9 @@ const CONFIG = {
    */
   SOFT_WHITELIST_WILDCARDS: new Set([
     // --- 核心服務 & CDN ---
-    'youtube.com', 'm.youtube.com', 'googlevideo.com', 'amazonaws.com', 'cloudfront.net', 'fastly.net',
-    'akamaihd.net', 'cloudflare.com', 'jsdelivr.net', 'unpkg.com', 'cdnjs.cloudflare.com', 'gstatic.com',
-    'fbcdn.net', 'twimg.com',
+    'youtube.com', 'm.youtube.com', 'googlevideo.com', 'ytimg.com', // [修正] 新增 ytimg.com 以確保播放器正常載入
+    'amazonaws.com', 'cloudfront.net', 'fastly.net', 'akamaihd.net', 'cloudflare.com', 'jsdelivr.net',
+    'unpkg.com', 'cdnjs.cloudflare.com', 'gstatic.com', 'fbcdn.net', 'twimg.com',
     // --- 閱讀器 & 新聞 ---
     'inoreader.com', 'theoldreader.com', 'newsblur.com', 'flipboard.com', 'itofoo.com',
     // --- 開發 & 部署平台 ---
@@ -151,8 +151,7 @@ const CONFIG = {
     'kuaishou.com', 'pangolin-sdk-toutiao.com', 'zhugeio.com', 'growingio.com', 'youmi.net', 'adview.cn', 'igexin.com',
     // --- 其他 ---
     'wcs.naver.net', 'adnx.com', 'rlcdn.com', 'revjet.com',
-    'tiktok.com', 'snapchat.com', 'sc-static.net', 'pinterest.com',
-    'twitter.com', 'cint.com',
+    'tiktok.com', 'snapchat.com', 'sc-static.net', 'cint.com',
   ]),
 
   /**
@@ -317,7 +316,7 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                             🚀 OPTIMIZED CORE ENGINE (V39.2)                                  #
+// #                             🚀 OPTIMIZED CORE ENGINE (V39.3)                                  #
 // #                                                                                               #
 // #################################################################################################
 
@@ -434,7 +433,7 @@ function processRequest(request) {
             multiLevelCache.setUrlObject(rawUrl, Object.freeze(url));
         } catch (e) {
             optimizedStats.increment('errors');
-            console.error(`[URL-Filter-v39.2] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v39.3] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -500,7 +499,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v39.2] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v39.3] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -512,7 +511,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '39.2', status: 'ready', message: 'URL Filter v39.2 - YouTube Compatibility Hotfix', stats: optimizedStats.getStats() });
+        $done({ version: '39.3', status: 'ready', message: 'URL Filter v39.3 - Critical Asset Whitelisting Hotfix', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -521,7 +520,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v39.2] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v39.3] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
