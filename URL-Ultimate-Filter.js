@@ -1,8 +1,8 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V39.9.js
- * @version     39.9 (Observability & Refinement Update)
- * @description 引入多項專業級優化：增強 L2 快取監控、精簡化通用參數清理、
- * 採用 URL 片段標記（#）防止重導循環，並優化攔截回應策略以提升客戶端相容性。
+ * @file        URL-Ultimate-Filter-Surge-V40.0.js
+ * @version     40.0 (Refined Tracking Parameters & First-Party Analytics Blocking)
+ * @description 新增 Yahoo 特有追蹤參數至黑名單，並加入對 Feedly 等第一方平台
+ * 內部追蹤域名的攔截，進一步提升過濾的廣度與深度。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-09
  */
@@ -10,7 +10,7 @@
 // #################################################################################################
 // #                                                                                               #
 // #                             ⚙️ SCRIPT CONFIGURATION                                             #
-// #                      (使用者可在此區域安全地新增、修改或移除規則)                                 #
+// #                      (使用者在此區域安全地新增、修改或移除規則)                                 #
 // #                                                                                               #
 // #################################################################################################
 
@@ -45,31 +45,17 @@ const CONFIG = {
     'youtube.com', 'm.youtube.com', 'googlevideo.com', 'ytimg.com',
     // --- 支付 & 金流 (根域名) ---
     'stripe.com', 'paypal.com',
-    // --- 主流服務 API ---
-    'api.github.com', 'api.openai.com', 'api.anthropic.com', 'a-api.anthropic.com', 'api.cohere.ai',
-    'gemini.google.com', 'api.telegram.org', 'api.slack.com',
     // --- 銀行服務 (根域名) ---
     'bot.com.tw', 'megabank.com.tw', 'firstbank.com.tw', 'hncb.com.tw', 'sinopac.com', 'tcb-bank.com.tw',
     'scsb.com.tw', 'fubon.com', 'standardchartered.com.tw', 'taishinbank.com.tw', 'chb.com.tw',
     // --- 核心登入 & 協作平台 ---
     'okta.com', 'auth0.com', 'atlassian.net',
-        // --- 生產力 & 協作工具 ---
-    'api.notion.com', 'api.figma.com', 'api.trello.com', 'api.asana.com', 'api.dropboxapi.com', 'clorasio.atlassian.net',
-    // --- 開發 & 部署平台 ---
-    'api.vercel.com', 'api.netlify.com', 'api.heroku.com', 'api.digitalocean.com', 'firestore.googleapis.com',
-    'database.windows.net', 'auth.docker.io', 'login.docker.com', 'api.cloudflare.com', 'api.fastly.com',
     // --- 系統 & 平台核心服務 ---
     'apple.com', 'icloud.com', 'windowsupdate.com', 'update.microsoft.com',
     // --- 網頁存檔服務 (對參數極度敏感) ---
     'web.archive.org', 'web-static.archive.org', 'archive.is', 'archive.today', 'archive.ph',
     'archive.li', 'archive.vn', 'webcache.googleusercontent.com', 'cc.bingj.com', 'perma.cc',
     'www.webarchive.org.uk', 'timetravel.mementoweb.org',
-        // --- 台灣地區服務 ---
-    'api.irentcar.com.tw', 'usiot.roborock.com', 'shopee.tw', 'cmapi.tw.coupang.com', 'm.tw.coupang.com',
-    // --- 其他常用 API ---
-    'api.intercom.io', 'api.sendgrid.com', 'api.mailgun.com', 'hooks.slack.com', 'api.pagerduty.com',
-    'api.zendesk.com', 'api.hubapi.com', 'secure.gravatar.com', 'legy.line-apps.com', 'obs.line-scdn.net',
-    'duckduckgo.com', 'external-content.duckduckgo.com',
   ]),
 
   /**
@@ -77,7 +63,20 @@ const CONFIG = {
    * 說明：豁免「域名」與「路徑」層級的封鎖，但仍會執行「參數清理」與「關鍵腳本攔截」。
    */
   SOFT_WHITELIST_EXACT: new Set([
-  
+    // --- 主流服務 API ---
+    'api.github.com', 'api.openai.com', 'api.anthropic.com', 'a-api.anthropic.com', 'api.cohere.ai',
+    'gemini.google.com', 'api.telegram.org', 'api.slack.com',
+    // --- 開發 & 部署平台 ---
+    'api.vercel.com', 'api.netlify.com', 'api.heroku.com', 'api.digitalocean.com', 'firestore.googleapis.com',
+    'database.windows.net', 'auth.docker.io', 'login.docker.com', 'api.cloudflare.com', 'api.fastly.com',
+    // --- 生產力 & 協作工具 ---
+    'api.notion.com', 'api.figma.com', 'api.trello.com', 'api.asana.com', 'api.dropboxapi.com', 'clorasio.atlassian.net',
+    // --- 台灣地區服務 ---
+    'api.irentcar.com.tw', 'usiot.roborock.com', 'cmapi.tw.coupang.com',
+    // --- 其他常用 API ---
+    'api.intercom.io', 'api.sendgrid.com', 'api.mailgun.com', 'hooks.slack.com', 'api.pagerduty.com',
+    'api.zendesk.com', 'api.hubapi.com', 'secure.gravatar.com', 'legy.line-apps.com', 'obs.line-scdn.net',
+    'duckduckgo.com', 'external-content.duckduckgo.com'
   ]),
 
   /**
@@ -93,7 +92,7 @@ const CONFIG = {
     'github.io', 'gitlab.io', 'windows.net', 'pages.dev', 'vercel.app', 'netlify.app',
     'azurewebsites.net', 'cloudfunctions.net', 'oraclecloud.com', 'digitaloceanspaces.com',
     // --- 社群平台相容性 ---
-    'instagram.com', 'threads.net',
+    'shopee.tw', 'instagram.com', 'threads.net'
   ]),
 
   /**
@@ -106,6 +105,8 @@ const CONFIG = {
     'admob.com', 'adsense.com', 'app-measurement.com', 'adservice.google.com',
     // --- Facebook / Meta ---
     'graph.facebook.com', 'connect.facebook.net',
+    // --- 平台內部追蹤 & 分析 ---
+    'visuals.feedly.com',
     // --- 主流分析 & 追蹤服務 ---
     'scorecardresearch.com', 'chartbeat.com', 'analytics.twitter.com', 'static.ads-twitter.com', 'ads.linkedin.com',
     'criteo.com', 'criteo.net', 'taboola.com', 'outbrain.com', 'pubmatic.com', 'rubiconproject.com',
@@ -334,7 +335,9 @@ const CONFIG = {
     'adposition', 'network', 'placement', 'targetid', 'feeditemid', 'loc_physical_ms', 'loc_interest_ms',
     'creative', 'adset', 'ad', 'pixel_id', 'event_id',
     // --- 搜尋特定 (Search Specific) ---
-    'algolia_query', 'algolia_query_id', 'algolia_object_id', 'algolia_position'
+    'algolia_query', 'algolia_query_id', 'algolia_object_id', 'algolia_position',
+    // --- [V40.0] Yahoo 特定參數 ---
+    '.tsrc', 'tsrc', 'spaceid', 'test_id', 'rapidKeys'
   ]),
 
   /**
@@ -367,7 +370,7 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                             🚀 OPTIMIZED CORE ENGINE (V39.9)                                  #
+// #                             🚀 OPTIMIZED CORE ENGINE (V40.0)                                  #
 // #                                                                                               #
 // #################################################################################################
 
@@ -497,7 +500,7 @@ function processRequest(request) {
             multiLevelCache.setUrlObject(rawUrl, Object.freeze(url));
         } catch (e) {
             optimizedStats.increment('errors');
-            console.error(`[URL-Filter-v39.9] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.0] URL 解析失敗: "${rawUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -563,7 +566,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v39.9] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.0] 處理請求 "${request?.url}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -575,7 +578,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '39.9', status: 'ready', message: 'URL Filter v39.9 - Observability & Refinement Update', stats: optimizedStats.getStats() });
+        $done({ version: '40.0', status: 'ready', message: 'URL Filter v40.0 - Refined Tracking Parameters & First-Party Analytics Blocking', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -584,7 +587,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v39.9] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.0] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
