@@ -107,7 +107,7 @@ const CONFIG = {
     // --- Facebook / Meta ---
     'graph.facebook.com', 'connect.facebook.net',
     // --- 平台內部追蹤 & 分析 ---
-    'visuals.feedly.com', 'spclient.wg.spotify.com',
+    'visuals.feedly.com',
     // --- 主流分析 & 追蹤服務 ---
     'scorecardresearch.com', 'chartbeat.com', 'analytics.twitter.com', 'static.ads-twitter.com', 'ads.linkedin.com',
     'criteo.com', 'criteo.net', 'taboola.com', 'outbrain.com', 'pubmatic.com', 'rubiconproject.com',
