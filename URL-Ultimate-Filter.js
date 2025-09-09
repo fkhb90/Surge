@@ -65,7 +65,7 @@ const CONFIG = {
     'archive.li', 'archive.vn', 'webcache.googleusercontent.com', 'cc.bingj.com', 'perma.cc',
     'www.webarchive.org.uk', 'timetravel.mementoweb.org',
         // --- 台灣地區服務 ---
-    'api.irentcar.com.tw', 'usiot.roborock.com', 'shopee.tw', 'cmapi.tw.coupang.com',
+    'api.irentcar.com.tw', 'usiot.roborock.com', 'shopee.tw', 'cmapi.tw.coupang.com', 'm.tw.coupang.com',
     // --- 其他常用 API ---
     'api.intercom.io', 'api.sendgrid.com', 'api.mailgun.com', 'hooks.slack.com', 'api.pagerduty.com',
     'api.zendesk.com', 'api.hubapi.com', 'secure.gravatar.com', 'legy.line-apps.com', 'obs.line-scdn.net',
