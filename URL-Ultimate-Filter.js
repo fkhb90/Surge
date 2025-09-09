@@ -45,17 +45,31 @@ const CONFIG = {
     'youtube.com', 'm.youtube.com', 'googlevideo.com', 'ytimg.com',
     // --- 支付 & 金流 (根域名) ---
     'stripe.com', 'paypal.com',
+    // --- 主流服務 API ---
+    'api.github.com', 'api.openai.com', 'api.anthropic.com', 'a-api.anthropic.com', 'api.cohere.ai',
+    'gemini.google.com', 'api.telegram.org', 'api.slack.com',
     // --- 銀行服務 (根域名) ---
     'bot.com.tw', 'megabank.com.tw', 'firstbank.com.tw', 'hncb.com.tw', 'sinopac.com', 'tcb-bank.com.tw',
     'scsb.com.tw', 'fubon.com', 'standardchartered.com.tw', 'taishinbank.com.tw', 'chb.com.tw',
     // --- 核心登入 & 協作平台 ---
-    'okta.com', 'auth0.com', 'atlassian.net', 'shopee.tw',
+    'okta.com', 'auth0.com', 'atlassian.net',
+        // --- 生產力 & 協作工具 ---
+    'api.notion.com', 'api.figma.com', 'api.trello.com', 'api.asana.com', 'api.dropboxapi.com', 'clorasio.atlassian.net',
+    // --- 開發 & 部署平台 ---
+    'api.vercel.com', 'api.netlify.com', 'api.heroku.com', 'api.digitalocean.com', 'firestore.googleapis.com',
+    'database.windows.net', 'auth.docker.io', 'login.docker.com', 'api.cloudflare.com', 'api.fastly.com',
     // --- 系統 & 平台核心服務 ---
     'apple.com', 'icloud.com', 'windowsupdate.com', 'update.microsoft.com',
     // --- 網頁存檔服務 (對參數極度敏感) ---
     'web.archive.org', 'web-static.archive.org', 'archive.is', 'archive.today', 'archive.ph',
     'archive.li', 'archive.vn', 'webcache.googleusercontent.com', 'cc.bingj.com', 'perma.cc',
     'www.webarchive.org.uk', 'timetravel.mementoweb.org',
+        // --- 台灣地區服務 ---
+    'api.irentcar.com.tw', 'usiot.roborock.com', 'shopee.tw', 'cmapi.tw.coupang.com',
+    // --- 其他常用 API ---
+    'api.intercom.io', 'api.sendgrid.com', 'api.mailgun.com', 'hooks.slack.com', 'api.pagerduty.com',
+    'api.zendesk.com', 'api.hubapi.com', 'secure.gravatar.com', 'legy.line-apps.com', 'obs.line-scdn.net',
+    'duckduckgo.com', 'external-content.duckduckgo.com',
   ]),
 
   /**
@@ -63,20 +77,7 @@ const CONFIG = {
    * 說明：豁免「域名」與「路徑」層級的封鎖，但仍會執行「參數清理」與「關鍵腳本攔截」。
    */
   SOFT_WHITELIST_EXACT: new Set([
-    // --- 主流服務 API ---
-    'api.github.com', 'api.openai.com', 'api.anthropic.com', 'a-api.anthropic.com', 'api.cohere.ai',
-    'gemini.google.com', 'api.telegram.org', 'api.slack.com',
-    // --- 開發 & 部署平台 ---
-    'api.vercel.com', 'api.netlify.com', 'api.heroku.com', 'api.digitalocean.com', 'firestore.googleapis.com',
-    'database.windows.net', 'auth.docker.io', 'login.docker.com', 'api.cloudflare.com', 'api.fastly.com',
-    // --- 生產力 & 協作工具 ---
-    'api.notion.com', 'api.figma.com', 'api.trello.com', 'api.asana.com', 'api.dropboxapi.com', 'clorasio.atlassian.net',
-    // --- 台灣地區服務 ---
-    'api.irentcar.com.tw', 'usiot.roborock.com', 'cmapi.tw.coupang.com',
-    // --- 其他常用 API ---
-    'api.intercom.io', 'api.sendgrid.com', 'api.mailgun.com', 'hooks.slack.com', 'api.pagerduty.com',
-    'api.zendesk.com', 'api.hubapi.com', 'secure.gravatar.com', 'legy.line-apps.com', 'obs.line-scdn.net',
-    'duckduckgo.com', 'external-content.duckduckgo.com'
+  
   ]),
 
   /**
@@ -92,7 +93,7 @@ const CONFIG = {
     'github.io', 'gitlab.io', 'windows.net', 'pages.dev', 'vercel.app', 'netlify.app',
     'azurewebsites.net', 'cloudfunctions.net', 'oraclecloud.com', 'digitaloceanspaces.com',
     // --- 社群平台相容性 ---
-    'instagram.com', 'threads.net'
+    'instagram.com', 'threads.net',
   ]),
 
   /**
