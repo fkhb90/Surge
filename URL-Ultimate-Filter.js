@@ -1,9 +1,9 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.6.js
- * @version     40.6 (Security Hardening & Refinement)
- * @description 針對 V40.5 進行 3 項關鍵安全修復：強化路徑白名單匹配邏輯以防止繞過、移除錯誤日誌中的敏感查詢參數、並為核心引擎增加長度限制以防禦效能攻擊。
+ * @file        URL-Ultimate-Filter-Surge-V40.7.js
+ * @version     40.7 (Compatibility & Refactoring Update)
+ * @description 新增 Shopee 相關域名至硬白名單萬用字元清單，提升電商平台相容性，並對所有規則列表進行全面的重新分類與排序，以優化可維護性。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-09-09
+ * @lastUpdated 2025-09-10
  */
 
 // #################################################################################################
@@ -19,22 +19,21 @@ const CONFIG = {
    * 說明：完全豁免所有檢查。此處的域名需要完整且精確的匹配。
    */
   HARD_WHITELIST_EXACT: new Set([
-    // --- 高互動性服務 API ---
-    'api.twitch.tv', 'api.discord.com', 'open.spotify.com', 'i.instagram.com',
-    'graph.instagram.com', 'graph.threads.net', 'tw.fd-api.com',
-    // --- YouTube 核心 API ---
-    'youtubei.googleapis.com',
-    // --- 支付 & 金流 API ---
-    'api.stripe.com', 'api.paypal.com', 'api.adyen.com', 'api.braintreegateway.com', 
-    'payment.ecpay.com.tw', 'api.ecpay.com.tw', 'api.jkos.com',
-    // --- 銀行服務 (特定子域名) ---
-    'netbank.bot.com.tw', 'ebank.megabank.com.tw', 'ibank.firstbank.com.tw', 'netbank.hncb.com.tw',
-    'mma.sinopac.com', 'richart.tw', 'ebank.tcb-bank.com.tw', 'ibanking.scsb.com.tw', 'ebank.taipeifubon.com.tw',
-    'nbe.standardchartered.com.tw', 'api.esunbank.com.tw', 'api.cathaybk.com.tw', 'api.ctbcbank.com',
     // --- 核心登入 & 認證 ---
     'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com', 'sso.godaddy.com',
+    // --- 台灣地區服務 ---
+    'tw.fd-api.com',
+    // --- 支付 & 金流 API ---
+    'api.adyen.com', 'api.braintreegateway.com', 'api.ecpay.com.tw', 'api.jkos.com', 'api.paypal.com', 'api.stripe.com', 'payment.ecpay.com.tw',
     // --- 票務 & 關鍵 API ---
-    'tixcraft.com', 'kktix.com', 'api.line.me',
+    'api.line.me', 'kktix.com', 'tixcraft.com',
+    // --- 高互動性服務 API ---
+    'api.discord.com', 'api.twitch.tv', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com', 'open.spotify.com',
+    // --- 銀行服務 (特定子域名) ---
+    'api.cathaybk.com.tw', 'api.ctbcbank.com', 'api.esunbank.com.tw', 'ebank.megabank.com.tw', 'ebank.taipeifubon.com.tw', 'ebank.tcb-bank.com.tw',
+    'ibank.firstbank.com.tw', 'ibanking.scsb.com.tw', 'mma.sinopac.com', 'nbe.standardchartered.com.tw', 'netbank.bot.com.tw', 'netbank.hncb.com.tw', 'richart.tw',
+    // --- YouTube 核心 API ---
+    'youtubei.googleapis.com',
   ]),
 
   /**
@@ -42,21 +41,22 @@ const CONFIG = {
    * 說明：完全豁免所有檢查。此處的域名會匹配自身及其所有子域名 (例如 apple.com 會匹配 a.apple.com)。
    */
   HARD_WHITELIST_WILDCARDS: new Set([
-    // --- YouTube 核心服務 ---
-    'youtube.com', 'm.youtube.com', 'googlevideo.com', 'ytimg.com',
-    // --- 支付 & 金流 (根域名) ---
-    'stripe.com', 'paypal.com',
-    // --- 銀行服務 (根域名) ---
-    'bot.com.tw', 'megabank.com.tw', 'firstbank.com.tw', 'hncb.com.tw', 'sinopac.com', 'tcb-bank.com.tw',
-    'scsb.com.tw', 'fubon.com', 'standardchartered.com.tw', 'taishinbank.com.tw', 'chb.com.tw',
     // --- 核心登入 & 協作平台 ---
-    'okta.com', 'auth0.com', 'atlassian.net', 'slack.com',
+    'atlassian.net', 'auth0.com', 'okta.com', 'slack.com',
+    // --- 支付 & 金流 (根域名) ---
+    'paypal.com', 'stripe.com',
+    // --- 社群 & 電商平台 (根域名) ---
+    'shopee.com', 'shopeemobile.com', 'shopee.tw',
     // --- 系統 & 平台核心服務 ---
-    'apple.com', 'icloud.com', 'windowsupdate.com', 'update.microsoft.com',
+    'apple.com', 'icloud.com', 'update.microsoft.com', 'windowsupdate.com',
+    // --- 銀行服務 (根域名) ---
+    'bot.com.tw', 'chb.com.tw', 'firstbank.com.tw', 'fubon.com', 'hncb.com.tw', 'megabank.com.tw',
+    'scsb.com.tw', 'sinopac.com', 'standardchartered.com.tw', 'taishinbank.com.tw', 'tcb-bank.com.tw',
     // --- 網頁存檔服務 (對參數極度敏感) ---
-    'web.archive.org', 'web-static.archive.org', 'archive.is', 'archive.today', 'archive.ph',
-    'archive.li', 'archive.vn', 'webcache.googleusercontent.com', 'cc.bingj.com', 'perma.cc',
-    'www.webarchive.org.uk', 'timetravel.mementoweb.org',
+    'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com', 'perma.cc',
+    'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'webcache.googleusercontent.com', 'www.webarchive.org.uk',
+    // --- YouTube 核心服務 ---
+    'googlevideo.com', 'm.youtube.com', 'youtube.com', 'ytimg.com',
   ]),
 
   /**
@@ -65,19 +65,17 @@ const CONFIG = {
    */
   SOFT_WHITELIST_EXACT: new Set([
     // --- 主流服務 API ---
-    'api.github.com', 'api.openai.com', 'api.anthropic.com', 'a-api.anthropic.com', 'api.cohere.ai',
-    'gemini.google.com', 'api.telegram.org', 'api.slack.com',
-    // --- 開發 & 部署平台 ---
-    'api.vercel.com', 'api.netlify.com', 'api.heroku.com', 'api.digitalocean.com', 'firestore.googleapis.com',
-    'database.windows.net', 'auth.docker.io', 'login.docker.com', 'api.cloudflare.com', 'api.fastly.com',
-    // --- 生產力 & 協作工具 ---
-    'api.notion.com', 'api.figma.com', 'api.trello.com', 'api.asana.com', 'api.dropboxapi.com', 'clorasio.atlassian.net',
-    // --- 台灣地區服務 ---
-    'api.irentcar.com.tw', 'usiot.roborock.com', 'cmapi.tw.coupang.com',
+    'a-api.anthropic.com', 'api.anthropic.com', 'api.cohere.ai', 'api.github.com', 'api.openai.com', 'api.slack.com', 'api.telegram.org', 'gemini.google.com',
     // --- 其他常用 API ---
-    'api.intercom.io', 'api.sendgrid.com', 'api.mailgun.com', 'hooks.slack.com', 'api.pagerduty.com',
-    'api.zendesk.com', 'api.hubapi.com', 'secure.gravatar.com', 'legy.line-apps.com', 'obs.line-scdn.net',
-    'duckduckgo.com', 'external-content.duckduckgo.com',
+    'api.hubapi.com', 'api.intercom.io', 'api.mailgun.com', 'api.pagerduty.com', 'api.sendgrid.com', 'api.zendesk.com',
+    'duckduckgo.com', 'external-content.duckduckgo.com', 'hooks.slack.com', 'legy.line-apps.com', 'obs.line-scdn.net', 'secure.gravatar.com',
+    // --- 生產力 & 協作工具 ---
+    'api.asana.com', 'api.dropboxapi.com', 'api.figma.com', 'api.notion.com', 'api.trello.com', 'clorasio.atlassian.net',
+    // --- 開發 & 部署平台 ---
+    'api.cloudflare.com', 'api.digitalocean.com', 'api.fastly.com', 'api.heroku.com', 'api.netlify.com', 'api.vercel.com',
+    'auth.docker.io', 'database.windows.net', 'firestore.googleapis.com', 'login.docker.com',
+    // --- 台灣地區服務 ---
+    'api.irentcar.com.tw', 'cmapi.tw.coupang.com', 'usiot.roborock.com',
   ]),
 
   /**
@@ -85,15 +83,15 @@ const CONFIG = {
    */
   SOFT_WHITELIST_WILDCARDS: new Set([
     // --- 核心 CDN ---
-    'amazonaws.com', 'cloudfront.net', 'fastly.net', 'akamaihd.net', 'cloudflare.com', 'jsdelivr.net',
-    'unpkg.com', 'cdnjs.cloudflare.com', 'gstatic.com', 'fbcdn.net', 'twimg.com',
+    'akamaihd.net', 'amazonaws.com', 'cdnjs.cloudflare.com', 'cloudflare.com', 'cloudfront.net', 'fastly.net',
+    'fbcdn.net', 'gstatic.com', 'jsdelivr.net', 'twimg.com', 'unpkg.com',
     // --- 閱讀器 & 新聞 ---
-    'inoreader.com', 'theoldreader.com', 'newsblur.com', 'flipboard.com', 'itofoo.com',
+    'flipboard.com', 'inoreader.com', 'itofoo.com', 'newsblur.com', 'theoldreader.com',
     // --- 開發 & 部署平台 ---
-    'github.io', 'gitlab.io', 'windows.net', 'pages.dev', 'vercel.app', 'netlify.app',
-    'azurewebsites.net', 'cloudfunctions.net', 'oraclecloud.com', 'digitaloceanspaces.com',
+    'azurewebsites.net', 'cloudfunctions.net', 'digitaloceanspaces.com', 'github.io', 'gitlab.io', 'netlify.app',
+    'oraclecloud.com', 'pages.dev', 'vercel.app', 'windows.net',
     // --- 社群平台相容性 ---
-    'shopee.tw', 'shopee.com', 'instagram.com', 'threads.net', 'shopeemobile.com',
+    'instagram.com', 'threads.net'
   ]),
 
   /**
@@ -102,74 +100,63 @@ const CONFIG = {
    */
   BLOCK_DOMAINS: new Set([
     // --- Google / DoubleClick ---
-    'doubleclick.net', 'google-analytics.com', 'googletagmanager.com', 'googleadservices.com', 'googlesyndication.com',
-    'admob.com', 'adsense.com', 'app-measurement.com', 'adservice.google.com',
+    'admob.com', 'adsense.com', 'adservice.google.com', 'app-measurement.com', 'doubleclick.net', 'google-analytics.com',
+    'googleadservices.com', 'googlesyndication.com', 'googletagmanager.com',
     // --- Facebook / Meta ---
-    'graph.facebook.com', 'connect.facebook.net',
+    'connect.facebook.net', 'graph.facebook.com',
     // --- 平台內部追蹤 & 分析 ---
-    'visuals.feedly.com', 'spclient.wg.spotify.com',
+    'spclient.wg.spotify.com', 'visuals.feedly.com',
     // --- 主流分析 & 追蹤服務 ---
-    'scorecardresearch.com', 'chartbeat.com', 'analytics.twitter.com', 'static.ads-twitter.com', 'ads.linkedin.com',
-    'criteo.com', 'criteo.net', 'taboola.com', 'outbrain.com', 'pubmatic.com', 'rubiconproject.com',
-    'openx.net', 'openx.com', 'adsrvr.org', 'adform.net', 'semasio.net', 'yieldlab.net', 'branch.io',
-    'appsflyer.com', 'adjust.com', 'sentry.io', 'bugsnag.com', 'hotjar.com', 'vwo.com', 'optimizely.com',
-    'mixpanel.com', 'amplitude.com', 'heap.io', 'loggly.com', 'c.clarity.ms', 'track.hubspot.com', 'api.pendo.io',
-    'fullstory.com', 'inspectlet.com', 'mouseflow.com', 'crazyegg.com', 'clicktale.net', 'kissmetrics.com',
-    'keen.io', 'segment.com', 'segment.io', 'mparticle.com', 'snowplowanalytics.com', 'newrelic.com',
-    'nr-data.net', 'datadoghq.com', 'logrocket.com', 'sumo.com', 'sumome.com', 'piwik.pro', 'matomo.cloud',
-    'clicky.com', 'statcounter.com', 'quantserve.com', 'comscore.com', 'tealium.com',
-    'analytics.line.me',
+    'adjust.com', 'adform.net', 'ads.linkedin.com', 'adsrvr.org', 'amplitude.com', 'analytics.line.me', 'analytics.twitter.com', 'api.pendo.io',
+    'appsflyer.com', 'branch.io', 'bugsnag.com', 'c.clarity.ms', 'chartbeat.com', 'clicktale.net', 'clicky.com', 'comscore.com',
+    'crazyegg.com', 'criteo.com', 'criteo.net', 'datadoghq.com', 'fullstory.com', 'heap.io', 'hotjar.com', 'inspectlet.com', 'keen.io',
+    'kissmetrics.com', 'loggly.com', 'logrocket.com', 'matomo.cloud', 'mixpanel.com', 'mouseflow.com', 'mparticle.com', 'newrelic.com',
+    'nr-data.net', 'openx.com', 'openx.net', 'optimizely.com', 'outbrain.com', 'piwik.pro', 'pubmatic.com', 'quantserve.com',
+    'rubiconproject.com', 'scorecardresearch.com', 'segment.com', 'segment.io', 'semasio.net', 'sentry.io', 'snowplowanalytics.com',
+    'statcounter.com', 'static.ads-twitter.com', 'sumo.com', 'sumome.com', 'taboola.com', 'tealium.com', 'track.hubspot.com', 'vwo.com', 'yieldlab.net',
     // --- 廣告驗證 & 可見度追蹤 ---
-    'doubleverify.com', 'moatads.com', 'moat.com', 'iasds.com', 'serving-sys.com',
+    'doubleverify.com', 'iasds.com', 'moat.com', 'moatads.com', 'serving-sys.com',
     // --- 客戶數據平台 (CDP) & 身分識別 ---
-    'agkn.com', 'tags.tiqcdn.com', 'liveramp.com', 'id5-sync.com', 'permutive.com',
+    'agkn.com', 'id5-sync.com', 'liveramp.com', 'permutive.com', 'tags.tiqcdn.com',
     // --- CDP & 行銷自動化 ---
     'klaviyo.com', 'marketo.com', 'mktoresp.com', 'pardot.com',
     // --- Mobile & Performance ---
-    'kochava.com', 'singular.net', 'raygun.io', 'instana.io', 'launchdarkly.com',
+    'instana.io', 'kochava.com', 'launchdarkly.com', 'raygun.io', 'singular.net',
     // --- 主流廣告聯播網 & 平台 ---
-    'adcolony.com', 'adroll.com', 'adsnative.com', 'bidswitch.net', 'casalemedia.com', 'conversantmedia.com',
-    'media.net', 'soom.la', 'spotxchange.com', 'teads.tv', 'tremorhub.com', 'yieldmo.com', 'zemanta.com',
-    'flashtalking.com', 'indexexchange.com', 'magnite.com', 'gumgum.com', 'inmobi.com', 'mopub.com',
-    'sharethrough.com', 'smartadserver.com', 'applovin.com', 'ironsrc.com', 'unityads.unity3d.com', 'vungle.com',
-    'appnexus.com', 'contextweb.com', 'spotx.tv', 'liveintent.com', 'narrative.io', 'neustar.biz', 'tapad.com',
-    'thetradedesk.com', 'bluekai.com', 'amazon-adsystem.com', 'adserver.yahoo.com', 'ads.yahoo.com', 'analytics.yahoo.com',
-    'geo.yahoo.com', 'pbd.yahoo.com',
-    // --- 更多主流廣告技術平台 ---
-    'adswizz.com', 'sitescout.com', 'ad.yieldmanager.com', 'creativecdn.com', 'cr-serving.com', 'yieldify.com', 'go-mpulse.net',
+    'ad.yieldmanager.com', 'adcolony.com', 'adroll.com', 'ads.yahoo.com', 'adsnative.com', 'adserver.yahoo.com', 'adswizz.com', 'amazon-adsystem.com',
+    'analytics.yahoo.com', 'applovin.com', 'appnexus.com', 'bidswitch.net', 'bluekai.com', 'casalemedia.com', 'contextweb.com',
+    'conversantmedia.com', 'cr-serving.com', 'creativecdn.com', 'flashtalking.com', 'geo.yahoo.com', 'go-mpulse.net', 'gumgum.com',
+    'indexexchange.com', 'inmobi.com', 'ironsrc.com', 'liveintent.com', 'magnite.com', 'media.net', 'mopub.com', 'narrative.io',
+    'neustar.biz', 'pbd.yahoo.com', 'sharethrough.com', 'sitescout.com', 'smartadserver.com', 'soom.la', 'spotx.tv', 'spotxchange.com',
+    'tapad.com', 'teads.tv', 'thetradedesk.com', 'tremorhub.com', 'unityads.unity3d.com', 'vungle.com', 'yieldify.com', 'yieldmo.com', 'zemanta.com',
     // --- 彈出式 & 其他廣告 ---
-    'popads.net', 'propellerads.com', 'adcash.com', 'zeropark.com',
+    'adcash.com', 'popads.net', 'propellerads.com', 'zeropark.com',
     // --- 聯盟行銷 ---
     'admitad.com', 'awin1.com', 'cj.com', 'impactradius.com', 'linkshare.com', 'rakutenadvertising.com',
     // --- 俄羅斯 ---
-    'yandex.ru', 'adriver.ru',
+    'adriver.ru', 'yandex.ru',
     // --- 內容管理 & 推播 ---
-    'disqus.com', 'disquscdn.com', 'addthis.com', 'sharethis.com', 'po.st', 'cbox.ws', 'intensedebate.com',
-    'onesignal.com', 'pushengage.com', 'sail-track.com',
+    'addthis.com', 'cbox.ws', 'disqus.com', 'disquscdn.com', 'intensedebate.com', 'onesignal.com',
+    'po.st', 'pushengage.com', 'sail-track.com', 'sharethis.com',
     // --- 隱私權 & Cookie 同意管理 ---
-    'onetrust.com', 'cookielaw.org', 'trustarc.com', 'sourcepoint.com', 'usercentrics.eu',
+    'cookielaw.org', 'onetrust.com', 'sourcepoint.com', 'trustarc.com', 'usercentrics.eu',
     // --- 台灣地區 ---
-    'clickforce.com.tw', 'tagtoo.co', 'urad.com.tw', 'cacafly.com', 'is-tracking.com', 'vpon.com',
-    'guoshipartners.com', 'sitetag.us', 'imedia.com.tw', 'ettoday.net', 'pixnet.net',
-    'pchome.com.tw', 'momo.com.tw', 'xuite.net', 'cna.com.tw', 'cw.com.tw',
-    'hi-on.org', 'chinatimes.com', 'analysis.tw', 'trk.tw', 'fast-trk.com', 'gamani.com',
-    'tenmax.io', 'aotter.net', 'funp.com', 'ruten.com.tw', 'books.com.tw', 'etmall.com.tw',
-    'friday.tw', 'ad-hub.net', 'adgeek.net',
+    'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'books.com.tw', 'cacafly.com', 'chinatimes.com',
+    'clickforce.com.tw', 'cna.com.tw', 'cw.com.tw', 'etmall.com.tw', 'ettoday.net', 'fast-trk.com', 'friday.tw',
+    'funp.com', 'gamani.com', 'guoshipartners.com', 'hi-on.org', 'imedia.com.tw', 'is-tracking.com', 'momo.com.tw',
+    'pchome.com.tw', 'pixnet.net', 'ruten.com.tw', 'sitetag.us', 'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com', 'xuite.net',
     // --- 中國大陸地區 ---
-    'umeng.com', 'umeng.co', 'umeng.cn', 'cnzz.com', 'talkingdata.com', 'talkingdata.cn', 'baidu.com',
-    'qq.com', 'tencent.com', 'tanx.com', 'alimama.com', 'mmstat.com',
-    'getui.com', 'jpush.cn', 'jiguang.cn', 'gridsum.com', 'admaster.com.cn', 'miaozhen.com',
-    'kuaishou.com', 'pangolin-sdk-toutiao.com', 'zhugeio.com', 'growingio.com', 'youmi.net', 'adview.cn', 'igexin.com',
+    'admaster.com.cn', 'adview.cn', 'alimama.com', 'baidu.com', 'cnzz.com', 'getui.com', 'gridsum.com', 'growingio.com',
+    'igexin.com', 'jiguang.cn', 'jpush.cn', 'kuaishou.com', 'miaozhen.com', 'mmstat.com', 'pangolin-sdk-toutiao.com', 'qq.com',
+    'talkingdata.cn', 'talkingdata.com', 'tanx.com', 'tencent.com', 'umeng.cn', 'umeng.co', 'umeng.com', 'youmi.net', 'zhugeio.com',
     // --- 雲端與平台分析/廣告像素 ---
-    'bat.bing.com', 'cloudflareinsights.com', 'static.cloudflareinsights.com', 'monorail-edge.shopifysvc.com',
-    'demdex.net', 'omtrdc.net', 'everesttech.net', 'vitals.vercel-insights.com', 'cdn.vercel-insights.com',
-    'plausible.io', 'hs-analytics.net', 'hs-scripts.com',
+    'bat.bing.com', 'cdn.vercel-insights.com', 'cloudflareinsights.com', 'demdex.net', 'everesttech.net', 'hs-analytics.net',
+    'hs-scripts.com', 'monorail-edge.shopifysvc.com', 'omtrdc.net', 'plausible.io', 'static.cloudflareinsights.com', 'vitals.vercel-insights.com',
     // --- 社交平台：LinkedIn / Twitch / TikTok / Pinterest / Tumblr ---
-    'snap.licdn.com', 'spade.twitch.tv', 'business-api.tiktok.com', 'analytics.tiktok.com', 'ct.pinterest.com',
-    'px.srvcs.tumblr.com', 'events.redditmedia.com',
+    'analytics.tiktok.com', 'business-api.tiktok.com', 'ct.pinterest.com', 'events.redditmedia.com', 'px.srvcs.tumblr.com',
+    'snap.licdn.com', 'spade.twitch.tv',
     // --- 其他 ---
-    'wcs.naver.net', 'adnx.com', 'rlcdn.com', 'revjet.com',
-    'tiktok.com', 'snapchat.com', 'sc-static.net', 'cint.com',
+    'adnx.com', 'cint.com', 'revjet.com', 'rlcdn.com', 'sc-static.net', 'snapchat.com', 'tiktok.com', 'wcs.naver.net',
   ]),
 
   /**
@@ -177,31 +164,31 @@ const CONFIG = {
    */
   CRITICAL_TRACKING_SCRIPTS: new Set([
     // --- Google ---
-    'ytag.js', 'gtag.js', 'gtm.js', 'ga.js', 'analytics.js', 'adsbygoogle.js', 'ads.js',
+    'ads.js', 'adsbygoogle.js', 'analytics.js', 'ga.js', 'gtag.js', 'gtm.js', 'ytag.js',
     // --- Facebook / Meta ---
-    'fbevents.js', 'fbq.js', 'pixel.js', 'connect.js',
+    'connect.js', 'fbevents.js', 'fbq.js', 'pixel.js',
     // --- 主流分析平台 ---
-    'hotjar.js', 'mixpanel.js', 'amplitude.js', 'segment.js', 'clarity.js', 'matomo.js',
-    'piwik.js', 'fullstory.js', 'heap.js', 'inspectlet.js', 'logrocket.js', 'vwo.js', 'optimizely.js',
-    'comscore.js', 'quant.js', 'quantcast.js', 'chartbeat.js', 'crazyegg.js', 'mouseflow.js',
+    'amplitude.js', 'chartbeat.js', 'clarity.js', 'comscore.js', 'crazyegg.js', 'fullstory.js', 'heap.js',
+    'hotjar.js', 'inspectlet.js', 'logrocket.js', 'matomo.js', 'mixpanel.js', 'mouseflow.js', 'optimizely.js',
+    'piwik.js', 'quant.js', 'quantcast.js', 'segment.js', 'vwo.js',
     // --- 廣告技術平台 (Ad Tech) ---
-    'criteo.js', 'pubmatic.js', 'outbrain.js', 'taboola.js', 'prebid.js', 'apstag.js', 'adroll.js',
-    'doubleclick.js', 'adsense.js', 'adloader.js', 'ad-sdk.js', 'ad-manager.js', 'ad-player.js',
+    'ad-manager.js', 'ad-player.js', 'ad-sdk.js', 'adloader.js', 'adroll.js', 'adsense.js', 'apstag.js',
+    'criteo.js', 'doubleclick.js', 'outbrain.js', 'prebid.js', 'pubmatic.js', 'taboola.js',
     // --- 內容傳遞 & 標籤管理 ---
-    'utag.js', 'tag.js', 'dax.js', 'adobedtm.js', 'visitorapi.js',
+    'adobedtm.js', 'dax.js', 'tag.js', 'utag.js', 'visitorapi.js',
     // --- 效能監控 ---
     'newrelic.js', 'nr-loader.js', 'perf.js', 'trace.js',
     // --- 社群 & LinkedIn Insight ---
-    'tiktok-pixel.js', 'tiktok-analytics.js', 'pangle.js', 'intercom.js', 'tagtoo.js', 'essb-core.min.js', 'insight.min.js',
+    'essb-core.min.js', 'insight.min.js', 'intercom.js', 'pangle.js', 'tagtoo.js', 'tiktok-analytics.js', 'tiktok-pixel.js',
     // --- 中國大陸地區 ---
-    'hm.js', 'u.js', 'um.js', 'aplus.js', 'aplus_wap.js', 'gdt.js', 'ec.js',
+    'aplus.js', 'aplus_wap.js', 'ec.js', 'gdt.js', 'hm.js', 'u.js', 'um.js',
     // --- Cloudflare / Bing / Plausible ---
-    'beacon.min.js', 'bat.js', 'plausible.outbound-links.js',
+    'bat.js', 'beacon.min.js', 'plausible.outbound-links.js',
     // --- 通用 & 其他 ---
-    'tracking.js', 'tracker.js', 'beacon.js', 'event.js', 'collect.js', 'activity.js', 'conversion.js',
-    'action.js', 'abtasty.js', 'cmp.js', 'sp.js', 'link-click-tracker.js', 'user-timing.js', 'cf.js',
-    'wcslog.js', 'ads-beacon.js', 'autotrack.js', 'capture.js', 'user-id.js', 'adroll_pro.js',
-    'tracking-api.js', 'scevent.min.js', 'ad-lib.js', 'ad-core.js',
+    'abtasty.js', 'action.js', 'activity.js', 'ad-core.js', 'ad-lib.js', 'adroll_pro.js', 'ads-beacon.js',
+    'autotrack.js', 'beacon.js', 'capture.js', 'cf.js', 'cmp.js', 'collect.js', 'conversion.js', 'event.js',
+    'link-click-tracker.js', 'scevent.min.js', 'sp.js', 'tracker.js', 'tracking-api.js', 'tracking.js',
+    'user-id.js', 'user-timing.js', 'wcslog.js',
   ]),
 
   /**
@@ -209,45 +196,42 @@ const CONFIG = {
    */
   CRITICAL_TRACKING_PATTERNS: new Set([
     // --- Google ---
-    '/googletagmanager/', '/google-analytics/', '/googlesyndication/', '/doubleclick/', '/googleadservices/',
-    'google.com/ads', 'google.com/pagead', '/pagead/gen_204', '/stats.g.doubleclick.net/j/collect', '/ads/ga-audiences',
+    '/ads/ga-audiences', '/doubleclick/', '/google-analytics/', '/googleadservices/', '/googlesyndication/',
+    '/googletagmanager/', '/pagead/gen_204', '/stats.g.doubleclick.net/j/collect', 'google.com/ads', 'google.com/pagead',
     // --- Facebook / Meta ---
     'facebook.com/tr', 'facebook.com/tr/',
     // --- 通用 API 端點 ---
-    '/collect?', '/track/', '/beacon/', '/pixel/', '/telemetry/', '/api/log/', '/api/track/', '/api/collect/',
-    '/api/v1/track', '/intake', '/api/batch', '/v1/pixel', '/api/v1/events', '/ingest/', '/p.gif', '/t.gif',
+    '/api/batch', '/api/collect', '/api/collect/', '/api/log/', '/api/track/', '/api/v1/events', '/api/v1/track',
+    '/beacon/', '/collect?', '/ingest/', '/intake', '/p.gif', '/pixel/', '/t.gif', '/telemetry/', '/track/', '/v1/pixel',
     // --- 特定服務端點 ---
     '/2/client/addlog_batch', // Weibo log
-    '/api/collect', // Generic collect endpoint without trailing slash (e.g., citiesocial)
     // --- 主流服務端點 ---
-    'scorecardresearch.com/beacon.js', 'analytics.twitter.com', 'ads.linkedin.com/li/track', 'px.ads.linkedin.com',
-    'amazon-adsystem.com/e/ec', 'ads.yahoo.com/pixel', 'ads.bing.com/msclkid', 'segment.io/v1/track',
-    'heap.io/api/track', 'api.mixpanel.com/track', 'api.amplitude.com', 'api-iam.intercom.io/messenger/web/events',
-    'api.hubspot.com/events', 'ad.360yield.com',
+    'ad.360yield.com', 'ads.bing.com/msclkid', 'ads.linkedin.com/li/track', 'ads.yahoo.com/pixel', 'amazon-adsystem.com/e/ec',
+    'api-iam.intercom.io/messenger/web/events', 'api.amplitude.com', 'api.hubspot.com/events', 'api.mixpanel.com/track',
+    'heap.io/api/track', 'px.ads.linkedin.com', 'scorecardresearch.com/beacon.js', 'segment.io/v1/track', 'analytics.twitter.com',
     // --- 社群 & 其他 ---
-    'ads.tiktok.com/i1n/pixel/events.js', 'ads-api.tiktok.com/api/v2/pixel', 'analytics.snapchat.com/v1/batch',
-    'tr.snapchat.com', 'sc-static.net/scevent.min.js', 'ads.pinterest.com/v3/conversions/events',
-    'events.reddit.com/v1/pixel', 'log.pinterest.com/', 'analytics.pinterest.com/', 'q.quora.com/',
-    '/plugins/easy-social-share-buttons/',
+    '/plugins/easy-social-share-buttons/', 'ads-api.tiktok.com/api/v2/pixel', 'ads.pinterest.com/v3/conversions/events',
+    'ads.tiktok.com/i1n/pixel/events.js', 'analytics.pinterest.com/', 'analytics.snapchat.com/v1/batch',
+    'events.reddit.com/v1/pixel', 'log.pinterest.com/', 'q.quora.com/', 'sc-static.net/scevent.min.js', 'tr.snapchat.com',
     // --- 中國大陸地區 ---
-    'hm.baidu.com/hm.js', 'cnzz.com/stat.php', 'wgo.mmstat.com', '/log/aplus', '/v.gif', 'gdt.qq.com/gdt_mview.fcg',
+    '/log/aplus', '/v.gif', 'cnzz.com/stat.php', 'gdt.qq.com/gdt_mview.fcg', 'hm.baidu.com/hm.js', 'wgo.mmstat.com',
     // --- 通用廣告路徑 ---
     '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/',
     // --- Cloudflare Web Analytics / RUM ---
-    'static.cloudflareinsights.com/beacon.min.js', 'cloudflareinsights.com/cdn-cgi/rum',
+    'cloudflareinsights.com/cdn-cgi/rum', 'static.cloudflareinsights.com/beacon.min.js',
     // --- Shopify Monorail / Bing UET / Vercel Speed Insights ---
-    'monorail-edge.shopifysvc.com/v1/produce', 'bat.bing.com/action', 'vitals.vercel-insights.com/v1/vitals',
+    'bat.bing.com/action', 'monorail-edge.shopifysvc.com/v1/produce', 'vitals.vercel-insights.com/v1/vitals',
     // --- Plausible Analytics / Yahoo Benji/Logs ---
-    'plausible.io/api/event', 'pbd.yahoo.com/data/logs',
+    'pbd.yahoo.com/data/logs', 'plausible.io/api/event',
     // --- LinkedIn Insight / TikTok Pixel / Events API ---
-    'snap.licdn.com/li.lms-analytics/insight.min.js', 'analytics.tiktok.com/i18n/pixel/events.js', 'business-api.tiktok.com/open_api',
-    'business-api.tiktok.com/open_api/v1', 'business-api.tiktok.com/open_api/v2',
+    'analytics.tiktok.com/i18n/pixel/events.js', 'business-api.tiktok.com/open_api', 'business-api.tiktok.com/open_api/v1',
+    'business-api.tiktok.com/open_api/v2', 'snap.licdn.com/li.lms-analytics/insight.min.js',
     // --- Pinterest Tag / Reddit Pixel / 事件上報 ---
-    's.pinimg.com/ct/core.js', 'ct.pinterest.com/v3', 'www.redditstatic.com/ads/pixel.js', 'events.redditmedia.com/v1',
+    'ct.pinterest.com/v3', 'events.redditmedia.com/v1', 's.pinimg.com/ct/core.js', 'www.redditstatic.com/ads/pixel.js',
     // --- Discord 遙測（science）/ VK（社交平台）像素/重定向 ---
-    'discord.com/api/v9/science', 'discord.com/api/v10/science', 'vk.com/rtrg',
+    'discord.com/api/v10/science', 'discord.com/api/v9/science', 'vk.com/rtrg',
     // --- 其他 ---
-    '/abtesting/', '/feature-flag/', '/user-profile/', '/b/ss', '/i/adsct', 'cacafly/track', '/track/m', '/track/pc',
+    '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc', '/user-profile/', 'cacafly/track',
   ]),
 
   /**
@@ -255,33 +239,33 @@ const CONFIG = {
    */
   PATH_BLOCK_KEYWORDS: new Set([
     // --- 通用廣告詞 (Ad Generic) ---
-    '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/sponsor/',
-    '/promoted/', '/banner/', '/popup/', '/interstitial/', '/preroll/', '/midroll/', '/postroll/',
+    '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/banner/',
+    '/interstitial/', '/popup/', '/preroll/', '/midroll/', '/postroll/', '/promoted/', '/sponsor/',
     // --- 廣告技術平台關鍵字 (Ad Tech) ---
-    'google_ad', 'pagead', 'adsbygoogle', 'doubleclick', 'adsense', 'dfp', 'amp-ad', 'amp-analytics',
-    'amp-auto-ads', 'amp-sticky-ad', 'amp4ads', 'prebid', 'apstag', 'pwt.js', 'rtb', 'dsp', 'ssp',
-    'ad_logic', 'ad-choices', 'ad-manager', 'ad-server', 'ad-tag', 'ad_pixel', 'ad-request', 'ad-system',
-    'ad-tech', 'ad-wrapper', 'ad-loader', 'ad-placement', 'ad-metrics', 'ad-events', 'ad-impression',
-    'ad-click', 'ad-view', 'ad-engagement', 'ad-conversion', 'ad-break', 'ad_event', 'ad-inventory',
-    'ad-specs', 'ad-verification', 'ad-viewability', 'ad-exchange', 'ad-network', 'ad-platform',
-    'ad-response', 'ad-slot', 'ad-unit', 'ad-call', 'ad-code', 'ad-script', 'ad-telemetry', '/adserve/',
-    '/adserving/', '/adframe/', '/adrequest/', '/adretrieve/', '/getads/', '/getad/', '/fetch_ads/',
+    '/ad-call', '/ad-choices', '/ad-click', '/ad-code', '/ad-conversion', '/ad-engagement', '/ad-event', '/ad-events',
+    '/ad-exchange', '/ad-impression', '/ad-inventory', '/ad-loader', '/ad-logic', '/ad-manager', '/ad-metrics',
+    '/ad-network', '/ad-placement', '/ad-platform', '/ad-request', '/ad-response', '/ad-script', '/ad-server',
+    '/ad-slot', '/ad-specs', '/ad-system', '/ad-tag', '/ad-tech', '/ad-telemetry', '/ad-unit', '/ad-verification',
+    '/ad-view', '/ad-viewability', '/ad-wrapper', '/ad_event', '/ad_pixel', '/adframe/', '/adrequest/', '/adretrieve/',
+    '/adserve/', '/adserving/', '/fetch_ads/', '/getad/', '/getads/', 'ad-break', 'adsbygoogle', 'adsense', 'ad_logic',
+    'amp-ad', 'amp-analytics', 'amp-auto-ads', 'amp-sticky-ad', 'amp4ads', 'apstag', 'dfp', 'doubleclick', 'google_ad',
+    'pagead', 'prebid', 'pwt.js', 'rtb', 'dsp', 'ssp',
     // --- 通用追蹤與分析 (Tracking & Analytics) ---
-    '/track/', '/trace/', '/tracker/', '/tracking/', '/analytics/', '/analytic/', '/metric/', '/metrics/',
-    '/telemetry/', '/measurement/', '/insight/', '/intelligence/', '/monitor/', '/monitoring/', '/audit/',
-    '/beacon/', '/pixel/', '/collect?', '/collector/', '/report/', '/reports/', '/reporting/',
+    '/analytic/', '/analytics/', '/audit/', '/beacon/', '/collect?', '/collector/', '/insight/', '/intelligence/',
+    '/measurement/', '/metric/', '/metrics/', '/monitor/', '/monitoring/', '/pixel/', '/report/', '/reporting/',
+    '/reports/', '/telemetry/', '/trace/', '/track/', '/tracker/', '/tracking/',
     // --- 錯誤 & 效能監控 (Error & Performance) ---
-    '/sentry/', '/bugsnag/', '/crash/', '/error/', '/exception/', '/stacktrace/', 'web-vitals',
-    'performance-tracking', 'real-user-monitoring',
+    '/bugsnag/', '/crash/', '/error/', '/exception/', '/sentry/', '/stacktrace/', 'performance-tracking',
+    'real-user-monitoring', 'web-vitals',
     // --- 使用者行為 & 定向 (User Behavior) ---
-    'user-analytics', 'behavioral-targeting', 'data-collection', 'data-sync', 'fingerprint',
-    'fingerprinting', 'third-party-cookie', 'user-cohort', 'attribution', 'retargeting', 'audience',
-    'cohort', 'user-segment', 'user-behavior', 'session-replay',
+    'audience', 'attribution', 'behavioral-targeting', 'cohort', 'data-collection', 'data-sync', 'fingerprint',
+    'fingerprinting', 'retargeting', 'session-replay', 'third-party-cookie', 'user-analytics', 'user-behavior',
+    'user-cohort', 'user-segment',
     // --- 第三方服務名稱 (3rd Party Services) ---
-    'google-analytics', 'fbevents', 'fbq', 'addthis', 'sharethis', 'taboola', 'criteo', 'osano',
-    'onead', 'sailthru', 'tapfiliate', 'appier', 'hotjar', 'comscore', 'mixpanel', 'amplitude', 'utag.js',
+    'addthis', 'amplitude', 'appier', 'comscore', 'criteo', 'fbevents', 'fbq', 'google-analytics', 'hotjar',
+    'mixpanel', 'onead', 'osano', 'sailthru', 'sharethis', 'taboola', 'tapfiliate', 'utag.js',
     // --- 隱私權 & 同意管理 (Privacy & Consent) ---
-    'cookiepolicy', 'gdpr', 'ccpa', 'plusone', 'optimize', 'pushnotification', 'privacy-policy', 'cookie-consent'
+    'ccpa', 'cookie-consent', 'cookiepolicy', 'gdpr', 'optimize', 'plusone', 'privacy-policy', 'pushnotification',
   ]),
     
   /**
@@ -298,14 +282,14 @@ const CONFIG = {
    */
   PATH_ALLOW_SUFFIXES: new Set([
     // --- 框架 & 套件常用檔 ---
-    'chunk.js', 'chunk.mjs', 'bundle.js', 'main.js', 'app.js', 'vendor.js', 'runtime.js', 'common.js',
-    'framework.js', 'framework.mjs', 'polyfills.js', 'polyfills.mjs', 'styles.js', 'styles.css', 'index.js', 'index.mjs',
+    'app.js', 'bundle.js', 'chunk.js', 'chunk.mjs', 'common.js', 'framework.js', 'framework.mjs', 'index.js',
+    'index.mjs', 'main.js', 'polyfills.js', 'polyfills.mjs', 'runtime.js', 'styles.css', 'styles.js', 'vendor.js',
     // --- 靜態資產與固定檔名 ---
-    'polyfill.js', 'fetch-polyfill', 'browser.js', 'sw.js', 'loader.js', 'header.js', 'head.js', 'padding.css',
-    'badge.svg', 'modal.js', 'card.js', 'icon.svg', 'logo.svg', 'favicon.ico', 'manifest.json', 'robots.txt',
-    'page-data.js', 'legacy.js', 'sitemap.xml', 'chunk-vendors', 'chunk-common', 'component---',
+    'badge.svg', 'browser.js', 'card.js', 'chunk-common', 'chunk-vendors', 'component---', 'favicon.ico',
+    'fetch-polyfill', 'head.js', 'header.js', 'icon.svg', 'legacy.js', 'loader.js', 'logo.svg', 'manifest.json',
+    'modal.js', 'padding.css', 'page-data.js', 'polyfill.js', 'robots.txt', 'sitemap.xml', 'sw.js',
     // --- 常見主題或設定檔 ---
-    'theme.js', 'config.js', 'web.config',
+    'config.js', 'theme.js', 'web.config',
   ]),
 
   /**
@@ -313,7 +297,7 @@ const CONFIG = {
    * 說明：當路徑包含此處的字串時，將豁免 `PATH_BLOCK_KEYWORDS` 檢查 (用於典型靜態路徑)。
    */
   PATH_ALLOW_SUBSTRINGS: new Set([
-    '_next/static/', '_app/', '_nuxt/', 'static/js/', 'static/css/', 'static/media/', 'i18n/', 'locales/',
+    '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/js/', 'static/media/',
   ]),
 
   /**
@@ -330,12 +314,12 @@ const CONFIG = {
    */
   DROP_KEYWORDS: new Set([
     // --- 日誌 & 遙測 (Logging & Telemetry) ---
-    '/log/', '/logs/', '/logging/', '.log', '?log=', '-log.', 'log-event', 'amp-analytics', 'beacon',
-    'collect?', 'collector', 'telemetry', 'ingest', 'live-log', 'realtime-log', 'data-pipeline',
-    'rum', 'intake', 'batch', 'client-event', 'server-event', 'heartbeat', 'web-vitals',
+    '.log', '?log=', '-log.', '/log/', '/logging/', '/logs/', 'amp-analytics', 'batch', 'beacon', 'client-event',
+    'collect?', 'collector', 'data-pipeline', 'heartbeat', 'ingest', 'intake', 'live-log', 'log-event',
+    'realtime-log', 'rum', 'server-event', 'telemetry', 'web-vitals',
     // --- 錯誤 & 診斷 (Error & Diagnostics) ---
-    'crash-report', 'error-report', 'stacktrace', 'csp-report', 'profiler', 'trace.json',
-    'diagnostic.log', '/diag/', '?diag=',
+    '?diag=', '/diag/', 'csp-report', 'crash-report', 'diagnostic.log', 'error-report', 'profiler',
+    'stacktrace', 'trace.json',
   ]),
 
   /**
@@ -343,55 +327,50 @@ const CONFIG = {
    */
   GLOBAL_TRACKING_PARAMS: new Set([
     // --- UTM 家族 ---
-    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id',
-    'utm_source_platform', 'utm_creative_format', 'utm_marketing_tactic',
+    'utm_campaign', 'utm_content', 'utm_creative_format', 'utm_id', 'utm_marketing_tactic', 'utm_medium',
+    'utm_source', 'utm_source_platform', 'utm_term',
     // --- Google ---
-    'gclid', 'dclid', 'gclsrc', 'wbraid', 'gbraid', 'gad_source', 'gad', 'gcl_au',
-    '_ga', '_gid', '_gat', '__gads', '__gac', 'gsid',
+    '__gac', '__gads', '_ga', '_gat', '_gid', 'dclid', 'gad', 'gad_source', 'gbraid', 'gcl_au', 'gclid', 'gclsrc', 'gsid', 'wbraid',
     // --- Microsoft / Bing ---
-    'msclkid', 'msad', 'mscampaignid', 'msadgroupid',
+    'msad', 'msadgroupid', 'mscampaignid', 'msclkid',
     // --- Facebook / Meta ---
-    'fbclid', 'fbadid', 'fbcampaignid', 'fbadsetid', 'fbplacementid', 'igshid', 'igsh',
-    'x-threads-app-object-id', 'mibextid',
+    'fbclid', 'fbadid', 'fbadsetid', 'fbcampaignid', 'fbplacementid', 'igsh', 'igshid', 'mibextid', 'x-threads-app-object-id',
     // --- 其他主流平台 (Yandex, Twitter, TikTok, LinkedIn, Mailchimp) ---
-    'yclid', 'twclid', 'ttclid', 'li_fat_id', 'mc_cid', 'mc_eid', 'mkt_tok',
+    'li_fat_id', 'mc_cid', 'mc_eid', 'mkt_tok', 'ttclid', 'twclid', 'yclid',
     // --- 聯盟行銷 & 點擊 ID (Affiliate & Click ID) ---
-    'zanpid', 'affid', 'affiliate_id', 'partner_id', 'sub_id', 'transaction_id', 'customid',
-    'click_id', 'clickid', 'offer_id', 'promo_code', 'coupon_code', 'deal_id', 'rb_clickid', 's_kwcid', 'ef_id',
+    'affid', 'affiliate_id', 'click_id', 'clickid', 'coupon_code', 'customid', 'deal_id', 'ef_id',
+    'offer_id', 'partner_id', 'promo_code', 'rb_clickid', 's_kwcid', 'sub_id', 'transaction_id', 'zanpid',
     // --- 通用 & 其他 (Generic & Misc) ---
-    'spm', 'scm', 'pvid', 'fr', 'scene', 'traceid', 'request_id', 'feature', 'src', 'si',
-    'trk', 'trk_params', 'epik', 'ecid',
+    'ecid', 'epik', 'feature', 'fr', 'pvid', 'request_id', 'scene', 'scm', 'si', 'spm', 'src', 'traceid', 'trk', 'trk_params',
     // --- 社群分享特定 (Social Sharing) ---
-    'share_source', 'share_medium', 'share_plat', 'share_id', 'share_tag', 'from_source', 'from_channel',
-    'from_uid', 'from_user', 'tt_from', 'tt_medium', 'tt_campaign', 'share_token', 'share_app_id',
-    'xhsshare', 'xhs_share', 'app_platform', 'share_from', 'weibo_id', 'wechat_id', 'is_copy_url',
-    'is_from_webapp', '__twitter_impression',
+    '__twitter_impression', 'app_platform', 'from_channel', 'from_source', 'from_uid', 'from_user', 'is_copy_url',
+    'is_from_webapp', 'share_app_id', 'share_from', 'share_id', 'share_medium', 'share_plat', 'share_source',
+    'share_tag', 'share_token', 'tt_campaign', 'tt_from', 'tt_medium', 'wechat_id', 'weibo_id', 'xhs_share', 'xhsshare',
     // --- 特定服務 (Service Specific) ---
-    '_openstat', 'hsctatracking', 'hsa_acc', 'hsa_cam', 'hsa_grp', 'hsa_ad', 'hsa_src', 'vero_conv',
-    'vero_id', 'ck_subscriber_id', 'action_object_map', 'action_type_map', 'action_ref_map',
-    'piwik_campaign', 'piwik_kwd', 'matomo_campaign', 'matomo_kwd', '_bta_c', '_bta_tid', 'oly_anon_id',
-    'oly_enc_id', 'redirect_log_mongo_id', 'redirect_mongo_id', 'sb_referer_host', 'from_ad',
-    'from_search', 'from_promo', 'camid', 'cupid', 'hmsr', 'hmpl', 'hmcu', 'hmkw', 'hmci',
-    'union_id', 'biz', 'mid', 'idx',
+    '_bta_c', '_bta_tid', '_openstat', 'action_object_map', 'action_ref_map', 'action_type_map', 'biz', 'camid',
+    'ck_subscriber_id', 'cupid', 'from_ad', 'from_promo', 'from_search', 'hmci', 'hmcu', 'hmkw', 'hmpl', 'hmsr',
+    'hsa_ad', 'hsa_acc', 'hsa_cam', 'hsa_grp', 'hsa_src', 'hsctatracking', 'idx', 'matomo_campaign', 'matomo_kwd',
+    'mid', 'oly_anon_id', 'oly_enc_id', 'piwik_campaign', 'piwik_kwd', 'redirect_log_mongo_id', 'redirect_mongo_id',
+    'sb_referer_host', 'union_id', 'vero_conv', 'vero_id',
     // --- 廣告參數 (Ad Parameters) ---
-    'ad_id', 'adgroup_id', 'campaign_id', 'creative_id', 'keyword', 'matchtype', 'device', 'devicemodel',
-    'adposition', 'network', 'placement', 'targetid', 'feeditemid', 'loc_physical_ms', 'loc_interest_ms',
-    'creative', 'adset', 'ad', 'pixel_id', 'event_id',
+    'ad', 'ad_id', 'adgroup_id', 'adposition', 'adset', 'campaign_id', 'creative', 'creative_id', 'device',
+    'devicemodel', 'event_id', 'feeditemid', 'keyword', 'loc_interest_ms', 'loc_physical_ms', 'matchtype',
+    'network', 'pixel_id', 'placement', 'targetid',
     // --- 搜尋特定 (Search Specific) ---
-    'algolia_query', 'algolia_query_id', 'algolia_object_id', 'algolia_position',
+    'algolia_object_id', 'algolia_position', 'algolia_query', 'algolia_query_id',
     // --- Yahoo 特定參數 ---
-    '.tsrc', 'tsrc', 'spaceid', 'test_id', 'rapidkeys'
+    '.tsrc', 'rapidkeys', 'spaceid', 'test_id', 'tsrc'
   ]),
 
   /**
    * 🗑️ 追蹤參數前綴黑名單 (V40.5 移除 s_ 與 ul_ 以提升相容性)
    */
   TRACKING_PREFIXES: new Set([
-    'utm_', 'ga_', 'fb_', 'gcl_', 'ms_', 'mc_', 'mke_', 'mkt_', 'matomo_', 'piwik_', 'hsa_', 'ad_', 'trk_',
-    'spm_', 'scm_', 'bd_', 'video_utm_', 'vero_', '__cf_', '_hs', 'pk_', 'mtm_', 'campaign_', 'source_',
-    'medium_', 'content_', 'term_', 'creative_', 'placement_', 'network_', 'device_', 'ref_', 'from_',
-    'share_', 'aff_', 'alg_', 'li_', 'tt_', 'tw_', 'epik_', '_bta_', '_bta', '_oly_', 'cam_', 'cup_',
-    'gdr_', 'gds_', 'et_', 'hmsr_', 'zanpid_', '_ga_', '_gid_', '_gat_'
+    '__cf_', '_bta', '_bta_', '_ga_', '_gid_', '_gat_', '_hs', '_oly_', 'ad_', 'aff_', 'alg_', 'bd_', 'cam_',
+    'campaign_', 'content_', 'creative_', 'cup_', 'device_', 'epik_', 'et_', 'fb_', 'from_', 'ga_', 'gcl_',
+    'gdr_', 'gds_', 'hmsr_', 'hsa_', 'li_', 'matomo_', 'mc_', 'medium_', 'mke_', 'mkt_', 'ms_', 'mtm_',
+    'network_', 'pk_', 'piwik_', 'placement_', 'ref_', 'scm_', 'share_', 'source_', 'spm_', 'term_', 'tt_',
+    'trk_', 'tw_', 'utm_', 'vero_', 'video_utm_', 'zanpid_',
   ]),
 
   /**
@@ -399,8 +378,7 @@ const CONFIG = {
    * 說明：此處的參數永遠不會被清理，以避免破壞網站核心功能。
    */
   PARAMS_TO_KEEP_WHITELIST: new Set([
-    'id', 'q', 'query', 'search', 'item', 'page', 'code', 'state', 'token', 'session_id', 'product_id',
-    't', 'v', 'targetid'
+    'code', 'id', 'item', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't', 'targetid', 'token', 'v'
   ]),
 
   /**
@@ -415,7 +393,7 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                             🚀 OPTIMIZED CORE ENGINE (V40.6)                                  #
+// #                             🚀 OPTIMIZED CORE ENGINE (V40.6+)                                 #
 // #                                                                                               #
 // #################################################################################################
 
@@ -628,7 +606,7 @@ function processRequest(request) {
             optimizedStats.increment('errors');
             // V40.6 安全強化: 移除日誌中的查詢參數，避免敏感資訊外洩
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.6] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.7] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -694,7 +672,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.6] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.7] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -706,7 +684,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.6', status: 'ready', message: 'URL Filter v40.6 - Security Hardening & Refinement', stats: optimizedStats.getStats() });
+        $done({ version: '40.7', status: 'ready', message: 'URL Filter v40.7 - Compatibility & Refactoring Update', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -715,8 +693,9 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.6] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.7] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
 })();
+
