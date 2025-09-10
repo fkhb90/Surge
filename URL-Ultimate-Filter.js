@@ -47,6 +47,7 @@ const CONFIG = {
     'paypal.com', 'stripe.com',
     // --- 社群 & 電商平台 (根域名) ---
     'shopee.com', 'shopeemobile.com', 'shopee.tw',
+    'cmapi.tw.coupang.com', 'ljc.tw.coupang.com', 'mc.tw.coupang.com',
     // --- 系統 & 平台核心服務 ---
     'apple.com', 'icloud.com', 'update.microsoft.com', 'windowsupdate.com',
     // --- 銀行服務 (根域名) ---
@@ -75,7 +76,7 @@ const CONFIG = {
     'api.cloudflare.com', 'api.digitalocean.com', 'api.fastly.com', 'api.heroku.com', 'api.netlify.com', 'api.vercel.com',
     'auth.docker.io', 'database.windows.net', 'firestore.googleapis.com', 'login.docker.com',
     // --- 台灣地區服務 ---
-    'api.irentcar.com.tw', 'cmapi.tw.coupang.com', 'usiot.roborock.com', 'ljc.tw.coupang.com', 'mc.tw.coupang.com',
+    'api.irentcar.com.tw', 'usiot.roborock.com',
   ]),
 
   /**
