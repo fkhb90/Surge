@@ -1,9 +1,9 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.8.js
- * @version     40.8 (Precision Ad Script Blocking)
- * @description 新增 `ad-full-page.min.js` (Pixnet 全頁廣告) 至關鍵腳本攔截清單，提升對特定平台廣告的封鎖精準度。
+ * @file        URL-Ultimate-Filter-Surge-V40.9.js
+ * @version     40.9 (Blocklist Refactoring & Precision Fix)
+ * @description 根據反饋全面審核並重構域名黑名單，移除可能導致功能異常的高風險根域名（如 ETMall, PChome, Pixnet 等）。新增 api.etmall.com.tw 至硬白名單以修復登入問題，轉向更精準的追蹤子網域與腳本封鎖策略。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-09-10
+ * @lastUpdated 2025-09-11
  */
 
 // #################################################################################################
@@ -46,7 +46,7 @@ const CONFIG = {
     // --- 支付 & 金流 (根域名) ---
     'paypal.com', 'stripe.com',
     // --- 社群 & 電商平台 (根域名) ---
-    'shopee.com', 'shopeemobile.com', 'shopee.tw', 'coupang.com',
+    'shopee.com', 'shopeemobile.com', 'shopee.tw',
     // --- 系統 & 平台核心服務 ---
     'apple.com', 'icloud.com', 'update.microsoft.com', 'windowsupdate.com',
     // --- 銀行服務 (根域名) ---
@@ -75,7 +75,7 @@ const CONFIG = {
     'api.cloudflare.com', 'api.digitalocean.com', 'api.fastly.com', 'api.heroku.com', 'api.netlify.com', 'api.vercel.com',
     'auth.docker.io', 'database.windows.net', 'firestore.googleapis.com', 'login.docker.com',
     // --- 台灣地區服務 ---
-    'api.irentcar.com.tw', 'usiot.roborock.com',
+    'api.irentcar.com.tw', 'cmapi.tw.coupang.com', 'usiot.roborock.com',
   ]),
 
   /**
@@ -95,8 +95,8 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 域名攔截黑名單 (精簡化)
-   * 說明：僅列出根域名，子域名會自動匹配。
+   * 🚫 [V40.9 重構] 域名攔截黑名單 (移除高風險根域名)
+   * 說明：僅列出純粹用於廣告、追蹤或分析的域名。大型混合用途平台域名已被移除，以避免誤擋。
    */
   BLOCK_DOMAINS: new Set([
     // --- Google / DoubleClick ---
@@ -140,23 +140,22 @@ const CONFIG = {
     'po.st', 'pushengage.com', 'sail-track.com', 'sharethis.com',
     // --- 隱私權 & Cookie 同意管理 ---
     'cookielaw.org', 'onetrust.com', 'sourcepoint.com', 'trustarc.com', 'usercentrics.eu',
-    // --- 台灣地區 ---
-    'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'books.com.tw', 'cacafly.com', 'chinatimes.com',
-    'clickforce.com.tw', 'cna.com.tw', 'cw.com.tw', 'etmall.com.tw', 'ettoday.net', 'fast-trk.com', 'friday.tw',
-    'funp.com', 'gamani.com', 'guoshipartners.com', 'hi-on.org', 'imedia.com.tw', 'is-tracking.com', 'momo.com.tw',
-    'pchome.com.tw', 'pixnet.net', 'ruten.com.tw', 'sitetag.us', 'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com', 'xuite.net',
-    // --- 中國大陸地區 ---
-    'admaster.com.cn', 'adview.cn', 'alimama.com', 'baidu.com', 'cnzz.com', 'getui.com', 'gridsum.com', 'growingio.com',
-    'igexin.com', 'jiguang.cn', 'jpush.cn', 'kuaishou.com', 'miaozhen.com', 'mmstat.com', 'pangolin-sdk-toutiao.com', 'qq.com',
-    'talkingdata.cn', 'talkingdata.com', 'tanx.com', 'tencent.com', 'umeng.cn', 'umeng.co', 'umeng.com', 'youmi.net', 'zhugeio.com',
+    // --- 台灣地區 (純廣告/追蹤) ---
+    'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'cacafly.com',
+    'clickforce.com.tw', 'fast-trk.com', 'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com',
+    'sitetag.us', 'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com',
+    // --- 中國大陸地區 (純廣告/追蹤) ---
+    'admaster.com.cn', 'adview.cn', 'alimama.com', 'cnzz.com', 'getui.com', 'gridsum.com', 'growingio.com',
+    'igexin.com', 'jiguang.cn', 'jpush.cn', 'kuaishou.com', 'miaozhen.com', 'mmstat.com', 'pangolin-sdk-toutiao.com',
+    'talkingdata.cn', 'talkingdata.com', 'tanx.com', 'umeng.cn', 'umeng.co', 'umeng.com', 'youmi.net', 'zhugeio.com',
     // --- 雲端與平台分析/廣告像素 ---
     'bat.bing.com', 'cdn.vercel-insights.com', 'cloudflareinsights.com', 'demdex.net', 'everesttech.net', 'hs-analytics.net',
     'hs-scripts.com', 'monorail-edge.shopifysvc.com', 'omtrdc.net', 'plausible.io', 'static.cloudflareinsights.com', 'vitals.vercel-insights.com',
-    // --- 社交平台：LinkedIn / Twitch / TikTok / Pinterest / Tumblr ---
+    // --- 社交平台追蹤子網域 ---
     'analytics.tiktok.com', 'business-api.tiktok.com', 'ct.pinterest.com', 'events.redditmedia.com', 'px.srvcs.tumblr.com',
     'snap.licdn.com', 'spade.twitch.tv',
     // --- 其他 ---
-    'adnx.com', 'cint.com', 'revjet.com', 'rlcdn.com', 'sc-static.net', 'snapchat.com', 'tiktok.com', 'wcs.naver.net',
+    'adnx.com', 'cint.com', 'revjet.com', 'rlcdn.com', 'sc-static.net', 'wcs.naver.net',
   ]),
 
   /**
@@ -608,7 +607,7 @@ function processRequest(request) {
             optimizedStats.increment('errors');
             // V40.6 安全強化: 移除日誌中的查詢參數，避免敏感資訊外洩
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.8] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.9] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -674,7 +673,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.8] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.9] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -686,7 +685,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.8', status: 'ready', message: 'URL Filter v40.8 - Precision Ad Script Blocking', stats: optimizedStats.getStats() });
+        $done({ version: '40.9', status: 'ready', message: 'URL Filter v40.9 - Blocklist Refactoring & Precision Fix', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -695,7 +694,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.8] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.9] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
