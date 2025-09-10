@@ -38,10 +38,11 @@ DOMAIN-KEYWORD,aliyun
 DOMAIN-KEYWORD,amap # 高德地圖
 DOMAIN-KEYWORD,dingtalk # 釘釘
 DOMAIN-KEYWORD,teambition # Teambition
-DOMAIN-KEYWORD,tmall
 DOMAIN-KEYWORD,youku # 優酷
 DOMAIN-KEYWORD,xiami # 蝦米 (已停止服務，為相容舊版保留)
 DOMAIN-SUFFIX,alibabacloud.com
+DOMAIN-SUFFIX,tmall.com
+DOMAIN-SUFFIX,tmall.hk
 
 # -----------------------------------------------------------------
 # 3. 騰訊集團 (Tencent Group)
