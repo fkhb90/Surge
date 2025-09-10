@@ -46,8 +46,7 @@ const CONFIG = {
     // --- 支付 & 金流 (根域名) ---
     'paypal.com', 'stripe.com',
     // --- 社群 & 電商平台 (根域名) ---
-    'shopee.com', 'shopeemobile.com', 'shopee.tw',
-    'cmapi.tw.coupang.com', 'ljc.tw.coupang.com', 'mc.tw.coupang.com',
+    'shopee.com', 'shopeemobile.com', 'shopee.tw', 'coupang.com',
     // --- 系統 & 平台核心服務 ---
     'apple.com', 'icloud.com', 'update.microsoft.com', 'windowsupdate.com',
     // --- 銀行服務 (根域名) ---
