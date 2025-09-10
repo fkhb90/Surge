@@ -93,7 +93,7 @@ const CONFIG = {
     'github.io', 'gitlab.io', 'windows.net', 'pages.dev', 'vercel.app', 'netlify.app',
     'azurewebsites.net', 'cloudfunctions.net', 'oraclecloud.com', 'digitaloceanspaces.com',
     // --- 社群平台相容性 ---
-    'shopee.tw', 'shopee.com', 'instagram.com', 'threads.net'
+    'shopee.tw', 'shopee.com', 'instagram.com', 'threads.net', 'shopeemobile.com',
   ]),
 
   /**
