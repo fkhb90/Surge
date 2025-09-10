@@ -3,7 +3,7 @@
  * @version     40.9 (Blocklist Refactoring & Precision Fix)
  * @description 根據反饋全面審核並重構域名黑名單，移除可能導致功能異常的高風險根域名（如 ETMall, PChome, Pixnet 等）。新增 api.etmall.com.tw 至硬白名單以修復登入問題，轉向更精準的追蹤子網域與腳本封鎖策略。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-09-11
+ * @lastUpdated 2025-09-10
  */
 
 // #################################################################################################
