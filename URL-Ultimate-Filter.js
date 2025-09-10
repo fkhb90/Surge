@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.7.js
- * @version     40.7 (Compatibility & Refactoring Update)
- * @description 新增 Shopee 相關域名至硬白名單萬用字元清單，提升電商平台相容性，並對所有規則列表進行全面的重新分類與排序，以優化可維護性。
+ * @file        URL-Ultimate-Filter-Surge-V40.8.js
+ * @version     40.8 (Precision Ad Script Blocking)
+ * @description 新增 `ad-full-page.min.js` (Pixnet 全頁廣告) 至關鍵腳本攔截清單，提升對特定平台廣告的封鎖精準度。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-10
  */
@@ -174,6 +174,8 @@ const CONFIG = {
     // --- 廣告技術平台 (Ad Tech) ---
     'ad-manager.js', 'ad-player.js', 'ad-sdk.js', 'adloader.js', 'adroll.js', 'adsense.js', 'apstag.js',
     'criteo.js', 'doubleclick.js', 'outbrain.js', 'prebid.js', 'pubmatic.js', 'taboola.js',
+    // --- 平台特定腳本 (Platform-Specific) ---
+    'ad-full-page.min.js', // Pixnet Full Page Ad
     // --- 內容傳遞 & 標籤管理 ---
     'adobedtm.js', 'dax.js', 'tag.js', 'utag.js', 'visitorapi.js',
     // --- 效能監控 ---
@@ -606,7 +608,7 @@ function processRequest(request) {
             optimizedStats.increment('errors');
             // V40.6 安全強化: 移除日誌中的查詢參數，避免敏感資訊外洩
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.7] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.8] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -672,7 +674,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.7] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.8] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -684,7 +686,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.7', status: 'ready', message: 'URL Filter v40.7 - Compatibility & Refactoring Update', stats: optimizedStats.getStats() });
+        $done({ version: '40.8', status: 'ready', message: 'URL Filter v40.8 - Precision Ad Script Blocking', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -693,9 +695,8 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.7] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.8] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
 })();
-
