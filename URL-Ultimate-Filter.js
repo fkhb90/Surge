@@ -63,7 +63,7 @@ const CONFIG = {
     'atlassian.net', 'auth0.com', 'okta.com', 'slack.com',
     // --- 社群 & 電商平台 (根域名) ---
     'book.com.tw', 'citiesocial.com', 'coupang.com', 'iherb.biz', 'iherb.com', 'shopee.com', 'shopeemobile.com', 'shopee.tw',
-    'pxmart.com.tw', 'pxpayplus.com', 'momoshop.com.tw',
+    'pxmart.com.tw', 'pxpayplus.com', 'momoshop.com.tw', 'momo.dm',
     // --- 系統 & 平台核心服務 ---
     'apple.com', 'icloud.com', 'update.microsoft.com', 'windowsupdate.com', 'linksyssmartwifi.com',
     // --- 網頁存檔服務 (對參數極度敏感) ---
