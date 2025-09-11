@@ -1,9 +1,9 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.19.js
- * @version     40.19 (Compatibility Patch)
- * @description 根據社群反饋與分析，移除容易導致誤擋的 'optimize' 路徑關鍵字，提升對使用效能優化外掛網站的相容性。
+ * @file        URL-Ultimate-Filter-Surge-V40.20.js
+ * @version     40.20 (Keyword List Refinement)
+ * @description 根據社群反饋與深度分析，從路徑關鍵字列表中移除 16 個通用詞彙，大幅降低誤擋機率，提升整體相容性。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-09-13
+ * @lastUpdated 2025-09-14
  */
 
 // #################################################################################################
@@ -133,7 +133,7 @@ const CONFIG = {
     // --- Zhihu ---
     'appcloud.zhihu.com', 'appcloud2.in.zhihu.com', 'crash2.zhihu.com', 'mqtt.zhihu.com', 'sugar.zhihu.com',
     // --- 平台內部追蹤 & 分析 ---
-    'adeventtracker.spotify.com', 'log.felo.ai', 'log.spotify.com', 'spclient.wg.spotify.com', 'visuals.feedly.com', // [V40.18 新增]
+    'adeventtracker.spotify.com', 'log.felo.ai', 'log.spotify.com', 'spclient.wg.spotify.com', 'visuals.feedly.com',
     // --- 主流分析 & 追蹤服務 ---
     'adjust.com', 'adform.net', 'ads.linkedin.com', 'adsrvr.org', 'agn.aty.sohu.com', 'amplitude.com', 'analytics.line.me',
     'analytics.slashdotmedia.com', 'analytics.strava.com', 'analytics.twitter.com', 'analytics.yahoo.com', 'api.pendo.io',
@@ -287,27 +287,27 @@ const CONFIG = {
     'adsense', 'adsensor', 'adserver', 'adservice', 'adsh', 'adskeeper', 'adsmind', 'adsmogo', 'adsnew', 'adsrvmedia',
     'adsrvr', 'adsserving', 'adsterra', 'adsupply', 'adsupport', 'adswizz', 'adsystem', 'adtilt', 'adtima', 'adtrack',
     'advert', 'advertise', 'advertisement', 'advertiser', 'adview', 'adware', 'adwhirl', 'adwords', 'adzcore', 'affiliate',
-    'alexa', 'alexametrics', 'allyes', 'amplitude', 'analysis', 'analysys', 'analytics', 'aottertrek', 'appadhoc',
+    'alexametrics', 'allyes', 'amplitude', 'analysis', 'analysys', 'analytics', 'aottertrek', 'appadhoc',
     'appads', 'appboy', 'appier', 'applovin', 'appsflyer', 'apptimize', 'apsalar', 'baichuan', 'bango', 'bangobango',
     'bidvertiser', 'bingads', 'bkrtx', 'bluekai', 'breaktime', 'bugsense', 'burstly', 'cedexis', 'chartboost',
-    'circulate', 'click-fraud', 'clkservice', 'cnzz', 'cognitivlabs', 'cookie-consent', 'cookiepolicy', 'crazyegg',
-    'crittercism', 'cross-device', 'dealerfire', 'dennis', 'dfp', 'dienst', 'djns', 'dlads', 'dnserror', 'domob',
+    'circulate', 'click-fraud', 'clkservice', 'cnzz', 'cognitivlabs', 'crazyegg',
+    'crittercism', 'cross-device', 'dealerfire', 'dfp', 'dienst', 'djns', 'dlads', 'dnserror', 'domob',
     'doubleclick', 'doublemax', 'dsp', 'duapps', 'duomeng', 'dwtrack', 'egoid', 'emarbox', 'en25', 'eyeota', 'fenxi',
-    'fingerprinting', 'float', 'flurry', 'fwmrm', 'getadvltem', 'getexceptional', 'googleads', 'googlesyndication',
+    'fingerprinting', 'flurry', 'fwmrm', 'getadvltem', 'getexceptional', 'googleads', 'googlesyndication',
     'greenplasticdua', 'growingio', 'guanggao', 'guomob', 'guoshipartners', 'heapanalytics', 'hotjar', 'hsappstatic',
     'hubspot', 'igstatic', 'inmobi', 'innity', 'instabug', 'intercom', 'izooto', 'jpush', 'juicer', 'jumptap',
     'kissmetrics', 'lianmeng', 'litix', 'localytics', 'logly', 'mailmunch', 'malvertising', 'matomo', 'medialytics',
-    'meetrics', 'mgid', 'mifengv', 'minute', 'mixpanel', 'mobaders', 'mobclix', 'mobileapptracking', 'monitor',
-    'mvfglobal', 'networkbench', 'newrelic', 'omgmta', 'omniture', 'onead', 'openinstall', 'openx',
-    'outstream', 'partnerad', 'pingfore', 'piwik', 'pixanalytics', 'playtomic', 'plusone', 'polyad', 'popin',
-    'popin2mdn', 'privacy-policy', 'programmatic', 'pushnotification', 'quantserve', 'quantumgraph', 'queryly', 'qxs',
-    'rayjump', 'retargeting', 'ronghub', 'rtb', 'scorecardresearch', 'scupio', 'securepubads', 'segment', 'sensor',
+    'meetrics', 'mgid', 'mifengv', 'mixpanel', 'mobaders', 'mobclix', 'mobileapptracking', 'monitor',
+    'mvfglobal', 'networkbench', 'newrelic', 'omgmta', 'omniture', 'onead', 'openinstall', 'openx', 'optimizely',
+    'outstream', 'partnerad', 'pingfore', 'piwik', 'pixanalytics', 'playtomic', 'polyad', 'popin',
+    'popin2mdn', 'programmatic', 'pushnotification', 'quantserve', 'quantumgraph', 'queryly', 'qxs',
+    'rayjump', 'retargeting', 'ronghub', 'rtb', 'scorecardresearch', 'scupio', 'securepubads', 'sensor',
     'sentry', 'shence', 'shenyun', 'shoplytics', 'shujupie', 'smartadserver', 'snowplow', 'socdm', 'sponsors', 'spy',
     'spyware', 'statcounter', 'stathat', 'sticky-ad', 'storageug', 'straas', 'studybreakmedia', 'stunninglover',
-    'supercell', 'supersonicads', 'syndication', 'taboola', 'tagtoo', 'talkingdata', 'tanx', 'tapjoy', 'tapjoyads',
+    'supersonicads', 'syndication', 'taboola', 'tagtoo', 'talkingdata', 'tanx', 'tapjoy', 'tapjoyads',
     'tenmax', 'tingyun', 'tiqcdn', 'tlcafftrax', 'toateeli', 'tongji', 'trace', 'track', 'tracker', 'trackersimulator',
     'tracking', 'traffic', 'trafficjunky', 'trafficmanager', 'tubemogul', 'uedas', 'umeng', 'umtrack', 'unidesk',
-    'usage', 'usergrid', 'usermaven', 'usertesting', 'venraas', 'vilynx', 'vpon', 'vungle', 'whalecloud', 'wistia',
+    'usermaven', 'usertesting', 'venraas', 'vilynx', 'vpon', 'vungle', 'whalecloud', 'wistia',
     'wlmonitor', 'woopra', 'xxshuyuan', 'yandex', 'zaoo', 'zarget', 'zgdfz6h7po', 'zgty365', 'zhengjian',
     'zhengwunet', 'zhuichaguoji', 'zjtoolbar', 'zzhyyj',
     // --- Ad Tech ---
@@ -320,7 +320,7 @@ const CONFIG = {
     'amp-ad', 'amp-analytics', 'amp-auto-ads', 'amp-sticky-ad', 'amp4ads', 'apstag', 'google_ad', 'pagead', 'pwt.js',
     // --- Tracking & Analytics ---
     '/analytic/', '/analytics/', '/audit/', '/beacon/', '/collect?', '/collector/', '/insight/', '/intelligence/',
-    '/measurement/', '/metric/', '/metrics/', '/monitor/', '/monitoring/', '/pixel/', '/report/', '/reporting/',
+    '/measurement/', '/monitoring/', '/pixel/', '/report/', '/reporting/',
     '/reports/', '/telemetry/', '/trace/', '/track/', '/tracker/', '/tracking/',
     // --- Error & Performance ---
     '/bugsnag/', '/crash/', '/error/', '/exception/', '/sentry/', '/stacktrace/', 'performance-tracking',
@@ -330,8 +330,6 @@ const CONFIG = {
     'retargeting', 'session-replay', 'third-party-cookie', 'user-analytics', 'user-behavior', 'user-cohort', 'user-segment',
     // --- 3rd Party Services ---
     'appier', 'comscore', 'fbevents', 'fbq', 'google-analytics', 'onead', 'osano', 'sailthru', 'tapfiliate', 'utag.js',
-    // --- Privacy & Consent ---
-    'ccpa', 'gdpr',
   ]),
     
   /**
@@ -672,7 +670,7 @@ function processRequest(request) {
             optimizedStats.increment('errors');
             // V40.6 安全強化: 移除日誌中的查詢參數，避免敏感資訊外洩
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.19] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.20] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -738,7 +736,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.19] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.20] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -750,7 +748,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.19', status: 'ready', message: 'URL Filter v40.19 - Compatibility Patch', stats: optimizedStats.getStats() });
+        $done({ version: '40.20', status: 'ready', message: 'URL Filter v40.20 - Keyword List Refinement', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -759,7 +757,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.19] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.20] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
