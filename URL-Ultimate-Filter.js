@@ -1,9 +1,9 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.18.js
- * @version     40.18 (Feature Simplification & Precision Blocking)
- * @description 根據使用者反饋，移除外部域名黑名單連結功能，使腳本回歸完全獨立運作。同時新增對 `log.felo.ai` 遙測域名的精準封鎖。
+ * @file        URL-Ultimate-Filter-Surge-V40.19.js
+ * @version     40.19 (Compatibility Patch)
+ * @description 根據社群反饋與分析，移除容易導致誤擋的 'optimize' 路徑關鍵字，提升對使用效能優化外掛網站的相容性。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-09-12
+ * @lastUpdated 2025-09-13
  */
 
 // #################################################################################################
@@ -298,7 +298,7 @@ const CONFIG = {
     'hubspot', 'igstatic', 'inmobi', 'innity', 'instabug', 'intercom', 'izooto', 'jpush', 'juicer', 'jumptap',
     'kissmetrics', 'lianmeng', 'litix', 'localytics', 'logly', 'mailmunch', 'malvertising', 'matomo', 'medialytics',
     'meetrics', 'mgid', 'mifengv', 'minute', 'mixpanel', 'mobaders', 'mobclix', 'mobileapptracking', 'monitor',
-    'mvfglobal', 'networkbench', 'newrelic', 'omgmta', 'omniture', 'onead', 'openinstall', 'openx', 'optimize',
+    'mvfglobal', 'networkbench', 'newrelic', 'omgmta', 'omniture', 'onead', 'openinstall', 'openx',
     'outstream', 'partnerad', 'pingfore', 'piwik', 'pixanalytics', 'playtomic', 'plusone', 'polyad', 'popin',
     'popin2mdn', 'privacy-policy', 'programmatic', 'pushnotification', 'quantserve', 'quantumgraph', 'queryly', 'qxs',
     'rayjump', 'retargeting', 'ronghub', 'rtb', 'scorecardresearch', 'scupio', 'securepubads', 'segment', 'sensor',
@@ -672,7 +672,7 @@ function processRequest(request) {
             optimizedStats.increment('errors');
             // V40.6 安全強化: 移除日誌中的查詢參數，避免敏感資訊外洩
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.13] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.19] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -738,7 +738,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.13] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.19] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -750,7 +750,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.13', status: 'ready', message: 'URL Filter v40.13 - Ruleset Consolidation & Refactoring', stats: optimizedStats.getStats() });
+        $done({ version: '40.19', status: 'ready', message: 'URL Filter v40.19 - Compatibility Patch', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -759,7 +759,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.13] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.19] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
