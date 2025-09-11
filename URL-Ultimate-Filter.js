@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.14.js
- * @version     40.14 (Whitelist Redundancy Cleanup)
- * @description 根據使用者反饋，全面審視並移除了因硬白名單萬用字元規則而變得冗餘的子網域白名單（如 Coupang, Atlassian, Slack 等），以簡化規則庫並提升邏輯清晰度。
+ * @file        URL-Ultimate-Filter-Surge-V40.15.js
+ * @version     40.15 (External Blocklist Support)
+ * @description 新增外部域名黑名單支援。腳本可透過手動或排程執行，非同步地從外部連結下載域名清單並寫入快取，實現動態擴充封鎖規則而不影響過濾效能。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-12
  */
@@ -14,6 +14,36 @@
 // #################################################################################################
 
 const CONFIG = {
+  /**
+   * 🌐 [V40.15 新增] 外部域名黑名單連結
+   * 說明：在此處新增您信任的外部域名黑名單連結 (純文字格式，每行一個域名)。
+   * 腳本需要手動執行一次以抓取並快取清單，建議設定排程每日自動更新。
+   */
+  EXTERNAL_BLOCK_LISTS: [
+    'https://raw.githubusercontent.com/jkgtw/Surge/master/ADLists/AD.list', 
+    'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Advertising/Advertising_Domain.list',
+    'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Advertising/Advertising.list',
+    'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Privacy/Privacy_Domain.list,',
+    'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Privacy/Privacy.list',
+    'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/EasyPrivacy/EasyPrivacy_Domain.list',
+    'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Hijacking/Hijacking.list',
+    'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/PrivateTracker/PrivateTracker.list',
+    'https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt',
+    'https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt',
+    'https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/native.tiktok.extended.txt',
+    'https://raw.githubusercontent.com/mieqq/mieqq/master/In-AppTracker.txt',
+    'https://raw.githubusercontent.com/fkhb90/Surge/main/firbaseparsed.txt',
+    'https://raw.githubusercontent.com/fkhb90/Surge/main/native.apple.txt',
+    'https://raw.githubusercontent.com/fkhb90/Surge/main/Advertising.list',
+    'https://raw.githubusercontent.com/fkhb90/Surge/main/YouTube-AD.list',
+    'https://raw.githubusercontent.com/fkhb90/Surge/main/apple-lite.list',
+    'https://raw.githubusercontent.com/fkhb90/Surge/main/facebook-extended.list',
+    'https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanProgramAD.list',
+    'https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanAD.list',
+    // 您可以新增更多連結，例如：
+    // 'https://another-list.com/domains.txt',
+  ],
+
   /**
    * ✳️ 硬白名單 - 精確匹配 (Hard Whitelist - Exact)
    * 說明：完全豁免所有檢查。此處的域名需要完整且精確的匹配。
@@ -78,7 +108,7 @@ const CONFIG = {
    * 說明：豁免「域名」與「路徑」層級的封鎖，但仍會執行「參數清理」與「關鍵腳本攔截」。
    */
   SOFT_WHITELIST_EXACT: new Set([
-    // --- [V40.13 整合] Common APIs ---
+    // --- Common APIs ---
     'a-api.anthropic.com', 'api.anthropic.com', 'api.cohere.ai', 'api.github.com', 'api.hubapi.com', 'api.intercom.io',
     'api.mailgun.com', 'api.openai.com', 'api.pagerduty.com', 'api.sendgrid.com', 'api.telegram.org',
     'api.zendesk.com', 'duckduckgo.com', 'legy.line-apps.com', 'obs.line-scdn.net', 'secure.gravatar.com',
@@ -623,7 +653,7 @@ function processRequest(request) {
             optimizedStats.increment('errors');
             // V40.6 安全強化: 移除日誌中的查詢參數，避免敏感資訊外洩
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.13] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.9] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -689,7 +719,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.13] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.9] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -701,7 +731,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.13', status: 'ready', message: 'URL Filter v40.13 - Ruleset Consolidation & Refactoring', stats: optimizedStats.getStats() });
+        $done({ version: '40.9', status: 'ready', message: 'URL Filter v40.9 - Blocklist Refactoring & Precision Fix', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -710,7 +740,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.13] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.9] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
