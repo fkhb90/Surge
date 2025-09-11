@@ -1,9 +1,9 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.9.js
- * @version     40.9 (Blocklist Refactoring & Precision Fix)
- * @description 根據反饋全面審核並重構域名黑名單，移除可能導致功能異常的高風險根域名（如 ETMall, PChome, Pixnet 等）。新增 api.etmall.com.tw 至硬白名單以修復登入問題，轉向更精準的追蹤子網域與腳本封鎖策略。
+ * @file        URL-Ultimate-Filter-Surge-V40.14.js
+ * @version     40.14 (Whitelist Redundancy Cleanup)
+ * @description 根據使用者反饋，全面審視並移除了因硬白名單萬用字元規則而變得冗餘的子網域白名單（如 Coupang, Atlassian, Slack 等），以簡化規則庫並提升邏輯清晰度。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-09-10
+ * @lastUpdated 2025-09-12
  */
 
 // #################################################################################################
@@ -19,19 +19,28 @@ const CONFIG = {
    * 說明：完全豁免所有檢查。此處的域名需要完整且精確的匹配。
    */
   HARD_WHITELIST_EXACT: new Set([
+    // --- AI & Search Services ---
+    'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai',
+    // --- Business & Developer Tools ---
+    'adsbypasser.github.io', 'code.createjs.com', 'nextdns.io', 'oa.ledabangong.com', 'oa.qianyibangong.com', 'qianwen.aliyun.com',
+    'raw.githubusercontent.com', 'reportaproblem.apple.com', 'ss.ledabangong.com', 'userscripts.adtidy.org',
+    // --- Meta / Facebook ---
+    'ar-genai.graph.meta.com', 'ar.graph.meta.com', 'gateway.facebook.com', 'meta-ai-realtime.facebook.com', 'meta.graph.meta.com', 'wearable-ai-realtime.facebook.com',
+    // --- Media & CDNs ---
+    'cdn.ghostery.com', 'cdn.shortpixel.ai', 'cdn.syndication.twimg.com', 'd.ghostery.com', 'data-cloud.flightradar24.com', 'ssl.p.jwpcdn.com',
+    // --- Services & App APIs ---
+    'ap02.in.treasuredata.com', 'appapi.104.com.tw', 'eco-push-api-client.meiqia.com', 'exp.acsnets.com.tw', 'mpaystore.pcstore.com.tw',
+    'mushroomtrack.com', 'phtracker.com', 'pro.104.com.tw', 'prodapp.babytrackers.com', 'sensordata.open.com.cn', 'static.stepfun.com', 'track.fstry.me',
     // --- 核心登入 & 認證 ---
     'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com', 'sso.godaddy.com',
     // --- 台灣地區服務 ---
-    'tw.fd-api.com',
+    'api.etmall.com.tw', 'tw.fd-api.com',
     // --- 支付 & 金流 API ---
-    'api.adyen.com', 'api.braintreegateway.com', 'api.ecpay.com.tw', 'api.jkos.com', 'api.paypal.com', 'api.stripe.com', 'payment.ecpay.com.tw',
+    'api.adyen.com', 'api.braintreegateway.com', 'api.ecpay.com.tw', 'api.jkos.com', 'payment.ecpay.com.tw',
     // --- 票務 & 關鍵 API ---
     'api.line.me', 'kktix.com', 'tixcraft.com',
     // --- 高互動性服務 API ---
     'api.discord.com', 'api.twitch.tv', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com', 'open.spotify.com',
-    // --- 銀行服務 (特定子域名) ---
-    'api.cathaybk.com.tw', 'api.ctbcbank.com', 'api.esunbank.com.tw', 'ebank.megabank.com.tw', 'ebank.taipeifubon.com.tw', 'ebank.tcb-bank.com.tw',
-    'ibank.firstbank.com.tw', 'ibanking.scsb.com.tw', 'mma.sinopac.com', 'nbe.standardchartered.com.tw', 'netbank.bot.com.tw', 'netbank.hncb.com.tw', 'richart.tw',
     // --- YouTube 核心 API ---
     'youtubei.googleapis.com',
   ]),
@@ -41,22 +50,27 @@ const CONFIG = {
    * 說明：完全豁免所有檢查。此處的域名會匹配自身及其所有子域名 (例如 apple.com 會匹配 a.apple.com)。
    */
   HARD_WHITELIST_WILDCARDS: new Set([
+    // --- AI & Search Services ---
+    // Financial, Banking & Payments ---
+    'bot.com.tw', 'cathaybk.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw', 'ctbcbank.com', 'dawho.tw', 'dbs.com.tw',
+    'esunbank.com.tw', 'firstbank.com.tw', 'fubon.com', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw',
+    'megabank.com.tw', 'megatime.com.tw', 'mitake.com.tw', 'money-link.com.tw', 'mymobibank.com.tw', 'paypal.com', 'richart.tw',
+    'scsb.com.tw', 'sinopac.com', 'sinotrade.com.tw', 'standardchartered.com.tw', 'stripe.com', 'taipeifubon.com.tw', 'taishinbank.com.tw',
+    'taiwanpay.com.tw', 'tcb-bank.com.tw',
+    // Government & Utilities ---
+    'org.tw', 'gov.tw', 'pay.taipei', 'tdcc.com.tw', 'twca.com.tw', 'twmp.com.tw',
     // --- 核心登入 & 協作平台 ---
     'atlassian.net', 'auth0.com', 'okta.com', 'slack.com',
-    // --- 支付 & 金流 (根域名) ---
-    'paypal.com', 'stripe.com',
     // --- 社群 & 電商平台 (根域名) ---
-    'shopee.com', 'shopeemobile.com', 'shopee.tw',
+    'book.com.tw', 'citiesocial.com', 'coupang.com', 'iherb.biz', 'iherb.com', 'shopee.com', 'shopeemobile.com', 'shopee.tw',
+    'pxmart.com.tw', 'pxpayplus.com',
     // --- 系統 & 平台核心服務 ---
-    'apple.com', 'icloud.com', 'update.microsoft.com', 'windowsupdate.com',
-    // --- 銀行服務 (根域名) ---
-    'bot.com.tw', 'chb.com.tw', 'firstbank.com.tw', 'fubon.com', 'hncb.com.tw', 'megabank.com.tw',
-    'scsb.com.tw', 'sinopac.com', 'standardchartered.com.tw', 'taishinbank.com.tw', 'tcb-bank.com.tw',
+    'apple.com', 'icloud.com', 'update.microsoft.com', 'windowsupdate.com', 'linksyssmartwifi.com',
     // --- 網頁存檔服務 (對參數極度敏感) ---
     'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com', 'perma.cc',
     'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'webcache.googleusercontent.com', 'www.webarchive.org.uk',
     // --- YouTube 核心服務 ---
-    'googlevideo.com', 'm.youtube.com', 'youtube.com', 'ytimg.com',
+    'googlevideo.com', 'm.youtube.com', 'youtube.com',
   ]),
 
   /**
@@ -64,13 +78,12 @@ const CONFIG = {
    * 說明：豁免「域名」與「路徑」層級的封鎖，但仍會執行「參數清理」與「關鍵腳本攔截」。
    */
   SOFT_WHITELIST_EXACT: new Set([
-    // --- 主流服務 API ---
-    'a-api.anthropic.com', 'api.anthropic.com', 'api.cohere.ai', 'api.github.com', 'api.openai.com', 'api.slack.com', 'api.telegram.org', 'gemini.google.com',
-    // --- 其他常用 API ---
-    'api.hubapi.com', 'api.intercom.io', 'api.mailgun.com', 'api.pagerduty.com', 'api.sendgrid.com', 'api.zendesk.com',
-    'duckduckgo.com', 'external-content.duckduckgo.com', 'hooks.slack.com', 'legy.line-apps.com', 'obs.line-scdn.net', 'secure.gravatar.com',
+    // --- [V40.13 整合] Common APIs ---
+    'a-api.anthropic.com', 'api.anthropic.com', 'api.cohere.ai', 'api.github.com', 'api.hubapi.com', 'api.intercom.io',
+    'api.mailgun.com', 'api.openai.com', 'api.pagerduty.com', 'api.sendgrid.com', 'api.telegram.org',
+    'api.zendesk.com', 'duckduckgo.com', 'legy.line-apps.com', 'obs.line-scdn.net', 'secure.gravatar.com',
     // --- 生產力 & 協作工具 ---
-    'api.asana.com', 'api.dropboxapi.com', 'api.figma.com', 'api.notion.com', 'api.trello.com', 'clorasio.atlassian.net',
+    'api.asana.com', 'api.dropboxapi.com', 'api.figma.com', 'api.notion.com', 'api.trello.com',
     // --- 開發 & 部署平台 ---
     'api.cloudflare.com', 'api.digitalocean.com', 'api.fastly.com', 'api.heroku.com', 'api.netlify.com', 'api.vercel.com',
     'auth.docker.io', 'database.windows.net', 'firestore.googleapis.com', 'login.docker.com',
@@ -80,18 +93,21 @@ const CONFIG = {
 
   /**
    * ✅ 軟白名單 - 萬用字元 (Soft Whitelist - Wildcards)
+   * 說明：豁免「域名」與「路徑」層級的封鎖，但仍會執行「參數清理」與「關鍵腳本攔截」。此處的域名會匹配自身及其所有子域名 (例如 apple.com 會匹配 a.apple.com)。
    */
   SOFT_WHITELIST_WILDCARDS: new Set([
     // --- 核心 CDN ---
     'akamaihd.net', 'amazonaws.com', 'cdnjs.cloudflare.com', 'cloudflare.com', 'cloudfront.net', 'fastly.net',
-    'fbcdn.net', 'gstatic.com', 'jsdelivr.net', 'twimg.com', 'unpkg.com',
+    'fbcdn.net', 'gstatic.com', 'jsdelivr.net', 'twimg.com', 'unpkg.com', 'ytimg.com',
+    // --- Publishing & CMS ---
+    'new-reporter.com', 'wp.com',
     // --- 閱讀器 & 新聞 ---
     'flipboard.com', 'inoreader.com', 'itofoo.com', 'newsblur.com', 'theoldreader.com',
     // --- 開發 & 部署平台 ---
     'azurewebsites.net', 'cloudfunctions.net', 'digitaloceanspaces.com', 'github.io', 'gitlab.io', 'netlify.app',
     'oraclecloud.com', 'pages.dev', 'vercel.app', 'windows.net',
     // --- 社群平台相容性 ---
-    'instagram.com', 'threads.net'
+    'instagram.com', 'threads.net',
   ]),
 
   /**
@@ -607,7 +623,7 @@ function processRequest(request) {
             optimizedStats.increment('errors');
             // V40.6 安全強化: 移除日誌中的查詢參數，避免敏感資訊外洩
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.9] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.13] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -673,7 +689,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.9] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.13] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -685,7 +701,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.9', status: 'ready', message: 'URL Filter v40.9 - Blocklist Refactoring & Precision Fix', stats: optimizedStats.getStats() });
+        $done({ version: '40.13', status: 'ready', message: 'URL Filter v40.13 - Ruleset Consolidation & Refactoring', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -694,7 +710,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.9] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.13] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
