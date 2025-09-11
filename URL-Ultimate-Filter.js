@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.17.js
- * @version     40.17 (Massive Keyword Blocklist Expansion)
- * @description 根據使用者提供的列表，大規模擴充路徑關鍵字黑名單，新增數百個廣告與追蹤相關關鍵字，並將其依據特性分別歸入 PATH_BLOCK_KEYWORDS 與 DROP_KEYWORDS 清單，顯著強化整體過濾能力。
+ * @file        URL-Ultimate-Filter-Surge-V40.18.js
+ * @version     40.18 (Feature Simplification & Precision Blocking)
+ * @description 根據使用者反饋，移除外部域名黑名單連結功能，使腳本回歸完全獨立運作。同時新增對 `log.felo.ai` 遙測域名的精準封鎖。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-12
  */
@@ -14,34 +14,6 @@
 // #################################################################################################
 
 const CONFIG = {
-  /**
-   * 🌐 [V40.15 新增] 外部域名黑名單連結
-   * 說明：在此處新增您信任的外部域名黑名單連結 (純文字格式，每行一個域名)。
-   * 腳本需要手動執行一次以抓取並快取清單，建議設定排程每日自動更新。
-   */
-  EXTERNAL_BLOCK_LISTS: [
-    'https://raw.githubusercontent.com/jkgtw/Surge/master/ADLists/AD.list',
-    'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Advertising/Advertising_Domain.list',
-    'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Advertising/Advertising.list',
-    'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Privacy/Privacy_Domain.list,',
-    'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Privacy/Privacy.list',
-    'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/EasyPrivacy/EasyPrivacy_Domain.list',
-    'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Hijacking/Hijacking.list',
-    'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/PrivateTracker/PrivateTracker.list',
-    'https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt',
-    'https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt',
-    'https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/native.tiktok.extended.txt',
-    'https://raw.githubusercontent.com/mieqq/mieqq/master/In-AppTracker.txt',
-    'https://raw.githubusercontent.com/fkhb90/Surge/main/firbaseparsed.txt',
-    'https://raw.githubusercontent.com/fkhb90/Surge/main/native.apple.txt',
-    'https://raw.githubusercontent.com/fkhb90/Surge/main/Advertising.list',
-    'https://raw.githubusercontent.com/fkhb90/Surge/main/YouTube-AD.list',
-    'https://raw.githubusercontent.com/fkhb90/Surge/main/apple-lite.list',
-    'https://raw.githubusercontent.com/fkhb90/Surge/main/facebook-extended.list',
-    'https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanProgramAD.list',
-    'https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanAD.list',
-  ],
-
   /**
    * ✳️ 硬白名單 - 精確匹配 (Hard Whitelist - Exact)
    * 說明：完全豁免所有檢查。此處的域名需要完整且精確的匹配。
@@ -84,14 +56,14 @@ const CONFIG = {
     'esunbank.com.tw', 'firstbank.com.tw', 'fubon.com', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw',
     'megabank.com.tw', 'megatime.com.tw', 'mitake.com.tw', 'money-link.com.tw', 'mymobibank.com.tw', 'paypal.com', 'richart.tw',
     'scsb.com.tw', 'sinopac.com', 'sinotrade.com.tw', 'standardchartered.com.tw', 'stripe.com', 'taipeifubon.com.tw', 'taishinbank.com.tw',
-    'taiwanpay.com.tw', 'tcb-bank.com.tw',
+    'taiwanpay.com.tw', 'tcb-bank.com.tw', 'momopay.com.tw',
     // Government & Utilities ---
     'org.tw', 'gov.tw', 'pay.taipei', 'tdcc.com.tw', 'twca.com.tw', 'twmp.com.tw',
     // --- 核心登入 & 協作平台 ---
     'atlassian.net', 'auth0.com', 'okta.com', 'slack.com',
     // --- 社群 & 電商平台 (根域名) ---
     'book.com.tw', 'citiesocial.com', 'coupang.com', 'iherb.biz', 'iherb.com', 'shopee.com', 'shopeemobile.com', 'shopee.tw',
-    'pxmart.com.tw', 'pxpayplus.com',
+    'pxmart.com.tw', 'pxpayplus.com', 'momoshop.com.tw',
     // --- 系統 & 平台核心服務 ---
     'apple.com', 'icloud.com', 'update.microsoft.com', 'windowsupdate.com', 'linksyssmartwifi.com',
     // --- 網頁存檔服務 (對參數極度敏感) ---
@@ -139,8 +111,8 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 [V40.9 重構] 域名攔截黑名單 (移除高風險根域名)
-   * 說明：僅列出純粹用於廣告、追蹤或分析的域名。大型混合用途平台域名已被移除，以避免誤擋。
+   * 🚫 [V40.16 擴充] 域名攔截黑名單
+   * 說明：僅列出純粹用於廣告、追蹤或分析的域名。
    */
   BLOCK_DOMAINS: new Set([
     // --- Ad & Tracking CDNs ---
@@ -161,7 +133,7 @@ const CONFIG = {
     // --- Zhihu ---
     'appcloud.zhihu.com', 'appcloud2.in.zhihu.com', 'crash2.zhihu.com', 'mqtt.zhihu.com', 'sugar.zhihu.com',
     // --- 平台內部追蹤 & 分析 ---
-    'adeventtracker.spotify.com', 'log.spotify.com', 'spclient.wg.spotify.com', 'visuals.feedly.com',
+    'adeventtracker.spotify.com', 'log.felo.ai', 'log.spotify.com', 'spclient.wg.spotify.com', 'visuals.feedly.com', // [V40.18 新增]
     // --- 主流分析 & 追蹤服務 ---
     'adjust.com', 'adform.net', 'ads.linkedin.com', 'adsrvr.org', 'agn.aty.sohu.com', 'amplitude.com', 'analytics.line.me',
     'analytics.slashdotmedia.com', 'analytics.strava.com', 'analytics.twitter.com', 'analytics.yahoo.com', 'api.pendo.io',
@@ -487,11 +459,10 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                             🚀 OPTIMIZED CORE ENGINE (V40.15+)                                #
+// #                             🚀 OPTIMIZED CORE ENGINE (V40.6+)                                 #
 // #                                                                                               #
 // #################################################################################################
 
-const EXTERNAL_BLOCKLIST_CACHE_KEY = 'externalBlocklistCache';
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
   : () => Date.now();
@@ -505,81 +476,12 @@ const REDIRECT_RESPONSE = (url) => ({ response: { status: 302, headers: { 'Locat
 const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.ico']);
 const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs', '.css']);
 
-let externalBlockSet = new Set();
-
-/**
- * [V40.15 新增] 解析並載入快取的外部黑名單
- */
-function loadExternalBlocklist() {
-  try {
-    const cachedData = $persistentStore.read(EXTERNAL_BLOCKLIST_CACHE_KEY);
-    if (cachedData) {
-      const domains = JSON.parse(cachedData);
-      externalBlockSet = new Set(domains);
-      console.log(`[URL-Filter-v40.15] 成功從快取載入 ${externalBlockSet.size} 個外部域名`);
-    }
-  } catch (e) {
-    console.error(`[URL-Filter-v40.15] 載入外部域名快取失敗: ${e.message}`);
-  }
-}
-
-/**
- * [V40.15 新增] 非同步更新外部黑名單
- */
-async function updateExternalBlocklists() {
-  console.log('[URL-Filter-v40.15] 開始更新外部域名黑名單...');
-  const allDomains = new Set();
-  const fetches = CONFIG.EXTERNAL_BLOCK_LISTS.map(url =>
-    $httpClient.get(url, (error, response, data) => {
-      if (error) {
-        console.error(`[URL-Filter-v40.15] 下載列表失敗: ${url}, 錯誤: ${error}`);
-        return;
-      }
-      if (response.status === 200) {
-        const lines = data.split('\n');
-        let addedCount = 0;
-        lines.forEach(line => {
-          const domain = line.trim();
-          if (domain && !domain.startsWith('#')) {
-            allDomains.add(domain);
-            addedCount++;
-          }
-        });
-        console.log(`[URL-Filter-v40.15] 成功處理列表: ${url}, 新增 ${addedCount} 個域名`);
-      } else {
-        console.error(`[URL-Filter-v40.15] 下載列表失敗: ${url}, 狀態碼: ${response.status}`);
-      }
-    })
-  );
-
-  // 因為 $httpClient 是回呼形式，我們無法真正 await all
-  // 這是一個示意性的等待，實際上需要 Surge 環境來處理非同步回呼
-  // 我們假設在手動執行時，有足夠的時間讓請求完成
-  setTimeout(() => {
-    if (allDomains.size > 0) {
-      try {
-        $persistentStore.write(JSON.stringify(Array.from(allDomains)), EXTERNAL_BLOCKLIST_CACHE_KEY);
-        externalBlockSet = allDomains;
-        console.log(`[URL-Filter-v40.15] 外部域名黑名單更新完畢，總共快取了 ${allDomains.size} 個域名。`);
-        $notification.post('URL Filter 更新成功', `已快取 ${allDomains.size} 個外部域名`, '');
-      } catch (e) {
-        console.error(`[URL-Filter-v40.15] 寫入外部域名快取失敗: ${e.message}`);
-        $notification.post('URL Filter 更新失敗', `寫入快取時發生錯誤`, `${e.message}`);
-      }
-    } else {
-      console.log('[URL-Filter-v40.15] 未從外部列表獲取任何新域名。');
-      $notification.post('URL Filter 更新提醒', '未從外部列表獲取任何新域名', '請檢查您的網路連線或列表連結。');
-    }
-    if (typeof $done !== 'undefined') $done();
-  }, 5000); // 假設 5 秒內網路請求可以完成
-}
-
-
 class OptimizedTrie {
   constructor() { this.root = Object.create(null); }
   insert(word) { let n = this.root; for (let i = 0; i < word.length; i++) { const c = word[i]; n = n[c] || (n[c] = Object.create(null)); } n.isEndOfWord = true; }
   startsWith(prefix) { let n = this.root; for (let i = 0; i < prefix.length; i++) { const c = prefix[i]; if (!n[c]) return false; n = n[c]; if (n.isEndOfWord) return true; } return false; }
   contains(text) {
+    // V40.6 安全強化: 增加長度上限，防禦 ReDoS 攻擊
     const N = Math.min(text.length, 1024);
     for (let i = 0; i < N; i++) {
         let n = this.root;
@@ -645,65 +547,80 @@ function isWhitelisted(hostname, exactSet, wildcardSet) {
 
 function isHardWhitelisted(h) { return isWhitelisted(h, CONFIG.HARD_WHITELIST_EXACT, CONFIG.HARD_WHITELIST_WILDCARDS); }
 function isSoftWhitelisted(h) { return isWhitelisted(h, CONFIG.SOFT_WHITELIST_EXACT, CONFIG.SOFT_WHITELIST_WILDCARDS); }
-function isDomainBlocked(h) {
-    let c = h;
-    while (c) {
-        if (CONFIG.BLOCK_DOMAINS.has(c) || externalBlockSet.has(c)) return true;
-        const i = c.indexOf('.');
-        if (i === -1) break;
-        c = c.slice(i + 1);
-    }
-    return false;
-}
+function isDomainBlocked(h) { let c = h; while (c) { if (CONFIG.BLOCK_DOMAINS.has(c)) return true; const i = c.indexOf('.'); if (i === -1) break; c = c.slice(i + 1); } return false; }
 
-function isCriticalTrackingScript(hostname, path) {
+function isCriticalTrackingScript(hostname, path) { 
     const key = `crit:${hostname}:${path}`;
-    const cachedDecision = multiLevelCache.getUrlDecision(key);
-    if (cachedDecision !== null) return cachedDecision;
-
+    const cachedDecision = multiLevelCache.getUrlDecision(key); 
+    if (cachedDecision !== null) return cachedDecision; 
+    
     const urlFragment = hostname + path;
     const queryIndex = path.indexOf('?');
     const pathOnly = queryIndex !== -1 ? path.slice(0, queryIndex) : path;
     const slashIndex = pathOnly.lastIndexOf('/');
     const scriptName = slashIndex !== -1 ? pathOnly.slice(slashIndex + 1) : pathOnly;
-
+    
     let shouldBlock = false;
     if (scriptName && CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName)) {
         shouldBlock = true;
     } else {
         shouldBlock = OPTIMIZED_TRIES.criticalPattern.contains(urlFragment);
     }
-
+    
     multiLevelCache.setUrlDecision(key, shouldBlock);
     return shouldBlock;
 }
 
+/**
+ * V40.6 安全強化: 新增精確的路徑豁免檢查函式
+ * 說明：取代舊有的 `allow.contains`，以更嚴格的後綴、子字串和路徑區段匹配來避免繞過。
+ */
 function isPathExplicitlyAllowed(path) {
-    for (const suffix of CONFIG.PATH_ALLOW_SUFFIXES) { if (path.endsWith(suffix)) return true; }
-    for (const substring of CONFIG.PATH_ALLOW_SUBSTRINGS) { if (path.includes(substring)) return true; }
+    for (const suffix of CONFIG.PATH_ALLOW_SUFFIXES) {
+        if (path.endsWith(suffix)) return true;
+    }
+    for (const substring of CONFIG.PATH_ALLOW_SUBSTRINGS) {
+        if (path.includes(substring)) return true;
+    }
+    // 檢查路徑區段，移除開頭的'/'並過濾空字串
     const segments = path.startsWith('/') ? path.substring(1).split('/') : path.split('/');
-    for (const segment of segments) { if (segment && CONFIG.PATH_ALLOW_SEGMENTS.has(segment)) return true; }
+    for (const segment of segments) {
+        if (segment && CONFIG.PATH_ALLOW_SEGMENTS.has(segment)) return true;
+    }
     return false;
 }
 
-function isPathBlocked(path) {
+function isPathBlocked(path) { 
     const k = `path:${path}`;
-    const c = multiLevelCache.getUrlDecision(k);
-    if (c !== null) return c;
+    const c = multiLevelCache.getUrlDecision(k); 
+    if (c !== null) return c; 
     let r = false;
-    if (OPTIMIZED_TRIES.pathBlock.contains(path) && !isPathExplicitlyAllowed(path)) { r = true; }
-    multiLevelCache.setUrlDecision(k, r);
-    return r;
+    // V40.6 安全強化: 使用 isPathExplicitlyAllowed 進行更嚴格的檢查
+    if (OPTIMIZED_TRIES.pathBlock.contains(path) && !isPathExplicitlyAllowed(path)) { 
+        r = true; 
+    } 
+    multiLevelCache.setUrlDecision(k, r); 
+    return r; 
 }
 
-function isPathBlockedByRegex(path) {
+function isPathBlockedByRegex(path) { 
     const k = `regex:${path}`;
-    const c = multiLevelCache.getUrlDecision(k);
+    const c = multiLevelCache.getUrlDecision(k); 
     if (c !== null) return c;
-    for (const prefix of CONFIG.PATH_ALLOW_PREFIXES) { if (path.startsWith(prefix)) { multiLevelCache.setUrlDecision(k, false); return false; } }
-    for (let i = 0; i < CONFIG.PATH_BLOCK_REGEX.length; i++) { if (CONFIG.PATH_BLOCK_REGEX[i].test(path)) { multiLevelCache.setUrlDecision(k, true); return true; } }
-    multiLevelCache.setUrlDecision(k, false);
-    return false;
+    for (const prefix of CONFIG.PATH_ALLOW_PREFIXES) { 
+        if (path.startsWith(prefix)) { 
+            multiLevelCache.setUrlDecision(k, false); 
+            return false;
+        } 
+    } 
+    for (let i = 0; i < CONFIG.PATH_BLOCK_REGEX.length; i++) { 
+        if (CONFIG.PATH_BLOCK_REGEX[i].test(path)) { 
+            multiLevelCache.setUrlDecision(k, true); 
+            return true;
+        } 
+    } 
+    multiLevelCache.setUrlDecision(k, false); 
+    return false; 
 }
 
 function getBlockResponse(path) {
@@ -753,20 +670,24 @@ function processRequest(request) {
             multiLevelCache.setUrlObject(rawUrl, Object.freeze(url));
         } catch (e) {
             optimizedStats.increment('errors');
+            // V40.6 安全強化: 移除日誌中的查詢參數，避免敏感資訊外洩
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.16] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.13] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
-
-    if (url.hash === '#cleaned') return null;
+    
+    if (url.hash === '#cleaned') {
+        return null;
+    }
 
     const hostname = url.hostname.toLowerCase();
+    
     if (isHardWhitelisted(hostname)) {
         optimizedStats.increment('hardWhitelistHits');
         return null;
     }
-
+    
     const l1Decision = multiLevelCache.getDomainDecision(hostname);
     if (l1Decision === DECISION.BLOCK) {
         optimizedStats.increment('l1CacheHits');
@@ -774,14 +695,14 @@ function processRequest(request) {
         optimizedStats.increment('blockedRequests');
         return getBlockResponse(url.pathname + url.search);
     }
-
+    
     if (isDomainBlocked(hostname)) {
         multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
         optimizedStats.increment('domainBlocked');
         optimizedStats.increment('blockedRequests');
         return getBlockResponse(url.pathname + url.search);
     }
-
+    
     const originalFullPath = url.pathname + url.search;
     const lowerFullPath = originalFullPath.toLowerCase();
 
@@ -790,7 +711,7 @@ function processRequest(request) {
         optimizedStats.increment('blockedRequests');
         return getBlockResponse(originalFullPath);
     }
-
+    
     if (isSoftWhitelisted(hostname)) {
         optimizedStats.increment('softWhitelistHits');
     } else {
@@ -805,38 +726,41 @@ function processRequest(request) {
             return getBlockResponse(originalFullPath);
         }
     }
-
+    
     const cleanedUrl = cleanTrackingParams(url);
     if (cleanedUrl) {
         optimizedStats.increment('paramsCleaned');
         return REDIRECT_RESPONSE(cleanedUrl);
     }
-
+    
     return null;
+
   } catch (error) {
     optimizedStats.increment('errors');
-    console.error(`[URL-Filter-v40.16] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+    if (typeof console !== 'undefined' && console.error) {
+      console.error(`[URL-Filter-v40.13] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+    }
     return null;
   }
 }
 
 // 執行入口
-(async function () {
+(function () {
   try {
-    // 判斷執行模式
+    initializeOptimizedTries();
     if (typeof $request === 'undefined') {
-      // 更新模式
-      await updateExternalBlocklists();
-    } else {
-      // 過濾模式
-      initializeOptimizedTries();
-      loadExternalBlocklist();
-      const result = processRequest($request);
-      if (typeof $done !== 'undefined') $done(result || {});
+      if (typeof $done !== 'undefined') {
+        $done({ version: '40.13', status: 'ready', message: 'URL Filter v40.13 - Ruleset Consolidation & Refactoring', stats: optimizedStats.getStats() });
+      }
+      return;
     }
+    const result = processRequest($request);
+    if (typeof $done !== 'undefined') $done(result || {});
   } catch (error) {
     optimizedStats.increment('errors');
-    console.error(`[URL-Filter-v40.16] 致命錯誤: ${error.message}`, error.stack);
+    if (typeof console !== 'undefined' && console.error) {
+      console.error(`[URL-Filter-v40.13] 致命錯誤: ${error?.message}`, error?.stack);
+    }
     if (typeof $done !== 'undefined') $done({});
   }
 })();
