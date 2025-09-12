@@ -235,45 +235,81 @@ const CONFIG = {
    * 🚨 關鍵追蹤路徑模式
    */
   CRITICAL_TRACKING_PATTERNS: new Set([
-    // --- Google ---
-    '/ads/ga-audiences', '/doubleclick/', '/google-analytics/', '/googleadservices/', '/googlesyndication/',
-    '/googletagmanager/', '/pagead/gen_204', '/stats.g.doubleclick.net/j/collect', 'google.com/ads', 'google.com/pagead',
-    // --- Facebook / Meta ---
-    'facebook.com/tr', 'facebook.com/tr/',
-    // --- 通用 API 端點 ---
-    '/api/batch', '/api/collect', '/api/collect/', '/api/log/', '/api/track/', '/api/v1/events', '/api/v1/track',
-    '/beacon/', '/collect?', '/ingest/', '/intake', '/p.gif', '/pixel/', '/t.gif', '/telemetry/', '/track/', '/v1/pixel',
-    // --- 特定服務端點 ---
-    '/2/client/addlog_batch', // Weibo log
-    // --- 主流服務端點 ---
-    'ad.360yield.com', 'ads.bing.com/msclkid', 'ads.linkedin.com/li/track', 'ads.yahoo.com/pixel', 'amazon-adsystem.com/e/ec',
-    'api-iam.intercom.io/messenger/web/events', 'api.amplitude.com', 'api.hubspot.com/events', 'api.mixpanel.com/track',
-    'heap.io/api/track', 'px.ads.linkedin.com', 'scorecardresearch.com/beacon.js', 'segment.io/v1/track', 'analytics.twitter.com',
-    'widget.intercom.io',
-    // --- 社群 & 其他 ---
-    '/plugins/easy-social-share-buttons/', 'ads-api.tiktok.com/api/v2/pixel', 'ads.pinterest.com/v3/conversions/events',
-    'ads.tiktok.com/i1n/pixel/events.js', 'analytics.pinterest.com/', 'analytics.snapchat.com/v1/batch',
-    'events.reddit.com/v1/pixel', 'log.pinterest.com/', 'q.quora.com/', 'sc-static.net/scevent.min.js', 'tr.snapchat.com',
-    // --- 中國大陸地區 ---
-    '/log/aplus', '/v.gif', 'cnzz.com/stat.php', 'gdt.qq.com/gdt_mview.fcg', 'hm.baidu.com/hm.js', 'wgo.mmstat.com',
-    // --- 通用廣告路徑 ---
-    '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/',
-    // --- Cloudflare Web Analytics / RUM ---
-    'cloudflareinsights.com/cdn-cgi/rum', 'static.cloudflareinsights.com/beacon.min.js',
-    // --- Shopify Monorail / Bing UET / Vercel Speed Insights ---
-    'bat.bing.com/action', 'monorail-edge.shopifysvc.com/v1/produce', 'vitals.vercel-insights.com/v1/vitals',
-    // --- Plausible Analytics / Yahoo Benji/Logs ---
-    'pbd.yahoo.com/data/logs', 'plausible.io/api/event',
-    // --- LinkedIn Insight / TikTok Pixel / Events API ---
-    'analytics.tiktok.com/i18n/pixel/events.js', 'business-api.tiktok.com/open_api', 'business-api.tiktok.com/open_api/v1',
-    'business-api.tiktok.com/open_api/v2', 'snap.licdn.com/li.lms-analytics/insight.min.js',
-    // --- Pinterest Tag / Reddit Pixel / 事件上報 ---
-    'ct.pinterest.com/v3', 'events.redditmedia.com/v1', 's.pinimg.com/ct/core.js', 'www.redditstatic.com/ads/pixel.js',
-    // --- Discord 遙測（science）/ VK（社交平台）像素/重定向 ---
-    'discord.com/api/v10/science', 'discord.com/api/v9/science', 'vk.com/rtrg',
-    // --- 其他 ---
-    '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc', '/user-profile/', 'cacafly/track',
-  ]),
+  // --- Google ---
+  '/ads/ga-audiences', '/doubleclick/', '/google-analytics/', '/googleadservices/', '/googlesyndication/',
+  '/googletagmanager/', '/pagead/gen_204', '/stats.g.doubleclick.net/j/collect', 'google.com/ads', 'google.com/pagead',
+
+  // --- GA4 Measurement Protocol / Client (新增) ---
+  'www.google-analytics.com/mp/collect', 'www.google-analytics.com/debug/mp/collect', 'www.google-analytics.com/g/collect',
+  'www.google-analytics.com/j/collect', 'analytics.google.com/g/collect', 'region1.analytics.google.com/g/collect',
+  'stats.g.doubleclick.net/g/collect',
+
+  // --- Facebook / Meta ---
+  'facebook.com/tr', 'facebook.com/tr/',
+
+  // --- 通用 API 端點 ---
+  '/api/batch', '/api/collect', '/api/collect/', '/api/log/', '/api/track/', '/api/v1/events', '/api/v1/track',
+  '/beacon/', '/collect?', '/ingest/', '/intake', '/p.gif', '/pixel/', '/t.gif', '/telemetry/', '/track/', '/v1/pixel',
+
+  // --- 特定服務端點 ---
+  '/2/client/addlog_batch', // Weibo log
+
+  // --- 主流服務端點 ---
+  'ad.360yield.com', 'ads.bing.com/msclkid', 'ads.linkedin.com/li/track', 'ads.yahoo.com/pixel', 'amazon-adsystem.com/e/ec',
+  'api-iam.intercom.io/messenger/web/events', 'api.amplitude.com', 'api.hubspot.com/events', 'api.mixpanel.com/track',
+  'heap.io/api/track', 'px.ads.linkedin.com', 'scorecardresearch.com/beacon.js', 'segment.io/v1/track', 'analytics.twitter.com',
+  'widget.intercom.io',
+
+  // --- 社群 & 其他 ---
+  '/plugins/easy-social-share-buttons/', 'ads-api.tiktok.com/api/v2/pixel', 'ads.pinterest.com/v3/conversions/events',
+  'ads.tiktok.com/i1n/pixel/events.js', 'analytics.pinterest.com/', 'analytics.snapchat.com/v1/batch',
+  'events.reddit.com/v1/pixel', 'log.pinterest.com/', 'q.quora.com/', 'sc-static.net/scevent.min.js', 'tr.snapchat.com',
+
+  // --- 中國大陸地區 ---
+  '/log/aplus', '/v.gif', 'cnzz.com/stat.php', 'gdt.qq.com/gdt_mview.fcg', 'hm.baidu.com/hm.js', 'wgo.mmstat.com',
+
+  // --- 通用廣告路徑 ---
+  '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/',
+
+  // --- Cloudflare Web Analytics / RUM ---
+  'cloudflareinsights.com/cdn-cgi/rum', 'static.cloudflareinsights.com/beacon.min.js',
+
+  // --- Shopify Monorail / Bing UET / Vercel Speed Insights ---
+  'bat.bing.com/action', 'monorail-edge.shopifysvc.com/v1/produce', 'vitals.vercel-insights.com/v1/vitals',
+
+  // --- Plausible Analytics / Yahoo Benji/Logs ---
+  'pbd.yahoo.com/data/logs', 'plausible.io/api/event',
+
+  // --- LinkedIn Insight / TikTok Pixel / Events API ---
+  'analytics.tiktok.com/i18n/pixel/events.js', 'business-api.tiktok.com/open_api', 'business-api.tiktok.com/open_api/v1',
+  'business-api.tiktok.com/open_api/v2',
+
+  // --- TikTok Events API 精準端點（新增） ---
+  'business-api.tiktok.com/open_api/v1.2/pixel/track', 'business-api.tiktok.com/open_api/v1.3/pixel/track',
+  'business-api.tiktok.com/open_api/v1.3/event/track',
+
+  // --- LinkedIn Insight 端點強化（新增） ---
+  'px.ads.linkedin.com/collect',
+
+  // --- Microsoft Clarity 收集端點（新增） ---
+  'a.clarity.ms/collect', 'd.clarity.ms/collect', 'l.clarity.ms/collect',
+
+  // --- Sentry Envelope（新增，涵蓋多 Org 前綴） ---
+  'ingest.sentry.io/api/',
+
+  // --- Datadog RUM / Logs（新增，涵蓋多區域） ---
+  'browser-intake-datadoghq.com/api/v2/rum', 'browser-intake-datadoghq.eu/api/v2/rum', 'http-intake.logs.datadoghq.com/v1/input',
+  'agent-http-intake.logs.us5.datadoghq.com',
+
+  // --- Pinterest Tag / Reddit Pixel / 事件上報 ---
+  'ct.pinterest.com/v3', 'events.redditmedia.com/v1', 's.pinimg.com/ct/core.js', 'www.redditstatic.com/ads/pixel.js',
+
+  // --- Discord 遙測（science）/ VK（社交平台）像素/重定向 ---
+  'discord.com/api/v10/science', 'discord.com/api/v9/science', 'vk.com/rtrg',
+
+  // --- 其他 ---
+  '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc', '/user-profile/', 'cacafly/track',
+]),
 
   /**
    * 🚫 [V40.17 擴充] 路徑關鍵字黑名單
