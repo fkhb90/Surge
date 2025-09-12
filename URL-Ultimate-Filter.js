@@ -266,7 +266,7 @@ const CONFIG = {
   'events.reddit.com/v1/pixel', 'log.pinterest.com/', 'q.quora.com/', 'sc-static.net/scevent.min.js', 'tr.snapchat.com',
 
   // --- 中國大陸地區 ---
-  '/log/aplus', '/v.gif', 'cnzz.com/stat.php', 'gdt.qq.com/gdt_mview.fcg', 'hm.baidu.com/hm.js', 'wgo.mmstat.com',
+  '/log/aplus', '/v.gif', 'cnzz.com/stat.php', 'gdt.qq.com/gdt_mview.fcg', 'hm.baidu.com/hm.js', 'wgo.mmstat.com', '/event_report',
 
   // --- 通用廣告路徑 ---
   '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/',
