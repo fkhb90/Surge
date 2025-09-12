@@ -3,7 +3,7 @@
  * @version     40.20 (Keyword List Refinement)
  * @description 根據社群反饋與深度分析，從路徑關鍵字列表中移除 16 個通用詞彙，大幅降低誤擋機率，提升整體相容性。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-09-14
+ * @lastUpdated 2025-09-12
  */
 
 // #################################################################################################
@@ -79,7 +79,7 @@ const CONFIG = {
    */
   SOFT_WHITELIST_EXACT: new Set([
     // --- Common APIs ---
-    'a-api.anthropic.com', 'api.anthropic.com', 'api.cohere.ai', 'api.github.com', 'api.hubapi.com', 'api.intercom.io',
+    'a-api.anthropic.com', 'api.anthropic.com', 'api.cohere.ai', 'api.github.com', 'api.hubapi.com',
     'api.mailgun.com', 'api.openai.com', 'api.pagerduty.com', 'api.sendgrid.com', 'api.telegram.org',
     'api.zendesk.com', 'duckduckgo.com', 'legy.line-apps.com', 'obs.line-scdn.net', 'secure.gravatar.com',
     // --- 生產力 & 協作工具 ---
@@ -120,12 +120,12 @@ const CONFIG = {
     // --- Apple ---
     'app-site-association.cdn-apple.com', 'iadsdk.apple.com',
     // --- Baidu ---
-    'afd.baidu.com', 'als.baidu.com', 'cpro.baidu.com', 'duclick.baidu.com', 'hm.baidu.com', 'hmma.baidu.com',
-    'mobads.baidu.com', 'mobads-logs.baidu.com', 'nadvideo2.baidu.com', 'nsclick.baidu.com', 'voice.baidu.com',
+    'afd.baidu.com', 'als.baidu.com', 'cpro.baidu.com', 'dlswbr.baidu.com', 'duclick.baidu.com', 'feed.baidu.com', 'hm.baidu.com',
+    'hmma.baidu.com', 'h2tcbox.baidu.com', 'mobads.baidu.com', 'mobads-logs.baidu.com', 'nadvideo2.baidu.com', 'nsclick.baidu.com',
+    'sp1.baidu.com', 'voice.baidu.com',
     // --- Google / DoubleClick ---
     'admob.com', 'adsense.com', 'adservice.google.com', 'app-measurement.com', 'doubleclick.net', 'google-analytics.com',
-    'googleadservices.com', 'googlesyndication.com', 'googletagmanager.com', 'mtalk.google.com', 'pagead.googlesyndication.com',
-    'pagead1.googlesyndication.com', 'pagead2.googlesyndication.com', 'pagead3.googlesyndication.com', 'pagead4.googlesyndication.com', 'pagead5.googlesyndication.com',
+    'googleadservices.com', 'googlesyndication.com', 'googletagmanager.com', 'mtalk.google.com',
     // --- Facebook / Meta ---
     'connect.facebook.net', 'graph.facebook.com',
     // --- Tencent (QQ) ---
@@ -138,16 +138,16 @@ const CONFIG = {
     'adjust.com', 'adform.net', 'ads.linkedin.com', 'adsrvr.org', 'agn.aty.sohu.com', 'amplitude.com', 'analytics.line.me',
     'analytics.slashdotmedia.com', 'analytics.strava.com', 'analytics.twitter.com', 'analytics.yahoo.com', 'api.pendo.io',
     'apm.gotokeep.com', 'applog.mobike.com', 'applog.uc.cn', 'appsflyer.com', 'branch.io', 'bugsnag.com', 'c.clarity.ms',
-    'chartbeat.com', 'clicktale.net', 'clicky.com', 'comscore.com', 'crazyegg.com', 'criteo.com', 'criteo.net', 'datadoghq.com',
-    'fullstory.com', 'gs.getui.com', 'heap.io', 'hotjar.com', 'inspectlet.com', 'keen.io', 'kissmetrics.com', 'log.b612kaji.com',
-    'loggly.com', 'logrocket.com', 'matomo.cloud', 'mixpanel.com', 'mouseflow.com', 'mparticle.com', 'newrelic.com',
-    'nr-data.net', 'openx.com', 'openx.net', 'optimizely.com', 'outbrain.com', 'piwik.pro', 'pubmatic.com', 'quantserve.com',
-    'rubiconproject.com', 'scorecardresearch.com', 'segment.com', 'segment.io', 'semasio.net', 'sentry.io', 'snowplowanalytics.com',
-    'stat.m.jd.com', 'statcounter.com', 'static.ads-twitter.com', 'sumo.com', 'sumome.com', 'taboola.com', 'tealium.com',
-    'track.tiara.daum.net', 'track.tiara.kakao.com', 'track.hubspot.com', 'trackapp.guahao.cn', 'traffic.mogujie.com',
-    'vwo.com', 'wmlog.meituan.com', 'yieldlab.net', 'zgsdk.zhugeio.com',
+    'chartbeat.com', 'clicktale.net', 'clicky.com', 'cn-huabei-1-lg.xf-yun.com', 'comscore.com', 'crazyegg.com', 'criteo.com', 
+    'criteo.net', 'datadoghq.com',    'fullstory.com', 'gs.getui.com', 'heap.io', 'hotjar.com', 'inspectlet.com', 'keen.io', 
+    'kissmetrics.com', 'log.b612kaji.com', 'loggly.com', 'logrocket.com', 'matomo.cloud', 'mixpanel.com', 'mouseflow.com',
+    'mparticle.com', 'newrelic.com', 'nr-data.net', 'oceanengine.com', 'openx.com', 'openx.net', 'optimizely.com', 'outbrain.com',
+    'pc-mon.snssdk.com', 'piwik.pro', 'pubmatic.com', 'quantserve.com', 'rubiconproject.com', 'scorecardresearch.com', 'segment.com',
+    'segment.io', 'semasio.net', 'sentry.io', 'sensorsdata.cn', 'snowplowanalytics.com', 'stat.m.jd.com', 'statcounter.com',
+    'static.ads-twitter.com', 'sumo.com', 'sumome.com', 'taboola.com', 'tealium.com', 'track.tiara.daum.net', 'track.tiara.kakao.com',
+    'track.hubspot.com', 'trackapp.guahao.cn', 'traffic.mogujie.com', 'vwo.com', 'wmlog.meituan.com', 'yieldlab.net', 'zgsdk.zhugeio.com',
     // --- 廣告驗證 & 可見度追蹤 ---
-    'doubleverify.com', 'iasds.com', 'moat.com', 'moatads.com', 'serving-sys.com',
+    'doubleverify.com', 'iasds.com', 'moat.com', 'moatads.com', 'serving-sys.com', 'sdk.iad-07.braze.com',
     // --- 客戶數據平台 (CDP) & 身分識別 ---
     'agkn.com', 'id5-sync.com', 'liveramp.com', 'permutive.com', 'tags.tiqcdn.com',
     // --- CDP & 行銷自動化 ---
@@ -155,19 +155,19 @@ const CONFIG = {
     // --- Mobile & Performance ---
     'instana.io', 'kochava.com', 'launchdarkly.com', 'raygun.io', 'singular.net',
     // --- 主流廣告聯播網 & 平台 ---
-    'abema-adx.ameba.jp', 'ad.12306.cn', 'ad.360in.com', 'ad.51wnl-cq.com', 'ad.api.3g.youku.com', 'ad.caiyunapp.com', 'ad.huajiao.com',
+    'abema-adx.ameba.jp', 'abtest.yuewen.cn', 'ad.12306.cn', 'ad.360in.com', 'ad.51wnl-cq.com', 'ad.api.3g.youku.com', 'ad.caiyunapp.com', 'ad.huajiao.com',
     'ad.hzyoka.com', 'ad.jiemian.com', 'ad.qingting.fm', 'ad.wappalyzer.com', 'ad.yieldmanager.com', 'ad-cn.jovcloud.com', 'adcolony.com',
     'adextra.51wnl-cq.com', 'adroll.com', 'ads.adadapted.com', 'ads.daydaycook.com.cn', 'ads.mopub.com', 'ads.weilitoutiao.net',
-    'ads.yahoo.com', 'adsapi.manhuaren.com', 'adsdk.dmzj.com', 'adse.ximalaya.com', 'adserver.pandora.com', 'adsnative.com',
-    'adserver.yahoo.com', 'adswizz.com', 'adui.tg.meitu.com', 'adv.bandi.so', 'adxserver.ad.cmvideo.cn', 'amazon-adsystem.com',
-    'api.cupid.dns.iqiyi.com', 'api.joybj.com', 'api.whizzone.com', 'app-ad.variflight.com', 'applovin.com', 'appnexus.com',
-    'ark.letv.com', 'asimgs.pplive.cn', 'atm.youku.com', 'bidswitch.net', 'bluekai.com', 'casalemedia.com', 'contextweb.com',
-    'conversantmedia.com', 'cr-serving.com', 'creativecdn.com', 'flashtalking.com', 'geo.yahoo.com', 'ggs.myzaker.com',
-    'go-mpulse.net', 'gumgum.com', 'indexexchange.com', 'inmobi.com', 'ironsrc.com', 'itad.linetv.tw', 'ja.chushou.tv',
-    'liveintent.com', 'mads.suning.com', 'magnite.com', 'media.net', 'mobileads.msn.com', 'mopnativeadv.037201.com', 'mopub.com',
-    'narrative.io', 'nativeadv.dftoutiao.com', 'neustar.biz', 'pbd.yahoo.com', 's.youtube.com', 'sharethrough.com', 'sitescout.com',
-    'smartadserver.com', 'soom.la', 'spotx.tv', 'spotxchange.com', 'tapad.com', 'teads.tv', 'thetradedesk.com', 'tremorhub.com',
-    'unityads.unity3d.com', 'vungle.com', 'yieldify.com', 'yieldmo.com', 'zemanta.com',
+    'ads.yahoo.com', 'adashxgc.ut.taobao.com', 'adsapi.manhuaren.com', 'adsdk.dmzj.com', 'adashz4yt.m.taobao.com', 'adtrack.quark.cn', 'adse.ximalaya.com',
+    'adserver.pandora.com', 'adsnative.com', 'adserver.yahoo.com', 'adswizz.com', 'adui.tg.meitu.com', 'adv.bandi.so', 'adxserver.ad.cmvideo.cn',
+    'amazon-adsystem.com', 'api.cupid.dns.iqiyi.com', 'api.joybj.com', 'api.whizzone.com', 'app-ad.variflight.com', 'applovin.com', 'appnexus.com',
+    'ark.letv.com', 'asimgs.pplive.cn', 'atm.youku.com', 'beacon-api.aliyuncs.com', 'bdurl.net', 'bidswitch.net', 'bluekai.com', 'casalemedia.com',
+    'contextweb.com', 'conversantmedia.com', 'cr-serving.com', 'creativecdn.com', 'csp.yahoo.com', 'flashtalking.com', 'geo.yahoo.com', 'ggs.myzaker.com',
+    'go-mpulse.net', 'gumgum.com', 'idatalog.iflysec.com', 'indexexchange.com', 'inmobi.com', 'ironsrc.com', 'itad.linetv.tw', 'ja.chushou.tv',
+    'liveintent.com', 'mads.suning.com', 'magnite.com', 'media.net', 'mobileads.msn.com', 'mopnativeadv.037201.com', 'mopub.com', 'mum.alibabachengdun.com',
+    'narrative.io', 'nativeadv.dftoutiao.com', 'neustar.biz', 'pbd.yahoo.com', 'pf.s.360.cn', 'puds.ucweb.com', 'pv.sohu.com', 's.youtube.com',
+    'sharethrough.com', 'sitescout.com', 'smartadserver.com', 'soom.la', 'spotx.tv', 'spotxchange.com', 'tapad.com', 'teads.tv', 'thetradedesk.com',
+    'tremorhub.com', 'unityads.unity3d.com', 'vungle.com', 'volces.com', 'yieldify.com', 'yieldmo.com', 'zemanta.com', 'zztfly',
     // --- 彈出式 & 其他廣告 ---
     'adcash.com', 'popads.net', 'propellerads.com', 'zeropark.com',
     // --- 聯盟行銷 ---
@@ -184,9 +184,9 @@ const CONFIG = {
     'clickforce.com.tw', 'fast-trk.com', 'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com',
     'sitetag.us', 'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com',
     // --- 中國大陸地區 (純廣告/追蹤) ---
-    'admaster.com.cn', 'adview.cn', 'alimama.com', 'cnzz.com', 'getui.com', 'gridsum.com', 'growingio.com',
+    'admaster.com.cn', 'adview.cn', 'alimama.com', 'cnzz.com', 'getui.com', 'getui.net', 'gepush.com', 'gridsum.com', 'growingio.com',
     'igexin.com', 'jiguang.cn', 'jpush.cn', 'kuaishou.com', 'miaozhen.com', 'mmstat.com', 'pangolin-sdk-toutiao.com',
-    'talkingdata.cn', 'talkingdata.com', 'tanx.com', 'umeng.cn', 'umeng.co', 'umeng.com', 'youmi.net', 'zhugeio.com',
+    'talkingdata.cn', 'talkingdata.com', 'tanx.com', 'umeng.cn', 'umeng.co', 'umeng.com',  'umengcloud.com' 'youmi.net', 'zhugeio.com',
     // --- 雲端與平台分析/廣告像素 ---
     'bat.bing.com', 'cdn.vercel-insights.com', 'cloudflareinsights.com', 'demdex.net', 'everesttech.net', 'hs-analytics.net',
     'hs-scripts.com', 'monorail-edge.shopifysvc.com', 'omtrdc.net', 'plausible.io', 'static.cloudflareinsights.com', 'vitals.vercel-insights.com',
@@ -249,6 +249,7 @@ const CONFIG = {
     'ad.360yield.com', 'ads.bing.com/msclkid', 'ads.linkedin.com/li/track', 'ads.yahoo.com/pixel', 'amazon-adsystem.com/e/ec',
     'api-iam.intercom.io/messenger/web/events', 'api.amplitude.com', 'api.hubspot.com/events', 'api.mixpanel.com/track',
     'heap.io/api/track', 'px.ads.linkedin.com', 'scorecardresearch.com/beacon.js', 'segment.io/v1/track', 'analytics.twitter.com',
+    'widget.intercom.io',
     // --- 社群 & 其他 ---
     '/plugins/easy-social-share-buttons/', 'ads-api.tiktok.com/api/v2/pixel', 'ads.pinterest.com/v3/conversions/events',
     'ads.tiktok.com/i1n/pixel/events.js', 'analytics.pinterest.com/', 'analytics.snapchat.com/v1/batch',
