@@ -41,7 +41,7 @@ const CONFIG = {
     'api.line.me', 'kktix.com', 'tixcraft.com',
     // --- 高互動性服務 API ---
     'api.discord.com', 'api.twitch.tv', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com', 'open.spotify.com',
-    'data.investing.com',
+    'iappapi.investing.com',
     // --- YouTube 核心 API ---
     'youtubei.googleapis.com',
   ]),
