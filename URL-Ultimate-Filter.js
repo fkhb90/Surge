@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.20.js
- * @version     40.20 (Keyword List Refinement)
- * @description 根據社群反饋與深度分析，從路徑關鍵字列表中移除 16 個通用詞彙，大幅降低誤擋機率，提升整體相容性。
+ * @file        URL-Ultimate-Filter-Surge-V40.21.js
+ * @version     40.21 (Keyword List Refinement)
+ * @description 擴充域名攔截黑名單。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-12
  */
