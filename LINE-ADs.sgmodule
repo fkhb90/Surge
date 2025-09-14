@@ -2,17 +2,21 @@
 #!desc=v3.3 基礎上整合社群規則，強化對核心閘道與通用廣告 API 的攔截。v20250901
 #!system=ios
 #!category=Line
+
 #
 # 最後更新：2025-09-01
 # 說明：此版本基於 v3.3 進行強化，審慎整合了部分社群發現的有效規則。
-#      1. 新增對核心閘道 (gw.line.naver.jp) 中廣告與追蹤路徑的攔截。
-#      2. 新增更通用的廣告 API 匹配規則，提升覆蓋面。
+#       1. 新增對核心閘道 (gw.line.naver.jp) 中廣告與追蹤路徑的攔截。
+#       2. 新增更通用的廣告 API 匹配規則，提升覆蓋面。
 # ===================================================================
 
+[General]
+# 此區段為 Surge Module 標準結構的一部分，即使沒有通用設定也建議保留。
+
+[Rule]
 # -------------------------------------------------------------------
 # A. 核心功能保護 (最高優先級)
 # -------------------------------------------------------------------
-[Rule]
 DOMAIN-SUFFIX,gw.line.naver.jp,Proxy
 DOMAIN-SUFFIX,gw2.line.naver.jp,Proxy
 DOMAIN-SUFFIX,gwx.line.naver.jp,Proxy
@@ -22,7 +26,6 @@ DOMAIN-SUFFIX,stickershop.line-scdn.net,Proxy
 URL-REGEX,^https:\/\/legy\.line-apps\.com\/(?!ext\/(lgfp\/lad|smartch|today)\/).*$,Proxy
 URL-REGEX,^https:\/\/obs\.line-scdn\.net\/(?!.*(\/banner\/|r\/linecrs)).*$,Proxy
 URL-REGEX,^https:\/\/obs\-tw\.line\-apps\.com\/talk$,Proxy
-
 
 # -------------------------------------------------------------------
 # B. 全域廣告 API 與追蹤服務 (攔截核心)
@@ -47,7 +50,6 @@ URL-REGEX,^https:\/\/(analytics|stat|track|metrics|collect|telemetry|beacon)\.li
 # --- 個人化與目標式廣告 (涉及用戶行為分析) ---
 URL-REGEX,^https:\/\/(targeting|behavioral|personalized|recommend-ad)\.line\.me\/.*$,REJECT-DROP
 
-
 # -------------------------------------------------------------------
 # C. 各服務內嵌廣告 (API 優先，內容為輔)
 # -------------------------------------------------------------------
@@ -59,8 +61,6 @@ URL-REGEX,^https:\/\/.*\.line\.me\/er\/lass\/v1\/event\/image\.*$,REJECT-TINYGIF
 DOMAIN-SUFFIX,ad.line-scdn.net,REJECT-TINYGIF
 DOMAIN-SUFFIX,shop-ad.line-scdn.net,REJECT-TINYGIF
 DOMAIN-SUFFIX,wallet-ad.line.me,REJECT-TINYGIF
-URL-REGEX,^https:\/\/(splash|startup-ad|dynamic-ad)\.line\.(me|net|com)\/.*$,REJECT-TINYGIF
-
 
 # === 廣告 API 域名 ===
 DOMAIN-SUFFIX,sch.line.me,REJECT
@@ -77,7 +77,6 @@ DOMAIN-SUFFIX,music-ad.line.me,REJECT
 # === 追蹤與數據管理域名 ===
 DOMAIN-SUFFIX,impression.line.me,REJECT-DROP
 DOMAIN-SUFFIX,dmp.line.me,REJECT-DROP # Data Management Platform
-
 
 # === 混合內容域名的 URL 過濾 (需 MitM) ===
 URL-REGEX,^https:\/\/scdn\.line-apps\.com\/(promotion|campaign|sponsored|ad)\/.*$,REJECT
@@ -117,53 +116,5 @@ URL-REGEX,^https:\/\/push(-api)?\.line\.me\/.*\/(advertisement|sponsored|promoti
 URL-REGEX,^https:\/\/real-time-ad\.line\.me\/.*\/[0-9a-f]{32},REJECT
 URL-REGEX,^https:\/\/(partner-ad|affiliate|external-ad|network-ad)\.line\.(me|com|net|apps)\/.*$,REJECT
 
-
 [MITM]
-hostname = %APPEND%
-# A. 核心功能域名 (為 URL-REGEX 匹配準備)
-legy.line-apps.com,
-obs.line-scdn.net,
-api.line.me,
-
-# B. 全域廣告與追蹤域名
-nelo2-col.linecorp.com,
-analytics.line.me,
-stat.line-apps.com,
-track.line.me,
-metrics.line-apps.com,
-collect.line-apps.com,
-telemetry.line.me,
-beacon.line.me,
-targeting.line.me,
-behavioral.line.me,
-personalized.line-apps.com,
-recommend-ad.line.me,
-
-# C. 各服務廣告 API 與內容域名
-d.line-scdn.net,
-splash.line.me,
-startup-ad.line-scdn.net,
-dynamic-ad.line-scdn.net,
-vdn.line-scdn.net,
-today-api.line-apps.com,
-voom.line.me,
-timeline.line.me,
-oa.line.biz,
-live.line.me,
-live-api.line-apps.com,
-shopping.line.me,
-pay.line.me, # 僅為攔截廣告 API，支付核心不受影響
-point-ad.line.me,
-reward.line.me,
-place.line.me,
-gift.line.me,
-webtoon.line.me,
-manga.line.me,
-friend.line.me,
-push.line.me,
-push-api.line.me,
-real-time-ad.line.me,
-partner-ad.line-scdn.net,
-affiliate.line.me,
-external-ad.line.me,
-network-ad.line-apps.com
+hostname = %APPEND% legy.line-apps.com, obs.line-scdn.net, api.line.me, nelo2-col.linecorp.com, analytics.line.me, stat.line-apps.com, track.line.me, metrics.line-apps.com, collect.line-apps.com, telemetry.line.me, beacon.line.me, targeting.line.me, behavioral.line.me, personalized.line-apps.com, recommend-ad.line.me, d.line-scdn.net, splash.line.me, startup-ad.line-scdn.net, dynamic-ad.line-scdn.net, vdn.line-scdn.net, today-api.line-apps.com, voom.line.me, timeline.line.me, oa.line.biz, live.line.me, live-api.line-apps.com, shopping.line.me, pay.line.me, point-ad.line.me, reward.line.me, place.line.me, gift.line.me, webtoon.line.me, manga.line.me, friend.line.me, push.line.me, push-api.line.me, real-time-ad.line.me, partner-ad.line-scdn.net, affiliate.line.me, external-ad.line.me, network-ad.line-apps.com
