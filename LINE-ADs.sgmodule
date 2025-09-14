@@ -12,6 +12,7 @@
 # -------------------------------------------------------------------
 # A. 核心功能保護 (最高優先級)
 # -------------------------------------------------------------------
+[Rule]
 DOMAIN-SUFFIX,gw.line.naver.jp,Proxy
 DOMAIN-SUFFIX,gw2.line.naver.jp,Proxy
 DOMAIN-SUFFIX,gwx.line.naver.jp,Proxy
