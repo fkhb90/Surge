@@ -1,0 +1,12 @@
+DOMAIN-SUFFIX,https://www.google.com/search?q=firebaseio.com
+DOMAIN-SUFFIX,firebase.google.com
+DOMAIN-SUFFIX,fcm.googleapis.com
+DOMAIN-SUFFIX,firebaseremoteconfig.googleapis.com
+DOMAIN-SUFFIX,firebaseinstallations.googleapis.com
+DOMAIN-SUFFIX,iid.googleapis.com
+DOMAIN-SUFFIX,console.firebase.google.com
+DOMAIN,firebase-dot-google-developers.appspot.com
+DOMAIN,firebasedynamiclinks-ipv4.googleapis.com
+DOMAIN,firebasedynamiclinks-ipv6.googleapis.com
+DOMAIN,firebasedynamiclinks.googleapis.com
+DOMAIN,firebaseio.com
