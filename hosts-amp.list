@@ -1,0 +1,49 @@
+# ===================================================================
+# 優化版 Google AMP 阻擋規則 (Surge RULE-SET)
+# 說明：此規則集旨在全面阻擋 Google AMP 頁面及其相關 CDN 服務。
+# 採用 DOMAIN-SUFFIX 進行模式匹配，效率遠高於枚舉所有主機名稱。
+#
+# 更新日期：2025-09-15
+# ===================================================================
+
+# 1. 核心 AMP 專案網域 (Core AMP Project Domains)
+# 說明：阻擋 AMP 框架本身及其快取網域。此為攔截核心。
+DOMAIN-SUFFIX,ampproject.org
+DOMAIN-SUFFIX,ampproject.net
+DOMAIN-SUFFIX,cdn.ampproject.org
+
+# 2. AMP 內容傳遞網路 (CDN) 與快取 (AMP CDNs & Caches)
+# 說明：阻擋由 Cloudflare 及 Akamai 等主要 CDN 提供的 AMP 內容。
+DOMAIN-SUFFIX,amp.cloudflare.com
+DOMAIN-SUFFIX,amp.akamaized.net
+
+# 3. 常見的特定發布者 AMP 網域 (Common Publisher-Specific AMP Domains)
+# 說明：以下是一些常見網站的 "amp." 子網域。
+# 雖然上述規則已能攔截大部分透過 Google CDN 載入的 AMP 頁面，
+# 但添加這些規則可更徹底地阻擋直接訪問或來自其他來源的 AMP 連結。
+DOMAIN-SUFFIX,amp.businessinsider.com
+DOMAIN-SUFFIX,amp.cnn.com
+DOMAIN-SUFFIX,amp.forbes.com
+DOMAIN-SUFFIX,amp.theguardian.com
+DOMAIN-SUFFIX,amp.space.com
+DOMAIN-SUFFIX,amp.usatoday.com
+DOMAIN-SUFFIX,amp.reddit.com
+DOMAIN-SUFFIX,amp.reuters.com
+DOMAIN-SUFFIX,amp.scmp.com
+DOMAIN-SUFFIX,amp.dw.com
+DOMAIN-SUFFIX,amp.si.com
+DOMAIN-SUFFIX,amp.knoxnews.com
+DOMAIN-SUFFIX,amp.newsobserver.com
+DOMAIN-SUFFIX,amp.tennessean.com
+DOMAIN-SUFFIX,amp.thestate.com
+DOMAIN-SUFFIX,amp.miamiherald.com
+
+# URL patterns for AMP views & paths（精簡穩健）
+URL-REGEX,^https?:\/\/amp\.[^\/]+\/
+URL-REGEX,^https?://amp.[^\\/]+/
+URL-REGEX,^https?:\/\/(?:www\.)?google\.[^\/]+\/amp\/
+URL-REGEX,^https?://(?:www.)?google.[^\\/]+/amp/
+URL-REGEX,^https?:\/\/(?:www\.)?bing\.com\/amp\/
+URL-REGEX,^https?://(?:www.)?https://www.google.com/search?q=bing.com/amp/
+URL-REGEX,^https?:\/\/[a-z0-9.-]+\/amp(?:\/|$|\?)
+URL-REGEX,^https?://[a-z0-9.-]+/amp(?:/|$|?)
