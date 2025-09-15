@@ -1,13 +1,13 @@
-#!name=LINE 廣告與追蹤攔截規則 (v3.4.2 - REGEX 語法修正版)
-#!desc=修正 v3.4.1 中因正規表示式包含逗號而導致的 Surge 解析錯誤。v20250916
+#!name=LINE 廣告與追蹤攔截規則 (v3.4.3 - REGEX 最終修正版)
+#!desc=修正所有因正規表示式包含逗號而導致的 Surge 解析錯誤。v20250916
 #!system=ios
 #!category=Line
 
 #
 # 最後更新：2025-09-16
-# 說明：此版本修正了一條 URL-REGEX 規則，因其表達式內部含有逗號 {n,}
-#       與 Surge 解析器衝突的問題。通過為該表達式添加雙引號，解決了
-#       "unknown policy" 的警告。
+# 說明：此版本修正了所有已知的 URL-REGEX 規則，因其表達式內部含有
+#       逗號 {n,} 與 Surge 解析器衝突的問題。通過為所有相關表達式
+#       添加雙引號，解決了 "unknown policy" 的警告。
 # ===================================================================
 
 [General]
@@ -84,7 +84,7 @@ URL-REGEX,^https:\/\/static\.line-scdn\.net\/.*(\/ad\/|\/promotion\/|\/banner\/)
 
 # --- LINE Today, Voom, Timeline ---
 URL-REGEX,^https:\/\/vdn\.line-scdn\.net\/.*\/adv\/.*\.(mp4|webm)$,REJECT
-URL-REGEX,^https:\/\/today-api\.line-apps\.com\/.*\/promoted\/[0-9a-f]{16,},REJECT
+URL-REGEX,"^https:\/\/today-api\.line-apps\.com\/.*\/promoted\/[0-9a-f]{16,}",REJECT
 URL-REGEX,^https:\/\/voom\.line\.me\/api\/v\d+\/post\/sponsored,REJECT
 URL-REGEX,^https:\/\/timeline\.line\.me\/.*\/sponsored\/.*$,REJECT
 
