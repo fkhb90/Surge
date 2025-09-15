@@ -85,9 +85,11 @@ DOMAIN,ads.prd.ie.internal.unity3d.com   #Unity 廣告 (產品)
 # 阻擋後：遙測統計缺失，可能影響使用行為最佳化；評估必要性
 # (註：以下為黑名單，將被 REJECT 規則阻擋)
 ########################################
+DOMAIN,dzc-metrics.mzstatic.com   #App Store/iTunes 相關遙測
 DOMAIN,metrics.apple.com   #核心遙測數據回傳
 DOMAIN,metrics.mzstatic.com   #App Store/iTunes 相關遙測
 DOMAIN,metrics.icloud.com   #iCloud 使用分析
+DOMAIN,acfeedbackws.icloud.com   #iCloud 相關回饋
 DOMAIN,analytics.icloud.com   #iCloud 分析數據
 DOMAIN,analytics-edge.apple.com   #Apple 分析服務邊緣節點
 DOMAIN,apple-cloudkit.com   #CloudKit 遙測與分析
@@ -95,6 +97,7 @@ DOMAIN,deviceservices-edge.apple.com   #裝置狀態遙測邊緣節點
 DOMAIN,i.cal.biz.mzstatic.com   #App Store 分析與遙測 (常見)
 DOMAIN,feedbackws.apple.com   #回饋助理 (Feedback Assistant)
 DOMAIN,feedbackws.icloud.com   #iCloud 相關回饋
+DOMAIN,feedbackws.fe.apple-dns.net   #回饋助理 (Feedback Assistant)
 DOMAIN,feedback.apple.com   #Beta 版軟體回饋
 DOMAIN,smoot-feedback.v.aaplimg.com   #Siri/Spotlight 建議回饋
 DOMAIN,books-analytics-events.apple.com   #Apple Books 分析事件
@@ -106,12 +109,15 @@ DOMAIN,notes-analytics-events.news.apple-dns.net   #備忘錄分析 (CDN)
 DOMAIN,stocks-analytics-events.news.apple-dns.net   #股市分析 (CDN)
 DOMAIN,supportmetrics.apple.com   #Apple 支援服務遙測
 DOMAIN,securemetrics.apple.com   #安全相關遙測
+DOMAIN,securemvt.apple.com   #安全相關遙測
 DOMAIN,basejumper.apple.com   #遙測數據收集 (內部代號)
 DOMAIN,stats.apple.com   #統計數據上傳
 DOMAIN,data.apple.com   #通用數據收集端點
 DOMAIN,telemetry.apple.com   #裝置性能與使用數據遙測
 DOMAIN,logws.apple.com   #系統與 App 日誌回傳
 DOMAIN,xp.apple.com   #A/B 測試與體驗採樣
+DOMAIN,weather-analytics-events.apple.com   #天氣 App 相關的分析事件域名
+DOMAIN,weather-analytics-events.news.apple-dns.net   #天氣 App 相關的分析事件域名（CDN 版本）
 
 ########################################
 # SECTION 5 －－ Diagnostics / Internal Reporting (OPTIONAL BLOCK)
