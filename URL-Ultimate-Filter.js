@@ -61,7 +61,7 @@ const CONFIG = {
     // Government & Utilities ---
     'org.tw', 'gov.tw', 'pay.taipei', 'tdcc.com.tw', 'twca.com.tw', 'twmp.com.tw',
     // --- 核心登入 & 協作平台 ---
-    'atlassian.net', 'auth0.com', 'okta.com', 'slack.com',
+    'atlassian.net', 'auth0.com', 'okta.com', 'slack.com', 'googleapis.com',
     // --- 社群 & 電商平台 (根域名) ---
     'book.com.tw', 'citiesocial.com', 'coupang.com', 'iherb.biz', 'iherb.com', 'shopee.com', 'shopeemobile.com', 'shopee.tw',
     'pxmart.com.tw', 'pxpayplus.com', 'momoshop.com.tw', 'momo.dm',
