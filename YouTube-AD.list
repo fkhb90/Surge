@@ -2,7 +2,7 @@
 
 ## 基礎網路協定規則
 # 阻擋可疑 UDP 連線
-# AND,((PROTOCOL,UDP), (DEST-PORT,443)),REJECT-NO-DROP
+AND,((PROTOCOL,UDP), (DEST-PORT,443)),REJECT-NO-DROP
 
 ## 🛡️ **隱私追蹤防護（核心重點）**
 # Google 分析與追蹤服務
@@ -32,7 +32,7 @@ DOMAIN-SUFFIX,amazon-adsystem.com,REJECT
 DOMAIN-SUFFIX,ads.twitter.com,REJECT
 DOMAIN-SUFFIX,ads.pinterest.com,REJECT
 DOMAIN-SUFFIX,ads.linkedin.com,REJECT
-DOMAIN-SUFFIX,t.co,REJECT
+# DOMAIN-SUFFIX,t.co,REJECT
 
 ## 📺 **YouTube 廣告服務阻擋（Premium 安全）**
 # 核心廣告服務（不影響 Premium 功能）
