@@ -79,7 +79,6 @@ DOMAIN,amp-ad.apple.com   #App Store 推薦內容廣告
 DOMAIN,unityads.unity3d.com   #Unity 遊戲引擎廣告
 DOMAIN,ads.internal.unity3d.com   #Unity 廣告 (內部)
 DOMAIN,ads.prd.ie.internal.unity3d.com   #Unity 廣告 (產品)
-USER-AGENT,com.apple.AppStore.ProductPageExtension*
 
 ########################################
 # SECTION 4 －－ Analytics / Telemetry (RECOMMENDED BLOCK)
@@ -222,6 +221,7 @@ URL-REGEX,^https?:\/\/[a-z0-9-]+\.analytics\.apple.com   #攔截 analytics.apple
 URL-REGEX,^https?:\/\/news\.apple\.com\/.*\/ads\/.* #攔截 Apple News 中明確的廣告路徑
 URL-REGEX,^https?:\/\/stocks\.apple\.com\/.*\/ads\/.* #攔截股市 App 中明確的廣告路徑
 URL-REGEX,^https?:\/\/api-adservices\.apple\.com\/api\/v[1-9]\/attribution\/.* #攔截 SKAdNetwork 的版本化歸因回報 URL
+USER-AGENT,com.apple.AppStore.ProductPageExtension*
 
 ########################################
 # END OF FILE
