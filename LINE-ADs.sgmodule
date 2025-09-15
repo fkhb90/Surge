@@ -1,12 +1,13 @@
-#!name=LINE 廣告與追蹤攔截規則 (v3.4.1 - 格式修正版)
-#!desc=修正 v3.4 [MITM] 區段的換行錯誤，使其符合 Surge Module 標準格式。v20250915
+#!name=LINE 廣告與追蹤攔截規則 (v3.4.2 - REGEX 語法修正版)
+#!desc=修正 v3.4.1 中因正規表示式包含逗號而導致的 Surge 解析錯誤。v20250916
 #!system=ios
 #!category=Line
 
 #
-# 最後更新：2025-09-15
-# 說明：此版本修正了 v3.4 中 [MITM] 區段因換行導致的無效配置錯誤。
-#       所有主機名稱均已合併至單行，以符合 Surge 標準語法。
+# 最後更新：2025-09-16
+# 說明：此版本修正了一條 URL-REGEX 規則，因其表達式內部含有逗號 {n,}
+#       與 Surge 解析器衝突的問題。通過為該表達式添加雙引號，解決了
+#       "unknown policy" 的警告。
 # ===================================================================
 
 [General]
@@ -53,7 +54,7 @@ URL-REGEX,^https:\/\/(targeting|behavioral|personalized|recommend-ad)\.line\.me\
 # C. 各服務內嵌廣告 (API 優先，內容為輔)
 # -------------------------------------------------------------------
 # === 廣告內容 CDN ===
-URL-REGEX,https:\/\/obs\.line-scdn\.net\/(r\/linecrs\/.+\/m\d+x\d+|0h[0-9a-zA-Z_-]{50,}),REJECT-TINYGIF
+URL-REGEX,"https:\/\/obs\.line-scdn\.net\/(r\/linecrs\/.+\/m\d+x\d+|0h[0-9a-zA-Z_-]{50,})",REJECT-TINYGIF
 URL-REGEX,^https:\/\/d\.line-scdn\.net\/lcp-prod-photo\/20.+\.(jpe?g|png)$,REJECT-TINYGIF
 URL-REGEX,^https:\/\/(splash|startup-ad|dynamic-ad)\.line\.(me|net|com)\/.*$,REJECT-TINYGIF
 URL-REGEX,^https:\/\/.*\.line\.me\/er\/lass\/v1\/event\/image\.*$,REJECT-TINYGIF # [v3.4 新增]
