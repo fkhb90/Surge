@@ -79,6 +79,7 @@ DOMAIN,amp-ad.apple.com   #App Store 推薦內容廣告
 DOMAIN,unityads.unity3d.com   #Unity 遊戲引擎廣告
 DOMAIN,ads.internal.unity3d.com   #Unity 廣告 (內部)
 DOMAIN,ads.prd.ie.internal.unity3d.com   #Unity 廣告 (產品)
+USER-AGENT,com.apple.AppStore.ProductPageExtension*
 
 ########################################
 # SECTION 4 －－ Analytics / Telemetry (RECOMMENDED BLOCK)
