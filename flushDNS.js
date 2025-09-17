@@ -1,32 +1,21 @@
 /*
  * @name         清除 DNS 快取 (Flush DNS Cache)
  * @description  用於 Surge Panel 的腳本，提供手動清除 DNS 快取功能，並顯示當前的 DNS 查詢延遲與伺服器資訊。
- * @version      2.1.0
+ * @version      2.2.0 (相容性修正版)
  * @author       Pysta (原作者), Gemini (優化與重構)
  * @github       https://github.com/mieqq/mieqq (原作者項目)
  *
- * v2.1.0 更新日誌:
- * - 重構 httpAPI 函式為 httpGet 與 httpPost 兩個獨立函式，徹底避免因參數預設值或環境問題導致的 "Method Not Allowed" 錯誤。
- * - 新增版本號日誌，方便使用者確認腳本是否已成功更新。
+ * v2.2.0 更新日誌:
+ * - (相容性修正) 根據診斷結果，將獲取 DNS 延遲的請求 /v1/test/dns_delay 修改為 POST 方法，以適應非標準的 Surge API 環境。
  *
  * 使用說明：
- *
  * [Panel]
  * 清除 DNS 快取 = script-name=flush-dns.js, update-interval=600
- *
- * [Script]
- * 手動清除 DNS = type=generic, script-path=flush-dns.js, argument=title=清除 DNS&icon=arrow.clockwise.circle&color=#3d3d5b
- *
- * 可選參數 (argument):
- * title=標題文字     (例如: title=刷新 DNS)
- * icon=圖示名稱      (Surge SF Symbols 圖示, 例如: icon=trash)
- * color=#色碼      (圖示顏色, 例如: color=#FF0000)
- * server=false    (設為 false 則不在面板中顯示 DNS 伺服器列表)
  */
 
 // 立即執行函式 (IIFE)，確保腳本內部變數不會污染全域。
 !(async () => {
-    console.log("正在執行 [清除 DNS 快取] 腳本 v2.1.0");
+    console.log("正在執行 [清除 DNS 快取] 腳本 v2.2.0 (相容性修正版)");
 
     // 1. 解析傳入參數並設定面板預設值
     const config = parseArguments();
@@ -34,7 +23,7 @@
     try {
         // 2. 處理按鈕觸發事件
         if ($trigger === "button") {
-            await httpPost("/v1/dns/flush"); // 使用明確的 httpPost 函式
+            await httpPost("/v1/dns/flush");
             $notification.post(
                 config.panel.title,
                 "DNS 快取已成功清除",
@@ -44,8 +33,10 @@
 
         // 3. 平行獲取面板所需資訊
         const [dnsDelayResult, dnsCacheResult] = await Promise.all([
-            httpGet("/v1/test/dns_delay"), // 使用明確的 httpGet 函式
-            config.showServer ? httpGet("/v1/dns") : Promise.resolve(null) // 使用明確的 httpGet 函式
+            // ===== [核心修正] 根據您的環境，此處使用 POST 方法 =====
+            httpPost("/v1/test/dns_delay"),
+            // =======================================================
+            config.showServer ? httpGet("/v1/dns") : Promise.resolve(null)
         ]);
         
         // 4. 處理並格式化獲取的數據
@@ -79,7 +70,6 @@
 
 /**
  * 解析傳入的腳本參數 ($argument)
- * @returns {object} 包含面板設定 (panel) 與是否顯示伺服器 (showServer) 的物件
  */
 function parseArguments() {
     let panel = { title: "清除 DNS 快取" };
@@ -106,8 +96,6 @@ function parseArguments() {
 
 /**
  * 封裝 Surge $httpAPI 的 GET 請求
- * @param {string} path - API 路徑
- * @returns {Promise<object>}
  */
 function httpGet(path) {
     return new Promise((resolve, reject) => {
@@ -123,9 +111,6 @@ function httpGet(path) {
 
 /**
  * 封裝 Surge $httpAPI 的 POST 請求
- * @param {string} path - API 路徑
- * @param {object} [body=null] - 請求內文
- * @returns {Promise<object>}
  */
 function httpPost(path, body = null) {
     return new Promise((resolve, reject) => {
