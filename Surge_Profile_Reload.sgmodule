@@ -1,0 +1,9 @@
+#!name= Surge-Profile-Reload
+#!desc= Surge 設定檔重載，刷新 DNS 緩存
+#!category=Brian
+
+[Panel]
+設定檔重載 = title=設定檔重載,content=設定檔重載,style=info,script-name=設定檔重載,update-interval=-1
+
+[Script]
+設定檔重載 = type=generic,script-path=https://raw.githubusercontent.com/fkhb90/Surge/main/Profile-Reload.js
