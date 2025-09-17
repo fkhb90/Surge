@@ -1,18 +1,20 @@
 /*
  * @name         清除 DNS 快取 (Flush DNS Cache)
  * @description  用於 Surge Panel 的腳本，提供手動清除 DNS 快取功能，並顯示當前的 DNS 查詢延遲與伺服器資訊。
- * @version      2.0.0
+ * @version      2.1.0
  * @author       Pysta (原作者), Gemini (優化與重構)
  * @github       https://github.com/mieqq/mieqq (原作者項目)
+ *
+ * v2.1.0 更新日誌:
+ * - 重構 httpAPI 函式為 httpGet 與 httpPost 兩個獨立函式，徹底避免因參數預設值或環境問題導致的 "Method Not Allowed" 錯誤。
+ * - 新增版本號日誌，方便使用者確認腳本是否已成功更新。
  *
  * 使用說明：
  *
  * [Panel]
- * # 面板模式：顯示延遲與伺服器資訊，點擊可刷新。
  * 清除 DNS 快取 = script-name=flush-dns.js, update-interval=600
  *
  * [Script]
- * # 按鈕模式：僅執行清除 DNS 的操作。
  * 手動清除 DNS = type=generic, script-path=flush-dns.js, argument=title=清除 DNS&icon=arrow.clockwise.circle&color=#3d3d5b
  *
  * 可選參數 (argument):
@@ -24,32 +26,33 @@
 
 // 立即執行函式 (IIFE)，確保腳本內部變數不會污染全域。
 !(async () => {
+    console.log("正在執行 [清除 DNS 快取] 腳本 v2.1.0");
+
     // 1. 解析傳入參數並設定面板預設值
     const config = parseArguments();
 
     try {
         // 2. 處理按鈕觸發事件
         if ($trigger === "button") {
-            await httpAPI("/v1/dns/flush", "POST");
+            await httpPost("/v1/dns/flush"); // 使用明確的 httpPost 函式
             $notification.post(
-                config.panel.title, // 通知標題
-                "DNS 快取已成功清除", // 通知子標題
-                "" // 通知內容
+                config.panel.title,
+                "DNS 快取已成功清除",
+                ""
             );
         }
 
-        // 3. 平行獲取面板所需資訊 (DNS 延遲和伺服器列表)
+        // 3. 平行獲取面板所需資訊
         const [dnsDelayResult, dnsCacheResult] = await Promise.all([
-            httpAPI("/v1/test/dns_delay", "GET"),
-            config.showServer ? httpAPI("/v1/dns", "GET") : Promise.resolve(null)
+            httpGet("/v1/test/dns_delay"), // 使用明確的 httpGet 函式
+            config.showServer ? httpGet("/v1/dns") : Promise.resolve(null) // 使用明確的 httpGet 函式
         ]);
         
         // 4. 處理並格式化獲取的數據
         const delay = (dnsDelayResult.delay * 1000).toFixed(0);
-        let content = [`延遲: ${delay}ms`]; // 初始化內容陣列
+        let content = [`延遲: ${delay}ms`];
         
         if (config.showServer && dnsCacheResult?.dnsCache) {
-            // 使用 Set 去除重複的伺服器地址，並用換行符號連接
             const servers = [...new Set(dnsCacheResult.dnsCache.map(d => d.server))].join("\n");
             if (servers) {
                 content.push(`伺服器:\n${servers}`);
@@ -63,14 +66,13 @@
         $done(config.panel);
 
     } catch (error) {
-        // 7. 錯誤處理：若 API 請求失敗則發出通知
+        // 7. 錯誤處理
         console.log(`腳本執行錯誤: ${error}`);
         $notification.post(
             config.panel.title,
             "腳本執行失敗",
-            "請檢查 Surge 紀錄檔以獲取詳細錯誤資訊。"
+            `錯誤訊息: ${error}。請檢查 Surge 紀錄檔。`
         );
-        // 結束腳本，不更新面板
         $done();
     }
 })();
@@ -87,7 +89,6 @@ function parseArguments() {
         const args = Object.fromEntries(
             $argument.split("&").map(item => {
                 const parts = item.split("=");
-                // 解碼 URI 編碼的參數值
                 if (parts.length > 1) {
                     parts[1] = decodeURIComponent(parts[1]);
                 }
@@ -104,16 +105,31 @@ function parseArguments() {
 }
 
 /**
- * 封裝 Surge $httpAPI 的 Promise 版本
- * @param {string} path - API 路徑 (例如: /v1/dns)
- * @param {string} method - HTTP 方法 (預設為 'POST')
- * @param {object} body - 請求內文 (預設為 null)
- * @returns {Promise<object>} - 回傳一個解析後的 API 結果物件
+ * 封裝 Surge $httpAPI 的 GET 請求
+ * @param {string} path - API 路徑
+ * @returns {Promise<object>}
  */
-function httpAPI(path = "", method = "POST", body = null) {
+function httpGet(path) {
     return new Promise((resolve, reject) => {
-        $httpAPI(method, path, body, (result) => {
-            // 如果 result 物件中包含 error 鍵，則拒絕 Promise
+        $httpAPI("GET", path, null, (result) => {
+            if (result.error) {
+                reject(result.error);
+            } else {
+                resolve(result);
+            }
+        });
+    });
+}
+
+/**
+ * 封裝 Surge $httpAPI 的 POST 請求
+ * @param {string} path - API 路徑
+ * @param {object} [body=null] - 請求內文
+ * @returns {Promise<object>}
+ */
+function httpPost(path, body = null) {
+    return new Promise((resolve, reject) => {
+        $httpAPI("POST", path, body, (result) => {
             if (result.error) {
                 reject(result.error);
             } else {
