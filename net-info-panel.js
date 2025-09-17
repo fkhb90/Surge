@@ -258,9 +258,9 @@ async function generatePanel(logger, http, retryTimes = 3, retryInterval = 1000)
         const content = `
 [本地網路資訊]
 ${getLocalIPInfo()}
-[節點 IP] ${info.query}
-[節點 ISP] ${info.isp}
-[節點位置] ${getFlagEmoji(info.countryCode)} ${info.country} - ${info.city}
+[IP信息] ${info.query}
+[運營商] ${info.isp}
+[IP位置] ${getFlagEmoji(info.countryCode)} ${info.country} - ${info.city}
         `.trim();
 
         $done({
@@ -327,3 +327,4 @@ ${getLocalIPInfo()}
         clearTimeout(timeoutHandle);
     });
 })();
+
