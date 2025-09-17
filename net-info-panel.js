@@ -1,10 +1,12 @@
 /*
- * Surge 網路詳情面板 v2.0
+ * Surge 網路詳情面板 v2.1
  *
  * @author Nebulosa-Cat (Original Author)
  * @author Gemini (Code Refactoring & Optimization)
  *
  * 最後更新時間: 2025-09-17
+ *
+ * v2.1: 修正了 ip-api.com 免費版不支援 HTTPS 的問題，將 API URL 改回 HTTP。
  *
  * 此版本基於原版進行了全面的程式碼優化與現代化，提升了效能、可讀性與穩定性。
  * 詳情請見 README。
@@ -239,7 +241,8 @@ function getLocalIPInfo() {
  */
 async function generatePanel(logger, http, retryTimes = 3, retryInterval = 1000) {
     try {
-        const apiUrl = 'https://ip-api.com/json?fields=status,country,countryCode,city,isp,query';
+        // [v2.1] 修正：免費版 API 不支援 HTTPS，改回 HTTP
+        const apiUrl = 'http://ip-api.com/json?fields=status,country,countryCode,city,isp,query';
         const response = await http.get(apiUrl);
 
         if (response.status !== 200) {
