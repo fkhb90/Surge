@@ -1,9 +1,9 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.22.js
- * @version     40.22 (Syntax Correction)
- * @description 修正 BLOCK_DOMAINS 列表中因遺漏逗號而導致部分域名攔截規則失效的嚴重語法錯誤。
+ * @file        URL-Ultimate-Filter-Surge-V40.23.js
+ * @version     40.23 (Spotify Whitelisting)
+ * @description 為了提升相容性，將 Spotify 相關服務移出黑名單，並將主域名 spotify.com 加入萬用字元硬白名單。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-09-12
+ * @lastUpdated 2025-09-17
  */
 
 // #################################################################################################
@@ -51,8 +51,7 @@ const CONFIG = {
    * 說明：完全豁免所有檢查。此處的域名會匹配自身及其所有子域名 (例如 apple.com 會匹配 a.apple.com)。
    */
   HARD_WHITELIST_WILDCARDS: new Set([
-    // --- AI & Search Services ---
-    // Financial, Banking & Payments ---
+    // --- Financial, Banking & Payments ---
     'bot.com.tw', 'cathaybk.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw', 'ctbcbank.com', 'dawho.tw', 'dbs.com.tw',
     'esunbank.com.tw', 'firstbank.com.tw', 'fubon.com', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw',
     'megabank.com.tw', 'megatime.com.tw', 'mitake.com.tw', 'money-link.com.tw', 'mymobibank.com.tw', 'paypal.com', 'richart.tw',
@@ -61,12 +60,12 @@ const CONFIG = {
     // Government & Utilities ---
     'org.tw', 'gov.tw', 'pay.taipei', 'tdcc.com.tw', 'twca.com.tw', 'twmp.com.tw',
     // --- 核心登入 & 協作平台 ---
-    'atlassian.net', 'auth0.com', 'okta.com', 'slack.com', 'googleapis.com',
-    // --- 社群 & 電商平台 (根域名) ---
+    'atlassian.net', 'auth0.com', 'okta.com', 'slack.com',
+    // --- 社群 & 娛樂平台 (根域名) ---
     'book.com.tw', 'citiesocial.com', 'coupang.com', 'iherb.biz', 'iherb.com', 'shopee.com', 'shopeemobile.com', 'shopee.tw',
-    'pxmart.com.tw', 'pxpayplus.com', 'momoshop.com.tw', 'momo.dm',
+    'pxmart.com.tw', 'pxpayplus.com', 'momoshop.com.tw', 'momo.dm', 'spotify.com',
     // --- 系統 & 平台核心服務 ---
-    'apple.com', 'icloud.com', 'update.microsoft.com', 'windowsupdate.com', 'linksyssmartwifi.com',
+    'apple.com', 'googleapis.com', 'icloud.com', 'update.microsoft.com', 'windowsupdate.com', 'linksyssmartwifi.com',
     // --- 網頁存檔服務 (對參數極度敏感) ---
     'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com', 'perma.cc',
     'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'webcache.googleusercontent.com', 'www.webarchive.org.uk',
@@ -117,7 +116,7 @@ const CONFIG = {
    */
   BLOCK_DOMAINS: new Set([
     // --- Ad & Tracking CDNs ---
-    'adnext-a.akamaihd.net', 'appnext.hs.llnwd.net', 'pgdt.gtimg.cn', 'toots-a.akamaihd.net', 'video-akpcw-cdn-spotify-com.akamaized.net',
+    'adnext-a.akamaihd.net', 'appnext.hs.llnwd.net', 'pgdt.gtimg.cn', 'toots-a.akamaihd.net', 'fusioncdn.com',
     // --- Apple ---
     'app-site-association.cdn-apple.com', 'iadsdk.apple.com',
     // --- Baidu ---
@@ -134,15 +133,15 @@ const CONFIG = {
     // --- Zhihu ---
     'appcloud.zhihu.com', 'appcloud2.in.zhihu.com', 'crash2.zhihu.com', 'mqtt.zhihu.com', 'sugar.zhihu.com',
     // --- 平台內部追蹤 & 分析 ---
-    'adeventtracker.spotify.com', 'log.felo.ai', 'log.spotify.com', 'spclient.wg.spotify.com', 'visuals.feedly.com',
+    'log.felo.ai', 'visuals.feedly.com',
     // --- 主流分析 & 追蹤服務 ---
     'adjust.com', 'adform.net', 'ads.linkedin.com', 'adsrvr.org', 'agn.aty.sohu.com', 'amplitude.com', 'analytics.line.me',
     'analytics.slashdotmedia.com', 'analytics.strava.com', 'analytics.twitter.com', 'analytics.yahoo.com', 'api.pendo.io',
     'apm.gotokeep.com', 'applog.mobike.com', 'applog.uc.cn', 'appsflyer.com', 'branch.io', 'bugsnag.com', 'c.clarity.ms',
     'chartbeat.com', 'clicktale.net', 'clicky.com', 'cn-huabei-1-lg.xf-yun.com', 'comscore.com', 'crazyegg.com', 'criteo.com',
-    'criteo.net', 'datadoghq.com',    'fullstory.com', 'gs.getui.com', 'heap.io', 'hotjar.com', 'inspectlet.com', 'keen.io',
+    'criteo.net', 'data.investing.com', 'datadoghq.com', 'fullstory.com', 'gs.getui.com', 'heap.io', 'hotjar.com', 'inspectlet.com', 'keen.io',
     'kissmetrics.com', 'log.b612kaji.com', 'loggly.com', 'logrocket.com', 'matomo.cloud', 'mixpanel.com', 'mouseflow.com',
-    'mparticle.com', 'newrelic.com', 'nr-data.net', 'oceanengine.com', 'openx.com', 'openx.net', 'optimizely.com', 'outbrain.com',
+    'mparticle.com', 'mlytics.com', 'newrelic.com', 'nr-data.net', 'oceanengine.com', 'openx.com', 'openx.net', 'optimizely.com', 'outbrain.com',
     'pc-mon.snssdk.com', 'piwik.pro', 'pubmatic.com', 'quantserve.com', 'rubiconproject.com', 'scorecardresearch.com', 'segment.com',
     'segment.io', 'semasio.net', 'sentry.io', 'sensorsdata.cn', 'snowplowanalytics.com', 'stat.m.jd.com', 'statcounter.com',
     'static.ads-twitter.com', 'sumo.com', 'sumome.com', 'taboola.com', 'tealium.com', 'track.tiara.daum.net', 'track.tiara.kakao.com',
@@ -181,7 +180,7 @@ const CONFIG = {
     // --- 隱私權 & Cookie 同意管理 ---
     'cookielaw.org', 'onetrust.com', 'sourcepoint.com', 'trustarc.com', 'usercentrics.eu',
     // --- 台灣地區 (純廣告/追蹤) ---
-    'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'cacafly.com',
+    'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'cacafly.com',
     'clickforce.com.tw', 'fast-trk.com', 'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com',
     'sitetag.us', 'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com',
     // --- 中國大陸地區 (純廣告/追蹤) ---
