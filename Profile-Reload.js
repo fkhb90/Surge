@@ -1,9 +1,9 @@
 /*
  * Surge 設定檔重載面板（顯示優化＋超時保護）
- * - 成功訊息與「上次重載時間」分兩行顯示
- * - 上次重載時間格式：YYYY 年 MM 月 DD 日 HH:mm:ss（支援待命與成功態）
+ * - 成功訊息與「上次重載」分兩行顯示
+ * - 上次重載時間格式：YYYY/MM/DD HH:mm:ss
  * - 兩層超時：硬性看門狗（hardTimeoutMs）＋ 單次操作超時（opTimeoutMs）
- * - 成功 / 失敗通知與面板即時回饋；持久化上次重載時間與結果
+ * - 成功 / 失敗通知與面板回饋；持久化上次重載時間與結果
  */
 
 ;(async () => {
@@ -60,10 +60,10 @@
       // 1) 觸發重載（單次操作超時）
       await httpAPIWithTimeout("POST", "/v1/profiles/reload", {}, cfg.opTimeoutMs)
 
-      // 2) 記錄時間並以「兩行」格式回饋成功
+      // 2) 記錄時間並以兩行格式回饋成功
       const now = Date.now()
       $persistentStore.write(JSON.stringify({ lastReload: now, lastResult: "success" }), STORE_KEY)
-      const content = `${cfg.successText}\n上次重載：${formatDateTimeTW(now)}`
+      const content = `${cfg.successText}\n上次重載：${formatDateTimeSlash(now)}`
       $notification.post(cfg.title, "", content)
 
       return doneOnce({
@@ -74,12 +74,12 @@
         style: "good"
       })
     } else {
-      // 待命：顯示提示＋上一筆時間（含年月日）
+      // 待命：顯示提示＋上一筆時間（含成功/失敗）
       const state = readState(STORE_KEY)
       const lines = [cfg.standbyText]
       if (cfg.showLastTime && state?.lastReload) {
         const status = state.lastResult === "success" ? "成功" : "失敗"
-        lines.push(`上次重載時間：${formatDateTimeTW(state.lastReload)}（${status}）`)
+        lines.push(`上次重載：${formatDateTimeSlash(state.lastReload)}（${status}）`)
       }
       return doneOnce({
         title: cfg.title,
@@ -154,12 +154,11 @@
 
   function pad2(n) { return n < 10 ? "0" + n : "" + n }
 
-  // 以繁中「年月日」格式輸出時間：YYYY 年 MM 月 DD 日 HH:mm:ss
-  function formatDateTimeTW(ts) {
+  // 以「YYYY/MM/DD HH:mm:ss」格式輸出
+  function formatDateTimeSlash(ts) {
     const d = new Date(ts)
-    const D = `${d.getFullYear()}/${pad2(d.getMonth() + 1)}/${pad2(d.getDate())}/`
+    const D = `${d.getFullYear()}/${pad2(d.getMonth() + 1)}/${pad2(d.getDate())}`
     const T = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
     return `${D} ${T}`
   }
 })()
-
