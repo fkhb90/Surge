@@ -1,9 +1,9 @@
 /*
- * Surge 設定檔重載面板（超時優化版）
+ * Surge 設定檔重載面板（顯示優化＋超時保護）
+ * - 成功訊息與「上次重載時間」分兩行顯示
+ * - 上次重載時間格式：YYYY 年 MM 月 DD 日 HH:mm:ss（支援待命與成功態）
  * - 兩層超時：硬性看門狗（hardTimeoutMs）＋ 單次操作超時（opTimeoutMs）
- * - 成功 / 失敗通知與面板即時回饋
- * - 顯示上次重載時間（持久化）
- * - 參數可經由 argument 覆寫
+ * - 成功 / 失敗通知與面板即時回饋；持久化上次重載時間與結果
  */
 
 ;(async () => {
@@ -40,7 +40,7 @@
     $done(panel)
   }
 
-  // 硬性看門狗：確保在硬時限內結束
+  // 硬性看門狗：超過時限主動結束（避免系統層超時體感不一致）
   watchdogTimer = setTimeout(() => {
     const now = Date.now()
     const content = `${cfg.failureText}\n錯誤詳情：執行逾時（>${cfg.hardTimeoutMs}ms）`
@@ -57,12 +57,13 @@
 
   try {
     if ($trigger === "button") {
-      // 執行設定檔重載，套用單次操作超時
+      // 1) 觸發重載（單次操作超時）
       await httpAPIWithTimeout("POST", "/v1/profiles/reload", {}, cfg.opTimeoutMs)
 
+      // 2) 記錄時間並以「兩行」格式回饋成功
       const now = Date.now()
       $persistentStore.write(JSON.stringify({ lastReload: now, lastResult: "success" }), STORE_KEY)
-      const content = `${cfg.successText} • ${formatTime(now)}`
+      const content = `${cfg.successText}\n上次重載時間：${formatDateTimeTW(now)}`
       $notification.post(cfg.title, "", content)
 
       return doneOnce({
@@ -73,12 +74,12 @@
         style: "good"
       })
     } else {
-      // 待命顯示＋上次結果
+      // 待命：顯示提示＋上一筆時間（含年月日）
       const state = readState(STORE_KEY)
       const lines = [cfg.standbyText]
       if (cfg.showLastTime && state?.lastReload) {
         const status = state.lastResult === "success" ? "成功" : "失敗"
-        lines.push(`上次：${formatDateTime(state.lastReload)}（${status}）`)
+        lines.push(`上次重載時間：${formatDateTimeTW(state.lastReload)}（${status}）`)
       }
       return doneOnce({
         title: cfg.title,
@@ -89,6 +90,7 @@
       })
     }
   } catch (e) {
+    // 失敗路徑：保持兩行以上資訊的易讀性
     const now = Date.now()
     $persistentStore.write(JSON.stringify({ lastReload: now, lastResult: "failure", error: String(e) }), STORE_KEY)
     const content = `${cfg.failureText}\n錯誤詳情：${e instanceof Error ? e.message : String(e)}`
@@ -151,13 +153,11 @@
   }
 
   function pad2(n) { return n < 10 ? "0" + n : "" + n }
-  function formatTime(ts) {
+
+  // 以繁中「年月日」格式輸出時間：YYYY 年 MM 月 DD 日 HH:mm:ss
+  function formatDateTimeTW(ts) {
     const d = new Date(ts)
-    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
-  }
-  function formatDateTime(ts) {
-    const d = new Date(ts)
-    const D = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+    const D = `${d.getFullYear()} 年 ${pad2(d.getMonth() + 1)} 月 ${pad2(d.getDate())} 日`
     const T = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
     return `${D} ${T}`
   }
