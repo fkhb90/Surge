@@ -1,11 +1,15 @@
 /*
-  Cloudflare WARP 面板（修正版）
+  Cloudflare WARP 面板（增強版）
   - Surge：動態讀取「Proxy」群組當前所選節點，並以該節點作為 policy 發出 Cloudflare Trace 請求
-  - 其他平台：維持原行為（可自行延伸）
+  - Loon / Quantumult X：沿用既有傳入參數（node / params）綁定路由策略
+  - Stash：面板配色適配
+  - 新增：持久化比對（IP/節點），偵測變更自動提示（配合面板 update-interval 近即時刷新）
 */
 
 const PROXY_GROUP_NAME = 'Proxy'; // 若群組名不同，請改這裡
-const TITLE = '☁️ 𝗪𝗔𝗥𝗣 資訊面板';
+const STORE_KEY = 'WARP_PANEL_STATE';
+
+const TITLE = '☁️ WARP 資訊面板';
 const ICON = 'lock.icloud.fill';
 const ICON_COLOR = '#F48220';
 
@@ -14,16 +18,27 @@ function isLoon() { return typeof $loon !== 'undefined'; }
 function isQX() { return typeof $task !== 'undefined' && typeof $prefs !== 'undefined'; }
 function isStash() { return typeof $environment !== 'undefined' && !!$environment['stash-version']; }
 
+function toStringBody(body) {
+  try {
+    if (typeof body === 'string') return body;
+    if (body && typeof body === 'object') {
+      if (body.bytes && (typeof body.bytes === 'object' || Array.isArray(body.bytes))) {
+        const u8 = body.bytes instanceof Uint8Array ? body.bytes : new Uint8Array(body.bytes);
+        return new TextDecoder('utf-8').decode(u8);
+      }
+      if (body instanceof ArrayBuffer) return new TextDecoder('utf-8').decode(new Uint8Array(body));
+      if (body instanceof Uint8Array) return new TextDecoder('utf-8').decode(body);
+    }
+  } catch {}
+  return body + '';
+}
+
 function httpGet(opts) {
   return new Promise((resolve, reject) => {
     $httpClient.get(opts, (err, resp, body) => {
       if (err) return reject(err);
-      if (typeof body === 'object' && body !== null && body.bytes) {
-        // Surge 可能回傳 bodyBytes
-        body = body.bytes;
-      }
       resp = resp || {};
-      resp.body = body;
+      resp.body = toStringBody(body);
       resp.ok = resp.status >= 200 && resp.status < 300;
       resolve(resp);
     });
@@ -32,7 +47,11 @@ function httpGet(opts) {
 
 function parseTrace(text) {
   if (!text || typeof text !== 'string') return null;
-  const kv = Object.fromEntries(text.trim().split('\n').map(l => l.split('=')));
+  const lines = text.trim().split('\n');
+  const kv = Object.fromEntries(lines.map(l => {
+    const i = l.indexOf('=');
+    return i >= 0 ? [l.slice(0, i), l.slice(i + 1)] : [l, ''];
+  }));
   return kv && kv.ip ? kv : null;
 }
 
@@ -50,6 +69,16 @@ async function fetchTraceIPv6(requestOptions) {
   } catch { return null; }
 }
 
+function loadState() {
+  try { return JSON.parse($persistentStore.read(STORE_KEY) || '{}'); } catch { return {}; }
+}
+function saveState(s) {
+  try { $persistentStore.write(JSON.stringify(s || {}), STORE_KEY); } catch {}
+}
+function fmtTs(t) {
+  try { return new Date(t).toLocaleString(); } catch { return String(t || ''); }
+}
+
 function donePanel(content) {
   const panel = { title: TITLE, content, icon: ICON, 'icon-color': ICON_COLOR };
   if (isStash()) panel.backgroundColor = '#F6821F';
@@ -58,8 +87,8 @@ function donePanel(content) {
 
 function surgeGetSelectedOfGroup(groupName) {
   return new Promise((resolve) => {
-    // 嘗試精確查詢選中
     try {
+      // 精確查詢選中值
       $httpAPI('GET', '/v1/policy_groups/select', { group_name: groupName }, data => {
         const selected = data && (data.selected || data.policy || data.value);
         if (selected) return resolve(selected);
@@ -84,6 +113,7 @@ function surgeGetSelectedOfGroup(groupName) {
 
 (async () => {
   let requestOptions = {};
+
   // 綁定不同平台的「策略/節點」參數（如有）
   if (isLoon()) requestOptions.policy = $environment?.params?.node;
   if (isQX()) requestOptions.policy = $environment?.params;
@@ -107,11 +137,34 @@ function surgeGetSelectedOfGroup(groupName) {
   const warpMap = { OFF: '關閉', ON: '開啟', PLUS: '增強 (Plus)' };
   const warp = `${warpRaw} (${warpMap[warpRaw] || '未知'})`;
 
+  const now = Date.now();
+  const prev = loadState();
+  const curr = {
+    ip4, ip6,
+    policy: requestOptions.policy || '',
+    ts: now
+  };
+  const changed =
+    (prev?.ip4 && prev.ip4 !== curr.ip4) ||
+    (prev?.ip6 && prev.ip6 !== curr.ip6) ||
+    (prev?.policy && prev.policy !== curr.policy);
+
+  if (!prev || changed) {
+    saveState(curr);
+    try {
+      $notification.post('WARP 面板', '偵測到 IP 或節點變更', `Policy: ${curr.policy || '未知'}\nIPv4: ${ip4}\nIPv6: ${ip6}`);
+    } catch {}
+  }
+
+  const lastTs = prev?.ts ? fmtTs(prev.ts) : '—';
+  const hint = changed ? '狀態：剛剛變更' : `上次變更：${lastTs}`;
+
   const content =
     `IPv4 位址: ${ip4}\n` +
     `IPv6 位址: ${ip6}\n` +
     `節點位置: ${loc} - ${colo}\n` +
-    `隱私保護: ${warp}`;
+    `隱私保護: ${warp}\n` +
+    `${hint}`;
 
   donePanel(content);
 })().catch(e => {
