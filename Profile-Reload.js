@@ -63,7 +63,7 @@
       // 2) 記錄時間並以「兩行」格式回饋成功
       const now = Date.now()
       $persistentStore.write(JSON.stringify({ lastReload: now, lastResult: "success" }), STORE_KEY)
-      const content = `${cfg.successText}\n上次重載時間：${formatDateTimeTW(now)}`
+      const content = `${cfg.successText}\n上次重載：${formatDateTimeTW(now)}`
       $notification.post(cfg.title, "", content)
 
       return doneOnce({
@@ -157,8 +157,9 @@
   // 以繁中「年月日」格式輸出時間：YYYY 年 MM 月 DD 日 HH:mm:ss
   function formatDateTimeTW(ts) {
     const d = new Date(ts)
-    const D = `${d.getFullYear()} 年 ${pad2(d.getMonth() + 1)} 月 ${pad2(d.getDate())} 日`
+    const D = `${d.getFullYear()}/${pad2(d.getMonth() + 1)}/${pad2(d.getDate())}/`
     const T = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
     return `${D} ${T}`
   }
 })()
+
