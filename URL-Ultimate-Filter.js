@@ -1,9 +1,9 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.23.js
- * @version     40.23 (Spotify Whitelisting)
- * @description 為了提升相容性，將 Spotify 相關服務移出黑名單，並將主域名 spotify.com 加入萬用字元硬白名單。
+ * @file        URL-Ultimate-Filter-Surge-V40.24.js
+ * @version     40.24 (Taiwan News Ad Scripts)
+ * @description 新增對台灣主流新聞網站（NOWnews, LTN）廣告腳本的精準攔截規則。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-09-17
+ * @lastUpdated 2025-09-19
  */
 
 // #################################################################################################
@@ -227,8 +227,8 @@ const CONFIG = {
     // --- 通用 & 其他 ---
     'abtasty.js', 'action.js', 'activity.js', 'ad-core.js', 'ad-lib.js', 'adroll_pro.js', 'ads-beacon.js',
     'autotrack.js', 'beacon.js', 'capture.js', 'cf.js', 'cmp.js', 'collect.js', 'conversion.js', 'event.js',
-    'link-click-tracker.js', 'scevent.min.js', 'sp.js', 'tracker.js', 'tracking-api.js', 'tracking.js',
-    'user-id.js', 'user-timing.js', 'wcslog.js',
+    'link-click-tracker.js', 'main-ad.js', 'scevent.min.js', 'showCoverAd.min.js', 'sp.js', 'tracker.js',
+    'tracking-api.js', 'tracking.js', 'user-id.js', 'user-timing.js', 'wcslog.js',
   ]),
 
   /**
