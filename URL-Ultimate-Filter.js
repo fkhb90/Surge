@@ -227,7 +227,7 @@ const CONFIG = {
     // --- 通用 & 其他 ---
     'abtasty.js', 'action.js', 'activity.js', 'ad-core.js', 'ad-lib.js', 'adroll_pro.js', 'ads-beacon.js',
     'autotrack.js', 'beacon.js', 'capture.js', 'cf.js', 'cmp.js', 'collect.js', 'conversion.js', 'event.js',
-    'link-click-tracker.js', 'main-ad.js', 'scevent.min.js', 'showCoverAd.min.js', 'sp.js', 'tracker.js',
+    'link-click-tracker.js', 'main-ad.js', 'scevent.min.js', 'showcoverad.min.js', 'sp.js', 'tracker.js',
     'tracking-api.js', 'tracking.js', 'user-id.js', 'user-timing.js', 'wcslog.js',
   ]),
 
