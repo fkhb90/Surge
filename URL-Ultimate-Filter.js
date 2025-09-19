@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.24.js
- * @version     40.24 (Taiwan News Ad Scripts)
- * @description 新增對台灣主流新聞網站（NOWnews, LTN）廣告腳本的精準攔截規則。
+ * @file        URL-Ultimate-Filter-Surge-V40.25.js
+ * @version     40.25 (Parameter Prefix Fix)
+ * @description 修正 TRACKING_PREFIXES 列表中因遺漏逗號而導致參數清理功能失效的語法錯誤。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-19
  */
