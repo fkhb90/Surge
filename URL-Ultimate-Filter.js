@@ -1,9 +1,9 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.25.js
- * @version     40.25 (Parameter Prefix Fix)
- * @description 修正 TRACKING_PREFIXES 列表中因遺漏逗號而導致參數清理功能失效的語法錯誤。
+ * @file        URL-Ultimate-Filter-Surge-V40.23.js
+ * @version     40.23 (Spotify Whitelisting)
+ * @description 為了提升相容性，將 Spotify 相關服務移出黑名單，並將主域名 spotify.com 加入萬用字元硬白名單。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-09-19
+ * @lastUpdated 2025-09-17
  */
 
 // #################################################################################################
@@ -31,7 +31,6 @@ const CONFIG = {
     // --- Services & App APIs ---
     'ap02.in.treasuredata.com', 'appapi.104.com.tw', 'eco-push-api-client.meiqia.com', 'exp.acsnets.com.tw', 'mpaystore.pcstore.com.tw',
     'mushroomtrack.com', 'phtracker.com', 'pro.104.com.tw', 'prodapp.babytrackers.com', 'sensordata.open.com.cn', 'static.stepfun.com', 'track.fstry.me',
-    'iappapi.investing.com',
     // --- 核心登入 & 認證 ---
     'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com', 'sso.godaddy.com',
     // --- 台灣地區服務 ---
@@ -42,6 +41,7 @@ const CONFIG = {
     'api.line.me', 'kktix.com', 'tixcraft.com',
     // --- 高互動性服務 API ---
     'api.discord.com', 'api.twitch.tv', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com',
+    'iappapi.investing.com',
     // --- YouTube 核心 API ---
     'youtubei.googleapis.com',
   ]),
@@ -57,7 +57,7 @@ const CONFIG = {
     'megabank.com.tw', 'megatime.com.tw', 'mitake.com.tw', 'money-link.com.tw', 'mymobibank.com.tw', 'paypal.com', 'richart.tw',
     'scsb.com.tw', 'sinopac.com', 'sinotrade.com.tw', 'standardchartered.com.tw', 'stripe.com', 'taipeifubon.com.tw', 'taishinbank.com.tw',
     'taiwanpay.com.tw', 'tcb-bank.com.tw', 'momopay.com.tw',
-    // --- Government & Utilities ---
+    // Government & Utilities ---
     'org.tw', 'gov.tw', 'pay.taipei', 'tdcc.com.tw', 'twca.com.tw', 'twmp.com.tw',
     // --- 核心登入 & 協作平台 ---
     'atlassian.net', 'auth0.com', 'okta.com', 'slack.com',
@@ -214,8 +214,6 @@ const CONFIG = {
     'criteo.js', 'doubleclick.js', 'outbrain.js', 'prebid.js', 'pubmatic.js', 'taboola.js',
     // --- 平台特定腳本 (Platform-Specific) ---
     'ad-full-page.min.js', // Pixnet Full Page Ad
-    'main-ad.js', // NOWnews Ad Script
-    'showCoverAd.min.js', // LTN Cover Ad Script
     // --- 內容傳遞 & 標籤管理 ---
     'adobedtm.js', 'dax.js', 'tag.js', 'utag.js', 'visitorapi.js',
     // --- 效能監控 ---
@@ -529,4 +527,275 @@ class OptimizedTrie {
             if (n.isEndOfWord) return true;
         }
     }
-    return false
+    return false;
+  }
+}
+
+class HighPerformanceLRUCache {
+    constructor(maxSize = 1000) { this.maxSize = maxSize; this.cache = new Map(); this.head = { k: null, v: null, p: null, n: null }; this.tail = { k: null, v: null, p: null, n: null }; this.head.n = this.tail; this.tail.p = this.head; this._h = 0; this._m = 0; }
+    _add(node) { node.p = this.head; node.n = this.head.n; this.head.n.p = node; this.head.n = node; }
+    _remove(node) { node.p.n = node.n; node.n.p = node.p; }
+    _moveToHead(node) { this._remove(node); this._add(node); }
+    _popTail() { const last = this.tail.p; this._remove(last); return last; }
+    get(key) { const n = this.cache.get(key); if (n) { this._h++; this._moveToHead(n); return n.v; } this._m++; return null; }
+    set(key, value) { let n = this.cache.get(key); if (n) { n.v = value; this._moveToHead(n); } else { n = { k: key, v: value, p: null, n: null }; if (this.cache.size >= this.maxSize) { const tail = this._popTail(); this.cache.delete(tail.k); } this.cache.set(key, n); this._add(n); } }
+}
+
+class MultiLevelCacheManager {
+  constructor() { this.l1DomainCache = new HighPerformanceLRUCache(256); this.l2UrlDecisionCache = new HighPerformanceLRUCache(1024); this.urlObjectCache = new HighPerformanceLRUCache(64); }
+  getDomainDecision(h) { return this.l1DomainCache.get(h); }
+  setDomainDecision(h, d) { this.l1DomainCache.set(h, d); }
+  getUrlDecision(k) { const decision = this.l2UrlDecisionCache.get(k); if (decision !== null) optimizedStats.increment('l2CacheHits'); return decision; }
+  setUrlDecision(k, d) { this.l2UrlDecisionCache.set(k, d); }
+  getUrlObject(rawUrl) { return this.urlObjectCache.get(rawUrl); }
+  setUrlObject(rawUrl, urlObj) { this.urlObjectCache.set(rawUrl, urlObj); }
+}
+
+const multiLevelCache = new MultiLevelCacheManager();
+const OPTIMIZED_TRIES = { prefix: new OptimizedTrie(), criticalPattern: new OptimizedTrie(), pathBlock: new OptimizedTrie(), drop: new OptimizedTrie() };
+
+function initializeOptimizedTries() {
+  CONFIG.TRACKING_PREFIXES.forEach(p => OPTIMIZED_TRIES.prefix.insert(String(p).toLowerCase()));
+  CONFIG.CRITICAL_TRACKING_PATTERNS.forEach(p => OPTIMIZED_TRIES.criticalPattern.insert(String(p).toLowerCase()));
+  CONFIG.PATH_BLOCK_KEYWORDS.forEach(p => OPTIMIZED_TRIES.pathBlock.insert(String(p).toLowerCase()));
+  CONFIG.DROP_KEYWORDS.forEach(p => OPTIMIZED_TRIES.drop.insert(String(p).toLowerCase()));
+}
+
+class OptimizedPerformanceStats {
+    constructor() { this.counters = new Uint32Array(16); this.labels = ['totalRequests', 'blockedRequests', 'domainBlocked', 'pathBlocked', 'regexPathBlocked', 'criticalScriptBlocked', 'paramsCleaned', 'hardWhitelistHits', 'softWhitelistHits', 'errors', 'l1CacheHits', 'l2CacheHits', 'urlCacheHits']; }
+    increment(type) { const idx = this.labels.indexOf(type); if (idx !== -1) this.counters[idx]++; }
+    getStats() { const stats = {}; this.labels.forEach((l, i) => { stats[l] = this.counters[i]; }); return stats; }
+}
+const optimizedStats = new OptimizedPerformanceStats();
+
+function isWhitelisted(hostname, exactSet, wildcardSet) {
+    if (exactSet.has(hostname)) return true;
+    let domain = hostname;
+    while (true) {
+        if (wildcardSet.has(domain)) return true;
+        const dotIndex = domain.indexOf('.');
+        if (dotIndex === -1) break;
+        domain = domain.substring(dotIndex + 1);
+    }
+    return false;
+}
+
+function isHardWhitelisted(h) { return isWhitelisted(h, CONFIG.HARD_WHITELIST_EXACT, CONFIG.HARD_WHITELIST_WILDCARDS); }
+function isSoftWhitelisted(h) { return isWhitelisted(h, CONFIG.SOFT_WHITELIST_EXACT, CONFIG.SOFT_WHITELIST_WILDCARDS); }
+function isDomainBlocked(h) { let c = h; while (c) { if (CONFIG.BLOCK_DOMAINS.has(c)) return true; const i = c.indexOf('.'); if (i === -1) break; c = c.slice(i + 1); } return false; }
+
+function isCriticalTrackingScript(hostname, path) { 
+    const key = `crit:${hostname}:${path}`;
+    const cachedDecision = multiLevelCache.getUrlDecision(key); 
+    if (cachedDecision !== null) return cachedDecision; 
+    
+    const urlFragment = hostname + path;
+    const queryIndex = path.indexOf('?');
+    const pathOnly = queryIndex !== -1 ? path.slice(0, queryIndex) : path;
+    const slashIndex = pathOnly.lastIndexOf('/');
+    const scriptName = slashIndex !== -1 ? pathOnly.slice(slashIndex + 1) : pathOnly;
+    
+    let shouldBlock = false;
+    if (scriptName && CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName)) {
+        shouldBlock = true;
+    } else {
+        shouldBlock = OPTIMIZED_TRIES.criticalPattern.contains(urlFragment);
+    }
+    
+    multiLevelCache.setUrlDecision(key, shouldBlock);
+    return shouldBlock;
+}
+
+/**
+ * V40.6 安全強化: 新增精確的路徑豁免檢查函式
+ * 說明：取代舊有的 `allow.contains`，以更嚴格的後綴、子字串和路徑區段匹配來避免繞過。
+ */
+function isPathExplicitlyAllowed(path) {
+    for (const suffix of CONFIG.PATH_ALLOW_SUFFIXES) {
+        if (path.endsWith(suffix)) return true;
+    }
+    for (const substring of CONFIG.PATH_ALLOW_SUBSTRINGS) {
+        if (path.includes(substring)) return true;
+    }
+    // 檢查路徑區段，移除開頭的'/'並過濾空字串
+    const segments = path.startsWith('/') ? path.substring(1).split('/') : path.split('/');
+    for (const segment of segments) {
+        if (segment && CONFIG.PATH_ALLOW_SEGMENTS.has(segment)) return true;
+    }
+    return false;
+}
+
+function isPathBlocked(path) { 
+    const k = `path:${path}`;
+    const c = multiLevelCache.getUrlDecision(k); 
+    if (c !== null) return c; 
+    let r = false;
+    // V40.6 安全強化: 使用 isPathExplicitlyAllowed 進行更嚴格的檢查
+    if (OPTIMIZED_TRIES.pathBlock.contains(path) && !isPathExplicitlyAllowed(path)) { 
+        r = true; 
+    } 
+    multiLevelCache.setUrlDecision(k, r); 
+    return r; 
+}
+
+function isPathBlockedByRegex(path) { 
+    const k = `regex:${path}`;
+    const c = multiLevelCache.getUrlDecision(k); 
+    if (c !== null) return c;
+    for (const prefix of CONFIG.PATH_ALLOW_PREFIXES) { 
+        if (path.startsWith(prefix)) { 
+            multiLevelCache.setUrlDecision(k, false); 
+            return false;
+        } 
+    } 
+    for (let i = 0; i < CONFIG.PATH_BLOCK_REGEX.length; i++) { 
+        if (CONFIG.PATH_BLOCK_REGEX[i].test(path)) { 
+            multiLevelCache.setUrlDecision(k, true); 
+            return true;
+        } 
+    } 
+    multiLevelCache.setUrlDecision(k, false); 
+    return false; 
+}
+
+function getBlockResponse(path) {
+    const lowerPath = path.toLowerCase();
+    const dotIndex = lowerPath.lastIndexOf('.');
+    if (dotIndex !== -1) {
+        const ext = lowerPath.substring(dotIndex);
+        if (IMAGE_EXTENSIONS.has(ext)) return TINY_GIF_RESPONSE;
+        if (SCRIPT_EXTENSIONS.has(ext)) return NO_CONTENT_RESPONSE;
+    }
+    if (OPTIMIZED_TRIES.drop.contains(lowerPath)) return DROP_RESPONSE;
+    return REJECT_RESPONSE;
+}
+
+function cleanTrackingParams(url) {
+    const newUrl = new URL(url.toString());
+    let modified = false;
+    const toDelete = [];
+    for (const key of newUrl.searchParams.keys()) {
+        const lowerKey = key.toLowerCase();
+        if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(lowerKey)) continue;
+        if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) || OPTIMIZED_TRIES.prefix.startsWith(lowerKey)) {
+            toDelete.push(key);
+            modified = true;
+        }
+    }
+    if (modified) {
+        toDelete.forEach(k => newUrl.searchParams.delete(k));
+        newUrl.hash = 'cleaned';
+        return newUrl.toString();
+    }
+    return null;
+}
+
+function processRequest(request) {
+  try {
+    optimizedStats.increment('totalRequests');
+    if (!request?.url || typeof request.url !== 'string' || request.url.length < 10) return null;
+
+    const rawUrl = request.url;
+    let url = multiLevelCache.getUrlObject(rawUrl);
+    if (url) {
+        optimizedStats.increment('urlCacheHits');
+    } else {
+        try {
+            url = new URL(rawUrl);
+            multiLevelCache.setUrlObject(rawUrl, Object.freeze(url));
+        } catch (e) {
+            optimizedStats.increment('errors');
+            // V40.6 安全強化: 移除日誌中的查詢參數，避免敏感資訊外洩
+            const sanitizedUrl = rawUrl.split('?')[0];
+            console.error(`[URL-Filter-v40.22] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            return null;
+        }
+    }
+    
+    if (url.hash === '#cleaned') {
+        return null;
+    }
+
+    const hostname = url.hostname.toLowerCase();
+    
+    if (isHardWhitelisted(hostname)) {
+        optimizedStats.increment('hardWhitelistHits');
+        return null;
+    }
+    
+    const l1Decision = multiLevelCache.getDomainDecision(hostname);
+    if (l1Decision === DECISION.BLOCK) {
+        optimizedStats.increment('l1CacheHits');
+        optimizedStats.increment('domainBlocked');
+        optimizedStats.increment('blockedRequests');
+        return getBlockResponse(url.pathname + url.search);
+    }
+    
+    if (isDomainBlocked(hostname)) {
+        multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
+        optimizedStats.increment('domainBlocked');
+        optimizedStats.increment('blockedRequests');
+        return getBlockResponse(url.pathname + url.search);
+    }
+    
+    const originalFullPath = url.pathname + url.search;
+    const lowerFullPath = originalFullPath.toLowerCase();
+
+    if (isCriticalTrackingScript(hostname, lowerFullPath)) {
+        optimizedStats.increment('criticalScriptBlocked');
+        optimizedStats.increment('blockedRequests');
+        return getBlockResponse(originalFullPath);
+    }
+    
+    if (isSoftWhitelisted(hostname)) {
+        optimizedStats.increment('softWhitelistHits');
+    } else {
+        if (isPathBlocked(lowerFullPath)) {
+            optimizedStats.increment('pathBlocked');
+            optimizedStats.increment('blockedRequests');
+            return getBlockResponse(originalFullPath);
+        }
+        if (isPathBlockedByRegex(url.pathname.toLowerCase())) {
+            optimizedStats.increment('regexPathBlocked');
+            optimizedStats.increment('blockedRequests');
+            return getBlockResponse(originalFullPath);
+        }
+    }
+    
+    const cleanedUrl = cleanTrackingParams(url);
+    if (cleanedUrl) {
+        optimizedStats.increment('paramsCleaned');
+        return REDIRECT_RESPONSE(cleanedUrl);
+    }
+    
+    return null;
+
+  } catch (error) {
+    optimizedStats.increment('errors');
+    if (typeof console !== 'undefined' && console.error) {
+      console.error(`[URL-Filter-v40.22] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+    }
+    return null;
+  }
+}
+
+// 執行入口
+(function () {
+  try {
+    initializeOptimizedTries();
+    if (typeof $request === 'undefined') {
+      if (typeof $done !== 'undefined') {
+        $done({ version: '40.22', status: 'ready', message: 'URL Filter v40.22 - Syntax Correction', stats: optimizedStats.getStats() });
+      }
+      return;
+    }
+    const result = processRequest($request);
+    if (typeof $done !== 'undefined') $done(result || {});
+  } catch (error) {
+    optimizedStats.increment('errors');
+    if (typeof console !== 'undefined' && console.error) {
+      console.error(`[URL-Filter-v40.22] 致命錯誤: ${error?.message}`, error?.stack);
+    }
+    if (typeof $done !== 'undefined') $done({});
+  }
+})();
