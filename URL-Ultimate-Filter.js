@@ -1,9 +1,9 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.24.js
- * @version     40.24 (Taiwan News Ad Scripts)
- * @description 新增對台灣主流新聞網站（NOWnews, LTN）廣告腳本的精準攔截規則。
+ * @file        URL-Ultimate-Filter-Surge-V40.25.js
+ * @version     40.25 (Enhanced Logging Endpoint Detection)
+ * @description 新增對通用日誌 API 端點 (/api/logs/) 的攔截規則，強化隱私保護。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-09-19
+ * @lastUpdated 2025-09-20
  */
 
 // #################################################################################################
@@ -248,7 +248,7 @@ const CONFIG = {
   'facebook.com/tr', 'facebook.com/tr/',
 
   // --- 通用 API 端點 ---
-  '/api/batch', '/api/collect', '/api/collect/', '/api/log/', '/api/track/', '/api/v1/events', '/api/v1/track',
+  '/api/batch', '/api/collect', '/api/collect/', '/api/log/', '/api/logs/', '/api/track/', '/api/v1/events', '/api/v1/track',
   '/beacon/', '/collect?', '/ingest/', '/intake', '/p.gif', '/pixel/', '/t.gif', '/telemetry/', '/track/', '/v1/pixel',
 
   // --- 特定服務端點 ---
@@ -707,7 +707,7 @@ function processRequest(request) {
             optimizedStats.increment('errors');
             // V40.6 安全強化: 移除日誌中的查詢參數，避免敏感資訊外洩
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.22] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.25] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -773,7 +773,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.22] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.25] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -785,7 +785,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.22', status: 'ready', message: 'URL Filter v40.22 - Syntax Correction', stats: optimizedStats.getStats() });
+        $done({ version: '40.25', status: 'ready', message: 'URL Filter v40.25 - Enhanced Logging Endpoint Detection', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -794,7 +794,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.22] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.25] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
