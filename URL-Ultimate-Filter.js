@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.25.js
- * @version     40.25 (Enhanced Logging Endpoint Detection)
- * @description 新增對通用日誌 API 端點 (/api/logs/) 的攔截規則，強化隱私保護。
+ * @file        URL-Ultimate-Filter-Surge-V40.27.js
+ * @version     40.27 (Universal Smart Banner Blocking)
+ * @description 新增對 'smartbanner' 路徑的通用攔截規則，以屏蔽行動應用推廣橫幅。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-20
  */
@@ -339,7 +339,7 @@ PATH_BLOCK_KEYWORDS: new Set([
   'outstream', 'partnerad', 'pingfore', 'piwik', 'pixanalytics', 'playtomic', 'polyad', 'popin',
   'popin2mdn', 'programmatic', 'pushnotification', 'quantserve', 'quantumgraph', 'queryly', 'qxs',
   'rayjump', 'retargeting', 'ronghub', 'rtb', 'scorecardresearch', 'scupio', 'securepubads', 'sensor',
-  'sentry', 'shence', 'shenyun', 'shoplytics', 'shujupie', 'smartadserver', 'snowplow', 'socdm', 'sponsors', 'spy',
+  'sentry', 'shence', 'shenyun', 'shoplytics', 'shujupie', 'smartadserver', 'smartbanner', 'snowplow', 'socdm', 'sponsors', 'spy',
   'spyware', 'statcounter', 'stathat', 'sticky-ad', 'storageug', 'straas', 'studybreakmedia', 'stunninglover',
   'supersonicads', 'syndication', 'taboola', 'tagtoo', 'talkingdata', 'tanx', 'tapjoy', 'tapjoyads',
   'tenmax', 'tingyun', 'tiqcdn', 'tlcafftrax', 'toateeli', 'tongji', 'trace', 'track', 'tracker', 'trackersimulator',
@@ -470,7 +470,7 @@ PATH_BLOCK_KEYWORDS: new Set([
     '__cf_', '_bta', '_bta_', '_ga_', '_gid_', '_gat_', '_hs', '_oly_', 'ad_', 'aff_', 'alg_', 'bd_', 'cam_',
     'campaign_', 'content_', 'creative_', 'cup_', 'device_', 'epik_', 'et_', 'fb_', 'from_', 'ga_', 'gcl_',
     'gdr_', 'gds_', 'hmsr_', 'hsa_', 'li_', 'matomo_', 'mc_', 'medium_', 'mke_', 'mkt_', 'ms_', 'mtm_',
-    'network_', 'pk_', 'piwik_', 'placement', 'ref_', 'scm_', 'share_', 'source_', 'spm_', 'term_', 'tt_',
+    'network_', 'pk_', 'piwik_', 'placement_', 'ref_', 'scm_', 'share_', 'source_', 'space_', 'spm_', 'term_', 'tt_',
     'trk_', 'tw_', 'utm_', 'vero_', 'video_utm_', 'zanpid_',
   ]),
 
@@ -707,7 +707,7 @@ function processRequest(request) {
             optimizedStats.increment('errors');
             // V40.6 安全強化: 移除日誌中的查詢參數，避免敏感資訊外洩
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.25] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.27] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -773,7 +773,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.25] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.27] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -785,7 +785,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.25', status: 'ready', message: 'URL Filter v40.25 - Enhanced Logging Endpoint Detection', stats: optimizedStats.getStats() });
+        $done({ version: '40.27', status: 'ready', message: 'URL Filter v40.27 - Universal Smart Banner Blocking', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -794,7 +794,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.25] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.27] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
