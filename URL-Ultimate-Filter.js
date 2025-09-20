@@ -1,9 +1,9 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.41.js
- * @version     40.41 (Whitelist Refinement)
- * @description 新增 secureapi.midomi.com 至硬白名單，確保音樂識別功能正常。
+ * @file        URL-Ultimate-Filter-Surge-V40.42.js
+ * @version     40.42 (Holistic Ecosystem Defense & Advanced Protocol Analysis)
+ * @description 擴展關鍵基礎設施白名單；升級除錯模式以監控白名單運作。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-09-20
+ * @lastUpdated 2025-09-21
  */
 
 // #################################################################################################
@@ -19,6 +19,7 @@ const CONFIG = {
    * 說明：設為 true 時，將啟用一系列的進階日誌功能，用於無風險地測試與診斷。
    * 1. 參數清理將轉為「僅記錄模式」，不會執行實際重導向。
    * 2. 「啟發式規則」的命中事件將被詳細記錄至控制台。
+   * 3. [V40.42 新增] 白名單（硬/軟）的命中事件將被詳細記錄。
    */
   DEBUG_MODE: false,
 
@@ -45,6 +46,9 @@ const CONFIG = {
     'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com', 'sso.godaddy.com',
     // --- 台灣地區服務 ---
     'api.etmall.com.tw', 'tw.fd-api.com',
+    // --- [V40.42] 台灣關鍵基礎設施 ---
+    'api.map.ecpay.com.tw', // ECPay Logistics Map API
+    'maps.googleapis.com',   // Google Maps Platform Core API
     // --- 支付 & 金流 API ---
     'api.adyen.com', 'api.braintreegateway.com', 'api.ecpay.com.tw', 'api.jkos.com', 'payment.ecpay.com.tw',
     // --- 票務 & 關鍵 API ---
@@ -616,7 +620,7 @@ function compileRegexList(list) {
         try {
             return (regex instanceof RegExp) ? regex : new RegExp(regex);
         } catch (e) {
-            console.error(`[URL-Filter-v40.41] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.42] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
             return null;
         }
     }).filter(Boolean);
@@ -637,20 +641,17 @@ function initializeCoreEngine() {
     COMPILED_HEURISTIC_PATH_BLOCK_REGEX = compileRegexList(CONFIG.HEURISTIC_PATH_BLOCK_REGEX);
 }
 
-function isWhitelisted(hostname, exactSet, wildcardSet) {
-    if (exactSet.has(hostname)) return true;
+function getWhitelistMatchDetails(hostname, exactSet, wildcardSet) {
+    if (exactSet.has(hostname)) return { matched: true, rule: hostname, type: 'Exact' };
     let domain = hostname;
     while (true) {
-        if (wildcardSet.has(domain)) return true;
+        if (wildcardSet.has(domain)) return { matched: true, rule: domain, type: 'Wildcard' };
         const dotIndex = domain.indexOf('.');
         if (dotIndex === -1) break;
         domain = domain.substring(dotIndex + 1);
     }
-    return false;
+    return { matched: false };
 }
-
-function isHardWhitelisted(h) { return isWhitelisted(h, CONFIG.HARD_WHITELIST_EXACT, CONFIG.HARD_WHITELIST_WILDCARDS); }
-function isSoftWhitelisted(h) { return isWhitelisted(h, CONFIG.SOFT_WHITELIST_EXACT, CONFIG.SOFT_WHITELIST_WILDCARDS); }
 
 function isDomainBlocked(hostname) {
     let currentDomain = hostname;
@@ -743,7 +744,7 @@ function isPathBlockedByRegex(path) {
     for (const regex of COMPILED_HEURISTIC_PATH_BLOCK_REGEX) { 
         if (regex.test(path)) { 
             if (CONFIG.DEBUG_MODE) {
-                console.log(`[URL-Filter-v40.41][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
+                console.log(`[URL-Filter-v40.42][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
             }
             multiLevelCache.setUrlDecision(k, true); 
             return true;
@@ -804,7 +805,7 @@ function cleanTrackingParams(url) {
 
     if (modified) {
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.41][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL: "${url.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
+            console.log(`[URL-Filter-v40.42][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL: "${url.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
             return null; // 在除錯模式下，返回 null 以阻止重導向
         }
         toDelete.forEach(k => newUrl.searchParams.delete(k));
@@ -830,7 +831,7 @@ function processRequest(request) {
         } catch (e) {
             optimizedStats.increment('errors');
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.41] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.42] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -841,8 +842,12 @@ function processRequest(request) {
 
     const hostname = url.hostname.toLowerCase();
     
-    if (isHardWhitelisted(hostname)) {
+    const hardWhitelistDetails = getWhitelistMatchDetails(hostname, CONFIG.HARD_WHITELIST_EXACT, CONFIG.HARD_WHITELIST_WILDCARDS);
+    if (hardWhitelistDetails.matched) {
         optimizedStats.increment('hardWhitelistHits');
+        if (CONFIG.DEBUG_MODE) {
+            console.log(`[URL-Filter-v40.42][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
+        }
         return null;
     }
     
@@ -873,8 +878,12 @@ function processRequest(request) {
         return getBlockResponse(originalFullPath);
     }
     
-    if (isSoftWhitelisted(hostname)) {
+    const softWhitelistDetails = getWhitelistMatchDetails(hostname, CONFIG.SOFT_WHITELIST_EXACT, CONFIG.SOFT_WHITELIST_WILDCARDS);
+    if (softWhitelistDetails.matched) {
         optimizedStats.increment('softWhitelistHits');
+        if (CONFIG.DEBUG_MODE) {
+            console.log(`[URL-Filter-v40.42][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
+        }
     } else {
         if (isPathBlocked(lowerFullPath)) {
             optimizedStats.increment('pathBlocked');
@@ -899,7 +908,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.41] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.42] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -911,7 +920,7 @@ function processRequest(request) {
     initializeCoreEngine(); // 執行核心引擎初始化
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.41', status: 'ready', message: 'URL Filter v40.41 - Whitelist Refinement', stats: optimizedStats.getStats() });
+        $done({ version: '40.42', status: 'ready', message: 'URL Filter v40.42 - Holistic Ecosystem Defense', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -920,7 +929,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.41] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.42] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
