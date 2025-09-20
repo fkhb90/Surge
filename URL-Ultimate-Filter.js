@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.40.js
- * @version     40.40 (Transparent Defense & Fine-grained Control)
- * @description 部署全域「除錯模式」；實現啟發式規則日誌記錄；分離啟發式規則集。
+ * @file        URL-Ultimate-Filter-Surge-V40.41.js
+ * @version     40.41 (Whitelist Refinement)
+ * @description 新增 secureapi.midomi.com 至硬白名單，確保音樂識別功能正常。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-20
  */
@@ -36,6 +36,8 @@ const CONFIG = {
     'ar-genai.graph.meta.com', 'ar.graph.meta.com', 'gateway.facebook.com', 'meta-ai-realtime.facebook.com', 'meta.graph.meta.com', 'wearable-ai-realtime.facebook.com',
     // --- Media & CDNs ---
     'cdn.ghostery.com', 'cdn.shortpixel.ai', 'cdn.syndication.twimg.com', 'd.ghostery.com', 'data-cloud.flightradar24.com', 'ssl.p.jwpcdn.com',
+    // --- Music & Content Recognition ---
+    'secureapi.midomi.com',
     // --- Services & App APIs ---
     'ap02.in.treasuredata.com', 'appapi.104.com.tw', 'eco-push-api-client.meiqia.com', 'exp.acsnets.com.tw', 'mpaystore.pcstore.com.tw',
     'mushroomtrack.com', 'phtracker.com', 'pro.104.com.tw', 'prodapp.babytrackers.com', 'sensordata.open.cn', 'static.stepfun.com', 'track.fstry.me',
@@ -614,7 +616,7 @@ function compileRegexList(list) {
         try {
             return (regex instanceof RegExp) ? regex : new RegExp(regex);
         } catch (e) {
-            console.error(`[URL-Filter-v40.40] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.41] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
             return null;
         }
     }).filter(Boolean);
@@ -741,7 +743,7 @@ function isPathBlockedByRegex(path) {
     for (const regex of COMPILED_HEURISTIC_PATH_BLOCK_REGEX) { 
         if (regex.test(path)) { 
             if (CONFIG.DEBUG_MODE) {
-                console.log(`[URL-Filter-v40.40][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
+                console.log(`[URL-Filter-v40.41][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
             }
             multiLevelCache.setUrlDecision(k, true); 
             return true;
@@ -802,7 +804,7 @@ function cleanTrackingParams(url) {
 
     if (modified) {
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.40][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL: "${url.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
+            console.log(`[URL-Filter-v40.41][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL: "${url.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
             return null; // 在除錯模式下，返回 null 以阻止重導向
         }
         toDelete.forEach(k => newUrl.searchParams.delete(k));
@@ -828,7 +830,7 @@ function processRequest(request) {
         } catch (e) {
             optimizedStats.increment('errors');
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.40] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.41] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -897,7 +899,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.40] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.41] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -909,7 +911,7 @@ function processRequest(request) {
     initializeCoreEngine(); // 執行核心引擎初始化
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.40', status: 'ready', message: 'URL Filter v40.40 - Transparent Defense & Fine-grained Control', stats: optimizedStats.getStats() });
+        $done({ version: '40.41', status: 'ready', message: 'URL Filter v40.41 - Whitelist Refinement', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -918,7 +920,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.40] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.41] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
