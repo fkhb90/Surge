@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.27.js
- * @version     40.27 (Universal Smart Banner Blocking)
- * @description 新增對 'smartbanner' 路徑的通用攔截規則，以屏蔽行動應用推廣橫幅。
+ * @file        URL-Ultimate-Filter-Surge-V40.33.js
+ * @version     40.33 (Aggressive CNAME Cloaking Mitigation)
+ * @description 新增對 CNAME 偽裝的通用追蹤端點攔截規則，強化對第一方代理追蹤的防禦。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-20
  */
@@ -139,7 +139,7 @@ const CONFIG = {
     'analytics.slashdotmedia.com', 'analytics.strava.com', 'analytics.twitter.com', 'analytics.yahoo.com', 'api.pendo.io',
     'apm.gotokeep.com', 'applog.mobike.com', 'applog.uc.cn', 'appsflyer.com', 'branch.io', 'bugsnag.com', 'c.clarity.ms',
     'chartbeat.com', 'clicktale.net', 'clicky.com', 'cn-huabei-1-lg.xf-yun.com', 'comscore.com', 'crazyegg.com', 'criteo.com',
-    'criteo.net', 'data.investing.com', 'datadoghq.com', 'fullstory.com', 'gs.getui.com', 'heap.io', 'hotjar.com', 'inspectlet.com', 'keen.io',
+    'criteo.net', 'data.investing.com', 'datadoghq.com', 'dynatrace.com', 'fullstory.com', 'gs.getui.com', 'heap.io', 'hotjar.com', 'inspectlet.com', 'keen.io',
     'kissmetrics.com', 'log.b612kaji.com', 'loggly.com', 'logrocket.com', 'matomo.cloud', 'mixpanel.com', 'mouseflow.com',
     'mparticle.com', 'mlytics.com', 'newrelic.com', 'nr-data.net', 'oceanengine.com', 'openx.com', 'openx.net', 'optimizely.com', 'outbrain.com',
     'pc-mon.snssdk.com', 'piwik.pro', 'pubmatic.com', 'quantserve.com', 'rubiconproject.com', 'scorecardresearch.com', 'segment.com',
@@ -177,12 +177,16 @@ const CONFIG = {
     // --- 內容管理 & 推播 ---
     'addthis.com', 'cbox.ws', 'disqus.com', 'disquscdn.com', 'intensedebate.com', 'onesignal.com',
     'po.st', 'pushengage.com', 'sail-track.com', 'sharethis.com',
+    // --- 客戶互動 & 聊天平台 ---
+    'intercom.io', 'liveperson.net', 'zdassets.com',
     // --- 隱私權 & Cookie 同意管理 ---
     'cookielaw.org', 'onetrust.com', 'sourcepoint.com', 'trustarc.com', 'usercentrics.eu',
     // --- 台灣地區 (純廣告/追蹤) ---
     'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'cacafly.com',
     'clickforce.com.tw', 'fast-trk.com', 'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com',
-    'sitetag.us', 'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com',
+    'likr.tw', 'sitetag.us', 'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com',
+    // --- 在地化 & App SDK 追蹤 ---
+    'appier.net',
     // --- 中國大陸地區 (純廣告/追蹤) ---
     'admaster.com.cn', 'adview.cn', 'alimama.com', 'cnzz.com', 'getui.com', 'getui.net', 'gepush.com', 'gridsum.com', 'growingio.com',
     'igexin.com', 'jiguang.cn', 'jpush.cn', 'kuaishou.com', 'miaozhen.com', 'mmstat.com', 'pangolin-sdk-toutiao.com',
@@ -246,6 +250,9 @@ const CONFIG = {
 
   // --- Facebook / Meta ---
   'facebook.com/tr', 'facebook.com/tr/',
+
+  // --- CNAME 偽裝 / 第一方代理緩解 ---
+  '/__utm.gif', '/r/collect', '/j/collect',
 
   // --- 通用 API 端點 ---
   '/api/batch', '/api/collect', '/api/collect/', '/api/log/', '/api/logs/', '/api/track/', '/api/v1/events', '/api/v1/track',
@@ -707,7 +714,7 @@ function processRequest(request) {
             optimizedStats.increment('errors');
             // V40.6 安全強化: 移除日誌中的查詢參數，避免敏感資訊外洩
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.27] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.33] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -773,7 +780,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.27] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.33] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -785,7 +792,7 @@ function processRequest(request) {
     initializeOptimizedTries();
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.27', status: 'ready', message: 'URL Filter v40.27 - Universal Smart Banner Blocking', stats: optimizedStats.getStats() });
+        $done({ version: '40.33', status: 'ready', message: 'URL Filter v40.33 - Aggressive CNAME Cloaking Mitigation', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -794,7 +801,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.27] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.33] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
