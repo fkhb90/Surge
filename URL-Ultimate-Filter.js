@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.33.js
- * @version     40.33 (Aggressive CNAME Cloaking Mitigation)
- * @description 新增對 CNAME 偽裝的通用追蹤端點攔截規則，強化對第一方代理追蹤的防禦。
+ * @file        URL-Ultimate-Filter-Surge-V40.39.js
+ * @version     40.39 (Countering Advanced Stateless Tracking)
+ * @description 新增對 Fingerprint.com 的封鎖，強化對 ETag 與 Canvas 指紋追蹤的防禦。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-20
  */
@@ -14,6 +14,13 @@
 // #################################################################################################
 
 const CONFIG = {
+  /**
+   * ✅ [V40.38 新增] 參數清理「僅記錄模式」
+   * 說明：設為 true 時，參數清理功能將僅在控制台打印日誌，而不會實際執行重導向。
+   * 這對於無風險地測試新規則或對網站問題進行除錯至關重要。
+   */
+  PARAM_CLEAN_LOG_ONLY_MODE: false,
+
   /**
    * ✳️ 硬白名單 - 精確匹配 (Hard Whitelist - Exact)
    * 說明：完全豁免所有檢查。此處的域名需要完整且精確的匹配。
@@ -30,7 +37,7 @@ const CONFIG = {
     'cdn.ghostery.com', 'cdn.shortpixel.ai', 'cdn.syndication.twimg.com', 'd.ghostery.com', 'data-cloud.flightradar24.com', 'ssl.p.jwpcdn.com',
     // --- Services & App APIs ---
     'ap02.in.treasuredata.com', 'appapi.104.com.tw', 'eco-push-api-client.meiqia.com', 'exp.acsnets.com.tw', 'mpaystore.pcstore.com.tw',
-    'mushroomtrack.com', 'phtracker.com', 'pro.104.com.tw', 'prodapp.babytrackers.com', 'sensordata.open.com.cn', 'static.stepfun.com', 'track.fstry.me',
+    'mushroomtrack.com', 'phtracker.com', 'pro.104.com.tw', 'prodapp.babytrackers.com', 'sensordata.open.cn', 'static.stepfun.com', 'track.fstry.me',
     // --- 核心登入 & 認證 ---
     'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com', 'sso.godaddy.com',
     // --- 台灣地區服務 ---
@@ -112,7 +119,7 @@ const CONFIG = {
 
   /**
    * 🚫 [V40.16 擴充] 域名攔截黑名單
-   * 說明：僅列出純粹用於廣告、追蹤或分析的域名。
+   * 說明：僅列出純粹用於廣告、追蹤或分析的域名。此清單將被高速查詢。
    */
   BLOCK_DOMAINS: new Set([
     // --- Ad & Tracking CDNs ---
@@ -146,6 +153,8 @@ const CONFIG = {
     'segment.io', 'semasio.net', 'sentry.io', 'sensorsdata.cn', 'snowplowanalytics.com', 'stat.m.jd.com', 'statcounter.com',
     'static.ads-twitter.com', 'sumo.com', 'sumome.com', 'taboola.com', 'tealium.com', 'track.tiara.daum.net', 'track.tiara.kakao.com',
     'track.hubspot.com', 'trackapp.guahao.cn', 'traffic.mogujie.com', 'vwo.com', 'wmlog.meituan.com', 'yieldlab.net', 'zgsdk.zhugeio.com',
+    // --- 瀏覽器指紋 & 進階追蹤 ---
+    'fingerprint.com',
     // --- 廣告驗證 & 可見度追蹤 ---
     'doubleverify.com', 'iasds.com', 'moat.com', 'moatads.com', 'serving-sys.com', 'sdk.iad-07.braze.com',
     // --- 客戶數據平台 (CDP) & 身分識別 ---
@@ -185,6 +194,8 @@ const CONFIG = {
     'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'cacafly.com',
     'clickforce.com.tw', 'fast-trk.com', 'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com',
     'likr.tw', 'sitetag.us', 'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com',
+    // --- 台灣內容農場 (預測性防禦) ---
+    'ad-serv.teepr.com',
     // --- 在地化 & App SDK 追蹤 ---
     'appier.net',
     // --- 中國大陸地區 (純廣告/追蹤) ---
@@ -200,6 +211,31 @@ const CONFIG = {
     // --- 其他 ---
     'adnx.com', 'cint.com', 'revjet.com', 'rlcdn.com', 'sc-static.net', 'scootersoftware.com', 'wcs.naver.net',
   ]),
+
+  /**
+   * 🚫 [V40.35 新增] Regex 域名攔截黑名單
+   * 說明：用於攔截符合特定模式的域名，僅在標準域名黑名單未命中時執行，以平衡效能。
+   */
+  BLOCK_DOMAINS_REGEX: [
+    // --- 台灣新聞媒體廣告 (動態子域名) ---
+    /^ad[s]?\d*\.(ettoday\.net|ltn\.com\.tw)$/, // Matches ad.ettoday.net, ads.ettoday.net, ad1.ettoday.net, ad.ltn.com.tw etc.
+  ],
+
+  /**
+   * 🚫 [V40.38 新增] ASN 攔截黑名單 (威脅情資庫)
+   * 說明：作為威脅情資庫，用於存放高風險的自治系統號碼 (ASN)。實際攔截需由宿主環境（如 Surge）配置。
+   */
+  BLOCK_ASNS: [
+      '20473', // Choopa, LLC / Vultr: Frequently associated with malicious hosting and botnets.
+  ],
+  
+  /**
+   * 🚫 [V40.37 新增] IP 位址 / CIDR 攔截黑名單
+   * 說明：作為威脅情資庫，用於存放高風險的 IP 位址區段。實際攔截需由宿主環境（如 Surge）配置。
+   */
+  BLOCK_IPS_CIDR: [
+    '104.21.0.0/16', // Example: A known malicious actor's IP range on Cloudflare
+  ],
 
   /**
    * 🚨 關鍵追蹤腳本攔截清單
@@ -274,6 +310,9 @@ const CONFIG = {
 
   // --- 中國大陸地區 ---
   '/log/aplus', '/v.gif', 'cnzz.com/stat.php', 'gdt.qq.com/gdt_mview.fcg', 'hm.baidu.com/hm.js', 'wgo.mmstat.com', '/event_report',
+  
+  // --- Service Worker 追蹤對策 ---
+  '/ad-sw.js', '/ads-sw.js',
 
   // --- 通用廣告路徑 ---
   '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/',
@@ -431,55 +470,41 @@ PATH_BLOCK_KEYWORDS: new Set([
   ]),
 
   /**
-   * 🗑️ 全域追蹤參數黑名單 (V40.1 標準化為全小寫)
+   * 🗑️ [V40.38 重構] 追蹤參數黑名單 (全域)
+   * 說明：用於高速比對常見的、靜態的追蹤參數。
    */
   GLOBAL_TRACKING_PARAMS: new Set([
-    // --- UTM 家族 ---
-    'utm_campaign', 'utm_content', 'utm_creative_format', 'utm_id', 'utm_marketing_tactic', 'utm_medium',
-    'utm_source', 'utm_source_platform', 'utm_term',
-    // --- Google ---
-    '__gac', '__gads', '_ga', '_gat', '_gid', 'dclid', 'gad', 'gad_source', 'gbraid', 'gcl_au', 'gclid', 'gclsrc', 'gsid', 'wbraid',
-    // --- Microsoft / Bing ---
-    'msad', 'msadgroupid', 'mscampaignid', 'msclkid',
-    // --- Facebook / Meta ---
-    'fbclid', 'fbadid', 'fbadsetid', 'fbcampaignid', 'fbplacementid', 'igsh', 'igshid', 'mibextid', 'x-threads-app-object-id',
-    // --- 其他主流平台 (Yandex, Twitter, TikTok, LinkedIn, Mailchimp) ---
-    'li_fat_id', 'mc_cid', 'mc_eid', 'mkt_tok', 'ttclid', 'twclid', 'yclid',
-    // --- 聯盟行銷 & 點擊 ID (Affiliate & Click ID) ---
-    'affid', 'affiliate_id', 'click_id', 'clickid', 'coupon_code', 'customid', 'deal_id', 'ef_id',
-    'offer_id', 'partner_id', 'promo_code', 'rb_clickid', 's_kwcid', 'sub_id', 'transaction_id', 'zanpid',
-    // --- 通用 & 其他 (Generic & Misc) ---
-    'ecid', 'epik', 'feature', 'fr', 'pvid', 'request_id', 'scene', 'scm', 'si', 'spm', 'src', 'traceid', 'trk', 'trk_params',
-    // --- 社群分享特定 (Social Sharing) ---
-    '__twitter_impression', 'app_platform', 'from_channel', 'from_source', 'from_uid', 'from_user', 'is_copy_url',
-    'is_from_webapp', 'share_app_id', 'share_from', 'share_id', 'share_medium', 'share_plat', 'share_source',
-    'share_tag', 'share_token', 'tt_campaign', 'tt_from', 'tt_medium', 'wechat_id', 'weibo_id', 'xhs_share', 'xhsshare',
-    // --- 特定服務 (Service Specific) ---
-    '_bta_c', '_bta_tid', '_openstat', 'action_object_map', 'action_ref_map', 'action_type_map', 'biz', 'camid',
-    'ck_subscriber_id', 'cupid', 'from_ad', 'from_promo', 'from_search', 'hmci', 'hmcu', 'hmkw', 'hmpl', 'hmsr',
-    'hsa_ad', 'hsa_acc', 'hsa_cam', 'hsa_grp', 'hsa_src', 'hsctatracking', 'idx', 'matomo_campaign', 'matomo_kwd',
-    'mid', 'oly_anon_id', 'oly_enc_id', 'piwik_campaign', 'piwik_kwd', 'redirect_log_mongo_id', 'redirect_mongo_id',
-    'sb_referer_host', 'union_id', 'vero_conv', 'vero_id',
-    // --- 廣告參數 (Ad Parameters) ---
-    'ad', 'ad_id', 'adgroup_id', 'adposition', 'adset', 'campaign_id', 'creative', 'creative_id', 'device',
-    'devicemodel', 'event_id', 'feeditemid', 'keyword', 'loc_interest_ms', 'loc_physical_ms', 'matchtype',
-    'network', 'pixel_id', 'placement', 'targetid',
-    // --- 搜尋特定 (Search Specific) ---
-    'algolia_object_id', 'algolia_position', 'algolia_query', 'algolia_query_id',
-    // --- Yahoo 特定參數 ---
-    '.tsrc', 'rapidkeys', 'spaceid', 'test_id', 'tsrc'
+     'dclid', 'fbclid', 'gclid', 'msclkid', 'twclid', 'yclid', 'igshid', 'mibextid',
+     'zanpid', 'gclsrc', 'wbraid', 'gbraid', '_ga', '_gid', 'mc_cid', 'mc_eid',
   ]),
 
   /**
-   * 🗑️ 追蹤參數前綴黑名單 (V40.5 移除 s_ 與 ul_ 以提升相容性)
+   * 🗑️ [V40.37 新增] Regex 追蹤參數黑名單 (全域)
+   * 說明：用於攔截符合特定模式的動態追蹤參數。
+   */
+  GLOBAL_TRACKING_PARAMS_REGEX: [
+      /^utm_\w+/, // Matches all UTM parameters (utm_source, utm_medium, etc.)
+      /^ig_[\w_]+/, // Matches Instagram click trackers (ig_rid, ig_mid, etc.)
+  ],
+
+  /**
+   * 🗑️ [V40.38 重構] 追蹤參數前綴黑名單
+   * 說明：用於高速比對常見的追蹤參數前綴。
    */
   TRACKING_PREFIXES: new Set([
-    '__cf_', '_bta', '_bta_', '_ga_', '_gid_', '_gat_', '_hs', '_oly_', 'ad_', 'aff_', 'alg_', 'bd_', 'cam_',
-    'campaign_', 'content_', 'creative_', 'cup_', 'device_', 'epik_', 'et_', 'fb_', 'from_', 'ga_', 'gcl_',
-    'gdr_', 'gds_', 'hmsr_', 'hsa_', 'li_', 'matomo_', 'mc_', 'medium_', 'mke_', 'mkt_', 'ms_', 'mtm_',
-    'network_', 'pk_', 'piwik_', 'placement_', 'ref_', 'scm_', 'share_', 'source_', 'space_', 'spm_', 'term_', 'tt_',
-    'trk_', 'tw_', 'utm_', 'vero_', 'video_utm_', 'zanpid_',
+    '__cf_', '_bta', '_ga_', '_gid_', '_gat_', '_hs', '_oly_', 'ad_', 'aff_', 'alg_', 'bd_',
+    'campaign_', 'content_', 'creative_', 'fb_', 'from_', 'gcl_', 'hmsr_', 'hsa_', 'li_',
+    'matomo_', 'medium_', 'mkt_', 'ms_', 'mtm_', 'pk_', 'piwik_', 'placement_', 'ref_',
+    'share_', 'source_', 'space_', 'term_', 'trk_',
   ]),
+
+  /**
+   * 🗑️ [V40.37 新增] Regex 追蹤參數前綴黑名單
+   * 說明：用於攔截符合特定模式的動態追蹤參數前綴。
+   */
+  TRACKING_PREFIXES_REGEX: [
+      /^_ga_/, // Matches Google Analytics cross-domain linkers like _ga_XXXX
+  ],
 
   /**
    * ✅ 必要參數白名單 (V40.5 擴充以提升相容性)
@@ -493,9 +518,10 @@ PATH_BLOCK_KEYWORDS: new Set([
    * 🚫 基於正規表示式的路徑黑名單 (V40.5 修正正則)
    */
   PATH_BLOCK_REGEX: [
-    /^\/((?!_next\/static\/|static\/|assets\/)[a-z0-9]{12,})\.js$/i, // 根目錄長雜湊 js (排除靜態目錄)，修正 [a-z0-9]
+    /^\/((?!_next\/static\/|static\/|assets\/)[a-z0-9]{12,})\.js$/i, // 根目錄長雜湊 js (排除靜態目錄)
     /[^\/]*sentry[^\/]*\.js/i,        // 檔名含 sentry 且以 .js 結尾
-    /\/v\d+\/event/i                   // 通用事件API版本 (如 /v1/event, /v2/event)
+    /\/v\d+\/event/i,                 // 通用事件 API 版本 (如 /v1/event)
+    /[a-z0-9\/\-_]{32,}\.(js|mjs)$/i,  // V40.37: 反混淆啟發式規則，攔截超長隨機路徑的腳本
   ],
 };
 
@@ -518,12 +544,16 @@ const REDIRECT_RESPONSE = (url) => ({ response: { status: 302, headers: { 'Locat
 const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.ico']);
 const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs', '.css']);
 
+// 預編譯後的 Regex 規則
+let COMPILED_BLOCK_DOMAINS_REGEX = [];
+let COMPILED_GLOBAL_TRACKING_PARAMS_REGEX = [];
+let COMPILED_TRACKING_PREFIXES_REGEX = [];
+
 class OptimizedTrie {
   constructor() { this.root = Object.create(null); }
   insert(word) { let n = this.root; for (let i = 0; i < word.length; i++) { const c = word[i]; n = n[c] || (n[c] = Object.create(null)); } n.isEndOfWord = true; }
   startsWith(prefix) { let n = this.root; for (let i = 0; i < prefix.length; i++) { const c = prefix[i]; if (!n[c]) return false; n = n[c]; if (n.isEndOfWord) return true; } return false; }
   contains(text) {
-    // V40.6 安全強化: 增加長度上限，防禦 ReDoS 攻擊
     const N = Math.min(text.length, 1024);
     for (let i = 0; i < N; i++) {
         let n = this.root;
@@ -561,19 +591,36 @@ class MultiLevelCacheManager {
 const multiLevelCache = new MultiLevelCacheManager();
 const OPTIMIZED_TRIES = { prefix: new OptimizedTrie(), criticalPattern: new OptimizedTrie(), pathBlock: new OptimizedTrie(), drop: new OptimizedTrie() };
 
-function initializeOptimizedTries() {
-  CONFIG.TRACKING_PREFIXES.forEach(p => OPTIMIZED_TRIES.prefix.insert(String(p).toLowerCase()));
-  CONFIG.CRITICAL_TRACKING_PATTERNS.forEach(p => OPTIMIZED_TRIES.criticalPattern.insert(String(p).toLowerCase()));
-  CONFIG.PATH_BLOCK_KEYWORDS.forEach(p => OPTIMIZED_TRIES.pathBlock.insert(String(p).toLowerCase()));
-  CONFIG.DROP_KEYWORDS.forEach(p => OPTIMIZED_TRIES.drop.insert(String(p).toLowerCase()));
-}
-
 class OptimizedPerformanceStats {
     constructor() { this.counters = new Uint32Array(16); this.labels = ['totalRequests', 'blockedRequests', 'domainBlocked', 'pathBlocked', 'regexPathBlocked', 'criticalScriptBlocked', 'paramsCleaned', 'hardWhitelistHits', 'softWhitelistHits', 'errors', 'l1CacheHits', 'l2CacheHits', 'urlCacheHits']; }
     increment(type) { const idx = this.labels.indexOf(type); if (idx !== -1) this.counters[idx]++; }
     getStats() { const stats = {}; this.labels.forEach((l, i) => { stats[l] = this.counters[i]; }); return stats; }
 }
 const optimizedStats = new OptimizedPerformanceStats();
+
+function compileRegexList(list) {
+    return list.map(regex => {
+        try {
+            return (regex instanceof RegExp) ? regex : new RegExp(regex);
+        } catch (e) {
+            console.error(`[URL-Filter-v40.39] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
+            return null;
+        }
+    }).filter(Boolean);
+}
+
+function initializeCoreEngine() {
+    // 初始化 Trie 結構
+    CONFIG.TRACKING_PREFIXES.forEach(p => OPTIMIZED_TRIES.prefix.insert(String(p).toLowerCase()));
+    CONFIG.CRITICAL_TRACKING_PATTERNS.forEach(p => OPTIMIZED_TRIES.criticalPattern.insert(String(p).toLowerCase()));
+    CONFIG.PATH_BLOCK_KEYWORDS.forEach(p => OPTIMIZED_TRIES.pathBlock.insert(String(p).toLowerCase()));
+    CONFIG.DROP_KEYWORDS.forEach(p => OPTIMIZED_TRIES.drop.insert(String(p).toLowerCase()));
+
+    // 預編譯所有 Regex 規則
+    COMPILED_BLOCK_DOMAINS_REGEX = compileRegexList(CONFIG.BLOCK_DOMAINS_REGEX);
+    COMPILED_GLOBAL_TRACKING_PARAMS_REGEX = compileRegexList(CONFIG.GLOBAL_TRACKING_PARAMS_REGEX);
+    COMPILED_TRACKING_PREFIXES_REGEX = compileRegexList(CONFIG.TRACKING_PREFIXES_REGEX);
+}
 
 function isWhitelisted(hostname, exactSet, wildcardSet) {
     if (exactSet.has(hostname)) return true;
@@ -589,7 +636,28 @@ function isWhitelisted(hostname, exactSet, wildcardSet) {
 
 function isHardWhitelisted(h) { return isWhitelisted(h, CONFIG.HARD_WHITELIST_EXACT, CONFIG.HARD_WHITELIST_WILDCARDS); }
 function isSoftWhitelisted(h) { return isWhitelisted(h, CONFIG.SOFT_WHITELIST_EXACT, CONFIG.SOFT_WHITELIST_WILDCARDS); }
-function isDomainBlocked(h) { let c = h; while (c) { if (CONFIG.BLOCK_DOMAINS.has(c)) return true; const i = c.indexOf('.'); if (i === -1) break; c = c.slice(i + 1); } return false; }
+
+function isDomainBlocked(hostname) {
+    let currentDomain = hostname;
+    while (true) {
+        if (CONFIG.BLOCK_DOMAINS.has(currentDomain)) return true;
+        const dotIndex = currentDomain.indexOf('.');
+        if (dotIndex === -1) break;
+        currentDomain = currentDomain.substring(dotIndex + 1);
+    }
+    for (const regex of COMPILED_BLOCK_DOMAINS_REGEX) {
+        if (regex.test(hostname)) return true;
+    }
+    return false;
+}
+
+function isIpBlocked(ip) {
+    if (!ip) return false;
+    // 此處為簡化實現，實際應用中應包含完整的 CIDR 匹配邏輯。
+    // 高級宿主環境 (如 Surge) 應使用其內建的 `ip-cidr` 或 `geoip` 功能來處理 `BLOCK_IPS_CIDR` 列表。
+    return CONFIG.BLOCK_IPS_CIDR.some(cidr => ip.startsWith(cidr.split('/')[0].slice(0, -1)));
+}
+
 
 function isCriticalTrackingScript(hostname, path) { 
     const key = `crit:${hostname}:${path}`;
@@ -613,10 +681,6 @@ function isCriticalTrackingScript(hostname, path) {
     return shouldBlock;
 }
 
-/**
- * V40.6 安全強化: 新增精確的路徑豁免檢查函式
- * 說明：取代舊有的 `allow.contains`，以更嚴格的後綴、子字串和路徑區段匹配來避免繞過。
- */
 function isPathExplicitlyAllowed(path) {
     for (const suffix of CONFIG.PATH_ALLOW_SUFFIXES) {
         if (path.endsWith(suffix)) return true;
@@ -624,7 +688,6 @@ function isPathExplicitlyAllowed(path) {
     for (const substring of CONFIG.PATH_ALLOW_SUBSTRINGS) {
         if (path.includes(substring)) return true;
     }
-    // 檢查路徑區段，移除開頭的'/'並過濾空字串
     const segments = path.startsWith('/') ? path.substring(1).split('/') : path.split('/');
     for (const segment of segments) {
         if (segment && CONFIG.PATH_ALLOW_SEGMENTS.has(segment)) return true;
@@ -637,7 +700,6 @@ function isPathBlocked(path) {
     const c = multiLevelCache.getUrlDecision(k); 
     if (c !== null) return c; 
     let r = false;
-    // V40.6 安全強化: 使用 isPathExplicitlyAllowed 進行更嚴格的檢查
     if (OPTIMIZED_TRIES.pathBlock.contains(path) && !isPathExplicitlyAllowed(path)) { 
         r = true; 
     } 
@@ -677,19 +739,48 @@ function getBlockResponse(path) {
     return REJECT_RESPONSE;
 }
 
+
 function cleanTrackingParams(url) {
     const newUrl = new URL(url.toString());
     let modified = false;
     const toDelete = [];
+
     for (const key of newUrl.searchParams.keys()) {
         const lowerKey = key.toLowerCase();
+
         if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(lowerKey)) continue;
+
         if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) || OPTIMIZED_TRIES.prefix.startsWith(lowerKey)) {
             toDelete.push(key);
             modified = true;
+            continue;
+        }
+
+        let regexMatched = false;
+        for (const regex of COMPILED_GLOBAL_TRACKING_PARAMS_REGEX) {
+            if (regex.test(lowerKey)) {
+                toDelete.push(key);
+                modified = true;
+                regexMatched = true;
+                break;
+            }
+        }
+        if (regexMatched) continue;
+
+        for (const regex of COMPILED_TRACKING_PREFIXES_REGEX) {
+            if (regex.test(lowerKey)) {
+                toDelete.push(key);
+                modified = true;
+                break;
+            }
         }
     }
+
     if (modified) {
+        if (CONFIG.PARAM_CLEAN_LOG_ONLY_MODE) {
+            console.log(`[URL-Filter-v40.39][Log-Only] 偵測到追蹤參數。原始 URL: "${url.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
+            return null; // 在僅記錄模式下，返回 null 以阻止重導向
+        }
         toDelete.forEach(k => newUrl.searchParams.delete(k));
         newUrl.hash = 'cleaned';
         return newUrl.toString();
@@ -712,9 +803,8 @@ function processRequest(request) {
             multiLevelCache.setUrlObject(rawUrl, Object.freeze(url));
         } catch (e) {
             optimizedStats.increment('errors');
-            // V40.6 安全強化: 移除日誌中的查詢參數，避免敏感資訊外洩
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.33] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.39] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -729,6 +819,9 @@ function processRequest(request) {
         optimizedStats.increment('hardWhitelistHits');
         return null;
     }
+    
+    // 注意：isIpBlocked 的呼叫需由能夠提供 IP 的宿主環境來觸發。
+    // if (request.remoteAddress && isIpBlocked(request.remoteAddress)) { return REJECT_RESPONSE; }
     
     const l1Decision = multiLevelCache.getDomainDecision(hostname);
     if (l1Decision === DECISION.BLOCK) {
@@ -780,7 +873,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.33] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.39] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -789,10 +882,10 @@ function processRequest(request) {
 // 執行入口
 (function () {
   try {
-    initializeOptimizedTries();
+    initializeCoreEngine(); // 執行核心引擎初始化
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.33', status: 'ready', message: 'URL Filter v40.33 - Aggressive CNAME Cloaking Mitigation', stats: optimizedStats.getStats() });
+        $done({ version: '40.39', status: 'ready', message: 'URL Filter v40.39 - Countering Advanced Stateless Tracking', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -801,7 +894,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.33] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.39] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
