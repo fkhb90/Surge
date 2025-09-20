@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.39.js
- * @version     40.39 (Countering Advanced Stateless Tracking)
- * @description 新增對 Fingerprint.com 的封鎖，強化對 ETag 與 Canvas 指紋追蹤的防禦。
+ * @file        URL-Ultimate-Filter-Surge-V40.40.js
+ * @version     40.40 (Transparent Defense & Fine-grained Control)
+ * @description 部署全域「除錯模式」；實現啟發式規則日誌記錄；分離啟發式規則集。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-20
  */
@@ -15,11 +15,12 @@
 
 const CONFIG = {
   /**
-   * ✅ [V40.38 新增] 參數清理「僅記錄模式」
-   * 說明：設為 true 時，參數清理功能將僅在控制台打印日誌，而不會實際執行重導向。
-   * 這對於無風險地測試新規則或對網站問題進行除錯至關重要。
+   * ✅ [V40.40 新增] 全域「除錯模式」
+   * 說明：設為 true 時，將啟用一系列的進階日誌功能，用於無風險地測試與診斷。
+   * 1. 參數清理將轉為「僅記錄模式」，不會執行實際重導向。
+   * 2. 「啟發式規則」的命中事件將被詳細記錄至控制台。
    */
-  PARAM_CLEAN_LOG_ONLY_MODE: false,
+  DEBUG_MODE: false,
 
   /**
    * ✳️ 硬白名單 - 精確匹配 (Hard Whitelist - Exact)
@@ -515,14 +516,22 @@ PATH_BLOCK_KEYWORDS: new Set([
   ]),
 
   /**
-   * 🚫 基於正規表示式的路徑黑名單 (V40.5 修正正則)
+   * 🚫 [V40.40 重構] 基於正規表示式的路徑黑名單 (高信度)
+   * 說明：用於攔截高信度的、確定性的威脅路徑模式。
    */
   PATH_BLOCK_REGEX: [
     /^\/((?!_next\/static\/|static\/|assets\/)[a-z0-9]{12,})\.js$/i, // 根目錄長雜湊 js (排除靜態目錄)
     /[^\/]*sentry[^\/]*\.js/i,        // 檔名含 sentry 且以 .js 結尾
     /\/v\d+\/event/i,                 // 通用事件 API 版本 (如 /v1/event)
-    /[a-z0-9\/\-_]{32,}\.(js|mjs)$/i,  // V40.37: 反混淆啟發式規則，攔截超長隨機路徑的腳本
   ],
+
+  /**
+   * 🚫 [V40.40 新增] 啟發式路徑攔截 Regex (實驗性)
+   * 說明：用於攔截潛在的、基於模式推測的威脅。其攔截事件將在除錯模式下被記錄。
+   */
+  HEURISTIC_PATH_BLOCK_REGEX: [
+      /[a-z0-9\/\-_]{32,}\.(js|mjs)$/i,  // V40.37: 反混淆啟發式規則，攔截超長隨機路徑的腳本
+  ]
 };
 
 // #################################################################################################
@@ -548,6 +557,8 @@ const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs', '.css']);
 let COMPILED_BLOCK_DOMAINS_REGEX = [];
 let COMPILED_GLOBAL_TRACKING_PARAMS_REGEX = [];
 let COMPILED_TRACKING_PREFIXES_REGEX = [];
+let COMPILED_PATH_BLOCK_REGEX = [];
+let COMPILED_HEURISTIC_PATH_BLOCK_REGEX = [];
 
 class OptimizedTrie {
   constructor() { this.root = Object.create(null); }
@@ -603,7 +614,7 @@ function compileRegexList(list) {
         try {
             return (regex instanceof RegExp) ? regex : new RegExp(regex);
         } catch (e) {
-            console.error(`[URL-Filter-v40.39] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.40] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
             return null;
         }
     }).filter(Boolean);
@@ -620,6 +631,8 @@ function initializeCoreEngine() {
     COMPILED_BLOCK_DOMAINS_REGEX = compileRegexList(CONFIG.BLOCK_DOMAINS_REGEX);
     COMPILED_GLOBAL_TRACKING_PARAMS_REGEX = compileRegexList(CONFIG.GLOBAL_TRACKING_PARAMS_REGEX);
     COMPILED_TRACKING_PREFIXES_REGEX = compileRegexList(CONFIG.TRACKING_PREFIXES_REGEX);
+    COMPILED_PATH_BLOCK_REGEX = compileRegexList(CONFIG.PATH_BLOCK_REGEX);
+    COMPILED_HEURISTIC_PATH_BLOCK_REGEX = compileRegexList(CONFIG.HEURISTIC_PATH_BLOCK_REGEX);
 }
 
 function isWhitelisted(hostname, exactSet, wildcardSet) {
@@ -717,12 +730,23 @@ function isPathBlockedByRegex(path) {
             return false;
         } 
     } 
-    for (let i = 0; i < CONFIG.PATH_BLOCK_REGEX.length; i++) { 
-        if (CONFIG.PATH_BLOCK_REGEX[i].test(path)) { 
+    // 檢查高信度規則
+    for (const regex of COMPILED_PATH_BLOCK_REGEX) { 
+        if (regex.test(path)) { 
             multiLevelCache.setUrlDecision(k, true); 
             return true;
         } 
-    } 
+    }
+    // 檢查啟發式規則
+    for (const regex of COMPILED_HEURISTIC_PATH_BLOCK_REGEX) { 
+        if (regex.test(path)) { 
+            if (CONFIG.DEBUG_MODE) {
+                console.log(`[URL-Filter-v40.40][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
+            }
+            multiLevelCache.setUrlDecision(k, true); 
+            return true;
+        } 
+    }
     multiLevelCache.setUrlDecision(k, false); 
     return false; 
 }
@@ -777,9 +801,9 @@ function cleanTrackingParams(url) {
     }
 
     if (modified) {
-        if (CONFIG.PARAM_CLEAN_LOG_ONLY_MODE) {
-            console.log(`[URL-Filter-v40.39][Log-Only] 偵測到追蹤參數。原始 URL: "${url.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
-            return null; // 在僅記錄模式下，返回 null 以阻止重導向
+        if (CONFIG.DEBUG_MODE) {
+            console.log(`[URL-Filter-v40.40][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL: "${url.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
+            return null; // 在除錯模式下，返回 null 以阻止重導向
         }
         toDelete.forEach(k => newUrl.searchParams.delete(k));
         newUrl.hash = 'cleaned';
@@ -804,7 +828,7 @@ function processRequest(request) {
         } catch (e) {
             optimizedStats.increment('errors');
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.39] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.40] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -873,7 +897,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.39] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.40] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -885,7 +909,7 @@ function processRequest(request) {
     initializeCoreEngine(); // 執行核心引擎初始化
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.39', status: 'ready', message: 'URL Filter v40.39 - Countering Advanced Stateless Tracking', stats: optimizedStats.getStats() });
+        $done({ version: '40.40', status: 'ready', message: 'URL Filter v40.40 - Transparent Defense & Fine-grained Control', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -894,7 +918,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.39] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.40] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
