@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.42.js
- * @version     40.42 (Holistic Ecosystem Defense & Advanced Protocol Analysis)
- * @description 擴展關鍵基礎設施白名單；升級除錯模式以監控白名單運作。
+ * @file        URL-Ultimate-Filter-Surge-V40.43.js
+ * @version     40.43 (Quantitative Performance Analysis & Engine Metrology)
+ * @description 為除錯模式新增效能計時器，量化請求處理耗時。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-21
  */
@@ -20,6 +20,7 @@ const CONFIG = {
    * 1. 參數清理將轉為「僅記錄模式」，不會執行實際重導向。
    * 2. 「啟發式規則」的命中事件將被詳細記錄至控制台。
    * 3. [V40.42 新增] 白名單（硬/軟）的命中事件將被詳細記錄。
+   * 4. [V40.43 新增] 每個請求的處理耗時將被精確計時並記錄。
    */
   DEBUG_MODE: false,
 
@@ -556,7 +557,7 @@ const REJECT_RESPONSE   = { response: { status: 403 } };
 const DROP_RESPONSE     = { response: {} };
 const NO_CONTENT_RESPONSE = { response: { status: 204 } };
 const REDIRECT_RESPONSE = (url) => ({ response: { status: 302, headers: { 'Location': url } } });
-const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.ico']);
+const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', '.jpg', '.jpeg', '..webp', '.ico']);
 const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs', '.css']);
 
 // 預編譯後的 Regex 規則
