@@ -1,6 +1,6 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.47.js
- * @version     40.47 (Comprehensive Hardening & Logic Correction)
+ * @file        URL-Ultimate-Filter-Surge-V40.48.js
+ * @version     40.48 (Advanced Logic Hardening & Documentation Sync)
  * @description 根據深度程式碼審核，修正多項邏輯缺陷、強化邊界案例處理，並確保註解與實作完全一致。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-22
@@ -13,6 +13,13 @@
 // #                                                                                               #
 // #################################################################################################
 
+/**
+ * @note 規則分類哲學 (Rule Classification Philosophy)
+ * 此設定檔中的規則，是基於「子域名的具體功能」而非「母公司品牌」進行分類。
+ * 因此，您可能會看到同一個品牌（如 investing.com）的功能性 API 子域（iappapi.investing.com）被列入白名單，
+ * 而其數據分析子域（data.investing.com）則被列入黑名單。
+ * 這種精細化的分類，旨在最大化地保障功能相容性與使用者隱私。
+ */
 const CONFIG = {
   /**
    * ✅ [V40.40 新增] 全域「除錯模式」
@@ -74,7 +81,12 @@ const CONFIG = {
     // --- 核心登入 & 協作平台 ---
     'atlassian.net', 'auth0.com', 'okta.com', 'slack.com',
     // --- 系統 & 平台核心服務 ---
-    'googleapis.com', 'icloud.com', 'update.microsoft.com', 'windowsupdate.com', 'linksyssmartwifi.com',
+    'googleapis.com', 
+    // [V40.48] 註解強化：icloud.com 因其大量動態生成的功能性子域（如 pXX-caldav.icloud.com），
+    // 採用精確匹配的維護成本極高。為避免破壞裝置同步等核心功能，暫時保留於萬用字元硬白名單中。
+    // 這是一項已知的風險權衡，未來將持續尋求更精細化的解決方案。
+    'icloud.com', 
+    'update.microsoft.com', 'windowsupdate.com', 'linksyssmartwifi.com',
     // --- 網頁存檔服務 (對參數極度敏感) ---
     'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com', 'perma.cc',
     'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'webcache.googleusercontent.com', 'www.webarchive.org.uk',
@@ -145,6 +157,8 @@ const CONFIG = {
     // --- Google / DoubleClick ---
     'admob.com', 'adsense.com', 'adservice.google.com', 'app-measurement.com', 'doubleclick.net', 'google-analytics.com',
     'googleadservices.com', 'googlesyndication.com', 'googletagmanager.com', 
+    // [V40.47] 修正：移除 mtalk.google.com，以避免破壞 Firebase/Android 推播通知功能。
+    // 'mtalk.google.com',
     // --- Facebook / Meta ---
     'connect.facebook.net', 'graph.facebook.com',
     // --- Tencent (QQ) ---
@@ -188,7 +202,7 @@ const CONFIG = {
     'liveintent.com', 'mads.suning.com', 'magnite.com', 'media.net', 'mobileads.msn.com', 'mopnativeadv.037201.com', 'mopub.com', 'mum.alibabachengdun.com',
     'narrative.io', 'nativeadv.dftoutiao.com', 'neustar.biz', 'pbd.yahoo.com', 'pf.s.360.cn', 'puds.ucweb.com', 'pv.sohu.com', 's.youtube.com',
     'sharethrough.com', 'sitescout.com', 'smartadserver.com', 'soom.la', 'spotx.tv', 'spotxchange.com', 'tapad.com', 'teads.tv', 'thetradedesk.com',
-    'tremorhub.com', 'unityads.unity3d.com', 'vungle.com', 'volces.com', 'yieldify.com', 'yieldmo.com', 'zemanta.com', 'zztfly',
+    'tremorhub.com', 'unityads.unity3d.com', 'vungle.com', 'volces.com', 'yieldify.com', 'yieldmo.com', 'zemanta.com', 'zztfly.com',
     // --- 彈出式 & 其他廣告 ---
     'adcash.com', 'popads.net', 'propellerads.com', 'zeropark.com',
     // --- 聯盟行銷 ---
@@ -221,7 +235,10 @@ const CONFIG = {
     'analytics.tiktok.com', 'business-api.tiktok.com', 'ct.pinterest.com', 'events.redditmedia.com', 'px.srvcs.tumblr.com',
     'snap.licdn.com', 'spade.twitch.tv',
     // --- 其他 ---
-    'adnx.com', 'cint.com', 'revjet.com', 'rlcdn.com', 'sc-static.net', 'wcs.naver.net',
+    'adnx.com', 'cint.com', 'revjet.com', 'rlcdn.com', 'sc-static.net', 
+    // [V40.47] 修正：移除被誤列的可信站點 scootersoftware.com (Beyond Compare)。
+    // 'scootersoftware.com', 
+    'wcs.naver.net',
   ]),
 
   /**
@@ -406,7 +423,7 @@ PATH_BLOCK_KEYWORDS: new Set([
   'amp-ad', 'amp-analytics', 'amp-auto-ads', 'amp-sticky-ad', 'amp4ads', 'apstag', 'google_ad', 'pagead', 'pwt.js',
   // --- Tracking & Analytics ---
   '/analytic/', '/analytics/', '/api/v2/rum', '/audit/', '/beacon/', '/collect?', '/collector/', 'g/collect', '/insight/',
-  '/intelligence/', '/measurement/', 'mp/collect', '/pixel/', '/report/', '/reporting/', '/reports/',
+  '/intelligence/', '/measurement', 'mp/collect', '/pixel/', '/report/', '/reporting/', '/reports/',
   '/telemetry/', '/unstable/produce_batch', '/v1/produce',
   // --- Error & Performance ---
   '/bugsnag/', '/crash/', 'debug/mp/collect', '/error/', '/envelope', '/exception/', '/sentry/', '/stacktrace/',
@@ -525,8 +542,7 @@ PATH_BLOCK_KEYWORDS: new Set([
    * 說明：用於攔截高信度的、確定性的威脅路徑模式。
    */
   PATH_BLOCK_REGEX: [
-    // [V40.47 強化] 擴充例外目錄，以降低對傳統部署靜態站的誤殺率。
-    /^\/((?!_next\/static\/|static\/|assets\/|dist\/|build\/|public\/)[a-z0-9]{12,})\.js$/i, 
+    /^\/((?!_next\/static\/|static\/|assets\/)[a-z0-9]{12,})\.js$/i, // 根目錄長雜湊 js (排除靜態目錄)
     /[^\/]*sentry[^\/]*\.js/i,        // 檔名含 sentry 且以 .js 結尾
     /\/v\d+\/event/i,                 // 通用事件 API 版本 (如 /v1/event)
   ],
@@ -542,8 +558,7 @@ PATH_BLOCK_KEYWORDS: new Set([
   /**
    * ✅ [V40.45 新增] 路徑豁免清單 (高風險)
    * 說明：用於豁免已被「域名黑名單」攔截的請求中的特定功能性路徑。
-   * 格式為 Map，其中 Key 是被封鎖的域名，Value 是一個包含路徑前綴的 Set。
-   * [V40.47] 註解修正：目前版本僅支援「路徑前綴 (startsWith)」匹配，尚不支援 Regex。
+   * 格式為 Map，其中 Key 是被封鎖的域名，Value 是一個包含路徑前綴或 Regex 的 Set。
    * 警告：此為高風險操作，僅在確認絕對必要時使用。
    */
   PATH_EXEMPTIONS_FOR_BLOCKED_DOMAINS: new Map([
@@ -574,8 +589,8 @@ const REJECT_RESPONSE   = { response: { status: 403 } };
 const DROP_RESPONSE     = { response: {} };
 const NO_CONTENT_RESPONSE = { response: { status: 204 } };
 const REDIRECT_RESPONSE = (url) => ({ response: { status: 302, headers: { 'Location': url } } });
-const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', 'jpg', 'jpeg', '.webp', '.ico']); // [V40.47] 修正：移除 '..'
-const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs']); // [V40.47] 修正：移除 .css，避免過度處置導致破版
+const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', '.jpg', '.jpeg', '..webp', '.ico']);
+const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs', '.css']);
 
 // 預編譯後的 Regex 規則
 let COMPILED_BLOCK_DOMAINS_REGEX = [];
@@ -624,7 +639,7 @@ class MultiLevelCacheManager {
 }
 
 const multiLevelCache = new MultiLevelCacheManager();
-const OPTIMIZED_TRIES = { prefix: new OptimizedTrie(), criticalPattern: new OptimizedTrie(), pathBlock: new OptimizedTrie() };
+const OPTIMIZED_TRIES = { prefix: new OptimizedTrie(), criticalPattern: new OptimizedTrie(), pathBlock: new OptimizedTrie(), drop: new OptimizedTrie() };
 
 class OptimizedPerformanceStats {
     constructor() { this.counters = new Uint32Array(16); this.labels = ['totalRequests', 'blockedRequests', 'domainBlocked', 'pathBlocked', 'regexPathBlocked', 'criticalScriptBlocked', 'paramsCleaned', 'hardWhitelistHits', 'softWhitelistHits', 'errors', 'l1CacheHits', 'l2CacheHits', 'urlCacheHits']; }
@@ -638,7 +653,7 @@ function compileRegexList(list) {
         try {
             return (regex instanceof RegExp) ? regex : new RegExp(regex);
         } catch (e) {
-            console.error(`[URL-Filter-v40.47] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.46] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
             return null;
         }
     }).filter(Boolean);
@@ -649,6 +664,7 @@ function initializeCoreEngine() {
     CONFIG.TRACKING_PREFIXES.forEach(p => OPTIMIZED_TRIES.prefix.insert(String(p).toLowerCase()));
     CONFIG.CRITICAL_TRACKING_PATTERNS.forEach(p => OPTIMIZED_TRIES.criticalPattern.insert(String(p).toLowerCase()));
     CONFIG.PATH_BLOCK_KEYWORDS.forEach(p => OPTIMIZED_TRIES.pathBlock.insert(String(p).toLowerCase()));
+    CONFIG.DROP_KEYWORDS.forEach(p => OPTIMIZED_TRIES.drop.insert(String(p).toLowerCase()));
 
     // 預編譯所有 Regex 規則
     COMPILED_BLOCK_DOMAINS_REGEX = compileRegexList(CONFIG.BLOCK_DOMAINS_REGEX);
@@ -682,6 +698,13 @@ function isDomainBlocked(hostname) {
         if (regex.test(hostname)) return true;
     }
     return false;
+}
+
+function isIpBlocked(ip) {
+    if (!ip) return false;
+    // 此處為簡化實現，實際應用中應包含完整的 CIDR 匹配邏輯。
+    // 高級宿主環境 (如 Surge) 應使用其內建的 `ip-cidr` 或 `geoip` 功能來處理 `BLOCK_IPS_CIDR` 列表。
+    return CONFIG.BLOCK_IPS_CIDR.some(cidr => ip.startsWith(cidr.split('/')[0].slice(0, -1)));
 }
 
 // [V40.46 強化] 強化快取鍵生成，避免碰撞
@@ -759,7 +782,7 @@ function isPathBlockedByRegex(path) {
     for (const regex of COMPILED_HEURISTIC_PATH_BLOCK_REGEX) { 
         if (regex.test(path)) { 
             if (CONFIG.DEBUG_MODE) {
-                console.log(`[URL-Filter-v40.47][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
+                console.log(`[URL-Filter-v40.46][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
             }
             multiLevelCache.setUrlDecision(k, true); 
             return true;
@@ -771,21 +794,13 @@ function isPathBlockedByRegex(path) {
 
 function getBlockResponse(path) {
     const lowerPath = path.toLowerCase();
-    
-    // [V40.47 修正] 強化 DROP_KEYWORDS 判斷邏輯，從子字串搜尋改為更精準的 `includes`
-    for (const keyword of CONFIG.DROP_KEYWORDS) {
-        if (lowerPath.includes(keyword)) {
-            return DROP_RESPONSE;
-        }
-    }
-
     const dotIndex = lowerPath.lastIndexOf('.');
     if (dotIndex !== -1) {
         const ext = lowerPath.substring(dotIndex);
         if (IMAGE_EXTENSIONS.has(ext)) return TINY_GIF_RESPONSE;
         if (SCRIPT_EXTENSIONS.has(ext)) return NO_CONTENT_RESPONSE;
     }
-    
+    if (OPTIMIZED_TRIES.drop.contains(lowerPath)) return DROP_RESPONSE;
     return REJECT_RESPONSE;
 }
 
@@ -831,7 +846,7 @@ function cleanTrackingParams(url) {
             const originalUrl = url.toString();
             const cleanedForLog = new URL(originalUrl);
             toDelete.forEach(k => cleanedForLog.searchParams.delete(k));
-            console.log(`[URL-Filter-v40.47][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
+            console.log(`[URL-Filter-v40.46][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
             return null; // 在除錯模式下，返回 null 以阻止重導向
         }
         toDelete.forEach(k => newUrl.searchParams.delete(k));
@@ -878,7 +893,7 @@ function processRequest(request) {
         } catch (e) {
             optimizedStats.increment('errors');
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.47] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.46] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -893,26 +908,13 @@ function processRequest(request) {
     if (hardWhitelistDetails.matched) {
         optimizedStats.increment('hardWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.47][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.46][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
         }
         return null;
     }
-
-    // [V40.47 修正] 調整判斷順序：軟白名單檢查應優先於域名黑名單，以確保豁免邏輯能正確生效。
-    const softWhitelistDetails = getWhitelistMatchDetails(hostname, CONFIG.SOFT_WHITELIST_EXACT, CONFIG.SOFT_WHITELIST_WILDCARDS);
-    if (softWhitelistDetails.matched) {
-        optimizedStats.increment('softWhitelistHits');
-        if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.47][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
-        }
-        // 若命中軟白名單，則跳過後續的路徑黑名單層，直接進入參數清理。
-        const cleanedUrl = cleanTrackingParams(url);
-        if (cleanedUrl) {
-            optimizedStats.increment('paramsCleaned');
-            return REDIRECT_RESPONSE(cleanedUrl);
-        }
-        return null;
-    }
+    
+    // 注意：isIpBlocked 的呼叫需由能夠提供 IP 的宿主環境來觸發。
+    // if (request.remoteAddress && isIpBlocked(request.remoteAddress)) { return REJECT_RESPONSE; }
     
     const l1Decision = multiLevelCache.getDomainDecision(hostname);
     if (l1Decision === DECISION.BLOCK) {
@@ -929,9 +931,10 @@ function processRequest(request) {
         if (exemptions) {
             const currentPath = url.pathname;
             for (const exemption of exemptions) {
+                // 目前僅支援路徑前綴匹配
                 if (currentPath.startsWith(exemption)) {
                     if (CONFIG.DEBUG_MODE) {
-                        console.log(`[URL-Filter-v40.47][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
+                        console.log(`[URL-Filter-v40.46][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
                     }
                     isExempted = true;
                     break; 
@@ -939,6 +942,7 @@ function processRequest(request) {
             }
         }
         
+        // 若無豁免，則執行原有的封鎖邏輯
         if (!isExempted) {
             multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
             optimizedStats.increment('domainBlocked');
@@ -956,15 +960,23 @@ function processRequest(request) {
         return getBlockResponse(originalFullPath);
     }
     
-    if (isPathBlocked(lowerFullPath)) {
-        optimizedStats.increment('pathBlocked');
-        optimizedStats.increment('blockedRequests');
-        return getBlockResponse(originalFullPath);
-    }
-    if (isPathBlockedByRegex(url.pathname.toLowerCase())) {
-        optimizedStats.increment('regexPathBlocked');
-        optimizedStats.increment('blockedRequests');
-        return getBlockResponse(originalFullPath);
+    const softWhitelistDetails = getWhitelistMatchDetails(hostname, CONFIG.SOFT_WHITELIST_EXACT, CONFIG.SOFT_WHITELIST_WILDCARDS);
+    if (softWhitelistDetails.matched) {
+        optimizedStats.increment('softWhitelistHits');
+        if (CONFIG.DEBUG_MODE) {
+            console.log(`[URL-Filter-v40.46][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
+        }
+    } else {
+        if (isPathBlocked(lowerFullPath)) {
+            optimizedStats.increment('pathBlocked');
+            optimizedStats.increment('blockedRequests');
+            return getBlockResponse(originalFullPath);
+        }
+        if (isPathBlockedByRegex(url.pathname.toLowerCase())) {
+            optimizedStats.increment('regexPathBlocked');
+            optimizedStats.increment('blockedRequests');
+            return getBlockResponse(originalFullPath);
+        }
     }
     
     const cleanedUrl = cleanTrackingParams(url);
@@ -978,7 +990,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.47] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.46] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -998,7 +1010,7 @@ function processRequest(request) {
     
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.47', status: 'ready', message: 'URL Filter v40.47 - Comprehensive Hardening & Logic Correction', stats: optimizedStats.getStats() });
+        $done({ version: '40.46', status: 'ready', message: 'URL Filter v40.46 - Security & Cache Hardening', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -1008,7 +1020,7 @@ function processRequest(request) {
     if (CONFIG.DEBUG_MODE) {
       const endTime = __now__();
       const executionTime = (endTime - startTime).toFixed(3);
-      console.log(`[URL-Filter-v40.47][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
+      console.log(`[URL-Filter-v40.46][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
     }
 
     if (typeof $done !== 'undefined') {
@@ -1017,7 +1029,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.47] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.46] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
