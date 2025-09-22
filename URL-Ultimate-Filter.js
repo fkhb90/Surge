@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.50.js
- * @version     40.50 (Rule Implementation Correction)
- * @description 根據回歸測試，修正 V40.49 版本中，文字敘述與程式碼實現不一致的問題。
+ * @file        URL-Ultimate-Filter-Surge-V40.51.js
+ * @version     40.51 (黑名單邏輯修正 & 追蹤技術更新)
+ * @description 修正黑名單遺漏、新增邊緣計算追蹤域名、強化 TikTok/LinkedIn 參數覆蓋、擴充 OAuth 參數白名單
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-23
  */
@@ -144,7 +144,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 [V40.16 擴充] 域名攔截黑名單
+   * 🚫 [V40.51 強化] 域名攔截黑名單
    * 說明：僅列出純粹用於廣告、追蹤或分析的域名。此清單將被高速查詢。
    */
   BLOCK_DOMAINS: new Set([
@@ -159,12 +159,17 @@ const CONFIG = {
     // --- Google / DoubleClick ---
     'admob.com', 'adsense.com', 'adservice.google.com', 'app-measurement.com', 'doubleclick.net', 'google-analytics.com',
     'googleadservices.com', 'googlesyndication.com', 'googletagmanager.com', 
-    // --- Facebook / Meta ---
-    'connect.facebook.net', 'graph.facebook.com',
+    // --- [V40.51 新增] Facebook / Meta 追蹤增強 ---
+    'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com',
+    // --- [V40.51 新增] TikTok 追蹤完整覆蓋 ---
+    'ads.tiktok.com', 'analytics.tiktok.com', 'business-api.tiktok.com', 'events.tiktok.com',
     // --- Tencent (QQ) ---
     '3gimg.qq.com', 'fusion.qq.com', 'ios.bugly.qq.com', 'lives.l.qq.com', 'monitor.uu.qq.com', 'pingma.qq.com', 'sdk.e.qq.com', 'wup.imtt.qq.com',
     // --- Zhihu ---
     'appcloud.zhihu.com', 'appcloud2.in.zhihu.com', 'crash2.zhihu.com', 'mqtt.zhihu.com', 'sugar.zhihu.com',
+    // --- [V40.51 新增] 邊緣計算追蹤服務域名 ---
+    'edge-analytics.amazonaws.com', 'edge-tracking.cloudflare.com', 'edgecompute-analytics.com', 'cdn-edge-tracking.com',
+    'realtime-edge.fastly.com', 'edge-telemetry.akamai.com', 'monitoring.edge-compute.io',
     // --- 平台內部追蹤 & 分析 ---
     'log.felo.ai',
     // --- 主流分析 & 追蹤服務 ---
@@ -179,6 +184,8 @@ const CONFIG = {
     'segment.io', 'semasio.net', 'sentry.io', 'sensorsdata.cn', 'snowplowanalytics.com', 'stat.m.jd.com', 'statcounter.com',
     'static.ads-twitter.com', 'sumo.com', 'sumome.com', 'taboola.com', 'tealium.com', 'track.tiara.daum.net', 'track.tiara.kakao.com',
     'track.hubspot.com', 'trackapp.guahao.cn', 'traffic.mogujie.com', 'vwo.com', 'wmlog.meituan.com', 'yieldlab.net', 'zgsdk.zhugeio.com',
+    // --- [V40.51 新增] LinkedIn 進階追蹤域名 ---
+    'px.ads.linkedin.com', 'analytics.linkedin.com', 'insight.linkedin.com',
     // --- 瀏覽器指紋 & 進階追蹤 ---
     'fingerprint.com',
     // --- 廣告驗證 & 可見度追蹤 ---
@@ -249,12 +256,6 @@ const CONFIG = {
   ],
   
   /**
-   * [V40.47 移除] ASN 與 IP/CIDR 黑名單
-   * 說明：ASN 與 IP/CIDR 層級的封鎖，因風險過高且無法精準判斷，已自腳本中移除。
-   * 強烈建議使用者，根據自身安全需求，在 Surge 等宿主環境的 [Rule] 設定中，手動配置此類規則。
-   */
-
-  /**
    * 🚨 關鍵追蹤腳本攔截清單
    */
   CRITICAL_TRACKING_SCRIPTS: new Set([
@@ -262,6 +263,10 @@ const CONFIG = {
     'ads.js', 'adsbygoogle.js', 'analytics.js', 'ga.js', 'gtag.js', 'gtm.js', 'ytag.js',
     // --- Facebook / Meta ---
     'connect.js', 'fbevents.js', 'fbq.js', 'pixel.js',
+    // --- [V40.51 新增] TikTok 追蹤腳本 ---
+    'ttclid.js', 'tiktok-pixel.js', 'events.js',
+    // --- [V40.51 新增] LinkedIn 追蹤腳本 ---
+    'insight.min.js', 'analytics.js', 'pixel.js',
     // --- 主流分析平台 ---
     'amplitude.js', 'chartbeat.js', 'clarity.js', 'comscore.js', 'crazyegg.js', 'fullstory.js', 'heap.js',
     'hotjar.js', 'inspectlet.js', 'logrocket.js', 'matomo.js', 'mixpanel.js', 'mouseflow.js', 'optimizely.js',
@@ -303,6 +308,14 @@ const CONFIG = {
 
   // --- Facebook / Meta ---
   'facebook.com/tr', 'facebook.com/tr/',
+
+  // --- [V40.51 新增] TikTok 追蹤路徑 ---
+  '/tiktok/pixel/events', '/tiktok/track/', 'tiktok.com/events', 'ads.tiktok.com/i18n/pixel',
+  'business-api.tiktok.com/open_api/v1.2/pixel/track', 'business-api.tiktok.com/open_api/v1.3/pixel/track',
+  'business-api.tiktok.com/open_api/v1.3/event/track', 'business-api.tiktok.com/open_api',
+
+  // --- [V40.51 新增] LinkedIn 追蹤路徑 ---
+  'px.ads.linkedin.com/collect', 'analytics.linkedin.com/collect', '/linkedin/insight/track',
 
   // --- CNAME 偽裝 / 第一方代理緩解 ---
   '/__utm.gif', '/r/collect', '/j/collect',
@@ -489,12 +502,16 @@ PATH_BLOCK_KEYWORDS: new Set([
   ]),
 
   /**
-   * 🗑️ [V40.38 重構] 追蹤參數黑名單 (全域)
+   * 🗑️ [V40.51 強化] 追蹤參數黑名單 (全域)
    * 說明：用於高速比對常見的、靜態的追蹤參數。
    */
   GLOBAL_TRACKING_PARAMS: new Set([
      'dclid', 'fbclid', 'gclid', 'msclkid', 'twclid', 'yclid', 'igshid', 'mibextid',
-     'zanpid', 'gclsrc', 'wbraid', 'gbraid', '_ga', '_gid', 'mc_cid', 'mc_eid', 'ttclid',
+     'zanpid', 'gclsrc', 'wbraid', 'gbraid', '_ga', '_gid', 'mc_cid', 'mc_eid',
+     // --- [V40.51 新增] TikTok 追蹤參數完整覆蓋 ---
+     'ttclid', 'tt_c_id', 'tt_campaign', 'tt_creative', 'tt_adgroup',
+     // --- [V40.51 新增] LinkedIn 進階追蹤參數 ---
+     'li_fat_id', 'trk', 'linkedin_share', 'li_medium', 'li_source',
   ]),
 
   /**
@@ -505,6 +522,9 @@ PATH_BLOCK_KEYWORDS: new Set([
       /^utm_\w+/, // Matches all UTM parameters (utm_source, utm_medium, etc.)
       /^ig_[\w_]+/, // Matches Instagram click trackers (ig_rid, ig_mid, etc.)
       /^asa_\w+/, // Apple Search Ads 的 asa_* 系列參數
+      // --- [V40.51 新增] TikTok 動態參數模式 ---
+      /^tt_[\w_]+/, // Matches TikTok tracking parameters like tt_campaign_id, tt_adset_id
+      /^li_[\w_]+/, // Matches LinkedIn tracking parameters
   ],
 
   /**
@@ -516,6 +536,10 @@ PATH_BLOCK_KEYWORDS: new Set([
     'campaign_', 'content_', 'creative_', 'fb_', 'from_', 'gcl_', 'hmsr_', 'hsa_', 'li_',
     'matomo_', 'medium_', 'mkt_', 'ms_', 'mtm', 'pk_', 'piwik_', 'placement_', 'ref_',
     'share_', 'source_', 'space_', 'term_', 'trk_',
+    // --- [V40.51 新增] TikTok 追蹤參數前綴 ---
+    'tt_', 'ttc_',
+    // --- [V40.51 新增] LinkedIn 追蹤參數前綴 ---
+    'li_fat_', 'linkedin_',
   ]),
 
   /**
@@ -524,15 +548,21 @@ PATH_BLOCK_KEYWORDS: new Set([
    */
   TRACKING_PREFIXES_REGEX: [
       /^_ga_/, // Matches Google Analytics cross-domain linkers like _ga_XXXX
+      /^tt_[\w_]+/, // [V40.51] TikTok 追蹤參數動態匹配
+      /^li_[\w_]+/, // [V40.51] LinkedIn 追蹤參數動態匹配
   ],
 
   /**
-   * ✅ 必要參數白名單 (V40.5 擴充以提升相容性)
+   * ✅ [V40.51 擴充] 必要參數白名單
    * 說明：此處的參數永遠不會被清理，以避免破壞網站核心功能。
    */
   PARAMS_TO_KEEP_WHITELIST: new Set([
     'code', 'id', 'item', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't', 'targetid', 'token', 'v',
     'callback', 'timestamp', 'lang', 'locale', 'format',
+    // --- [V40.51 新增] OAuth 流程必需參數 ---
+    'redirect_uri', 'response_type', 'client_id', 'scope', 'nonce',
+    // --- 支付與認證流程 ---
+    'return_url', 'cancel_url', 'success_url', 'error_url',
   ]),
 
   /**
@@ -541,7 +571,7 @@ PATH_BLOCK_KEYWORDS: new Set([
    */
   PATH_BLOCK_REGEX: [
     // [V40.47 強化] 擴充例外目錄，以降低對傳統部署靜態站的誤殺率。
-    /^\/((?!_next\/static\/|static\/|assets\/|dist\/|build\/|public\/)[a-z0-9]{12,})\.js$/i, 
+    /^\/(?!_next\/static\/|static\/|assets\/|dist\/|build\/|public\/)[a-z0-9]{12,}\.js$/i, 
     /[^\/]*sentry[^\/]*\.js/i,        // 檔名含 sentry 且以 .js 結尾
     /\/v\d+\/event/i,                 // 通用事件 API 版本 (如 /v1/event)
   ],
@@ -565,6 +595,7 @@ PATH_BLOCK_KEYWORDS: new Set([
     // 範例：為了修復 WhatsApp 的 URL 預覽功能 (See #123. Review by: 2026-03-22.)
     ['graph.facebook.com', new Set([
         '/v19.0/', // 豁免所有 v19.0 API 的路徑
+        '/v20.0/', // [V40.51] 新增未來版本預備豁免
     ])],
     // 範例：未來若需修復 LINE 的某項功能
     // ['obs.line-scdn.net', new Set([
@@ -653,7 +684,7 @@ function compileRegexList(list) {
         try {
             return (regex instanceof RegExp) ? regex : new RegExp(regex);
         } catch (e) {
-            console.error(`[URL-Filter-v40.47] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.51] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
             return null;
         }
     }).filter(Boolean);
@@ -774,7 +805,7 @@ function isPathBlockedByRegex(path) {
     for (const regex of COMPILED_HEURISTIC_PATH_BLOCK_REGEX) { 
         if (regex.test(path)) { 
             if (CONFIG.DEBUG_MODE) {
-                console.log(`[URL-Filter-v40.47][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
+                console.log(`[URL-Filter-v40.51][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
             }
             multiLevelCache.setUrlDecision(k, true); 
             return true;
@@ -803,7 +834,6 @@ function getBlockResponse(path) {
     
     return REJECT_RESPONSE;
 }
-
 
 function cleanTrackingParams(url) {
     const newUrl = new URL(url.toString());
@@ -846,7 +876,7 @@ function cleanTrackingParams(url) {
             const originalUrl = url.toString();
             const cleanedForLog = new URL(originalUrl);
             toDelete.forEach(k => cleanedForLog.searchParams.delete(k));
-            console.log(`[URL-Filter-v40.47][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
+            console.log(`[URL-Filter-v40.51][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
             return null; // 在除錯模式下，返回 null 以阻止重導向
         }
         toDelete.forEach(k => newUrl.searchParams.delete(k));
@@ -876,7 +906,6 @@ function getSanitizedUrlForLogging(url) {
     }
 }
 
-
 function processRequest(request) {
   try {
     optimizedStats.increment('totalRequests');
@@ -893,7 +922,7 @@ function processRequest(request) {
         } catch (e) {
             optimizedStats.increment('errors');
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.47] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.51] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -908,7 +937,7 @@ function processRequest(request) {
     if (hardWhitelistDetails.matched) {
         optimizedStats.increment('hardWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.47][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.51][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
         }
         return null;
     }
@@ -918,7 +947,7 @@ function processRequest(request) {
     if (softWhitelistDetails.matched) {
         optimizedStats.increment('softWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.47][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.51][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
         }
         // 若命中軟白名單，則跳過後續的路徑黑名單層，直接進入參數清理。
         const cleanedUrl = cleanTrackingParams(url);
@@ -946,7 +975,7 @@ function processRequest(request) {
             for (const exemption of exemptions) {
                 if (currentPath.startsWith(exemption)) {
                     if (CONFIG.DEBUG_MODE) {
-                        console.log(`[URL-Filter-v40.47][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
+                        console.log(`[URL-Filter-v40.51][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
                     }
                     isExempted = true;
                     break; 
@@ -993,7 +1022,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.47] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.51] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -1013,7 +1042,7 @@ function processRequest(request) {
     
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.47', status: 'ready', message: 'URL Filter v40.47 - Comprehensive Hardening & Logic Correction', stats: optimizedStats.getStats() });
+        $done({ version: '40.51', status: 'ready', message: 'URL Filter v40.51 - 黑名單邏輯修正 & 追蹤技術更新', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -1023,7 +1052,7 @@ function processRequest(request) {
     if (CONFIG.DEBUG_MODE) {
       const endTime = __now__();
       const executionTime = (endTime - startTime).toFixed(3);
-      console.log(`[URL-Filter-v40.47][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
+      console.log(`[URL-Filter-v40.51][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
     }
 
     if (typeof $done !== 'undefined') {
@@ -1032,7 +1061,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.47] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.51] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
