@@ -1,9 +1,9 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.53.js
- * @version     40.53 (參數白名單擴充 & 電商平台相容性強化)
- * @description 擴充功能性參數白名單 (分頁、排序、聯盟行銷)，並新增 ShopBack 域名至軟白名單以提升相容性。
+ * @file        URL-Ultimate-Filter-Surge-V40.54.js
+ * @version     40.54 (增加參數白名單擴充 & 電商平台相容性強化)
+ * @description 擴充功能性參數白名單 (分頁、排序、聯盟行銷)。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-09-23
+ * @lastUpdated 2025-09-22
  */
 
 // #################################################################################################
@@ -186,7 +186,7 @@ const CONFIG = {
     // --- [V40.51 新增] LinkedIn 進階追蹤域名 ---
     'px.ads.linkedin.com', 'analytics.linkedin.com', 'insight.linkedin.com',
     // --- 瀏覽器指紋 & 進階追蹤 ---
-    'fingerprint.com',
+    'fingerprint.com', 'canvas-fingerprinting.com', 'device-fingerprint.org',
     // --- 廣告驗證 & 可見度追蹤 ---
     'doubleverify.com', 'iasds.com', 'moat.com', 'moatads.com', 'serving-sys.com', 'sdk.iad-07.braze.com',
     // --- 客戶數據平台 (CDP) & 身分識別 ---
@@ -481,7 +481,7 @@ PATH_BLOCK_KEYWORDS: new Set([
    * 說明：當路徑被 '/' 分割後，若任一區段完全匹配此處的字串，將豁免 `PATH_BLOCK_KEYWORDS` 檢查 (用於避免誤殺功能性路徑)。
    */
   PATH_ALLOW_SEGMENTS: new Set([
-    'blog', 'catalog', 'dialog', 'login',
+    'blog', 'catalog', 'dialog', 'login', 'dashboard', 'admin', 'api',
   ]),
 
   /**
@@ -560,11 +560,11 @@ PATH_BLOCK_KEYWORDS: new Set([
     // --- 通用功能 ---
     'callback', 'timestamp', 'lang', 'locale', 'format', 'type', 'status', 'filter',
     // --- [V40.51 新增] OAuth 流程 ---
-    'redirect_uri', 'response_type', 'client_id', 'scope', 'nonce',
+    'redirect_uri', 'response_type', 'client_id', 'scope', 'nonce', 'device_id', 'client_assertion', 'access_token', 'refresh_token',
     // --- [V40.53 新增] 分頁 & 排序 ---
     'page_number', 'offset', 'limit', 'size', 'sort', 'sort_by', 'order', 'direction',
     // --- [V40.53 新增] 聯盟行銷 & 返利 ---
-    'click_id', 'deal_id', 'offer_id', 'aff_id', 'aff_sub',
+    'click_id', 'deal_id', 'offer_id', 'aff_sub',
     // --- 支付與認證流程 ---
     'return_url', 'cancel_url', 'success_url', 'error_url',
   ]),
