@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.49.js
- * @version     40.49 (Rule Refinement & Logic Hardening)
- * @description 根據深度程式碼審核，修正多項邏輯缺陷、強化邊界案例處理，並確保註解與實作完全一致。
+ * @file        URL-Ultimate-Filter-Surge-V40.50.js
+ * @version     40.50 (Rule Implementation Correction)
+ * @description 根據回歸測試，修正 V40.49 版本中，文字敘述與程式碼實現不一致的問題。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-23
  */
@@ -159,8 +159,6 @@ const CONFIG = {
     // --- Google / DoubleClick ---
     'admob.com', 'adsense.com', 'adservice.google.com', 'app-measurement.com', 'doubleclick.net', 'google-analytics.com',
     'googleadservices.com', 'googlesyndication.com', 'googletagmanager.com', 
-    // [V40.47] 修正：移除 mtalk.google.com，以避免破壞 Firebase/Android 推播通知功能。
-    // 'mtalk.google.com',
     // --- Facebook / Meta ---
     'connect.facebook.net', 'graph.facebook.com',
     // --- Tencent (QQ) ---
