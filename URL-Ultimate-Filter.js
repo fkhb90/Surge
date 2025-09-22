@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.51.js
- * @version     40.51 (黑名單邏輯修正 & 追蹤技術更新)
- * @description 修正黑名單遺漏、新增邊緣計算追蹤域名、強化 TikTok/LinkedIn 參數覆蓋、擴充 OAuth 參數白名單
+ * @file        URL-Ultimate-Filter-Surge-V40.52.js
+ * @version     40.52 (功能性 API 白名單擴充)
+ * @description 新增 ShopBack 功能性 API 網域至軟白名單，以確保 App 與網頁核心功能相容性。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-23
  */
@@ -83,11 +83,11 @@ const CONFIG = {
     // --- 核心登入 & 協作平台 ---
     'atlassian.net', 'auth0.com', 'okta.com', 'slack.com',
     // --- 系統 & 平台核心服務 ---
-    'googleapis.com', 
+    'googleapis.com',
     // [V40.48] 註解強化：icloud.com 因其大量動態生成的功能性子域（如 pXX-caldav.icloud.com），
     // 採用精確匹配的維護成本極高。為避免破壞裝置同步等核心功能，暫時保留於萬用字元硬白名單中。
     // 這是一項已知的風險權衡，未來將持續尋求更精細化的解決方案。
-    'icloud.com', 
+    'icloud.com',
     'update.microsoft.com', 'windowsupdate.com', 'linksyssmartwifi.com',
     // --- 網頁存檔服務 (對參數極度敏感) ---
     'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com', 'perma.cc',
@@ -111,7 +111,7 @@ const CONFIG = {
     'api.cloudflare.com', 'api.digitalocean.com', 'api.fastly.com', 'api.heroku.com', 'api.netlify.com', 'api.vercel.com',
     'auth.docker.io', 'database.windows.net', 'login.docker.com',
     // --- 台灣地區服務 ---
-    'api.irentcar.com.tw', 'usiot.roborock.com',
+    'api.irentcar.com.tw', 'gateway.shopback.com.tw', 'usiot.roborock.com',
     // --- [V40.47] 修正：內容功能域不應被完全封鎖 ---
     'visuals.feedly.com',
   ]),
@@ -125,8 +125,7 @@ const CONFIG = {
     // --- [V40.44] 遷移自硬白名單的電商與內容平台 ---
     'book.com.tw', 'citiesocial.com', 'coupang.com', 'iherb.biz', 'iherb.com',
     'momo.dm', 'momoshop.com.tw', 'pxmart.com.tw', 'pxpayplus.com',
-    'shopee.com', 'shopeemobile.com', 'shopee.tw',
-    'spotify.com', 
+    'shopee.com', 'shopeemobile.com', 'shopee.tw', 'spotify.com',
     // [V40.47] 註解釐清：豁免主站以保障觀看體驗，但 s.youtube.com 等廣告追蹤子域仍會被域名黑名單攔截。
     'm.youtube.com', 'youtube.com',
     // --- 核心 CDN ---
@@ -158,7 +157,7 @@ const CONFIG = {
     'sp1.baidu.com', 'voice.baidu.com',
     // --- Google / DoubleClick ---
     'admob.com', 'adsense.com', 'adservice.google.com', 'app-measurement.com', 'doubleclick.net', 'google-analytics.com',
-    'googleadservices.com', 'googlesyndication.com', 'googletagmanager.com', 
+    'googleadservices.com', 'googlesyndication.com', 'googletagmanager.com',
     // --- [V40.51 新增] Facebook / Meta 追蹤增強 ---
     'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com',
     // --- [V40.51 新增] TikTok 追蹤完整覆蓋 ---
@@ -242,8 +241,7 @@ const CONFIG = {
     'analytics.tiktok.com', 'business-api.tiktok.com', 'ct.pinterest.com', 'events.redditmedia.com', 'px.srvcs.tumblr.com',
     'snap.licdn.com', 'spade.twitch.tv',
     // --- 其他 ---
-    'adnx.com', 'cint.com', 'revjet.com', 'rlcdn.com', 'sc-static.net', 
-    'wcs.naver.net',
+    'adnx.com', 'cint.com', 'revjet.com', 'rlcdn.com', 'sc-static.net', 'wcs.naver.net',
   ]),
 
   /**
@@ -571,7 +569,7 @@ PATH_BLOCK_KEYWORDS: new Set([
    */
   PATH_BLOCK_REGEX: [
     // [V40.47 強化] 擴充例外目錄，以降低對傳統部署靜態站的誤殺率。
-    /^\/(?!_next\/static\/|static\/|assets\/|dist\/|build\/|public\/)[a-z0-9]{12,}\.js$/i, 
+    /^\/(?!_next\/static\/|static\/|assets\/|dist\/|build\/|public\/)[a-z0-9]{12,}\.js$/i,
     /[^\/]*sentry[^\/]*\.js/i,        // 檔名含 sentry 且以 .js 結尾
     /\/v\d+\/event/i,                 // 通用事件 API 版本 (如 /v1/event)
   ],
@@ -684,7 +682,7 @@ function compileRegexList(list) {
         try {
             return (regex instanceof RegExp) ? regex : new RegExp(regex);
         } catch (e) {
-            console.error(`[URL-Filter-v40.51] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.52] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
             return null;
         }
     }).filter(Boolean);
@@ -736,24 +734,24 @@ function getCacheKey(namespace, part1, part2) {
     return `${namespace}---${part1}---${part2}`;
 }
 
-function isCriticalTrackingScript(hostname, path) { 
+function isCriticalTrackingScript(hostname, path) {
     const key = getCacheKey('crit', hostname, path); // [V40.46]
-    const cachedDecision = multiLevelCache.getUrlDecision(key); 
-    if (cachedDecision !== null) return cachedDecision; 
-    
+    const cachedDecision = multiLevelCache.getUrlDecision(key);
+    if (cachedDecision !== null) return cachedDecision;
+
     const urlFragment = hostname + path;
     const queryIndex = path.indexOf('?');
     const pathOnly = queryIndex !== -1 ? path.slice(0, queryIndex) : path;
     const slashIndex = pathOnly.lastIndexOf('/');
     const scriptName = slashIndex !== -1 ? pathOnly.slice(slashIndex + 1) : pathOnly;
-    
+
     let shouldBlock = false;
     if (scriptName && CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName)) {
         shouldBlock = true;
     } else {
         shouldBlock = OPTIMIZED_TRIES.criticalPattern.contains(urlFragment);
     }
-    
+
     multiLevelCache.setUrlDecision(key, shouldBlock);
     return shouldBlock;
 }
@@ -772,52 +770,52 @@ function isPathExplicitlyAllowed(path) {
     return false;
 }
 
-function isPathBlocked(path) { 
+function isPathBlocked(path) {
     const k = getCacheKey('path', path, ''); // [V40.46]
-    const c = multiLevelCache.getUrlDecision(k); 
-    if (c !== null) return c; 
+    const c = multiLevelCache.getUrlDecision(k);
+    if (c !== null) return c;
     let r = false;
-    if (OPTIMIZED_TRIES.pathBlock.contains(path) && !isPathExplicitlyAllowed(path)) { 
-        r = true; 
-    } 
-    multiLevelCache.setUrlDecision(k, r); 
-    return r; 
+    if (OPTIMIZED_TRIES.pathBlock.contains(path) && !isPathExplicitlyAllowed(path)) {
+        r = true;
+    }
+    multiLevelCache.setUrlDecision(k, r);
+    return r;
 }
 
-function isPathBlockedByRegex(path) { 
+function isPathBlockedByRegex(path) {
     const k = getCacheKey('regex', path, ''); // [V40.46]
-    const c = multiLevelCache.getUrlDecision(k); 
+    const c = multiLevelCache.getUrlDecision(k);
     if (c !== null) return c;
-    for (const prefix of CONFIG.PATH_ALLOW_PREFIXES) { 
-        if (path.startsWith(prefix)) { 
-            multiLevelCache.setUrlDecision(k, false); 
+    for (const prefix of CONFIG.PATH_ALLOW_PREFIXES) {
+        if (path.startsWith(prefix)) {
+            multiLevelCache.setUrlDecision(k, false);
             return false;
-        } 
-    } 
+        }
+    }
     // 檢查高信度規則
-    for (const regex of COMPILED_PATH_BLOCK_REGEX) { 
-        if (regex.test(path)) { 
-            multiLevelCache.setUrlDecision(k, true); 
+    for (const regex of COMPILED_PATH_BLOCK_REGEX) {
+        if (regex.test(path)) {
+            multiLevelCache.setUrlDecision(k, true);
             return true;
-        } 
+        }
     }
     // 檢查啟發式規則
-    for (const regex of COMPILED_HEURISTIC_PATH_BLOCK_REGEX) { 
-        if (regex.test(path)) { 
+    for (const regex of COMPILED_HEURISTIC_PATH_BLOCK_REGEX) {
+        if (regex.test(path)) {
             if (CONFIG.DEBUG_MODE) {
-                console.log(`[URL-Filter-v40.51][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
+                console.log(`[URL-Filter-v40.52][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
             }
-            multiLevelCache.setUrlDecision(k, true); 
+            multiLevelCache.setUrlDecision(k, true);
             return true;
-        } 
+        }
     }
-    multiLevelCache.setUrlDecision(k, false); 
-    return false; 
+    multiLevelCache.setUrlDecision(k, false);
+    return false;
 }
 
 function getBlockResponse(path) {
     const lowerPath = path.toLowerCase();
-    
+
     // [V40.47 修正] 強化 DROP_KEYWORDS 判斷邏輯，從子字串搜尋改為更精準的 `includes`
     for (const keyword of CONFIG.DROP_KEYWORDS) {
         if (lowerPath.includes(keyword)) {
@@ -831,7 +829,7 @@ function getBlockResponse(path) {
         if (IMAGE_EXTENSIONS.has(ext)) return TINY_GIF_RESPONSE;
         if (SCRIPT_EXTENSIONS.has(ext)) return NO_CONTENT_RESPONSE;
     }
-    
+
     return REJECT_RESPONSE;
 }
 
@@ -876,7 +874,7 @@ function cleanTrackingParams(url) {
             const originalUrl = url.toString();
             const cleanedForLog = new URL(originalUrl);
             toDelete.forEach(k => cleanedForLog.searchParams.delete(k));
-            console.log(`[URL-Filter-v40.51][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
+            console.log(`[URL-Filter-v40.52][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
             return null; // 在除錯模式下，返回 null 以阻止重導向
         }
         toDelete.forEach(k => newUrl.searchParams.delete(k));
@@ -922,7 +920,7 @@ function processRequest(request) {
         } catch (e) {
             optimizedStats.increment('errors');
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.51] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.52] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -937,7 +935,7 @@ function processRequest(request) {
     if (hardWhitelistDetails.matched) {
         optimizedStats.increment('hardWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.51][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.52][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
         }
         return null;
     }
@@ -947,7 +945,7 @@ function processRequest(request) {
     if (softWhitelistDetails.matched) {
         optimizedStats.increment('softWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.51][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.52][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
         }
         // 若命中軟白名單，則跳過後續的路徑黑名單層，直接進入參數清理。
         const cleanedUrl = cleanTrackingParams(url);
@@ -975,10 +973,10 @@ function processRequest(request) {
             for (const exemption of exemptions) {
                 if (currentPath.startsWith(exemption)) {
                     if (CONFIG.DEBUG_MODE) {
-                        console.log(`[URL-Filter-v40.51][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
+                        console.log(`[URL-Filter-v40.52][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
                     }
                     isExempted = true;
-                    break; 
+                    break;
                 }
             }
         }
@@ -1022,7 +1020,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.51] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.52] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -1042,7 +1040,7 @@ function processRequest(request) {
     
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.51', status: 'ready', message: 'URL Filter v40.51 - 黑名單邏輯修正 & 追蹤技術更新', stats: optimizedStats.getStats() });
+        $done({ version: '40.52', status: 'ready', message: 'URL Filter v40.52 - 功能性 API 白名單擴充', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -1052,7 +1050,7 @@ function processRequest(request) {
     if (CONFIG.DEBUG_MODE) {
       const endTime = __now__();
       const executionTime = (endTime - startTime).toFixed(3);
-      console.log(`[URL-Filter-v40.51][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
+      console.log(`[URL-Filter-v40.52][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
     }
 
     if (typeof $done !== 'undefined') {
@@ -1061,7 +1059,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.51] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.52] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
