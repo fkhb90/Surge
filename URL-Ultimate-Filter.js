@@ -1,9 +1,9 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.44.js
- * @version     40.44 (Whitelist Policy Refinement & Security Hardening)
- * @description 根據系統性審查結果，將部分電商與內容平台從硬白名單遷移至軟白名單，以強化追蹤防護精確度。
+ * @file        URL-Ultimate-Filter-Surge-V40.45.js
+ * @version     40.45 (Path-Level Exemption Framework)
+ * @description 新增路徑級豁免框架，允許對已被域名封鎖的請求，進行精細化的功能性路徑豁免。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-09-21
+ * @lastUpdated 2025-09-22
  */
 
 // #################################################################################################
@@ -81,7 +81,7 @@ const CONFIG = {
     // --- 網頁存檔服務 (對參數極度敏感) ---
     'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com', 'perma.cc',
     'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'webcache.googleusercontent.com', 'www.webarchive.org.uk',
-    // --- YouTube 核心服務 ---
+    // --- YouTube 核心服務 (僅保留基礎建設) ---
     'googlevideo.com',
   ]),
 
@@ -108,9 +108,11 @@ const CONFIG = {
    * 說明：豁免「域名」與「路徑」層級的封鎖，但仍會執行「參數清理」與「關鍵腳本攔截」。此處的域名會匹配自身及其所有子域名 (例如 apple.com 會匹配 a.apple.com)。
    */
   SOFT_WHITELIST_WILDCARDS: new Set([
-    // --- [V40.44] 遷移自硬白名單的電商 & 內容平台 ---
-    'book.com.tw', 'citiesocial.com', 'coupang.com', 'iherb.biz', 'iherb.com', 'shopee.com', 'shopeemobile.com', 'shopee.tw',
-    'pxmart.com.tw', 'pxpayplus.com', 'momoshop.com.tw', 'momo.dm', 'spotify.com', 'm.youtube.com', 'youtube.com',
+    // --- [V40.44] 遷移自硬白名單的電商與內容平台 ---
+    'book.com.tw', 'citiesocial.com', 'coupang.com', 'iherb.biz', 'iherb.com',
+    'momo.dm', 'momoshop.com.tw', 'pxmart.com.tw', 'pxpayplus.com',
+    'shopee.com', 'shopeemobile.com', 'shopee.tw',
+    'spotify.com', 'm.youtube.com', 'youtube.com',
     // --- 核心 CDN ---
     'akamaihd.net', 'amazonaws.com', 'cdnjs.cloudflare.com', 'cloudflare.com', 'cloudfront.net', 'fastly.net',
     'fbcdn.net', 'gstatic.com', 'jsdelivr.net', 'twimg.com', 'unpkg.com', 'ytimg.com',
@@ -502,7 +504,7 @@ PATH_BLOCK_KEYWORDS: new Set([
   TRACKING_PREFIXES: new Set([
     '__cf_', '_bta', '_ga_', '_gid_', '_gat_', '_hs', '_oly_', 'ad_', 'aff_', 'alg_', 'bd_',
     'campaign_', 'content_', 'creative_', 'fb_', 'from_', 'gcl_', 'hmsr_', 'hsa_', 'li_',
-    'matomo_', 'medium_', 'mkt_', 'ms_', 'mtm_', 'pk_', 'piwik_', 'placement_', 'ref_',
+    'matomo_', 'medium_', 'mkt_', 'ms_', 'mtm', 'pk_', 'piwik_', 'placement_', 'ref_',
     'share_', 'source_', 'space_', 'term_', 'trk_',
   ]),
 
@@ -538,7 +540,24 @@ PATH_BLOCK_KEYWORDS: new Set([
    */
   HEURISTIC_PATH_BLOCK_REGEX: [
       /[a-z0-9\/\-_]{32,}\.(js|mjs)$/i,  // V40.37: 反混淆啟發式規則，攔截超長隨機路徑的腳本
-  ]
+  ],
+
+  /**
+   * ✅ [V40.45 新增] 路徑豁免清單 (高風險)
+   * 說明：用於豁免已被「域名黑名單」攔截的請求中的特定功能性路徑。
+   * 格式為 Map，其中 Key 是被封鎖的域名，Value 是一個包含路徑前綴或 Regex 的 Set。
+   * 警告：此為高風險操作，僅在確認絕對必要時使用。
+   */
+  PATH_EXEMPTIONS_FOR_BLOCKED_DOMAINS: new Map([
+    // 範例：為了修復 WhatsApp 的 URL 預覽功能 (See #123. Review by: 2026-03-22.)
+    ['graph.facebook.com', new Set([
+        '/v19.0/', // 豁免所有 v19.0 API 的路徑
+    ])],
+    // 範例：未來若需修復 LINE 的某項功能
+    // ['obs.line-scdn.net', new Set([
+    //     '/stickershop/v1/product/', // 僅豁免貼圖預覽路徑
+    // ])],
+  ]),
 };
 
 // #################################################################################################
@@ -621,7 +640,7 @@ function compileRegexList(list) {
         try {
             return (regex instanceof RegExp) ? regex : new RegExp(regex);
         } catch (e) {
-            console.error(`[URL-Filter-v40.44] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.45] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
             return null;
         }
     }).filter(Boolean);
@@ -745,7 +764,7 @@ function isPathBlockedByRegex(path) {
     for (const regex of COMPILED_HEURISTIC_PATH_BLOCK_REGEX) { 
         if (regex.test(path)) { 
             if (CONFIG.DEBUG_MODE) {
-                console.log(`[URL-Filter-v40.44][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
+                console.log(`[URL-Filter-v40.45][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
             }
             multiLevelCache.setUrlDecision(k, true); 
             return true;
@@ -806,7 +825,7 @@ function cleanTrackingParams(url) {
 
     if (modified) {
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.44][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL: "${url.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
+            console.log(`[URL-Filter-v40.45][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL: "${url.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
             return null; // 在除錯模式下，返回 null 以阻止重導向
         }
         toDelete.forEach(k => newUrl.searchParams.delete(k));
@@ -817,10 +836,6 @@ function cleanTrackingParams(url) {
 }
 
 function processRequest(request) {
-  let startTime;
-  if (CONFIG.DEBUG_MODE) {
-    startTime = __now__();
-  }
   try {
     optimizedStats.increment('totalRequests');
     if (!request?.url || typeof request.url !== 'string' || request.url.length < 10) return null;
@@ -836,7 +851,7 @@ function processRequest(request) {
         } catch (e) {
             optimizedStats.increment('errors');
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.44] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.45] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -851,7 +866,7 @@ function processRequest(request) {
     if (hardWhitelistDetails.matched) {
         optimizedStats.increment('hardWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.44][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.45][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
         }
         return null;
     }
@@ -868,10 +883,30 @@ function processRequest(request) {
     }
     
     if (isDomainBlocked(hostname)) {
-        multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
-        optimizedStats.increment('domainBlocked');
-        optimizedStats.increment('blockedRequests');
-        return getBlockResponse(url.pathname + url.search);
+        // [V40.45 新增] 檢查是否存在路徑級豁免
+        const exemptions = CONFIG.PATH_EXEMPTIONS_FOR_BLOCKED_DOMAINS.get(hostname);
+        let isExempted = false;
+        if (exemptions) {
+            const currentPath = url.pathname;
+            for (const exemption of exemptions) {
+                // 目前僅支援路徑前綴匹配
+                if (currentPath.startsWith(exemption)) {
+                    if (CONFIG.DEBUG_MODE) {
+                        console.log(`[URL-Filter-v40.45][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
+                    }
+                    isExempted = true;
+                    break; 
+                }
+            }
+        }
+        
+        // 若無豁免，則執行原有的封鎖邏輯
+        if (!isExempted) {
+            multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK);
+            optimizedStats.increment('domainBlocked');
+            optimizedStats.increment('blockedRequests');
+            return getBlockResponse(url.pathname + url.search);
+        }
     }
     
     const originalFullPath = url.pathname + url.search;
@@ -887,7 +922,7 @@ function processRequest(request) {
     if (softWhitelistDetails.matched) {
         optimizedStats.increment('softWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.44][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.45][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
         }
     } else {
         if (isPathBlocked(lowerFullPath)) {
@@ -913,34 +948,46 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.44] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.45] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
-  } finally {
-    if (CONFIG.DEBUG_MODE && startTime) {
-      const duration = (__now__() - startTime).toFixed(3);
-      console.log(`[URL-Filter-v40.44][Debug] 請求處理耗時: ${duration} ms | URL: ${request?.url?.split('?')[0]}`);
-    }
   }
 }
 
 // 執行入口
 (function () {
   try {
+    let startTime;
+    if (CONFIG.DEBUG_MODE) {
+      startTime = __now__();
+    }
+
     initializeCoreEngine(); // 執行核心引擎初始化
+    
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.44', status: 'ready', message: 'URL Filter v40.44 - Whitelist Policy Refinement', stats: optimizedStats.getStats() });
+        $done({ version: '40.45', status: 'ready', message: 'URL Filter v40.45 - Path-Level Exemption Framework', stats: optimizedStats.getStats() });
       }
       return;
     }
+
     const result = processRequest($request);
-    if (typeof $done !== 'undefined') $done(result || {});
+
+    if (CONFIG.DEBUG_MODE) {
+      const endTime = __now__();
+      const executionTime = (endTime - startTime).toFixed(3);
+      console.log(`[URL-Filter-v40.45][Debug] 請求處理耗時: ${executionTime} ms | URL: ${$request.url.split('?')[0]}`);
+    }
+
+    if (typeof $done !== 'undefined') {
+        $done(result || {});
+    }
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.44] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.45] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
 })();
+
