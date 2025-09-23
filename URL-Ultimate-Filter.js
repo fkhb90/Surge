@@ -1,9 +1,9 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.54.js
- * @version     40.54 (增加參數白名單擴充 & 電商平台相容性強化)
- * @description 擴充功能性參數白名單 (分頁、排序、聯盟行銷)。
+ * @file        URL-Ultimate-Filter-Surge-V40.55.js
+ * @version     40.55 (路徑豁免邏輯強化)
+ * @description 引入「條件式豁免」機制。當路徑後綴符合白名單時 (如 index.js)，將對其上層路徑進行二次審查，以攔截偽裝的追蹤腳本，提升過濾精準度。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-09-22
+ * @lastUpdated 2025-09-23
  */
 
 // #################################################################################################
@@ -186,7 +186,7 @@ const CONFIG = {
     // --- [V40.51 新增] LinkedIn 進階追蹤域名 ---
     'px.ads.linkedin.com', 'analytics.linkedin.com', 'insight.linkedin.com',
     // --- 瀏覽器指紋 & 進階追蹤 ---
-    'fingerprint.com', 'canvas-fingerprinting.com', 'device-fingerprint.org',
+    'fingerprint.com',
     // --- 廣告驗證 & 可見度追蹤 ---
     'doubleverify.com', 'iasds.com', 'moat.com', 'moatads.com', 'serving-sys.com', 'sdk.iad-07.braze.com',
     // --- 客戶數據平台 (CDP) & 身分識別 ---
@@ -485,6 +485,14 @@ PATH_BLOCK_KEYWORDS: new Set([
   ]),
 
   /**
+   * 🚫 [V40.55 新增] 高信度追蹤關鍵字 (用於條件式豁免)
+   * 說明：當一個請求的路徑後綴符合豁免條件時 (如 index.js)，將會使用此處的關鍵字對其上層路徑進行二次審查。
+   */
+  HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH: new Set([
+    '/tracker', '/analytics', '/ads', '/collect', '/beacon', '/pixel', '/api/track'
+  ]),
+
+  /**
    * 💧 [V40.17 擴充] 直接拋棄請求 (DROP) 的關鍵字
    * 說明：用於識別應被「靜默拋棄」而非「明確拒絕」的請求。為避免誤殺，此處的關鍵字應盡可能完整，並包含分隔符。
    */
@@ -560,11 +568,11 @@ PATH_BLOCK_KEYWORDS: new Set([
     // --- 通用功能 ---
     'callback', 'timestamp', 'lang', 'locale', 'format', 'type', 'status', 'filter',
     // --- [V40.51 新增] OAuth 流程 ---
-    'redirect_uri', 'response_type', 'client_id', 'scope', 'nonce', 'device_id', 'client_assertion', 'access_token', 'refresh_token',
+    'redirect_uri', 'response_type', 'client_id', 'scope', 'nonce', 'device_id', 'client_assertion',
     // --- [V40.53 新增] 分頁 & 排序 ---
     'page_number', 'offset', 'limit', 'size', 'sort', 'sort_by', 'order', 'direction',
     // --- [V40.53 新增] 聯盟行銷 & 返利 ---
-    'click_id', 'deal_id', 'offer_id', 'aff_sub',
+    'click_id', 'deal_id', 'offer_id', 'aff_id', 'aff_sub',
     // --- 支付與認證流程 ---
     'return_url', 'cancel_url', 'success_url', 'error_url',
   ]),
@@ -688,7 +696,7 @@ function compileRegexList(list) {
         try {
             return (regex instanceof RegExp) ? regex : new RegExp(regex);
         } catch (e) {
-            console.error(`[URL-Filter-v40.53] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.55] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
             return null;
         }
     }).filter(Boolean);
@@ -762,10 +770,9 @@ function isCriticalTrackingScript(hostname, path) {
     return shouldBlock;
 }
 
+// [V40.55 邏輯升級] 引入「條件式豁免」
 function isPathExplicitlyAllowed(path) {
-    for (const suffix of CONFIG.PATH_ALLOW_SUFFIXES) {
-        if (path.endsWith(suffix)) return true;
-    }
+    // 優先檢查更高信度的豁免規則 (子字串與區段)
     for (const substring of CONFIG.PATH_ALLOW_SUBSTRINGS) {
         if (path.includes(substring)) return true;
     }
@@ -773,6 +780,26 @@ function isPathExplicitlyAllowed(path) {
     for (const segment of segments) {
         if (segment && CONFIG.PATH_ALLOW_SEGMENTS.has(segment)) return true;
     }
+
+    // 檢查後綴豁免 (條件式)
+    for (const suffix of CONFIG.PATH_ALLOW_SUFFIXES) {
+        if (path.endsWith(suffix)) {
+            // 觸發後綴豁免，啟動第二層級檢查
+            const parentPath = path.substring(0, path.lastIndexOf('/'));
+            // 若上層路徑包含高信度追蹤關鍵字，則拒絕豁免
+            for (const trackerKeyword of CONFIG.HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH) {
+                if (parentPath.includes(trackerKeyword)) {
+                    if (CONFIG.DEBUG_MODE) {
+                        console.log(`[URL-Filter-v40.55][Debug] 後綴豁免被覆蓋。後綴: "${suffix}" | 偵測到關鍵字: "${trackerKeyword}" | 路徑: "${path}"`);
+                    }
+                    return false; // 拒絕豁免
+                }
+            }
+            // 上層路徑安全，給予豁免
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -809,7 +836,7 @@ function isPathBlockedByRegex(path) {
     for (const regex of COMPILED_HEURISTIC_PATH_BLOCK_REGEX) {
         if (regex.test(path)) {
             if (CONFIG.DEBUG_MODE) {
-                console.log(`[URL-Filter-v40.53][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
+                console.log(`[URL-Filter-v40.55][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
             }
             multiLevelCache.setUrlDecision(k, true);
             return true;
@@ -880,7 +907,7 @@ function cleanTrackingParams(url) {
             const originalUrl = url.toString();
             const cleanedForLog = new URL(originalUrl);
             toDelete.forEach(k => cleanedForLog.searchParams.delete(k));
-            console.log(`[URL-Filter-v40.53][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
+            console.log(`[URL-Filter-v40.55][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
             return null; // 在除錯模式下，返回 null 以阻止重導向
         }
         toDelete.forEach(k => newUrl.searchParams.delete(k));
@@ -926,7 +953,7 @@ function processRequest(request) {
         } catch (e) {
             optimizedStats.increment('errors');
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.53] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.55] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -941,7 +968,7 @@ function processRequest(request) {
     if (hardWhitelistDetails.matched) {
         optimizedStats.increment('hardWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.53][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.55][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
         }
         return null;
     }
@@ -951,7 +978,7 @@ function processRequest(request) {
     if (softWhitelistDetails.matched) {
         optimizedStats.increment('softWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.53][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.55][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
         }
         // 若命中軟白名單，則跳過後續的路徑黑名單層，直接進入參數清理。
         const cleanedUrl = cleanTrackingParams(url);
@@ -979,7 +1006,7 @@ function processRequest(request) {
             for (const exemption of exemptions) {
                 if (currentPath.startsWith(exemption)) {
                     if (CONFIG.DEBUG_MODE) {
-                        console.log(`[URL-Filter-v40.53][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
+                        console.log(`[URL-Filter-v40.55][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
                     }
                     isExempted = true;
                     break;
@@ -1026,7 +1053,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.53] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.55] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -1046,7 +1073,7 @@ function processRequest(request) {
     
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.53', status: 'ready', message: 'URL Filter v40.53 - 參數白名單擴充 & 電商平台相容性強化', stats: optimizedStats.getStats() });
+        $done({ version: '40.55', status: 'ready', message: 'URL Filter v40.55 - 路徑豁免邏輯強化', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -1056,7 +1083,7 @@ function processRequest(request) {
     if (CONFIG.DEBUG_MODE) {
       const endTime = __now__();
       const executionTime = (endTime - startTime).toFixed(3);
-      console.log(`[URL-Filter-v40.53][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
+      console.log(`[URL-Filter-v40.55][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
     }
 
     if (typeof $done !== 'undefined') {
@@ -1065,7 +1092,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.53] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.55] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
