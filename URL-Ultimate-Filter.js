@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.64.js
- * @version     40.64 (通用追蹤端點攔截強化)
- * @description 強化對通用追蹤端點 (如 /collect) 的攔截能力。將 'collect' 納入關鍵字黑名單，並新增多項正則表達式規則以覆蓋 API 形式的追蹤路徑變體。
+ * @file        URL-Ultimate-Filter-Surge-V40.66.js
+ * @version     40.66 (通用追蹤端點攔截修正)
+ * @description 修正 V40.65 中遺漏的通用追蹤端點攔截規則。重新引入 'collect' 關鍵字與相關正則表達式，以確保對非標準化數據收集路徑的有效封堵。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-23
  */
@@ -269,7 +269,7 @@ const CONFIG = {
     'snap.licdn.com', 'spade.twitch.tv',
     // --- 其他 ---
     'adnx.com', 'cint.com', 'revjet.com', 'rlcdn.com', 'sc-static.net', 'wcs.naver.net',
-  ].sort()),
+  ].sort(),
 
   /**
    * 🚫 [V40.35 新增] Regex 域名攔截黑名單
@@ -495,11 +495,11 @@ PATH_BLOCK_KEYWORDS: [
   ].sort(),
 
   /**
-   * ✅ [V40.6 安全強化] 路徑白名單 - 區段 (Path Allowlist - Segments)
+   * ✅ [V40.6 安全強化, V40.65 恢復] 路徑白名單 - 區段 (Path Allowlist - Segments)
    * 說明：當路徑被 '/' 分割後，若任一區段完全匹配此處的字串，將豁免 `PATH_BLOCK_KEYWORDS` 檢查 (用於避免誤殺功能性路徑)。
    */
   PATH_ALLOW_SEGMENTS: [
-    'admin', 'blog', 'catalog', 'dashboard', 'dialog', 'login',
+    'admin', 'api', 'blog', 'catalog', 'dashboard', 'dialog', 'login',
   ].sort(),
 
   /**
