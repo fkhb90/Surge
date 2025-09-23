@@ -492,7 +492,7 @@ PATH_BLOCK_KEYWORDS: new Set([
    * 說明：當路徑包含此處的字串時，將豁免 `PATH_BLOCK_KEYWORDS` 檢查 (用於典型靜態路徑)。
    */
   PATH_ALLOW_SUBSTRINGS: new Set([
-    '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/js/', 'static/media/',
+    '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/media/',
   ].sort()),
 
   /**
