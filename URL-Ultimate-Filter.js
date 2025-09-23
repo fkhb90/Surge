@@ -500,7 +500,7 @@ PATH_BLOCK_KEYWORDS: new Set([
    * 說明：當路徑被 '/' 分割後，若任一區段完全匹配此處的字串，將豁免 `PATH_BLOCK_KEYWORDS` 檢查 (用於避免誤殺功能性路徑)。
    */
   PATH_ALLOW_SEGMENTS: new Set([
-    'admin', 'api', 'blog', 'catalog', 'dashboard', 'dialog', 'login',
+    'admin', 'blog', 'catalog', 'dashboard', 'dialog', 'login',
   ].sort()),
 
   /**
