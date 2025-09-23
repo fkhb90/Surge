@@ -54,7 +54,7 @@ const CONFIG = {
     'techgeek.digital', 'techstudify.com', 'techtrendmakers.com', 'thinfi.com', 'thotpacks.xyz',
     'tmearn.net', 'tnshort.net', 'tribuntekno.com', 'turkdown.com', 'tutwuri.id', 'uplinkto.hair',
     'urlbluemedia.shop', 'urlcash.com', 'urlcash.org', 'vinaurl.net', 'vzturl.com', 'xpshort.com',
-    'zegtrends.com'
+    'zegtrends.com',
   ].sort(),
 
   /**
@@ -473,7 +473,7 @@ const CONFIG = {
    * 說明：用於豁免正則表達式封鎖，避免誤殺 SPA/CDN 的合法資源。
    */
   PATH_ALLOW_PREFIXES: [
-    '/.well-known/'
+    '/.well-known/',
   ].sort(),
 
   /**
@@ -512,7 +512,7 @@ const CONFIG = {
    * 說明：當一個請求的路徑後綴符合豁免條件時 (如 index.js)，將會使用此處的關鍵字對其上層路徑進行二次審查。
    */
   HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH: [
-    '/ads', '/analytics', '/api/track', '/beacon', '/collect', '/pixel', '/tracker'
+    '/ads', '/analytics', '/api/track', '/beacon', '/collect', '/pixel', '/tracker',
   ].sort(),
 
   /**
@@ -546,7 +546,7 @@ const CONFIG = {
    * 說明：用於清理非追蹤性質但影響 URL 整潔度的參數 (例如：推薦來源、分享識別碼)。
    */
   COSMETIC_PARAMS: [
-    'from', 'ref', 'ref_src', 'ref_url', 'referral_code', 'share_channel', 'share_id', 'source'
+    'from', 'ref', 'ref_src', 'ref_url', 'referral_code', 'share_channel', 'share_id', 'source',
   ].sort(),
 
   /**
