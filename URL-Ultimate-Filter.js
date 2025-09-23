@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.69.js
- * @version     40.69 (註解保留重構)
- * @description 以 V40.67 為基礎進行重構。在保留完整註解的前提下，移除了規則列表中的重複條目，並統一了代碼縮排與格式，提升腳本的可讀性與維護性。
+ * @file        URL-Ultimate-Filter-Surge-V40.70.js
+ * @version     40.70 (功能性擴充)
+ * @description 新增 3 項功能性擴充：1. 強化 CNAME 偽裝追蹤防禦；2. 新增影片廣告（VAST/VMAP）攔截規則；3. 擴充參數清理機制，移除裝飾性參數。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-23
  */
@@ -216,12 +216,16 @@ const CONFIG = {
     'fingerprint.com',
     // --- 廣告驗證 & 可見度追蹤 ---
     'doubleverify.com', 'iasds.com', 'moat.com', 'moatads.com', 'sdk.iad-07.braze.com', 'serving-sys.com',
+    // --- [V40.70 新增] CNAME Cloaking / First-Party Trackers ---
+    '2o7.net', 'demdex.net', // Adobe Analytics
     // --- 客戶數據平台 (CDP) & 身分識別 ---
     'agkn.com', 'id5-sync.com', 'liveramp.com', 'permutive.com', 'tags.tiqcdn.com',
     // --- CDP & 行銷自動化 ---
     'klaviyo.com', 'marketo.com', 'mktoresp.com', 'pardot.com',
     // --- Mobile & Performance ---
     'instana.io', 'kochava.com', 'launchdarkly.com', 'raygun.io', 'singular.net',
+    // --- [V40.70 新增] Video Ad Networks & VAST/VMAP ---
+    'cedato.com', 'innovid.com', 'springserve.com',
     // --- 主流廣告聯播網 & 平台 ---
     'abema-adx.ameba.jp', 'abtest.yuewen.cn', 'ad-cn.jovcloud.com', 'ad.12306.cn', 'ad.360in.com', 'ad.51wnl-cq.com', 'ad.api.3g.youku.com', 'ad.caiyunapp.com', 'ad.huajiao.com',
     'ad.hzyoka.com', 'ad.jiemian.com', 'ad.qingting.fm', 'ad.wappalyzer.com', 'ad.yieldmanager.com', 'adashxgc.ut.taobao.com', 'adashz4yt.m.taobao.com', 'adcolony.com',
@@ -262,7 +266,7 @@ const CONFIG = {
     'igexin.com', 'jiguang.cn', 'jpush.cn', 'kuaishou.com', 'miaozhen.com', 'mmstat.com', 'pangolin-sdk-toutiao.com',
     'talkingdata.cn', 'talkingdata.com', 'tanx.com', 'umeng.cn', 'umeng.co', 'umeng.com', 'umengcloud.com', 'youmi.net', 'zhugeio.com',
     // --- 雲端與平台分析/廣告像素 ---
-    'bat.bing.com', 'cdn.vercel-insights.com', 'cloudflareinsights.com', 'demdex.net', 'everesttech.net', 'hs-analytics.net',
+    'bat.bing.com', 'cdn.vercel-insights.com', 'cloudflareinsights.com', 'everesttech.net', 'hs-analytics.net',
     'hs-scripts.com', 'monorail-edge.shopifysvc.com', 'omtrdc.net', 'plausible.io', 'static.cloudflareinsights.com', 'vitals.vercel-insights.com',
     // --- 社交平台追蹤子網域 ---
     'ct.pinterest.com', 'events.redditmedia.com', 'px.srvcs.tumblr.com',
@@ -411,7 +415,6 @@ const CONFIG = {
   PATH_BLOCK_KEYWORDS: [
     // --- Ad Generic ---
     '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/banner/', '/interstitial/',
-    '/midroll/', '/popads/', '/popup/', '/postroll/', '/prebid/', '/preroll/', '/promoted/', '/sponsor/', '/vclick/',
     '112wan', '2mdn', '51y5', '51yes', '789htbet', '96110', 'acs86', 'ad-choices', 'ad-logics', 'adash', 'adashx',
     'adcash', 'adcome', 'addsticky', 'addthis', 'adform', 'adhacker', 'adinfuse', 'adjust', 'admarvel', 'admaster',
     'admation', 'admdfs', 'admicro', 'admob', 'adnewnc', 'adpush', 'adpushup', 'adroll', 'adsage', 'adsame',
@@ -430,7 +433,7 @@ const CONFIG = {
     'localytics', 'logly', 'mailmunch', 'malvertising', 'matomo', 'medialytics', 'meetrics', 'mgid', 'mifengv',
     'mixpanel', 'mobaders', 'mobclix', 'mobileapptracking', '/monitoring/', 'mvfglobal', 'networkbench', 'newrelic',
     'omgmta', 'omniture', 'onead', 'openinstall', 'openx', 'optimizely', 'outstream', 'partnerad', 'pingfore', 'piwik',
-    'pixanalytics', 'playtomic', 'polyad', 'popin', 'popin2mdn', 'programmatic', 'pushnotification', 'quantserve',
+    'pixanalytics', 'playtomic', 'polyad', 'popin', 'popin2mdn', 'popads', '/popup/', 'programmatic', 'pushnotification', 'quantserve',
     'quantumgraph', 'queryly', 'qxs', 'rayjump', 'retargeting', 'ronghub', 'rtb', 'scorecardresearch', 'scupio',
     'securepubads', 'sensor', 'sentry', 'shence', 'shenyun', 'shoplytics', 'shujupie', 'smartadserver', 'smartbanner',
     'snowplow', 'socdm', 'sponsors', 'spy', 'spyware', 'statcounter', 'stathat', 'sticky-ad', 'storageug', 'straas',
@@ -440,6 +443,8 @@ const CONFIG = {
     'unidesk', 'usermaven', 'usertesting', 'venraas', 'vilynx', 'vpon', 'vungle', 'whalecloud', 'wistia', 'wlmonitor',
     'woopra', 'xxshuyuan', 'yandex', 'zaoo', 'zarget', 'zgdfz6h7po', 'zgty365', 'zhengjian', 'zhengwunet', 'zhuichaguoji',
     'zjtoolbar', 'zzhyyj',
+    // --- [V40.70 新增] Video Ad Related ---
+    '/midroll/', '/postroll/', '/preroll/', '/vast', '/vclick/', 'vpaid',
     // --- Ad Tech ---
     '/ad-choices', '/ad-click', '/ad-code', '/ad-conversion',
     '/ad-engagement', '/ad-event', '/ad-events', '/ad-exchange', '/ad-impression', '/ad-inventory', '/ad-loader',
@@ -448,7 +453,7 @@ const CONFIG = {
     '/ad-telemetry', '/ad-unit', '/ad-verification', '/ad-view', '/ad-viewability', '/ad-wrapper', '/adframe/',
     '/adrequest/', '/adretrieve/', '/adserve/', '/adserving/', '/fetch_ads/', '/getad/', '/getads/', 'ad-break',
     'ad_event', 'ad_logic', 'ad_pixel', 'ad-call', 'adsbygoogle', 'amp-ad', 'amp-analytics', 'amp-auto-ads',
-    'amp-sticky-ad', 'amp4ads', 'apstag', 'google_ad', 'pagead', 'pwt.js',
+    'amp-sticky-ad', 'amp4ads', 'apstag', 'google_ad', 'pagead', 'prebid', 'pwt.js',
     // --- Tracking & Analytics ---
     '/analytic/', '/analytics/', '/api/v2/rum', '/audit/', '/beacon/', '/collect?', '/collector/', 'g/collect', '/insight/',
     '/intelligence/', '/measurement', 'mp/collect', '/pixel/', '/report/', '/reporting/', '/reports/',
@@ -534,6 +539,14 @@ const CONFIG = {
     'ko_click_id', 'li_fat_id', 'mc_cid', 'mc_eid', 'mibextid', 'msclkid', 'twclid',
     'ttclid', 'tt_c_id', 'tt_campaign', 'tt_creative', 'tt_adgroup', 'trk', 'linkedin_share',
     'li_medium', 'li_source', 'wbraid', 'yclid', 'zanpid',
+  ].sort(),
+
+  /**
+   * 🗑️ [V40.70 新增] 裝飾性參數黑名單
+   * 說明：用於清理非追蹤性質但影響 URL 整潔度的參數 (例如：推薦來源、分享識別碼)。
+   */
+  COSMETIC_PARAMS: [
+    'from', 'ref', 'ref_src', 'ref_url', 'referral_code', 'share_channel', 'share_id', 'source'
   ].sort(),
 
   /**
@@ -883,7 +896,7 @@ function initializeCoreEngine() {
     'CRITICAL_TRACKING_SCRIPTS', 'CRITICAL_TRACKING_PATTERNS', 'PATH_BLOCK_KEYWORDS',
     'PATH_ALLOW_PREFIXES', 'PATH_ALLOW_SUFFIXES', 'PATH_ALLOW_SUBSTRINGS',
     'PATH_ALLOW_SEGMENTS', 'HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH',
-    'DROP_KEYWORDS', 'GLOBAL_TRACKING_PARAMS', 'TRACKING_PREFIXES',
+    'DROP_KEYWORDS', 'GLOBAL_TRACKING_PARAMS', 'COSMETIC_PARAMS', 'TRACKING_PREFIXES',
     'PARAMS_TO_KEEP_WHITELIST'
   ];
   for (const key of listsToNormalize) {
@@ -974,7 +987,7 @@ function isPathExplicitlyAllowed(path) {
     for (const trackerKeyword of CONFIG.HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH) {
       if (pathToCheck.includes(trackerKeyword)) {
         if (CONFIG.DEBUG_MODE) {
-          console.log(`[URL-Filter-v40.69][Debug] 路徑豁免被覆蓋。豁免規則: "${exemptionRule}" | 偵測到關鍵字: "${trackerKeyword}" | 路徑: "${path}"`);
+          console.log(`[URL-Filter-v40.70][Debug] 路徑豁免被覆蓋。豁免規則: "${exemptionRule}" | 偵測到關鍵字: "${trackerKeyword}" | 路徑: "${path}"`);
         }
         return false; // 拒絕豁免
       }
@@ -1048,7 +1061,7 @@ function isPathBlockedByRegex(path) {
   for (const regex of COMPILED_HEURISTIC_PATH_BLOCK_REGEX) {
     if (regex.test(path)) {
       if (CONFIG.DEBUG_MODE) {
-        console.log(`[URL-Filter-v40.69][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
+        console.log(`[URL-Filter-v40.70][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
       }
       multiLevelCache.setUrlDecision(k, true);
       return true;
@@ -1085,6 +1098,13 @@ function cleanTrackingParams(url) {
     const lowerKey = key.toLowerCase();
 
     if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(lowerKey)) continue;
+    
+    // [V40.70 新增] 檢查裝飾性參數
+    if (CONFIG.COSMETIC_PARAMS.has(lowerKey)) {
+        toDelete.push(key);
+        modified = true;
+        continue;
+    }
 
     if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) || OPTIMIZED_TRIES.prefix.startsWith(lowerKey)) {
       toDelete.push(key);
@@ -1116,7 +1136,7 @@ function cleanTrackingParams(url) {
     if (CONFIG.DEBUG_MODE) {
       const cleanedForLog = new URL(urlObj.toString());
       toDelete.forEach(k => cleanedForLog.searchParams.delete(k));
-      console.log(`[URL-Filter-v40.69][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
+      console.log(`[URL-Filter-v40.70][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
       return null;
     }
     toDelete.forEach(k => urlObj.searchParams.delete(k));
@@ -1156,7 +1176,7 @@ function logError(error, context = {}) {
       ...context,
       originalStack: error.stack
     });
-    console.error(`[URL-Filter-v40.69]`, executionError);
+    console.error(`[URL-Filter-v40.70]`, executionError);
   }
 }
 
@@ -1191,7 +1211,7 @@ function processRequest(request) {
     if (hardWhitelistDetails.matched) {
       optimizedStats.increment('hardWhitelistHits');
       if (CONFIG.DEBUG_MODE) {
-        console.log(`[URL-Filter-v40.69][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
+        console.log(`[URL-Filter-v40.70][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
       }
       return null;
     }
@@ -1200,7 +1220,7 @@ function processRequest(request) {
     if (softWhitelistDetails.matched) {
       optimizedStats.increment('softWhitelistHits');
       if (CONFIG.DEBUG_MODE) {
-        console.log(`[URL-Filter-v40.69][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
+        console.log(`[URL-Filter-v40.70][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
       }
       const cleanedUrl = cleanTrackingParams(url);
       if (cleanedUrl) {
@@ -1226,7 +1246,7 @@ function processRequest(request) {
         for (const exemption of exemptions) {
           if (currentPath.startsWith(exemption)) {
             if (CONFIG.DEBUG_MODE) {
-              console.log(`[URL-Filter-v40.69][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
+              console.log(`[URL-Filter-v40.70][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
             }
             isExempted = true;
             break;
@@ -1294,9 +1314,9 @@ function processRequest(request) {
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
         $done({
-          version: '40.69',
+          version: '40.70',
           status: 'ready',
-          message: 'URL Filter v40.69 - 註解保留重構',
+          message: 'URL Filter v40.70 - 功能性擴充',
           stats: optimizedStats.getStats()
         });
       }
@@ -1308,7 +1328,7 @@ function processRequest(request) {
     if (CONFIG.DEBUG_MODE) {
       const endTime = __now__();
       const executionTime = (endTime - startTime).toFixed(3);
-      console.log(`[URL-Filter-v40.69][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
+      console.log(`[URL-Filter-v40.70][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
     }
 
     if (typeof $done !== 'undefined') {
