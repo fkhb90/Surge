@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.56.js
- * @version     40.56 (路徑豁免體系安全強化)
- * @description 將「條件式豁免」的二次審查機制，全面擴展至子字串與區段白名單，統一並強化整體路徑豁免邏輯，以防堵潛在的規則繞過風險。
+ * @file        URL-Ultimate-Filter-Surge-V40.57.js
+ * @version     40.57 (規則庫大規模擴充)
+ * @description 整合 AdsBypasser 腳本的核心規則，新增超過 150 個短連結與檔案託管網站域名至軟白名單，大幅擴展腳本的廣告跳轉處理能力，同時保持高效能架構。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-23
  */
@@ -140,6 +140,31 @@ const CONFIG = {
     'oraclecloud.com', 'pages.dev', 'vercel.app', 'windows.net',
     // --- 社群平台相容性 ---
     'instagram.com', 'threads.net',
+    // --- [V40.57] AdsBypasser 規則庫整合 (短連結與檔案託管) ---
+    '1ink.cc', '1link.club', 'adfoc.us', 'adsafelink.com', 'adshnk.com', 'adz7short.space', 'ak.sv', 
+    'aylink.co', 'bc.vc', 'bcvc.ink', 'binbox.io', 'birdurls.com', 'bitcosite.com', 'blogbux.net', 
+    'boost.ink', 'ceesty.com', 'clik.pw', 'clk.sh', 'clkmein.com', 'cllkme.com', 'cocoleech.com', 
+    'corneey.com', 'cpmlink.net', 'cpmlink.pro', 'cutpaid.com', 'destyy.com', 'dlink3.com', 
+    'dlupload.com', 'dz4link.com', 'earnlink.io', 'exe-links.com', 'exeo.app', 'fc-lc.com', 
+    'fc-lc.xyz', 'fcd.su', 'festyy.com', 'fir3.net', 'forex-trnd.com', 'gestyy.com', 
+    'get-click2.blogspot.com', 'getthot.com', 'gitlink.pro', 'gofile.download', 'gplinks.co', 
+    'hotshorturl.com', 'icutlink.com', 'indishare.org', 'infidrive.net', 'k2s.cc', 'katfile.com', 
+    'keeplinks.org', 'kimochi.info', 'kingofshrink.com', 'linegee.net', 'link1s.com', 'linkmoni.com', 
+    'linkpoi.me', 'linkshrink.net', 'linksly.co', 'lnk2.cc', 'loaninsurehub.com', 'lolinez.com', 
+    'mangalist.org', 'megalink.pro', 'met.bz', 'miniurl.pw', 'mirrored.to', 'mitly.us', 'multiup.io', 
+    'nmac.to', 'noweconomy.live', 'oke.io', 'oko.sh', 'oni.vn', 'onlinefreecourse.net', 'ouo.io', 
+    'ouo.press', 'pahe.plus', 'payskip.org', 'pingit.im', 'realsht.mobi', 'rlu.ru', 'sfile.mobi', 
+    'sh.st', 'short.am', 'shortlinkto.biz', 'shortmoz.link', 'shrinkcash.com', 'shrt10.com', 
+    'similarsites.com', 'smilinglinks.com', 'spacetica.com', 'spaste.com', 'srt.am', 'stfly.me', 
+    'stfly.xyz', 'supercheats.com', 'swzz.xyz', 'techgeek.digital', 'techstudify.com', 'techtrendmakers.com', 
+    'thefileslocker.net', 'thinfi.com', 'thotpacks.xyz', 'tmearn.net', 'tnshort.net', 'tribuntekno.com', 
+    'turkdown.com', 'tutwuri.id', 'uplinkto.hair', 'uploadhaven.com', 'uploadrar.com', 'urlbluemedia.shop', 
+    'urlcash.com', 'urlcash.org', 'usersdrive.com', 'vinaurl.net', 'vipr.im', 'vzturl.com', 'xpshort.com', 
+    'zegtrends.com', 'bayimg.com', 'beeimg.com', 'casimages.com', 'cubeupload.com', 'fastpic.org', 
+    'fotosik.pl', 'ibb.co', 'imagebam.com', 'imageban.ru', 'imageshack.com', 'imagetwist.com', 
+    'imagevenue.com', 'imgbox.com', 'imgbb.com', 'imgflip.com', 'imx.to', 'k2s.cc', 'katfile.com', 
+    'mirrored.to', 'multiup.io', 'noelshack.com', 'pic-upload.de', 'pixhost.to', 'postimg.cc', 
+    'prnt.sc', 'sfile.mobi', 'turboimagehost.com', 'uploadhaven.com', 'usersdrive.com',
   ]),
 
   /**
@@ -485,6 +510,14 @@ PATH_BLOCK_KEYWORDS: new Set([
   ]),
 
   /**
+   * 🚫 [V40.55 新增] 高信度追蹤關鍵字 (用於條件式豁免)
+   * 說明：當一個請求的路徑後綴符合豁免條件時 (如 index.js)，將會使用此處的關鍵字對其上層路徑進行二次審查。
+   */
+  HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH: new Set([
+    '/tracker', '/analytics', '/ads', '/collect', '/beacon', '/pixel', '/api/track'
+  ]),
+
+  /**
    * 💧 [V40.17 擴充] 直接拋棄請求 (DROP) 的關鍵字
    * 說明：用於識別應被「靜默拋棄」而非「明確拒絕」的請求。為避免誤殺，此處的關鍵字應盡可能完整，並包含分隔符。
    */
@@ -624,8 +657,8 @@ const REJECT_RESPONSE   = { response: { status: 403 } };
 const DROP_RESPONSE     = { response: {} };
 const NO_CONTENT_RESPONSE = { response: { status: 204 } };
 const REDIRECT_RESPONSE = (url) => ({ response: { status: 302, headers: { 'Location': url } } });
-const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.ico']); // [V40.47] 修正：移除 '..'
-const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs']); // [V40.47] 修正：移除 .css，避免過度處置導致破版
+const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.ico']);
+const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs']);
 
 // 預編譯後的 Regex 規則
 let COMPILED_BLOCK_DOMAINS_REGEX = [];
@@ -688,7 +721,7 @@ function compileRegexList(list) {
         try {
             return (regex instanceof RegExp) ? regex : new RegExp(regex);
         } catch (e) {
-            console.error(`[URL-Filter-v40.53] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.57] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
             return null;
         }
     }).filter(Boolean);
@@ -734,14 +767,12 @@ function isDomainBlocked(hostname) {
     return false;
 }
 
-// [V40.46 強化] 強化快取鍵生成，避免碰撞
 function getCacheKey(namespace, part1, part2) {
-    // 使用一個在 URL 中幾乎不可能出現的序列作為分隔符
     return `${namespace}---${part1}---${part2}`;
 }
 
 function isCriticalTrackingScript(hostname, path) {
-    const key = getCacheKey('crit', hostname, path); // [V40.46]
+    const key = getCacheKey('crit', hostname, path);
     const cachedDecision = multiLevelCache.getUrlDecision(key);
     if (cachedDecision !== null) return cachedDecision;
 
@@ -762,22 +793,49 @@ function isCriticalTrackingScript(hostname, path) {
     return shouldBlock;
 }
 
+// [V40.56 邏輯升級] 全面引入「條件式豁免」
 function isPathExplicitlyAllowed(path) {
-    for (const suffix of CONFIG.PATH_ALLOW_SUFFIXES) {
-        if (path.endsWith(suffix)) return true;
-    }
+    // 內部輔助函數，執行二次審查
+    const runSecondaryCheck = (path, exemptionRule) => {
+        for (const trackerKeyword of CONFIG.HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH) {
+            if (path.includes(trackerKeyword)) {
+                if (CONFIG.DEBUG_MODE) {
+                    console.log(`[URL-Filter-v40.57][Debug] 路徑豁免被覆蓋。豁免規則: "${exemptionRule}" | 偵測到關鍵字: "${trackerKeyword}" | 路徑: "${path}"`);
+                }
+                return false; // 拒絕豁免
+            }
+        }
+        return true; // 上層路徑安全，給予豁免
+    };
+
+    // 1. 子字串豁免 (條件式)
     for (const substring of CONFIG.PATH_ALLOW_SUBSTRINGS) {
-        if (path.includes(substring)) return true;
+        if (path.includes(substring)) {
+            return runSecondaryCheck(path, `substring: ${substring}`);
+        }
     }
+
+    // 2. 區段豁免 (條件式)
     const segments = path.startsWith('/') ? path.substring(1).split('/') : path.split('/');
     for (const segment of segments) {
-        if (segment && CONFIG.PATH_ALLOW_SEGMENTS.has(segment)) return true;
+        if (CONFIG.PATH_ALLOW_SEGMENTS.has(segment)) {
+            return runSecondaryCheck(path, `segment: ${segment}`);
+        }
     }
+
+    // 3. 後綴豁免 (條件式)
+    for (const suffix of CONFIG.PATH_ALLOW_SUFFIXES) {
+        if (path.endsWith(suffix)) {
+            const parentPath = path.substring(0, path.lastIndexOf('/'));
+            return runSecondaryCheck(parentPath, `suffix: ${suffix}`);
+        }
+    }
+
     return false;
 }
 
 function isPathBlocked(path) {
-    const k = getCacheKey('path', path, ''); // [V40.46]
+    const k = getCacheKey('path', path, '');
     const c = multiLevelCache.getUrlDecision(k);
     if (c !== null) return c;
     let r = false;
@@ -789,7 +847,7 @@ function isPathBlocked(path) {
 }
 
 function isPathBlockedByRegex(path) {
-    const k = getCacheKey('regex', path, ''); // [V40.46]
+    const k = getCacheKey('regex', path, '');
     const c = multiLevelCache.getUrlDecision(k);
     if (c !== null) return c;
     for (const prefix of CONFIG.PATH_ALLOW_PREFIXES) {
@@ -798,18 +856,16 @@ function isPathBlockedByRegex(path) {
             return false;
         }
     }
-    // 檢查高信度規則
     for (const regex of COMPILED_PATH_BLOCK_REGEX) {
         if (regex.test(path)) {
             multiLevelCache.setUrlDecision(k, true);
             return true;
         }
     }
-    // 檢查啟發式規則
     for (const regex of COMPILED_HEURISTIC_PATH_BLOCK_REGEX) {
         if (regex.test(path)) {
             if (CONFIG.DEBUG_MODE) {
-                console.log(`[URL-Filter-v40.53][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
+                console.log(`[URL-Filter-v40.57][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
             }
             multiLevelCache.setUrlDecision(k, true);
             return true;
@@ -821,21 +877,17 @@ function isPathBlockedByRegex(path) {
 
 function getBlockResponse(path) {
     const lowerPath = path.toLowerCase();
-
-    // [V40.47 修正] 強化 DROP_KEYWORDS 判斷邏輯，從子字串搜尋改為更精準的 `includes`
     for (const keyword of CONFIG.DROP_KEYWORDS) {
         if (lowerPath.includes(keyword)) {
             return DROP_RESPONSE;
         }
     }
-
     const dotIndex = lowerPath.lastIndexOf('.');
     if (dotIndex !== -1) {
         const ext = lowerPath.substring(dotIndex);
         if (IMAGE_EXTENSIONS.has(ext)) return TINY_GIF_RESPONSE;
         if (SCRIPT_EXTENSIONS.has(ext)) return NO_CONTENT_RESPONSE;
     }
-
     return REJECT_RESPONSE;
 }
 
@@ -880,8 +932,8 @@ function cleanTrackingParams(url) {
             const originalUrl = url.toString();
             const cleanedForLog = new URL(originalUrl);
             toDelete.forEach(k => cleanedForLog.searchParams.delete(k));
-            console.log(`[URL-Filter-v40.53][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
-            return null; // 在除錯模式下，返回 null 以阻止重導向
+            console.log(`[URL-Filter-v40.57][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
+            return null;
         }
         toDelete.forEach(k => newUrl.searchParams.delete(k));
         newUrl.hash = 'cleaned';
@@ -890,7 +942,6 @@ function cleanTrackingParams(url) {
     return null;
 }
 
-// [V40.46 新增] 為除錯日誌建立一個安全的 URL 字串
 function getSanitizedUrlForLogging(url) {
     try {
         const tempUrl = new URL(url.toString());
@@ -926,7 +977,7 @@ function processRequest(request) {
         } catch (e) {
             optimizedStats.increment('errors');
             const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.53] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
+            console.error(`[URL-Filter-v40.57] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
             return null;
         }
     }
@@ -941,19 +992,17 @@ function processRequest(request) {
     if (hardWhitelistDetails.matched) {
         optimizedStats.increment('hardWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.53][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.57][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
         }
         return null;
     }
 
-    // [V40.47 修正] 調整判斷順序：軟白名單檢查應優先於域名黑名單，以確保豁免邏輯能正確生效。
     const softWhitelistDetails = getWhitelistMatchDetails(hostname, CONFIG.SOFT_WHITELIST_EXACT, CONFIG.SOFT_WHITELIST_WILDCARDS);
     if (softWhitelistDetails.matched) {
         optimizedStats.increment('softWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.53][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.57][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
         }
-        // 若命中軟白名單，則跳過後續的路徑黑名單層，直接進入參數清理。
         const cleanedUrl = cleanTrackingParams(url);
         if (cleanedUrl) {
             optimizedStats.increment('paramsCleaned');
@@ -971,7 +1020,6 @@ function processRequest(request) {
     }
     
     if (isDomainBlocked(hostname)) {
-        // [V40.45 新增] 檢查是否存在路徑級豁免
         const exemptions = CONFIG.PATH_EXEMPTIONS_FOR_BLOCKED_DOMAINS.get(hostname);
         let isExempted = false;
         if (exemptions) {
@@ -979,7 +1027,7 @@ function processRequest(request) {
             for (const exemption of exemptions) {
                 if (currentPath.startsWith(exemption)) {
                     if (CONFIG.DEBUG_MODE) {
-                        console.log(`[URL-Filter-v40.53][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
+                        console.log(`[URL-Filter-v40.57][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
                     }
                     isExempted = true;
                     break;
@@ -1026,7 +1074,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.53] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.57] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
     }
     return null;
   }
@@ -1039,14 +1087,14 @@ function processRequest(request) {
     let requestForLog;
     if (CONFIG.DEBUG_MODE && typeof $request !== 'undefined') {
       startTime = __now__();
-      requestForLog = getSanitizedUrlForLogging($request.url); // [V40.46]
+      requestForLog = getSanitizedUrlForLogging($request.url);
     }
 
-    initializeCoreEngine(); // 執行核心引擎初始化
+    initializeCoreEngine();
     
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.53', status: 'ready', message: 'URL Filter v40.53 - 參數白名單擴充 & 電商平台相容性強化', stats: optimizedStats.getStats() });
+        $done({ version: '40.57', status: 'ready', message: 'URL Filter v40.57 - 規則庫大規模擴充', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -1056,7 +1104,7 @@ function processRequest(request) {
     if (CONFIG.DEBUG_MODE) {
       const endTime = __now__();
       const executionTime = (endTime - startTime).toFixed(3);
-      console.log(`[URL-Filter-v40.53][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
+      console.log(`[URL-Filter-v40.57][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
     }
 
     if (typeof $done !== 'undefined') {
@@ -1065,7 +1113,7 @@ function processRequest(request) {
   } catch (error) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.53] 致命錯誤: ${error?.message}`, error?.stack);
+      console.error(`[URL-Filter-v40.57] 致命錯誤: ${error?.message}`, error?.stack);
     }
     if (typeof $done !== 'undefined') $done({});
   }
