@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.68.js
- * @version     40.68 (策略性擴充：CNAME 偽裝防禦、影音廣告攔截、參數清理)
- * @description 強化 CNAME 偽裝追蹤防禦，新增影片廣告攔截規則，並擴充裝飾性參數清理機制，以應對更進階的追蹤技術並提升 URL 隱私性。
+ * @file        URL-Ultimate-Filter-Surge-V40.69.js
+ * @version     40.69 (策略性擴充 (續)：整合社群與進階追蹤參數，並擴充參數前綴規則)
+ * @description 根據提供的名單，全面擴充對各類追蹤與裝飾性參數的攔截規則，並完成去重與回歸測試，顯著提升過濾精準度與覆蓋範圍。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-23
  */
@@ -530,14 +530,16 @@ const CONFIG = {
   ].sort(),
 
   /**
-   * 🗑️ [V40.51 強化, V40.61 擴充] 追蹤參數黑名單 (全域)
+   * 🗑️ [V40.69 擴充] 追蹤參數黑名單 (全域)
    * 說明：用於高速比對常見的、靜態的追蹤參數。
    */
   GLOBAL_TRACKING_PARAMS: [
-     '_branch_match_id', '_ga', '_gid', 'dclid', 'fbclid', 'gclid', 'gclsrc', 'gbraid', 'igshid', 
-     'ko_click_id', 'li_fat_id', 'mc_cid', 'mc_eid', 'mibextid', 'msclkid', 'twclid', 
-     'ttclid', 'tt_c_id', 'tt_campaign', 'tt_creative', 'tt_adgroup', 'trk', 'linkedin_share', 
-     'li_medium', 'li_source', 'wbraid', 'yclid', 'zanpid',
+     '_branch_match_id', '_ga', '_gl', '_gid', '_openstat', 'admitad_uid', 'aiad_clid', 'awc', 'btag',
+     'cjevent', 'cmpid', 'cuid', 'dclid', 'external_click_id', 'fbclid', 'gad_source', 'gclid', 
+     'gclsrc', 'gbraid', 'gps_adid', 'iclid', 'igshid', 'irclickid', 'is_retargeting', 
+     'ko_click_id', 'li_fat_id', 'mc_cid', 'mc_eid', 'mibextid', 'msclkid', 'oprtrack', 'rb_clickid',
+     'srsltid', 'sscid', 'trk', 'ttclid', 'twclid', 'usqp', 'vero_conv', 'vero_id', 'wbraid',
+     'wt_mc', 'xtor', 'yclid', 'ysclid', 'zanpid',
   ].sort(),
 
   /**
@@ -554,14 +556,15 @@ const CONFIG = {
   ],
 
   /**
-   * 🗑️ [V40.38 重構] 追蹤參數前綴黑名單
+   * 🗑️ [V40.69 擴充] 追蹤參數前綴黑名單
    * 說明：用於高速比對常見的追蹤參數前綴。
    */
   TRACKING_PREFIXES: [
-    '__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs', '_oly_', 'ad_', 'aff_', 'alg_', 'bd_',
-    'campaign_', 'content_', 'creative_', 'fb_', 'from_', 'gcl_', 'hmsr_', 'hsa_', 'li_',
-    'matomo_', 'medium_', 'mkt_', 'ms_', 'mtm', 'pk_', 'piwik_', 'placement_', 'ref_',
-    'share_', 'source_', 'space_', 'term_', 'trk_', 'tt_', 'ttc_', 'li_fat_', 'linkedin_',
+    '__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs', '_oly_', 'action_', 'ad_', 'adjust_', 'aff_', 'af_', 
+    'alg_', 'at_', 'bd_', 'bsft_', 'campaign_', 'cj', 'cm_', 'content_', 'creative_', 'fb_', 'from_', 
+    'gcl_', 'guce_', 'hmsr_', 'hsa_', 'ir_', 'itm_', 'li_', 'matomo_', 'medium_', 'mkt_', 'ms_', 'mt_', 
+    'mtm', 'pk_', 'piwik_', 'placement_', 'ref_', 'share_', 'source_', 'space_', 'term_', 'trk_', 'tt_', 
+    'ttc_', 'vsm_', 'li_fat_', 'linkedin_',
   ].sort(),
 
   /**
@@ -575,11 +578,11 @@ const CONFIG = {
   ],
 
   /**
-   * 🗑️ [V40.68 新增] 裝飾性參數黑名單
+   * 🗑️ [V40.69 擴充] 裝飾性參數黑名單
    * 說明：用於清理非追蹤性質但影響 URL 整潔度的參數。
    */
   COSMETIC_PARAMS: [
-    'from', 'ref', 'share_id', 'source'
+    'fb_ref', 'fb_source', 'from', 'ref', 'share_id', 'source', 'spot_im_redirect_source'
   ].sort(),
 
   /**
@@ -825,7 +828,7 @@ function isPathExplicitlyAllowed(path) {
         for (const trackerKeyword of CONFIG.HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH) {
             if (pathToCheck.includes(trackerKeyword)) {
                 if (CONFIG.DEBUG_MODE) {
-                    console.log(`[URL-Filter-v40.68][Debug] 路徑豁免被覆蓋。豁免規則: "${exemptionRule}" | 偵測到關鍵字: "${trackerKeyword}" | 路徑: "${path}"`);
+                    console.log(`[URL-Filter-v40.69][Debug] 路徑豁免被覆蓋。豁免規則: "${exemptionRule}" | 偵測到關鍵字: "${trackerKeyword}" | 路徑: "${path}"`);
                 }
                 return false; // 拒絕豁免
             }
@@ -898,7 +901,7 @@ function isPathBlockedByRegex(path) {
     for (const regex of COMPILED_HEURISTIC_PATH_BLOCK_REGEX) {
         if (regex.test(path)) {
             if (CONFIG.DEBUG_MODE) {
-                console.log(`[URL-Filter-v40.68][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
+                console.log(`[URL-Filter-v40.69][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
             }
             multiLevelCache.setUrlDecision(k, true);
             return true;
@@ -965,7 +968,7 @@ function cleanTrackingParams(url) {
         if (CONFIG.DEBUG_MODE) {
             const cleanedForLog = new URL(urlObj.toString());
             toDelete.forEach(k => cleanedForLog.searchParams.delete(k));
-            console.log(`[URL-Filter-v40.68][Debug] 偵測到追蹤/裝飾性參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
+            console.log(`[URL-Filter-v40.69][Debug] 偵測到追蹤/裝飾性參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
             return null;
         }
         toDelete.forEach(k => urlObj.searchParams.delete(k));
@@ -1005,7 +1008,7 @@ function logError(error, context = {}) {
             ...context,
             originalStack: error.stack
         });
-        console.error(`[URL-Filter-v40.68]`, executionError);
+        console.error(`[URL-Filter-v40.69]`, executionError);
     }
 }
 
@@ -1037,7 +1040,7 @@ function processRequest(request) {
     if (hardWhitelistDetails.matched) {
         optimizedStats.increment('hardWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.68][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.69][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
         }
         return null;
     }
@@ -1046,7 +1049,7 @@ function processRequest(request) {
     if (softWhitelistDetails.matched) {
         optimizedStats.increment('softWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.68][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.69][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
         }
         const cleanedUrl = cleanTrackingParams(url);
         if (cleanedUrl) {
@@ -1072,7 +1075,7 @@ function processRequest(request) {
             for (const exemption of exemptions) {
                 if (currentPath.startsWith(exemption)) {
                     if (CONFIG.DEBUG_MODE) {
-                        console.log(`[URL-Filter-v40.68][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
+                        console.log(`[URL-Filter-v40.69][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
                     }
                     isExempted = true;
                     break;
@@ -1135,7 +1138,7 @@ function processRequest(request) {
     
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.68', status: 'ready', message: 'URL Filter v40.68 - 策略性擴充：CNAME 偽裝防禦、影音廣告攔截、參數清理', stats: optimizedStats.getStats() });
+        $done({ version: '40.69', status: 'ready', message: 'URL Filter v40.69 - 策略性擴充 (續)：整合社群與進階追蹤參數，並擴充參數前綴規則', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -1145,7 +1148,7 @@ function processRequest(request) {
     if (CONFIG.DEBUG_MODE) {
       const endTime = __now__();
       const executionTime = (endTime - startTime).toFixed(3);
-      console.log(`[URL-Filter-v40.68][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
+      console.log(`[URL-Filter-v40.69][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
     }
 
     if (typeof $done !== 'undefined') {
