@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.75.js
- * @version     40.75 (引擎回滾修正與規則重構)
- * @description 核心引擎回滾至 V40.67 的穩定邏輯以修復黑白名單失效的根本問題。並基於此穩定版本，重新安全地整合與擴充參數規則庫。
+ * @file        URL-Ultimate-Filter-Surge-V40.76.js
+ * @version     40.76 (引擎替換修正)
+ * @description 參數前綴匹配引擎替換為 JS 原生 startsWith 方法，以徹底修復因 Trie 引擎錯誤導致的黑白名單失效問題，確保規則匹配的絕對正確性。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-23
  */
@@ -722,26 +722,6 @@ class OptimizedTrie {
     }
     n.isEndOfWord = true;
   }
-  /**
-   * [V40.75 修正] 檢查輸入的字串 (text) 是否以 Trie 中儲存的任何一個前綴詞 (prefix word) 開頭。
-   * 此版本回滾至 V40.67 的穩定邏輯，以修復先前版本中因邏輯錯誤導致的匹配失效問題。
-   * @param {string} text - 待檢查的完整字串 (例如：一個 URL 參數鍵)。
-   * @returns {boolean} - 如果 text 是以 Trie 中的任一前綴詞開頭，則返回 true。
-   */
-  startsWith(text) {
-    let node = this.root;
-    for (let i = 0; i < text.length; i++) {
-      const char = text[i];
-      if (!node[char]) {
-        return false;
-      }
-      node = node[char];
-      if (node.isEndOfWord) {
-        return true;
-      }
-    }
-    return false;
-  }
   contains(text) {
     const N = Math.min(text.length, 1024);
     for (let i = 0; i < N; i++) {
@@ -859,7 +839,6 @@ class MultiLevelCacheManager {
 
 const multiLevelCache = new MultiLevelCacheManager();
 const OPTIMIZED_TRIES = {
-  prefix: new OptimizedTrie(),
   criticalPattern: new OptimizedTrie(),
   pathBlock: new OptimizedTrie()
 };
@@ -914,8 +893,7 @@ function initializeCoreEngine() {
     }
   }
 
-  // 初始化 Trie 結構
-  CONFIG.TRACKING_PREFIXES.forEach(p => OPTIMIZED_TRIES.prefix.insert(p));
+  // 初始化 Trie 結構 (僅保留仍在使用的部分)
   CONFIG.CRITICAL_TRACKING_PATTERNS.forEach(p => OPTIMIZED_TRIES.criticalPattern.insert(p));
   CONFIG.PATH_BLOCK_KEYWORDS.forEach(p => OPTIMIZED_TRIES.pathBlock.insert(p));
 
@@ -996,7 +974,7 @@ function isPathExplicitlyAllowed(path) {
     for (const trackerKeyword of CONFIG.HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH) {
       if (pathToCheck.includes(trackerKeyword)) {
         if (CONFIG.DEBUG_MODE) {
-          console.log(`[URL-Filter-v40.75][Debug] 路徑豁免被覆蓋。豁免規則: "${exemptionRule}" | 偵測到關鍵字: "${trackerKeyword}" | 路徑: "${path}"`);
+          console.log(`[URL-Filter-v40.76][Debug] 路徑豁免被覆蓋。豁免規則: "${exemptionRule}" | 偵測到關鍵字: "${trackerKeyword}" | 路徑: "${path}"`);
         }
         return false; // 拒絕豁免
       }
@@ -1070,7 +1048,7 @@ function isPathBlockedByRegex(path) {
   for (const regex of COMPILED_HEURISTIC_PATH_BLOCK_REGEX) {
     if (regex.test(path)) {
       if (CONFIG.DEBUG_MODE) {
-        console.log(`[URL-Filter-v40.75][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
+        console.log(`[URL-Filter-v40.76][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
       }
       multiLevelCache.setUrlDecision(k, true);
       return true;
@@ -1097,7 +1075,6 @@ function getBlockResponse(path) {
 }
 
 function cleanTrackingParams(url) {
-  // 確保傳入的是 URL 物件
   const urlObj = (typeof url === 'string') ? new URL(url) : url;
   const originalSearchParams = urlObj.search;
   let modified = false;
@@ -1108,10 +1085,24 @@ function cleanTrackingParams(url) {
 
     if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(lowerKey)) continue;
 
-    if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) || OPTIMIZED_TRIES.prefix.startsWith(lowerKey)) {
-      toDelete.push(key);
-      modified = true;
-      continue;
+    if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey)) {
+        toDelete.push(key);
+        modified = true;
+        continue;
+    }
+    
+    // [V40.76 修正] 使用原生 startsWith 進行前綴匹配，確保穩定性
+    let isPrefixMatch = false;
+    for (const prefix of CONFIG.TRACKING_PREFIXES) {
+        if (lowerKey.startsWith(prefix)) {
+            isPrefixMatch = true;
+            break;
+        }
+    }
+    if (isPrefixMatch) {
+        toDelete.push(key);
+        modified = true;
+        continue;
     }
 
     let regexMatched = false;
@@ -1138,11 +1129,10 @@ function cleanTrackingParams(url) {
     if (CONFIG.DEBUG_MODE) {
       const cleanedForLog = new URL(urlObj.toString());
       toDelete.forEach(k => cleanedForLog.searchParams.delete(k));
-      console.log(`[URL-Filter-v40.75][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
+      console.log(`[URL-Filter-v40.76][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
       return null;
     }
     toDelete.forEach(k => urlObj.searchParams.delete(k));
-    // 僅在有 search 參數時才加上 #cleaned 標記，避免汙染無參數的 URL
     if (originalSearchParams) {
       urlObj.hash = 'cleaned';
     }
@@ -1178,7 +1168,7 @@ function logError(error, context = {}) {
       ...context,
       originalStack: error.stack
     });
-    console.error(`[URL-Filter-v40.75]`, executionError);
+    console.error(`[URL-Filter-v40.76]`, executionError);
   }
 }
 
@@ -1213,7 +1203,7 @@ function processRequest(request) {
     if (hardWhitelistDetails.matched) {
       optimizedStats.increment('hardWhitelistHits');
       if (CONFIG.DEBUG_MODE) {
-        console.log(`[URL-Filter-v40.75][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
+        console.log(`[URL-Filter-v40.76][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
       }
       return null;
     }
@@ -1222,7 +1212,7 @@ function processRequest(request) {
     if (softWhitelistDetails.matched) {
       optimizedStats.increment('softWhitelistHits');
       if (CONFIG.DEBUG_MODE) {
-        console.log(`[URL-Filter-v40.75][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
+        console.log(`[URL-Filter-v40.76][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
       }
       const cleanedUrl = cleanTrackingParams(url);
       if (cleanedUrl) {
@@ -1248,7 +1238,7 @@ function processRequest(request) {
         for (const exemption of exemptions) {
           if (currentPath.startsWith(exemption)) {
             if (CONFIG.DEBUG_MODE) {
-              console.log(`[URL-Filter-v40.75][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
+              console.log(`[URL-Filter-v40.76][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
             }
             isExempted = true;
             break;
@@ -1316,9 +1306,9 @@ function processRequest(request) {
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
         $done({
-          version: '40.75',
+          version: '40.76',
           status: 'ready',
-          message: 'URL Filter v40.75 - 引擎回滾修正與規則重構',
+          message: 'URL Filter v40.76 - 引擎替換修正',
           stats: optimizedStats.getStats()
         });
       }
@@ -1330,7 +1320,7 @@ function processRequest(request) {
     if (CONFIG.DEBUG_MODE) {
       const endTime = __now__();
       const executionTime = (endTime - startTime).toFixed(3);
-      console.log(`[URL-Filter-v40.75][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
+      console.log(`[URL-Filter-v40.76][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
     }
 
     if (typeof $done !== 'undefined') {
