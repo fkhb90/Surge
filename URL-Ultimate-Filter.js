@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.71.js
- * @version     40.71 (裝飾性參數擴充)
- * @description 擴充 COSMETIC_PARAMS 列表，新增對主流社群、電商與影音平台中常見非功能性參數的清理規則，以產生更簡潔的網址。
+ * @file        URL-Ultimate-Filter-Surge-V40.72.js
+ * @version     40.72 (引擎修正與規則擴充)
+ * @description 修正 OptimizedTrie.startsWith 引擎錯誤導致部分前綴規則失效的問題。並根據提供之名單，擴充追蹤與裝飾性參數列表。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-23
  */
@@ -28,8 +28,8 @@ const CONFIG = {
    * 說明：設為 true 時，將啟用一系列的進階日誌功能，用於無風險地測試與診斷。
    * 1. 參數清理將轉為「僅記錄模式」，不會執行實際重導向。
    * 2. 「啟發式規則」的命中事件將被詳細記錄至控制台。
-   * 3. [V40.42 新增] 白名單（硬/軟）的命中事件將被詳細記錄。
-   * 4. [V40.43 新增] 每個請求的處理耗時將被精確計時並記錄。
+   * 3. [V42 新增] 白名單（硬/軟）的命中事件將被詳細記錄。
+   * 4. [V43 新增] 每個請求的處理耗時將被精確計時並記錄。
    */
   DEBUG_MODE: false,
 
@@ -1341,4 +1341,7 @@ function processRequest(request) {
     if (typeof $done !== 'undefined') $done({});
   }
 })();
-" with my request to "搜尋並加入更多 COSMETIC_PARAMS 參數".
+" with my request to "1. 黑白名單失效，請檢核代碼，執行完整回歸測試確保代碼正確性
+2. 將附件名單判斷是否加入COSMETIC_PARAMS 或 TRACKING_PREFIXES較為合適，並比對所有黑白名單，勿重複加入".
+1. 黑白名單失效，請檢核代碼，執行完整回歸測試確保代碼正確性
+2. 將附件名單判斷是否加入COSMETIC_PARAMS 或 TRACKING_PREFIXES較為合適，並比對所有黑白名單，勿重複加入
