@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.63.js
- * @version     40.63 (自動化正規化與容錯)
- * @description 引入「啟動時自動化正規化」機制，所有黑白名單在載入時將強制轉換為小寫，從根本上解決因大小寫問題導致的攔截失效，大幅提升腳本的穩健性與可維護性。
+ * @file        URL-Ultimate-Filter-Surge-V40.64.js
+ * @version     40.64 (通用追蹤端點攔截強化)
+ * @description 強化對通用追蹤端點 (如 /collect) 的攔截能力。將 'collect' 納入關鍵字黑名單，並新增多項正則表達式規則以覆蓋 API 形式的追蹤路徑變體。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-23
  */
@@ -269,7 +269,7 @@ const CONFIG = {
     'snap.licdn.com', 'spade.twitch.tv',
     // --- 其他 ---
     'adnx.com', 'cint.com', 'revjet.com', 'rlcdn.com', 'sc-static.net', 'wcs.naver.net',
-  ].sort(),
+  ].sort()),
 
   /**
    * 🚫 [V40.35 新增] Regex 域名攔截黑名單
@@ -406,7 +406,7 @@ const CONFIG = {
 ].sort(),
 
   /**
-   * 🚫 [V40.17 擴充] 路徑關鍵字黑名單
+   * 🚫 [V40.17 擴充, V40.64 擴充] 路徑關鍵字黑名單
    */
 PATH_BLOCK_KEYWORDS: [
   // --- Ad Generic ---
@@ -421,7 +421,7 @@ PATH_BLOCK_KEYWORDS: [
   'adzcore', 'affiliate', 'alexametrics', 'allyes', 'amplitude', 'analysis', 'analysys', 'analytics', 'aottertrek', 
   'appadhoc', 'appads', 'appboy', 'appier', 'applovin', 'appsflyer', 'apptimize', 'apsalar', 'baichuan', 'bango', 
   'bangobango', 'bidvertiser', 'bingads', 'bkrtx', 'bluekai', 'breaktime', 'bugsense', 'burstly', 'cedexis', 
-  'chartboost', 'circulate', 'click-fraud', 'clkservice', 'cnzz', 'cognitivlabs', 'crazyegg', 'crittercism', 
+  'chartboost', 'circulate', 'click-fraud', 'clkservice', 'cnzz', 'cognitivlabs', 'collect', 'crazyegg', 'crittercism', 
   'cross-device', 'dealerfire', 'dfp', 'dienst', 'djns', 'dlads', 'dnserror', 'domob', 'doubleclick', 'doublemax', 
   'dsp', 'duapps', 'duomeng', 'dwtrack', 'egoid', 'emarbox', 'en25', 'eyeota', 'fenxi', 'fingerprinting', 'flurry', 
   'fwmrm', 'getadvltem', 'getexceptional', 'googleads', 'googlesyndication', 'greenplasticdua', 'growingio', 
@@ -590,7 +590,7 @@ PATH_BLOCK_KEYWORDS: [
   ].sort(),
 
   /**
-   * 🚫 [V40.40 重構] 基於正規表示式的路徑黑名單 (高信度)
+   * 🚫 [V40.40 重構, V40.64 擴充] 基於正規表示式的路徑黑名單 (高信度)
    * 說明：用於攔截高信度的、確定性的威脅路徑模式。
    */
   PATH_BLOCK_REGEX: [
@@ -598,6 +598,9 @@ PATH_BLOCK_KEYWORDS: [
     /^\/(?!_next\/static\/|static\/|assets\/|dist\/|build\/|public\/)[a-z0-9]{12,}\.js$/i,
     /[^\/]*sentry[^\/]*\.js/i,        // 檔名含 sentry 且以 .js 結尾
     /\/v\d+\/event/i,                 // 通用事件 API 版本 (如 /v1/event)
+    /\/collect$/i,                     // 通用數據收集端點 (寬泛)
+    /\/service\/collect$/i,           // 通用數據收集端點 (服務)
+    /\/api\/v\d+\/collect$/i,         // 通用數據收集端點 (API)
   ],
 
   /**
@@ -996,7 +999,6 @@ function processRequest(request) {
     if (!request?.url || typeof request.url !== 'string' || request.url.length < 10) return null;
 
     const rawUrl = request.url;
-    
     let url;
     try {
         url = multiLevelCache.getUrlObject(rawUrl);
