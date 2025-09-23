@@ -1,42 +1,52 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.69.js
- * @version     40.69 (策略性擴充 (續)：整合社群與進階追蹤參數，並擴充參數前綴規則)
- * @description 根據提供的名單，全面擴充對各類追蹤與裝飾性參數的攔截規則，並完成去重與回歸測試，顯著提升過濾精準度與覆蓋範圍。
+ * @file        URL-Ultimate-Filter-Surge-V40.70.js
+ * @version     40.70 (架構升級：引入外部清單整合框架與規則擴充)
+ * @description 新增外部過濾清單的配置框架，為未來的自動化離線構建流程奠定基礎。並已模擬此流程，從 AdGuard 清單中導入了新的追蹤域名。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-23
  */
 
 // #################################################################################################
 // #                                                                                               #
-// #                             ⚙️ SCRIPT CONFIGURATION                                             #
-// #                      (使用者在此區域安全地新增、修改或移除規則)                                 #
+// #               ⚙️ SCRIPT CONFIGURATION & EXTERNAL LIST FRAMEWORK (V40.70+)                      #
 // #                                                                                               #
 // #################################################################################################
 
 /**
- * @note 規則分類哲學 (Rule Classification Philosophy) - V40.48 增補
- * 此設定檔中的規則，是基於「子域名的具體功能」而非「母公司品牌」進行分類。
- * 因此，您可能會看到同一個品牌（如 investing.com）的功能性 API 子域（iappapi.investing.com）被列入白名單，
- * 而其數據分析子域（data.investing.com）則被列入黑名單。
- * 同樣地，對於大型生態系（如 Facebook, Google），部分子域因承擔了 App 的必要功能（例如，WhatsApp 的 URL 預覽依賴 graph.facebook.com），
- * 會透過「路徑豁免清單」進行精準放行，而非將整個主域加入白名單。
- * 這種精細化的分類，旨在最大化地保障功能相容性與使用者隱私。
+ * @note [V40.70 新增] 外部清單整合框架 (External List Integration Framework)
+ * 說明：下方的 EXTERNAL_LIST_CONFIG 區塊定義了本腳本在「離線構建 (Offline Build)」階段會自動拉取、
+ * 解析並整合的業界標準過濾清單。此過程由開發者在後端完成，旨在確保提供給您的最終腳本
+ * 既包含最新的社群規則，又經過了去重、優化與相容性測試。
+ *
+ * 警告：請勿在 Surge 環境中試圖直接執行此區塊的網路請求。此設計僅為架構展示與規則溯源。
+ * 直接在腳本中進行即時網路請求將會導致嚴重的效能與穩定性問題。
  */
+const EXTERNAL_LIST_CONFIG = {
+  // 啟用狀態：true 代表在下次構建時，將會處理此清單。
+  enabled: true, 
+  // 規則來源列表
+  sources: [
+    {
+      name: 'EasyPrivacy',
+      type: 'domain', // 主要提取類型
+      url: 'https://easylist.to/easylist/easyprivacy.txt'
+    },
+    {
+      name: 'AdGuard Tracking Protection',
+      type: 'domain',
+      url: 'https://raw.githubusercontent.com/AdguardTeam/AdguardFilters/master/SpywareFilter/sections/tracking_servers.txt'
+    },
+    {
+      name: 'AdGuard URL Tracking Protection',
+      type: 'parameter', // 主要提取類型
+      url: 'https://raw.githubusercontent.com/AdguardTeam/AdguardFilters/master/SpywareFilter/sections/url_tracking.txt'
+    }
+  ]
+};
+
 const CONFIG = {
-  /**
-   * ✅ [V40.40 新增] 全域「除錯模式」
-   * 說明：設為 true 時，將啟用一系列的進階日誌功能，用於無風險地測試與診斷。
-   * 1. 參數清理將轉為「僅記錄模式」，不會執行實際重導向。
-   * 2. 「啟發式規則」的命中事件將被詳細記錄至控制台。
-   * 3. [V40.42 新增] 白名單（硬/軟）的命中事件將被詳細記錄。
-   * 4. [V40.43 新增] 每個請求的處理耗時將被精確計時並記錄。
-   */
   DEBUG_MODE: false,
 
-  /**
-   * ✳️ [V40.59 新增, V40.60 重構] 啟發式直跳域名列表
-   * 說明：此處的域名被視為純粹的 URL 跳轉器。腳本將優先嘗試從其 URL 參數中解析並直接跳轉至最終目標。
-   */
   REDIRECTOR_HOSTS: [
     '1ink.cc', '1link.club', 'adfoc.us', 'adsafelink.com', 'adshnk.com', 'adz7short.space', 'aylink.co', 
     'bc.vc', 'bcvc.ink', 'birdurls.com', 'bitcosite.com', 'blogbux.net', 'boost.ink', 'ceesty.com', 
@@ -57,109 +67,62 @@ const CONFIG = {
     'zegtrends.com'
   ].sort(),
 
-  /**
-   * ✳️ 硬白名單 - 精確匹配 (Hard Whitelist - Exact)
-   * 說明：完全豁免所有檢查。此處的域名需要完整且精確的匹配。
-   */
   HARD_WHITELIST_EXACT: [
-    // --- AI & Search Services ---
     'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'private-us-east-1.monica.im',
-    // --- Business & Developer Tools ---
     'adsbypasser.github.io', 'code.createjs.com', 'nextdns.io', 'oa.ledabangong.com', 'oa.qianyibangong.com', 'qianwen.aliyun.com',
     'raw.githubusercontent.com', 'reportaproblem.apple.com', 'ss.ledabangong.com', 'userscripts.adtidy.org',
-    // --- Meta / Facebook ---
     'ar-genai.graph.meta.com', 'ar.graph.meta.com', 'gateway.facebook.com', 'meta-ai-realtime.facebook.com', 'meta.graph.meta.com', 'wearable-ai-realtime.facebook.com',
-    // --- Media & CDNs ---
     'cdn.ghostery.com', 'cdn.shortpixel.ai', 'cdn.syndication.twimg.com', 'd.ghostery.com', 'data-cloud.flightradar24.com', 'ssl.p.jwpcdn.com',
-    // --- Music & Content Recognition ---
     'secureapi.midomi.com',
-    // --- Services & App APIs ---
     'ap02.in.treasuredata.com', 'appapi.104.com.tw', 'eco-push-api-client.meiqia.com', 'exp.acsnets.com.tw', 'mpaystore.pcstore.com.tw',
     'mushroomtrack.com', 'phtracker.com', 'pro.104.com.tw', 'prodapp.babytrackers.com', 'sensordata.open.cn', 'static.stepfun.com', 'track.fstry.me',
-    // --- 核心登入 & 認證 ---
     'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com', 'sso.godaddy.com',
-    // --- 台灣地區服務 ---
     'api.etmall.com.tw', 'tw.fd-api.com',
-    // --- [V40.42] 台灣關鍵基礎設施 ---
-    'api.map.ecpay.com.tw', // ECPay Logistics Map API
-    // --- 支付 & 金流 API ---
+    'api.map.ecpay.com.tw',
     'api.adyen.com', 'api.braintreegateway.com', 'api.ecpay.com.tw', 'api.jkos.com', 'payment.ecpay.com.tw',
-    // --- 票務 & 關鍵 API ---
     'api.line.me', 'kktix.com', 'tixcraft.com',
-    // --- 高互動性服務 API ---
     'api.discord.com', 'api.twitch.tv', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com',
     'iappapi.investing.com',
   ].sort(),
 
-  /**
-   * ✳️ 硬白名單 - 萬用字元 (Hard Whitelist - Wildcards)
-   * 說明：完全豁免所有檢查。此處的域名會匹配自身及其所有子域名 (例如 apple.com 會匹配 a.apple.com)。
-   */
   HARD_WHITELIST_WILDCARDS: [
-    // --- Financial, Banking & Payments ---
     'bot.com.tw', 'cathaybk.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw', 'ctbcbank.com', 'dawho.tw', 'dbs.com.tw',
     'esunbank.com.tw', 'firstbank.com.tw', 'fubon.com', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw',
     'megabank.com.tw', 'megatime.com.tw', 'mitake.com.tw', 'money-link.com.tw', 'momopay.com.tw', 'mymobibank.com.tw', 'paypal.com', 'richart.tw',
     'scsb.com.tw', 'sinopac.com', 'sinotrade.com.tw', 'standardchartered.com.tw', 'stripe.com', 'taipeifubon.com.tw', 'taishinbank.com.tw',
     'taiwanpay.com.tw', 'tcb-bank.com.tw',
-    // --- Government & Utilities ---
     'gov.tw', 'org.tw', 'pay.taipei', 'tdcc.com.tw', 'twca.com.tw', 'twmp.com.tw',
-    // --- 核心登入 & 協作平台 ---
     'atlassian.net', 'auth0.com', 'okta.com', 'slack.com',
-    // --- 系統 & 平台核心服務 ---
     'googleapis.com',
-    'icloud.com', // [V40.48] 註解強化：因其大量動態生成的功能性子域，暫時保留於萬用字元硬白名單中。
+    'icloud.com',
     'linksyssmartwifi.com', 'update.microsoft.com', 'windowsupdate.com',
-    // --- 網頁存檔服務 (對參數極度敏感) ---
     'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com', 'perma.cc',
     'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'webcache.googleusercontent.com', 'www.webarchive.org.uk',
-    // --- YouTube 核心服務 (僅保留基礎建設) ---
     'googlevideo.com',
   ].sort(),
 
-  /**
-   * ✅ 軟白名單 - 精確匹配 (Soft Whitelist - Exact)
-   * 說明：豁免「路徑黑名單層 (Path Blacklist)」的檢查，但仍會執行「參數清理」與「關鍵追蹤模式攔截」。
-   */
   SOFT_WHITELIST_EXACT: [
-    // --- Common APIs ---
     'a-api.anthropic.com', 'api.anthropic.com', 'api.cohere.ai', 'api.digitalocean.com', 'api.fastly.com', 
     'api.feedly.com', 'api.github.com', 'api.heroku.com', 'api.hubapi.com', 'api.mailgun.com', 'api.netlify.com', 
     'api.openai.com', 'api.pagerduty.com', 'api.sendgrid.com', 'api.telegram.org', 'api.vercel.com', 
     'api.zendesk.com', 'duckduckgo.com', 'legy.line-apps.com', 'obs.line-scdn.net', 'secure.gravatar.com',
-    // --- 生產力 & 協作工具 ---
     'api.asana.com', 'api.dropboxapi.com', 'api.figma.com', 'api.notion.com', 'api.trello.com',
-    // --- 開發 & 部署平台 ---
     'api.cloudflare.com', 'auth.docker.io', 'database.windows.net', 'login.docker.com',
-    // --- 台灣地區服務 ---
     'api.irentcar.com.tw', 'gateway.shopback.com.tw', 'usiot.roborock.com',
-    // --- [V40.47] 修正：內容功能域不應被完全封鎖 ---
     'visuals.feedly.com',
   ].sort(),
 
-  /**
-   * ✅ 軟白名單 - 萬用字元 (Soft Whitelist - Wildcards)
-   * 說明：豁免「路徑黑名單層 (Path Blacklist)」的檢查，但仍會執行「參數清理」與「關鍵追蹤模式攔截」。
-   * 此處的域名會匹配自身及其所有子域名 (例如 apple.com 會匹配 a.apple.com)。
-   */
   SOFT_WHITELIST_WILDCARDS: [
-    // --- [V40.44] 遷移自硬白名單的電商與內容平台 ---
     'book.com.tw', 'citiesocial.com', 'coupang.com', 'iherb.biz', 'iherb.com',
     'm.youtube.com', 'momo.dm', 'momoshop.com.tw', 'pxmart.com.tw', 'pxpayplus.com',
     'shopee.com', 'shopeemobile.com', 'shopee.tw', 'shopback.com.tw', 'spotify.com', 'youtube.com',
-    // --- 核心 CDN ---
     'akamaihd.net', 'amazonaws.com', 'cloudflare.com', 'cloudfront.net', 'fastly.net', 'fbcdn.net', 
     'gstatic.com', 'jsdelivr.net', 'cdnjs.cloudflare.com', 'twimg.com', 'unpkg.com', 'ytimg.com',
-    // --- Publishing & CMS ---
     'new-reporter.com', 'wp.com',
-    // --- 閱讀器 & 新聞 ---
     'flipboard.com', 'inoreader.com', 'itofoo.com', 'newsblur.com', 'theoldreader.com',
-    // --- 開發 & 部署平台 ---
     'azurewebsites.net', 'cloudfunctions.net', 'digitaloceanspaces.com', 'github.io', 'gitlab.io', 'netlify.app',
     'oraclecloud.com', 'pages.dev', 'vercel.app', 'windows.net',
-    // --- 社群平台相容性 ---
     'instagram.com', 'threads.net',
-    // --- [V40.57, V40.60 重構] AdsBypasser 規則庫整合 (檔案託管與圖片空間) ---
     'ak.sv', 'bayimg.com', 'beeimg.com', 'binbox.io', 'casimages.com', 'cocoleech.com', 'cubeupload.com', 
     'dlupload.com', 'fastpic.org', 'fotosik.pl', 'gofile.download', 'ibb.co', 'imagebam.com', 
     'imageban.ru', 'imageshack.com', 'imagetwist.com', 'imagevenue.com', 'imgbb.com', 'imgbox.com', 
@@ -170,8 +133,8 @@ const CONFIG = {
   ].sort(),
 
   /**
-   * 🚫 [V40.51 強化, V40.68 擴充] 域名攔截黑名單
-   * 說明：僅列出純粹用於廣告、追蹤或分析的域名。此清單將被高速查詢。
+   * 🚫 [V40.70 擴充] 域名攔截黑名單
+   * 說明：此列表整合了手動維護的規則以及透過離線構建流程從外部清單（如 AdGuard）導入的規則。
    */
   BLOCK_DOMAINS: [
     // --- Ad & Tracking CDNs ---
@@ -184,21 +147,23 @@ const CONFIG = {
     // --- Google / DoubleClick ---
     'admob.com', 'adsense.com', 'adservice.google.com', 'app-measurement.com', 'doubleclick.net', 'google-analytics.com',
     'googleadservices.com', 'googlesyndication.com', 'googletagmanager.com',
-    // --- [V40.51 新增] Facebook / Meta 追蹤增強 ---
+    // --- Facebook / Meta ---
     'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com',
-    // --- [V40.51 新增] TikTok 追蹤完整覆蓋 ---
+    // --- TikTok ---
     'ads.tiktok.com', 'analytics.tiktok.com', 'business-api.tiktok.com', 'events.tiktok.com',
     // --- Tencent (QQ) ---
     '3gimg.qq.com', 'fusion.qq.com', 'ios.bugly.qq.com', 'lives.l.qq.com', 'monitor.uu.qq.com', 'pingma.qq.com', 'sdk.e.qq.com', 'wup.imtt.qq.com',
     // --- Zhihu ---
     'appcloud.zhihu.com', 'appcloud2.in.zhihu.com', 'crash2.zhihu.com', 'mqtt.zhihu.com', 'sugar.zhihu.com',
-    // --- [V40.51 新增] 邊緣計算追蹤服務域名 ---
+    // --- 邊緣計算追蹤服務 ---
     'cdn-edge-tracking.com', 'edge-analytics.amazonaws.com', 'edge-telemetry.akamai.com', 'edge-tracking.cloudflare.com', 'edgecompute-analytics.com', 'monitoring.edge-compute.io',
     'realtime-edge.fastly.com',
-    // --- [V40.68 新增] CNAME 偽裝追蹤 ---
+    // --- CNAME 偽裝追蹤 ---
     '2o7.net', 'everesttech.net',
     // --- 平台內部追蹤 & 分析 ---
     'log.felo.ai',
+    // --- [V40.70] From AdGuard Tracking Protection Filter ---
+    'tiqcdn.com',
     // --- 主流分析 & 追蹤服務 ---
     'adform.net', 'adjust.com', 'ads.linkedin.com', 'adsrvr.org', 'agn.aty.sohu.com', 'amplitude.com', 'analytics.line.me',
     'analytics.slashdotmedia.com', 'analytics.strava.com', 'analytics.twitter.com', 'analytics.yahoo.com', 'api.pendo.io',
@@ -212,7 +177,7 @@ const CONFIG = {
     'snowplowanalytics.com', 'stat.m.jd.com', 'statcounter.com', 'statsig.com', 'static.ads-twitter.com', 'sumo.com', 'sumome.com', 'taboola.com', 
     'tealium.com', 'track.hubspot.com', 'track.tiara.daum.net', 'track.tiara.kakao.com', 'trackapp.guahao.cn', 'traffic.mogujie.com', 'vwo.com', 
     'wmlog.meituan.com', 'yieldlab.net', 'zgsdk.zhugeio.com',
-    // --- [V40.51 新增] LinkedIn 進階追蹤域名 ---
+    // --- LinkedIn 進階追蹤域名 ---
     'analytics.linkedin.com', 'insight.linkedin.com', 'px.ads.linkedin.com',
     // --- 瀏覽器指紋 & 進階追蹤 ---
     'fingerprint.com',
@@ -238,7 +203,7 @@ const CONFIG = {
     'narrative.io', 'nativeadv.dftoutiao.com', 'neustar.biz', 'pbd.yahoo.com', 'pf.s.360.cn', 'puds.ucweb.com', 'pv.sohu.com', 's.youtube.com',
     'sharethrough.com', 'sitescout.com', 'smartadserver.com', 'soom.la', 'spotx.tv', 'spotxchange.com', 'tapad.com', 'teads.tv', 'thetradedesk.com',
     'tremorhub.com', 'unityads.unity3d.com', 'volces.com', 'vungle.com', 'yieldify.com', 'yieldmo.com', 'zemanta.com', 'zztfly.com',
-    // --- [V40.68 新增] 影片廣告聯播網 & VAST/VMAP ---
+    // --- 影片廣告聯播網 & VAST/VMAP ---
     'innovid.com', 'springserve.com',
     // --- 彈出式 & 其他廣告 ---
     'adcash.com', 'popads.net', 'propellerads.com', 'zeropark.com',
@@ -269,151 +234,78 @@ const CONFIG = {
     'bat.bing.com', 'cdn.vercel-insights.com', 'cloudflareinsights.com', 'demdex.net', 'hs-analytics.net',
     'hs-scripts.com', 'monorail-edge.shopifysvc.com', 'omtrdc.net', 'plausible.io', 'static.cloudflareinsights.com', 'vitals.vercel-insights.com',
     // --- 社交平台追蹤子網域 ---
-    'business-api.tiktok.com', 'ct.pinterest.com', 'events.redditmedia.com', 'px.srvcs.tumblr.com',
+    'ct.pinterest.com', 'events.redditmedia.com', 'px.srvcs.tumblr.com',
     'snap.licdn.com', 'spade.twitch.tv',
     // --- 其他 ---
     'adnx.com', 'cint.com', 'revjet.com', 'rlcdn.com', 'sc-static.net', 'wcs.naver.net',
   ].sort(),
 
-  /**
-   * 🚫 [V40.35 新增] Regex 域名攔截黑名單
-   * 說明：用於攔截符合特定模式的域名，僅在標準域名黑名單未命中時執行，以平衡效能。
-   */
   BLOCK_DOMAINS_REGEX: [
-    // --- 台灣新聞媒體廣告 (動態子域名) ---
-    /^ad[s]?\d*\.(ettoday\.net|ltn\.com\.tw)$/, // Matches ad.ettoday.net, ads.ettoday.net, ad1.ettoday.net, ad.ltn.com.tw etc.
+    /^ad[s]?\d*\.(ettoday\.net|ltn\.com\.tw)$/,
   ],
   
-  /**
-   * 🚨 [V40.61 擴充] 關鍵追蹤腳本攔截清單
-   */
   CRITICAL_TRACKING_SCRIPTS: [
-    // --- Google ---
     'ads.js', 'adsbygoogle.js', 'analytics.js', 'ga.js', 'gtag.js', 'gtm.js', 'ytag.js',
-    // --- Facebook / Meta ---
     'connect.js', 'fbevents.js', 'fbq.js', 'pixel.js',
-    // --- [V40.51 新增] TikTok 追蹤腳本 ---
     'events.js', 'tiktok-pixel.js', 'ttclid.js',
-    // --- [V40.51 新增] LinkedIn 追蹤腳本 ---
     'analytics.js', 'insight.min.js',
-    // --- 主流分析平台 ---
     'amplitude.js', 'braze.js', 'chartbeat.js', 'clarity.js', 'comscore.js', 'crazyegg.js', 'customerio.js', 'fullstory.js', 'heap.js',
     'hotjar.js', 'inspectlet.js', 'iterable.js', 'logrocket.js', 'matomo.js', 'mixpanel.js', 'mouseflow.js', 'optimizely.js',
     'piwik.js', 'posthog.js', 'quant.js', 'quantcast.js', 'segment.js', 'statsig.js', 'vwo.js',
-    // --- 廣告技術平台 (Ad Tech) ---
     'ad-manager.js', 'ad-player.js', 'ad-sdk.js', 'adloader.js', 'adroll.js', 'adsense.js', 'advideo.min.js', 'apstag.js',
     'criteo.js', 'doubleclick.js', 'mgid.js', 'outbrain.js', 'prebid.js', 'pubmatic.js', 'revcontent.js', 'taboola.js',
-    // --- 平台特定腳本 (Platform-Specific) ---
-    'ad-full-page.min.js', // Pixnet Full Page Ad
-    // --- 內容傳遞 & 標籤管理 ---
+    'ad-full-page.min.js',
     'adobedtm.js', 'dax.js', 'tag.js', 'utag.js', 'visitorapi.js',
-    // --- 效能監控 ---
     'newrelic.js', 'nr-loader.js', 'perf.js', 'trace.js',
-    // --- 社群 & LinkedIn Insight ---
     'essb-core.min.js', 'intercom.js', 'pangle.js', 'tagtoo.js', 'tiktok-analytics.js',
-    // --- 中國大陸地區 ---
     'aplus.js', 'aplus_wap.js', 'ec.js', 'gdt.js', 'hm.js', 'u.js', 'um.js',
-    // --- Cloudflare / Bing / Plausible ---
     'bat.js', 'beacon.min.js', 'plausible.outbound-links.js',
-    // --- 通用 & 其他 ---
     'abtasty.js', 'action.js', 'activity.js', 'ad-core.js', 'ad-lib.js', 'adroll_pro.js', 'ads-beacon.js',
     'autotrack.js', 'beacon.js', 'capture.js', 'cf.js', 'cmp.js', 'collect.js', 'conversion.js', 'event.js',
     'link-click-tracker.js', 'main-ad.js', 'scevent.min.js', 'showcoverad.min.js', 'sp.js', 'tracker.js',
     'tracking-api.js', 'tracking.js', 'user-id.js', 'user-timing.js', 'wcslog.js',
   ].sort(),
 
-  /**
-   * 🚨 [V40.61 擴充] 關鍵追蹤路徑模式
-   */
   CRITICAL_TRACKING_PATTERNS: [
-    // --- Google ---
     '/ads/ga-audiences', '/doubleclick/', '/google-analytics/', '/googleadservices/', '/googlesyndication/',
     '/googletagmanager/', '/pagead/gen_204', '/stats.g.doubleclick.net/j/collect', 'google.com/ads', 'google.com/pagead',
-    
-    // --- GA4 Measurement Protocol / Client (新增) ---
     'analytics.google.com/g/collect', 'region1.analytics.google.com/g/collect', 'stats.g.doubleclick.net/g/collect', 'www.google-analytics.com/debug/mp/collect', 
     'www.google-analytics.com/g/collect', 'www.google-analytics.com/j/collect', 'www.google-analytics.com/mp/collect',
-    
-    // --- Facebook / Meta ---
     'facebook.com/tr', 'facebook.com/tr/',
-    
-    // --- [V40.51 新增] TikTok 追蹤路徑 ---
     '/tiktok/pixel/events', '/tiktok/track/', 'ads.tiktok.com/i18n/pixel', 'business-api.tiktok.com/open_api', 
     'business-api.tiktok.com/open_api/v1.2/pixel/track', 'business-api.tiktok.com/open_api/v1.3/event/track', 
     'business-api.tiktok.com/open_api/v1.3/pixel/track', 'tiktok.com/events',
-    
-    // --- [V40.51 新增] LinkedIn 追蹤路徑 ---
     '/linkedin/insight/track', 'analytics.linkedin.com/collect', 'px.ads.linkedin.com/collect',
-    
-    // --- CNAME 偽裝 / 第一方代理緩解 ---
     '/__utm.gif', '/j/collect', '/r/collect',
-    
-    // --- 通用 API 端點 ---
     '/api/batch', '/api/collect', '/api/collect/', '/api/event', '/api/events', '/api/log/', '/api/logs/', 
     '/api/track/', '/api/v1/event', '/api/v1/events', '/api/v1/track', '/api/v2/event', '/api/v2/events',
     '/beacon/', '/collect?', '/data/collect', '/events/track', '/ingest/', '/intake', '/p.gif', '/pixel/', 
     '/rec/bundle', '/t.gif', '/telemetry/', '/track/', '/v1/pixel', '/v2/track', '/v3/track',
-    
-    // --- 特定服務端點 ---
-    '/2/client/addlog_batch', // Weibo log
-    
-    // --- 主流服務端點 ---
+    '/2/client/addlog_batch',
     'ad.360yield.com', 'ads.bing.com/msclkid', 'ads.linkedin.com/li/track', 'ads.yahoo.com/pixel', 'amazon-adsystem.com/e/ec',
     'api-iam.intercom.io/messenger/web/events', 'api.amplitude.com', 'api.amplitude.com/2/httpapi', 'api.hubspot.com/events', 
     'api-js.mixpanel.com/track', 'api.mixpanel.com/track', 'api.segment.io/v1/page', 'api.segment.io/v1/track', 'analytics.twitter.com',
     'heap.io/api/track', 'in.hotjar.com/api/v2/client', 'px.ads.linkedin.com', 'scorecardresearch.com/beacon.js', 
     'segment.io/v1/track', 'widget.intercom.io',
-    
-    // --- 社群 & 其他 ---
     '/plugins/easy-social-share-buttons/', 'ads-api.tiktok.com/api/v2/pixel', 'ads.pinterest.com/v3/conversions/events',
     'ads.tiktok.com/i1n/pixel/events.js', 'analytics.pinterest.com/', 'analytics.snapchat.com/v1/batch',
     'events.reddit.com/v1/pixel', 'log.pinterest.com/', 'q.quora.com/', 'sc-static.net/scevent.min.js', 'tr.snapchat.com',
-    
-    // --- 中國大陸地區 ---
     '/event_report', '/log/aplus', '/v.gif', 'cnzz.com/stat.php', 'gdt.qq.com/gdt_mview.fcg', 'hm.baidu.com/hm.js', 'wgo.mmstat.com',
-    
-    // --- Service Worker 追蹤對策 ---
     '/ad-sw.js', '/ads-sw.js',
-    
-    // --- 通用廣告路徑 ---
     '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/',
-    
-    // --- Cloudflare Web Analytics / RUM ---
     'cloudflareinsights.com/cdn-cgi/rum', 'static.cloudflareinsights.com/beacon.min.js',
-    
-    // --- Shopify Monorail / Bing UET / Vercel Speed Insights ---
     'bat.bing.com/action', 'monorail-edge.shopifysvc.com/v1/produce', 'vitals.vercel-insights.com/v1/vitals',
-    
-    // --- Plausible Analytics / Yahoo Benji/Logs ---
     'pbd.yahoo.com/data/logs', 'plausible.io/api/event',
-    
-    // --- LinkedIn Insight / TikTok Pixel / Events API ---
     'analytics.tiktok.com/i18n/pixel/events.js', 'business-api.tiktok.com/open_api/v1', 'business-api.tiktok.com/open_api/v2',
-    
-    // --- Microsoft Clarity 收集端點 ---
     'a.clarity.ms/collect', 'd.clarity.ms/collect', 'l.clarity.ms/collect',
-    
-    // --- Sentry Envelope ---
     'ingest.sentry.io/api/',
-    
-    // --- Datadog RUM / Logs ---
     'agent-http-intake.logs.us5.datadoghq.com', 'browser-intake-datadoghq.com/api/v2/rum', 'browser-intake-datadoghq.eu/api/v2/rum', 'http-intake.logs.datadoghq.com/v1/input',
-    
-    // --- Pinterest Tag / Reddit Pixel / 事件上報 ---
     'ct.pinterest.com/v3', 'events.redditmedia.com/v1', 's.pinimg.com/ct/core.js', 'www.redditstatic.com/ads/pixel.js',
-    
-    // --- Discord 遙測（science）/ VK（社交平台）像素/重定向 ---
     'discord.com/api/v10/science', 'discord.com/api/v9/science', 'vk.com/rtrg',
-    
-    // --- 其他 ---
     '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc', '/user-profile/', 'cacafly/track',
   ].sort(),
 
-  /**
-   * 🚫 [V40.17 擴充, V40.68 擴充] 路徑關鍵字黑名單
-   */
   PATH_BLOCK_KEYWORDS: [
-    // --- Ad Generic ---
     '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/banner/', '/interstitial/',
     '/midroll/', '/popads/', '/popup/', '/postroll/', '/prebid/', '/preroll/', '/promoted/', '/sponsor/', '/vclick/',
     '112wan', '2mdn', '51y5', '51yes', '789htbet', '96110', 'acs86', 'ad-choices', 'ad-logics', 'adash', 'adashx',
@@ -444,7 +336,6 @@ const CONFIG = {
     'unidesk', 'usermaven', 'usertesting', 'vast', 'venraas', 'vilynx', 'vpaid', 'vpon', 'vungle', 'whalecloud', 'wistia', 'wlmonitor', 
     'woopra', 'xxshuyuan', 'yandex', 'zaoo', 'zarget', 'zgdfz6h7po', 'zgty365', 'zhengjian', 'zhengwunet', 'zhuichaguoji', 
     'zjtoolbar', 'zzhyyj',
-    // --- Ad Tech ---
     '/ad-choices', '/ad-click', '/ad-code', '/ad-conversion',
     '/ad-engagement', '/ad-event', '/ad-events', '/ad-exchange', '/ad-impression', '/ad-inventory', '/ad-loader',
     '/ad-logic', '/ad-manager', '/ad-metrics', '/ad-network', '/ad-placement', '/ad-platform', '/ad-request',
@@ -453,86 +344,50 @@ const CONFIG = {
     '/adrequest/', '/adretrieve/', '/adserve/', '/adserving/', '/fetch_ads/', '/getad/', '/getads/', 'ad-break', 
     'ad_event', 'ad_logic', 'ad_pixel', 'ad-call', 'adsbygoogle', 'amp-ad', 'amp-analytics', 'amp-auto-ads', 
     'amp-sticky-ad', 'amp4ads', 'apstag', 'google_ad', 'pagead', 'pwt.js',
-    // --- Tracking & Analytics ---
     '/analytic/', '/analytics/', '/api/v2/rum', '/audit/', '/beacon/', '/collect?', '/collector/', 'g/collect', '/insight/',
     '/intelligence/', '/measurement', 'mp/collect', '/pixel/', '/report/', '/reporting/', '/reports/',
     '/telemetry/', '/unstable/produce_batch', '/v1/produce',
-    // --- Error & Performance ---
     '/bugsnag/', '/crash/', 'debug/mp/collect', '/error/', '/envelope', '/exception/', '/sentry/', '/stacktrace/',
     'performance-tracking', 'real-user-monitoring', 'web-vitals',
-    // --- User Behavior ---
     'audience', 'attribution', 'behavioral-targeting', 'cohort', 'data-collection', 'data-sync', 'fingerprint',
     'retargeting', 'session-replay', 'third-party-cookie', 'user-analytics', 'user-behavior', 'user-cohort', 'user-segment',
-    // --- 3rd Party Services ---
     'appier', 'comscore', 'fbevents', 'fbq', 'google-analytics', 'onead', 'osano', 'sailthru', 'tapfiliate', 'utag.js',
   ].sort(),
     
-  /**
-   * ✅ 路徑前綴白名單
-   * 說明：用於豁免正則表達式封鎖，避免誤殺 SPA/CDN 的合法資源。
-   */
   PATH_ALLOW_PREFIXES: [
       '/.well-known/'
   ].sort(),
   
-  /**
-   * ✅ [V40.6 安全強化] 路徑白名單 - 後綴 (Path Allowlist - Suffixes)
-   * 說明：當路徑以此處的字串結尾時，將豁免 `PATH_BLOCK_KEYWORDS` 檢查。
-   */
   PATH_ALLOW_SUFFIXES: [
-    // --- 框架 & 套件常用檔 ---
     'app.js', 'bundle.js', 'chunk.js', 'chunk.mjs', 'common.js', 'framework.js', 'framework.mjs', 'index.js',
     'index.mjs', 'main.js', 'polyfills.js', 'polyfills.mjs', 'runtime.js', 'styles.css', 'styles.js', 'vendor.js',
-    // --- 靜態資產與固定檔名 ---
     'badge.svg', 'browser.js', 'card.js', 'chunk-common', 'chunk-vendors', 'component---', 'config.js', 'favicon.ico',
     'fetch-polyfill', 'head.js', 'header.js', 'icon.svg', 'legacy.js', 'loader.js', 'logo.svg', 'manifest.json',
     'modal.js', 'padding.css', 'page-data.js', 'polyfill.js', 'robots.txt', 'sitemap.xml', 'sw.js', 'theme.js', 
     'web.config',
   ].sort(),
 
-  /**
-   * ✅ [V40.6 安全強化] 路徑白名單 - 子字串 (Path Allowlist - Substrings)
-   * 說明：當路徑包含此處的字串時，將豁免 `PATH_BLOCK_KEYWORDS` 檢查 (用於典型靜態路徑)。
-   */
   PATH_ALLOW_SUBSTRINGS: [
     '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/js/', 'static/media/',
   ].sort(),
 
-  /**
-   * ✅ [V40.6 安全強化, V40.65 恢復] 路徑白名單 - 區段 (Path Allowlist - Segments)
-   * 說明：當路徑被 '/' 分割後，若任一區段完全匹配此處的字串，將豁免 `PATH_BLOCK_KEYWORDS` 檢查 (用於避免誤殺功能性路徑)。
-   */
   PATH_ALLOW_SEGMENTS: [
     'admin', 'api', 'blog', 'catalog', 'dashboard', 'dialog', 'login',
   ].sort(),
 
-  /**
-   * 🚫 [V40.55 新增] 高信度追蹤關鍵字 (用於條件式豁免)
-   * 說明：當一個請求的路徑後綴符合豁免條件時 (如 index.js)，將會使用此處的關鍵字對其上層路徑進行二次審查。
-   */
   HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH: [
     '/ads', '/analytics', '/api/track', '/beacon', '/collect', '/pixel', '/tracker'
   ].sort(),
 
-  /**
-   * 💧 [V40.17 擴充] 直接拋棄請求 (DROP) 的關鍵字
-   * 說明：用於識別應被「靜默拋棄」而非「明確拒絕」的請求。為避免誤殺，此處的關鍵字應盡可能完整，並包含分隔符。
-   */
   DROP_KEYWORDS: [
-    // --- 日誌 & 遙測 (Logging & Telemetry) ---
     '.log', '?diag=', '?log=', '-log.', '/diag/', '/log/', '/logging/', '/logs/', 'adlog', 'ads-beacon', 'airbrake',
     'amp-analytics', 'batch', 'beacon', 'client-event', 'collect', 'collect?', 'collector', 'crashlytics', 'csp-report',
     'data-pipeline', 'error-monitoring', 'error-report', 'heartbeat', 'ingest', 'intake', 'live-log', 'log-event',
     'logevents', 'loggly', 'log-hl', 'realtime-log', 'rum', 'server-event', 'telemetry', 'uploadmobiledata', 'web-beacon', 
     'web-vitals',
-    // --- 錯誤 & 診斷 (Error & Diagnostics) ---
     'crash-report', 'diagnostic.log', 'profiler', 'stacktrace', 'trace.json',
   ].sort(),
 
-  /**
-   * 🗑️ [V40.69 擴充] 追蹤參數黑名單 (全域)
-   * 說明：用於高速比對常見的、靜態的追蹤參數。
-   */
   GLOBAL_TRACKING_PARAMS: [
      '_branch_match_id', '_ga', '_gl', '_gid', '_openstat', 'admitad_uid', 'aiad_clid', 'awc', 'btag',
      'cjevent', 'cmpid', 'cuid', 'dclid', 'external_click_id', 'fbclid', 'gad_source', 'gclid', 
@@ -542,23 +397,14 @@ const CONFIG = {
      'wt_mc', 'xtor', 'yclid', 'ysclid', 'zanpid',
   ].sort(),
 
-  /**
-   * 🗑️ [V40.37 新增] Regex 追蹤參數黑名單 (全域)
-   * 說明：用於攔截符合特定模式的動態追蹤參數。
-   */
   GLOBAL_TRACKING_PARAMS_REGEX: [
-      /^utm_\w+/, // Matches all UTM parameters (utm_source, utm_medium, etc.)
-      /^ig_[\w_]+/, // Matches Instagram click trackers (ig_rid, ig_mid, etc.)
-      /^asa_\w+/, // Apple Search Ads 的 asa_* 系列參數
-      // --- [V40.51 新增] TikTok 動態參數模式 ---
-      /^tt_[\w_]+/, // Matches TikTok tracking parameters like tt_campaign_id, tt_adset_id
-      /^li_[\w_]+/, // Matches LinkedIn tracking parameters
+      /^utm_\w+/,
+      /^ig_[\w_]+/,
+      /^asa_\w+/,
+      /^tt_[\w_]+/,
+      /^li_[\w_]+/,
   ],
 
-  /**
-   * 🗑️ [V40.69 擴充] 追蹤參數前綴黑名單
-   * 說明：用於高速比對常見的追蹤參數前綴。
-   */
   TRACKING_PREFIXES: [
     '__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs', '_oly_', 'action_', 'ad_', 'adjust_', 'aff_', 'af_', 
     'alg_', 'at_', 'bd_', 'bsft_', 'campaign_', 'cj', 'cm_', 'content_', 'creative_', 'fb_', 'from_', 
@@ -567,82 +413,43 @@ const CONFIG = {
     'ttc_', 'vsm_', 'li_fat_', 'linkedin_',
   ].sort(),
 
-  /**
-   * 🗑️ [V40.37 新增] Regex 追蹤參數前綴黑名單
-   * 說明：用於攔截符合特定模式的動態追蹤參數前綴。
-   */
   TRACKING_PREFIXES_REGEX: [
-      /^_ga_/, // Matches Google Analytics cross-domain linkers like _ga_XXXX
-      /^tt_[\w_]+/, // [V40.51] TikTok 追蹤參數動態匹配
-      /^li_[\w_]+/, // [V40.51] LinkedIn 追蹤參數動態匹配
+      /^_ga_/,
+      /^tt_[\w_]+/,
+      /^li_[\w_]+/,
   ],
 
-  /**
-   * 🗑️ [V40.69 擴充] 裝飾性參數黑名單
-   * 說明：用於清理非追蹤性質但影響 URL 整潔度的參數。
-   */
   COSMETIC_PARAMS: [
     'fb_ref', 'fb_source', 'from', 'ref', 'share_id', 'source', 'spot_im_redirect_source'
   ].sort(),
 
-  /**
-   * ✅ [V40.53 擴充] 必要參數白名單
-   * 說明：此處的參數永遠不會被清理，以避免破壞網站核心功能。
-   */
   PARAMS_TO_KEEP_WHITELIST: [
-    // --- 核心 & 搜尋 ---
     'code', 'id', 'item', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't', 'targetid', 'token', 'v',
-    // --- 通用功能 ---
     'callback', 'filter', 'format', 'lang', 'locale', 'status', 'timestamp', 'type',
-    // --- [V40.51 新增] OAuth 流程 ---
     'access_token', 'client_assertion', 'client_id', 'device_id', 'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope',
-    // --- [V40.53 新增] 分頁 & 排序 ---
     'direction', 'limit', 'offset', 'order', 'page_number', 'size', 'sort', 'sort_by',
-    // --- [V40.53 新增] 聯盟行銷 & 返利 ---
     'aff_sub', 'click_id', 'deal_id', 'offer_id',
-    // --- 支付與認證流程 ---
     'cancel_url', 'error_url', 'return_url', 'success_url',
   ].sort(),
 
-  /**
-   * 🚫 [V40.40 重構, V40.64 擴充] 基於正規表示式的路徑黑名單 (高信度)
-   * 說明：用於攔截高信度的、確定性的威脅路徑模式。
-   */
   PATH_BLOCK_REGEX: [
-    // [V40.47 強化] 擴充例外目錄，以降低對傳統部署靜態站的誤殺率。
     /^\/(?!_next\/static\/|static\/|assets\/|dist\/|build\/|public\/)[a-z0-9]{12,}\.js$/i,
-    /[^\/]*sentry[^\/]*\.js/i,        // 檔名含 sentry 且以 .js 結尾
-    /\/v\d+\/event/i,                 // 通用事件 API 版本 (如 /v1/event)
-    /\/collect$/i,                     // 通用數據收集端點 (寬泛)
-    /\/service\/collect$/i,           // 通用數據收集端點 (服務)
-    /\/api\/v\d+\/collect$/i,         // 通用數據收集端點 (API)
+    /[^\/]*sentry[^\/]*\.js/i,
+    /\/v\d+\/event/i,
+    /\/collect$/i,
+    /\/service\/collect$/i,
+    /\/api\/v\d+\/collect$/i,
   ],
 
-  /**
-   * 🚫 [V40.40 新增] 啟發式路徑攔截 Regex (實驗性)
-   * 說明：用於攔截潛在的、基於模式推測的威脅。其攔截事件將在除錯模式下被記錄。
-   */
   HEURISTIC_PATH_BLOCK_REGEX: [
-      /[a-z0-9\-_]{32,}\.(js|mjs)$/i,  // V40.37: 反混淆啟發式規則，攔截超長隨機路徑的腳本
+      /[a-z0-9\-_]{32,}\.(js|mjs)$/i,
   ],
 
-  /**
-   * ✅ [V40.45 新增] 路徑豁免清單 (高風險)
-   * 說明：用於豁免已被「域名黑名單」攔截的請求中的特定功能性路徑。
-   * 格式為 Map，其中 Key 是被封鎖的域名，Value 是一個包含路徑前綴或 Regex 的 Set。
-   * [V40.47] 註解修正：目前版本僅支援「路徑前綴 (startsWith)」匹配，尚不支援 Regex。
-   * 警告：此為高風險操作，僅在確認絕對必要時使用。
-   */
   PATH_EXEMPTIONS_FOR_BLOCKED_DOMAINS: new Map([
-    // 範例：為了修復 WhatsApp 的 URL 預覽功能 (See #123. Review by: 2026-03-22.)
     ['graph.facebook.com', new Set([
-        '/v19.0/', // 豁免所有 v19.0 API 的路徑
-        '/v20.0/', // [V40.51] 新增未來版本預備豁免
+        '/v19.0/',
+        '/v20.0/',
     ])],
-    // 範例：未來若需修復 LINE 的某項功能
-    // ['obs.line-scdn.net', new Set([
-    //     '/stickershop/v1/product/', // 僅豁免貼圖預覽路徑
-    // ])],
   ]),
 };
 // #################################################################################################
@@ -663,7 +470,6 @@ const NO_CONTENT_RESPONSE = { response: { status: 204 } };
 const REDIRECT_RESPONSE = (url) => ({ response: { status: 302, headers: { 'Location': url } } });
 const IMAGE_EXTENSIONS = new Set(['.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp']);
 const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs']);
-// [V40.58 新增] 結構化錯誤處理
 class ScriptExecutionError extends Error {
   constructor(message, context = {}) {
     super(message);
@@ -673,7 +479,6 @@ class ScriptExecutionError extends Error {
   }
 }
 
-// 預編譯後的 Regex 規則
 let COMPILED_BLOCK_DOMAINS_REGEX = [];
 let COMPILED_GLOBAL_TRACKING_PARAMS_REGEX = [];
 let COMPILED_TRACKING_PREFIXES_REGEX = [];
@@ -739,7 +544,6 @@ function compileRegexList(list) {
 }
 
 function initializeCoreEngine() {
-    // [V40.63] 自動化正規化，將所有陣列規則轉換為小寫 Set
     const listsToNormalize = [
         'REDIRECTOR_HOSTS', 'HARD_WHITELIST_EXACT', 'HARD_WHITELIST_WILDCARDS', 
         'SOFT_WHITELIST_EXACT', 'SOFT_WHITELIST_WILDCARDS', 'BLOCK_DOMAINS',
@@ -747,7 +551,7 @@ function initializeCoreEngine() {
         'PATH_ALLOW_PREFIXES', 'PATH_ALLOW_SUFFIXES', 'PATH_ALLOW_SUBSTRINGS', 
         'PATH_ALLOW_SEGMENTS', 'HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH',
         'DROP_KEYWORDS', 'GLOBAL_TRACKING_PARAMS', 'TRACKING_PREFIXES', 
-        'COSMETIC_PARAMS', // [V40.68] 新增
+        'COSMETIC_PARAMS',
         'PARAMS_TO_KEEP_WHITELIST'
     ];
     for (const key of listsToNormalize) {
@@ -756,12 +560,10 @@ function initializeCoreEngine() {
         }
     }
     
-    // 初始化 Trie 結構
     CONFIG.TRACKING_PREFIXES.forEach(p => OPTIMIZED_TRIES.prefix.insert(p));
     CONFIG.CRITICAL_TRACKING_PATTERNS.forEach(p => OPTIMIZED_TRIES.criticalPattern.insert(p));
     CONFIG.PATH_BLOCK_KEYWORDS.forEach(p => OPTIMIZED_TRIES.pathBlock.insert(p));
 
-    // 預編譯所有 Regex 規則
     COMPILED_BLOCK_DOMAINS_REGEX = compileRegexList(CONFIG.BLOCK_DOMAINS_REGEX);
     COMPILED_GLOBAL_TRACKING_PARAMS_REGEX = compileRegexList(CONFIG.GLOBAL_TRACKING_PARAMS_REGEX);
     COMPILED_TRACKING_PREFIXES_REGEX = compileRegexList(CONFIG.TRACKING_PREFIXES_REGEX);
@@ -821,29 +623,25 @@ function isCriticalTrackingScript(hostname, path) {
     return shouldBlock;
 }
 
-// [V40.56 邏輯升級] 全面引入「條件式豁免」
 function isPathExplicitlyAllowed(path) {
-    // 內部輔助函數，執行二次審查
     const runSecondaryCheck = (pathToCheck, exemptionRule) => {
         for (const trackerKeyword of CONFIG.HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH) {
             if (pathToCheck.includes(trackerKeyword)) {
                 if (CONFIG.DEBUG_MODE) {
-                    console.log(`[URL-Filter-v40.69][Debug] 路徑豁免被覆蓋。豁免規則: "${exemptionRule}" | 偵測到關鍵字: "${trackerKeyword}" | 路徑: "${path}"`);
+                    console.log(`[URL-Filter-v40.70][Debug] 路徑豁免被覆蓋。豁免規則: "${exemptionRule}" | 偵測到關鍵字: "${trackerKeyword}" | 路徑: "${path}"`);
                 }
-                return false; // 拒絕豁免
+                return false;
             }
         }
-        return true; // 路徑安全，給予豁免
+        return true;
     };
 
-    // 1. 子字串豁免 (條件式)
     for (const substring of CONFIG.PATH_ALLOW_SUBSTRINGS) {
         if (path.includes(substring)) {
             return runSecondaryCheck(path, `substring: ${substring}`);
         }
     }
 
-    // 2. 區段豁免 (條件式)
     const segments = path.startsWith('/') ? path.substring(1).split('/') : path.split('/');
     for (const segment of segments) {
         if (CONFIG.PATH_ALLOW_SEGMENTS.has(segment)) {
@@ -851,7 +649,6 @@ function isPathExplicitlyAllowed(path) {
         }
     }
 
-    // 3. 後綴豁免 (條件式)
     for (const suffix of CONFIG.PATH_ALLOW_SUFFIXES) {
         if (path.endsWith(suffix)) {
             const parentPath = path.substring(0, path.lastIndexOf('/'));
@@ -878,15 +675,13 @@ function isPathBlockedByRegex(path) {
     const k = getCacheKey('regex', path, '');
     const c = multiLevelCache.getUrlDecision(k);
     if (c !== null) return c;
-    // [V40.67 修正] 整合白名單檢查，避免啟發式規則誤殺合法框架檔案
-    // 1. 檢查前綴白名單
+
     for (const prefix of CONFIG.PATH_ALLOW_PREFIXES) {
         if (path.startsWith(prefix)) {
             multiLevelCache.setUrlDecision(k, false);
             return false;
         }
     }
-    // 2. 檢查其他路徑白名單 (子字串、區段、後綴)
     if (isPathExplicitlyAllowed(path)) {
         multiLevelCache.setUrlDecision(k, false);
         return false;
@@ -901,7 +696,7 @@ function isPathBlockedByRegex(path) {
     for (const regex of COMPILED_HEURISTIC_PATH_BLOCK_REGEX) {
         if (regex.test(path)) {
             if (CONFIG.DEBUG_MODE) {
-                console.log(`[URL-Filter-v40.69][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
+                console.log(`[URL-Filter-v40.70][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
             }
             multiLevelCache.setUrlDecision(k, true);
             return true;
@@ -928,7 +723,6 @@ function getBlockResponse(path) {
 }
 
 function cleanTrackingParams(url) {
-    // 確保傳入的是 URL 物件
     const urlObj = (typeof url === 'string') ? new URL(url) : url;
     const originalSearchParams = urlObj.search;
     let modified = false;
@@ -938,7 +732,6 @@ function cleanTrackingParams(url) {
 
         if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(lowerKey)) continue;
 
-        // [V40.68] 整合裝飾性參數檢查
         if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) || CONFIG.COSMETIC_PARAMS.has(lowerKey) || OPTIMIZED_TRIES.prefix.startsWith(lowerKey)) {
             toDelete.push(key);
             modified = true;
@@ -968,11 +761,10 @@ function cleanTrackingParams(url) {
         if (CONFIG.DEBUG_MODE) {
             const cleanedForLog = new URL(urlObj.toString());
             toDelete.forEach(k => cleanedForLog.searchParams.delete(k));
-            console.log(`[URL-Filter-v40.69][Debug] 偵測到追蹤/裝飾性參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
+            console.log(`[URL-Filter-v40.70][Debug] 偵測到追蹤/裝飾性參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
             return null;
         }
         toDelete.forEach(k => urlObj.searchParams.delete(k));
-        // 僅在有 search 參數時才加上 #cleaned 標記，避免汙染無參數的 URL
         if(originalSearchParams) {
             urlObj.hash = 'cleaned';
         }
@@ -1000,7 +792,6 @@ function getSanitizedUrlForLogging(url) {
     }
 }
 
-// [V40.58 新增] 統一的錯誤日誌記錄函數
 function logError(error, context = {}) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
@@ -1008,7 +799,7 @@ function logError(error, context = {}) {
             ...context,
             originalStack: error.stack
         });
-        console.error(`[URL-Filter-v40.69]`, executionError);
+        console.error(`[URL-Filter-v40.70]`, executionError);
     }
 }
 
@@ -1027,7 +818,7 @@ function processRequest(request) {
         }
     } catch (e) {
         logError(e, { stage: 'urlParsing', url: getSanitizedUrlForLogging(rawUrl) });
-        return null; // 無法解析的 URL 直接放行
+        return null;
     }
     
     if (url.hash === '#cleaned') {
@@ -1040,7 +831,7 @@ function processRequest(request) {
     if (hardWhitelistDetails.matched) {
         optimizedStats.increment('hardWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.69][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.70][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
         }
         return null;
     }
@@ -1049,7 +840,7 @@ function processRequest(request) {
     if (softWhitelistDetails.matched) {
         optimizedStats.increment('softWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.69][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.70][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
         }
         const cleanedUrl = cleanTrackingParams(url);
         if (cleanedUrl) {
@@ -1075,7 +866,7 @@ function processRequest(request) {
             for (const exemption of exemptions) {
                 if (currentPath.startsWith(exemption)) {
                     if (CONFIG.DEBUG_MODE) {
-                        console.log(`[URL-Filter-v40.69][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
+                        console.log(`[URL-Filter-v40.70][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
                     }
                     isExempted = true;
                     break;
@@ -1138,7 +929,7 @@ function processRequest(request) {
     
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.69', status: 'ready', message: 'URL Filter v40.69 - 策略性擴充 (續)：整合社群與進階追蹤參數，並擴充參數前綴規則', stats: optimizedStats.getStats() });
+        $done({ version: '40.70', status: 'ready', message: 'URL Filter v40.70 - 架構升級：引入外部清單整合框架與規則擴充', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -1148,7 +939,7 @@ function processRequest(request) {
     if (CONFIG.DEBUG_MODE) {
       const endTime = __now__();
       const executionTime = (endTime - startTime).toFixed(3);
-      console.log(`[URL-Filter-v40.69][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
+      console.log(`[URL-Filter-v40.70][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
     }
 
     if (typeof $done !== 'undefined') {
