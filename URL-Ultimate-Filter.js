@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.57.js
- * @version     40.57 (規則庫大規模擴充)
- * @description 整合 AdsBypasser 腳本的核心規則，新增超過 150 個短連結與檔案託管網站域名至軟白名單，大幅擴展腳本的廣告跳轉處理能力，同時保持高效能架構。
+ * @file        URL-Ultimate-Filter-Surge-V40.58.js
+ * @version     40.58 (結構化錯誤處理與日誌安全)
+ * @description 引入自訂錯誤類別 ScriptExecutionError，提供結構化的錯誤日誌。在記錄錯誤前，對 URL 進行清理，移除敏感參數，確保日誌輸出的安全性與除錯效率。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-23
  */
@@ -660,6 +660,16 @@ const REDIRECT_RESPONSE = (url) => ({ response: { status: 302, headers: { 'Locat
 const IMAGE_EXTENSIONS = new Set(['.gif', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.ico']);
 const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs']);
 
+// [V40.58 新增] 結構化錯誤處理
+class ScriptExecutionError extends Error {
+  constructor(message, context = {}) {
+    super(message);
+    this.name = 'ScriptExecutionError';
+    this.context = context;
+    this.timestamp = new Date().toISOString();
+  }
+}
+
 // 預編譯後的 Regex 規則
 let COMPILED_BLOCK_DOMAINS_REGEX = [];
 let COMPILED_GLOBAL_TRACKING_PARAMS_REGEX = [];
@@ -721,7 +731,7 @@ function compileRegexList(list) {
         try {
             return (regex instanceof RegExp) ? regex : new RegExp(regex);
         } catch (e) {
-            console.error(`[URL-Filter-v40.57] 無效的 Regex 規則: "${regex}", 錯誤: ${e.message}`);
+            logError(e, { rule: regex ? regex.toString() : 'invalid', stage: 'compileRegex' });
             return null;
         }
     }).filter(Boolean);
@@ -800,7 +810,7 @@ function isPathExplicitlyAllowed(path) {
         for (const trackerKeyword of CONFIG.HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH) {
             if (path.includes(trackerKeyword)) {
                 if (CONFIG.DEBUG_MODE) {
-                    console.log(`[URL-Filter-v40.57][Debug] 路徑豁免被覆蓋。豁免規則: "${exemptionRule}" | 偵測到關鍵字: "${trackerKeyword}" | 路徑: "${path}"`);
+                    console.log(`[URL-Filter-v40.58][Debug] 路徑豁免被覆蓋。豁免規則: "${exemptionRule}" | 偵測到關鍵字: "${trackerKeyword}" | 路徑: "${path}"`);
                 }
                 return false; // 拒絕豁免
             }
@@ -865,7 +875,7 @@ function isPathBlockedByRegex(path) {
     for (const regex of COMPILED_HEURISTIC_PATH_BLOCK_REGEX) {
         if (regex.test(path)) {
             if (CONFIG.DEBUG_MODE) {
-                console.log(`[URL-Filter-v40.57][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
+                console.log(`[URL-Filter-v40.58][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
             }
             multiLevelCache.setUrlDecision(k, true);
             return true;
@@ -932,7 +942,7 @@ function cleanTrackingParams(url) {
             const originalUrl = url.toString();
             const cleanedForLog = new URL(originalUrl);
             toDelete.forEach(k => cleanedForLog.searchParams.delete(k));
-            console.log(`[URL-Filter-v40.57][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
+            console.log(`[URL-Filter-v40.58][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
             return null;
         }
         toDelete.forEach(k => newUrl.searchParams.delete(k));
@@ -945,7 +955,7 @@ function cleanTrackingParams(url) {
 function getSanitizedUrlForLogging(url) {
     try {
         const tempUrl = new URL(url.toString());
-        const paramsToRemove = ['token', 'password', 'key', 'secret', 'auth', 'otp'];
+        const paramsToRemove = ['token', 'password', 'key', 'secret', 'auth', 'otp', 'access_token', 'refresh_token'];
         for (const param of tempUrl.searchParams.keys()) {
             const lowerParam = param.toLowerCase();
             for (const sensitive of paramsToRemove) {
@@ -957,7 +967,20 @@ function getSanitizedUrlForLogging(url) {
         }
         return tempUrl.toString();
     } catch (e) {
-        return url.toString().split('?')[0] + '?<URL_PARSE_ERROR>';
+        // 對於無法解析的 URL，僅返回原始字串的第一部分，避免洩漏參數
+        return (typeof url === 'string' ? url.split('?')[0] : '<INVALID_URL_OBJECT>') + '?<URL_PARSE_ERROR>';
+    }
+}
+
+// [V40.58 新增] 統一的錯誤日誌記錄函數
+function logError(error, context = {}) {
+    optimizedStats.increment('errors');
+    if (typeof console !== 'undefined' && console.error) {
+        const executionError = new ScriptExecutionError(error.message, {
+            ...context,
+            originalStack: error.stack
+        });
+        console.error(`[URL-Filter-v40.58]`, executionError);
     }
 }
 
@@ -967,19 +990,18 @@ function processRequest(request) {
     if (!request?.url || typeof request.url !== 'string' || request.url.length < 10) return null;
 
     const rawUrl = request.url;
-    let url = multiLevelCache.getUrlObject(rawUrl);
-    if (url) {
-        optimizedStats.increment('urlCacheHits');
-    } else {
-        try {
+    let url;
+    try {
+        url = multiLevelCache.getUrlObject(rawUrl);
+        if (url) {
+            optimizedStats.increment('urlCacheHits');
+        } else {
             url = new URL(rawUrl);
             multiLevelCache.setUrlObject(rawUrl, Object.freeze(url));
-        } catch (e) {
-            optimizedStats.increment('errors');
-            const sanitizedUrl = rawUrl.split('?')[0];
-            console.error(`[URL-Filter-v40.57] URL 解析失敗 (查詢參數已移除): "${sanitizedUrl}", 錯誤: ${e.message}`);
-            return null;
         }
+    } catch (e) {
+        logError(e, { stage: 'urlParsing', url: getSanitizedUrlForLogging(rawUrl) });
+        return null; // 無法解析的 URL 直接放行
     }
     
     if (url.hash === '#cleaned') {
@@ -992,7 +1014,7 @@ function processRequest(request) {
     if (hardWhitelistDetails.matched) {
         optimizedStats.increment('hardWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.57][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.58][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
         }
         return null;
     }
@@ -1001,7 +1023,7 @@ function processRequest(request) {
     if (softWhitelistDetails.matched) {
         optimizedStats.increment('softWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.57][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.58][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
         }
         const cleanedUrl = cleanTrackingParams(url);
         if (cleanedUrl) {
@@ -1027,7 +1049,7 @@ function processRequest(request) {
             for (const exemption of exemptions) {
                 if (currentPath.startsWith(exemption)) {
                     if (CONFIG.DEBUG_MODE) {
-                        console.log(`[URL-Filter-v40.57][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
+                        console.log(`[URL-Filter-v40.58][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
                     }
                     isExempted = true;
                     break;
@@ -1072,10 +1094,7 @@ function processRequest(request) {
     return null;
 
   } catch (error) {
-    optimizedStats.increment('errors');
-    if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.57] 處理請求 "${request?.url?.split('?')[0]}" 時發生錯誤: ${error?.message}`, error?.stack);
-    }
+    logError(error, { stage: 'processRequest', url: getSanitizedUrlForLogging(request?.url) });
     return null;
   }
 }
@@ -1094,7 +1113,7 @@ function processRequest(request) {
     
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.57', status: 'ready', message: 'URL Filter v40.57 - 規則庫大規模擴充', stats: optimizedStats.getStats() });
+        $done({ version: '40.58', status: 'ready', message: 'URL Filter v40.58 - 結構化錯誤處理與日誌安全', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -1104,17 +1123,14 @@ function processRequest(request) {
     if (CONFIG.DEBUG_MODE) {
       const endTime = __now__();
       const executionTime = (endTime - startTime).toFixed(3);
-      console.log(`[URL-Filter-v40.57][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
+      console.log(`[URL-Filter-v40.58][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
     }
 
     if (typeof $done !== 'undefined') {
         $done(result || {});
     }
   } catch (error) {
-    optimizedStats.increment('errors');
-    if (typeof console !== 'undefined' && console.error) {
-      console.error(`[URL-Filter-v40.57] 致命錯誤: ${error?.message}`, error?.stack);
-    }
+    logError(error, { stage: 'globalExecution' });
     if (typeof $done !== 'undefined') $done({});
   }
 })();
