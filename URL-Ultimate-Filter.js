@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.70.js
- * @version     40.70 (功能性擴充)
- * @description 新增 3 項功能性擴充：1. 強化 CNAME 偽裝追蹤防禦；2. 新增影片廣告（VAST/VMAP）攔截規則；3. 擴充參數清理機制，移除裝飾性參數。
+ * @file        URL-Ultimate-Filter-Surge-V40.71.js
+ * @version     40.71 (裝飾性參數擴充)
+ * @description 擴充 COSMETIC_PARAMS 列表，新增對主流社群、電商與影音平台中常見非功能性參數的清理規則，以產生更簡潔的網址。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-23
  */
@@ -369,7 +369,7 @@ const CONFIG = {
     'ads.tiktok.com/i1n/pixel/events.js', 'analytics.pinterest.com/', 'analytics.snapchat.com/v1/batch',
     'events.reddit.com/v1/pixel', 'log.pinterest.com/', 'q.quora.com/', 'sc-static.net/scevent.min.js', 'tr.snapchat.com',
 
-    // --- 中國大陸地區 ---
+    // --- 中國大陸地区 ---
     '/event_report', '/log/aplus', '/v.gif', 'cnzz.com/stat.php', 'gdt.qq.com/gdt_mview.fcg', 'hm.baidu.com/hm.js', 'wgo.mmstat.com',
 
     // --- Service Worker 追蹤對策 ---
@@ -1341,3 +1341,4 @@ function processRequest(request) {
     if (typeof $done !== 'undefined') $done({});
   }
 })();
+" with my request to "搜尋並加入更多 COSMETIC_PARAMS 參數".
