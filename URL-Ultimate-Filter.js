@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.62.js
- * @version     40.62 (二次深度審查與規則擴充)
- * @description 針對所有清單進行二次深度審查，補強對新興行銷自動化平台 (Customer.io, Braze) 與內容推薦網路 (MGID) 的攔截規則，並進一步強化對通用追蹤端點的覆蓋。
+ * @file        URL-Ultimate-Filter-Surge-V40.63.js
+ * @version     40.63 (自動化正規化與容錯)
+ * @description 引入「啟動時自動化正規化」機制，所有黑白名單在載入時將強制轉換為小寫，從根本上解決因大小寫問題導致的攔截失效，大幅提升腳本的穩健性與可維護性。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-23
  */
@@ -37,7 +37,7 @@ const CONFIG = {
    * ✳️ [V40.59 新增, V40.60 重構] 啟發式直跳域名列表
    * 說明：此處的域名被視為純粹的 URL 跳轉器。腳本將優先嘗試從其 URL 參數中解析並直接跳轉至最終目標。
    */
-  REDIRECTOR_HOSTS: new Set([
+  REDIRECTOR_HOSTS: [
     '1ink.cc', '1link.club', 'adfoc.us', 'adsafelink.com', 'adshnk.com', 'adz7short.space', 'aylink.co', 
     'bc.vc', 'bcvc.ink', 'birdurls.com', 'bitcosite.com', 'blogbux.net', 'boost.ink', 'ceesty.com', 
     'clik.pw', 'clk.sh', 'clkmein.com', 'cllkme.com', 'corneey.com', 'cpmlink.net', 'cpmlink.pro', 
@@ -55,13 +55,13 @@ const CONFIG = {
     'tmearn.net', 'tnshort.net', 'tribuntekno.com', 'turkdown.com', 'tutwuri.id', 'uplinkto.hair', 
     'urlbluemedia.shop', 'urlcash.com', 'urlcash.org', 'vinaurl.net', 'vzturl.com', 'xpshort.com', 
     'zegtrends.com'
-  ].sort()),
+  ].sort(),
 
   /**
    * ✳️ 硬白名單 - 精確匹配 (Hard Whitelist - Exact)
    * 說明：完全豁免所有檢查。此處的域名需要完整且精確的匹配。
    */
-  HARD_WHITELIST_EXACT: new Set([
+  HARD_WHITELIST_EXACT: [
     // --- AI & Search Services ---
     'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'private-us-east-1.monica.im',
     // --- Business & Developer Tools ---
@@ -89,13 +89,13 @@ const CONFIG = {
     // --- 高互動性服務 API ---
     'api.discord.com', 'api.twitch.tv', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com',
     'iappapi.investing.com',
-  ].sort()),
+  ].sort(),
 
   /**
    * ✳️ 硬白名單 - 萬用字元 (Hard Whitelist - Wildcards)
    * 說明：完全豁免所有檢查。此處的域名會匹配自身及其所有子域名 (例如 apple.com 會匹配 a.apple.com)。
    */
-  HARD_WHITELIST_WILDCARDS: new Set([
+  HARD_WHITELIST_WILDCARDS: [
     // --- Financial, Banking & Payments ---
     'bot.com.tw', 'cathaybk.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw', 'ctbcbank.com', 'dawho.tw', 'dbs.com.tw',
     'esunbank.com.tw', 'firstbank.com.tw', 'fubon.com', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw',
@@ -115,13 +115,13 @@ const CONFIG = {
     'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'webcache.googleusercontent.com', 'www.webarchive.org.uk',
     // --- YouTube 核心服務 (僅保留基礎建設) ---
     'googlevideo.com',
-  ].sort()),
+  ].sort(),
 
   /**
    * ✅ 軟白名單 - 精確匹配 (Soft Whitelist - Exact)
    * 說明：豁免「路徑黑名單層 (Path Blacklist)」的檢查，但仍會執行「參數清理」與「關鍵追蹤模式攔截」。
    */
-  SOFT_WHITELIST_EXACT: new Set([
+  SOFT_WHITELIST_EXACT: [
     // --- Common APIs ---
     'a-api.anthropic.com', 'api.anthropic.com', 'api.cohere.ai', 'api.github.com', 'api.hubapi.com',
     'api.mailgun.com', 'api.openai.com', 'api.pagerduty.com', 'api.sendgrid.com', 'api.telegram.org',
@@ -135,14 +135,14 @@ const CONFIG = {
     'api.irentcar.com.tw', 'gateway.shopback.com.tw', 'usiot.roborock.com',
     // --- [V40.47] 修正：內容功能域不應被完全封鎖 ---
     'visuals.feedly.com',
-  ].sort()),
+  ].sort(),
 
   /**
    * ✅ 軟白名單 - 萬用字元 (Soft Whitelist - Wildcards)
    * 說明：豁免「路徑黑名單層 (Path Blacklist)」的檢查，但仍會執行「參數清理」與「關鍵追蹤模式攔截」。
    * 此處的域名會匹配自身及其所有子域名 (例如 apple.com 會匹配 a.apple.com)。
    */
-  SOFT_WHITELIST_WILDCARDS: new Set([
+  SOFT_WHITELIST_WILDCARDS: [
     // --- [V40.44] 遷移自硬白名單的電商與內容平台 ---
     'book.com.tw', 'citiesocial.com', 'coupang.com', 'iherb.biz', 'iherb.com',
     'm.youtube.com', 'momo.dm', 'momoshop.com.tw', 'pxmart.com.tw', 'pxpayplus.com',
@@ -167,13 +167,13 @@ const CONFIG = {
     'multiup.io', 'nmac.to', 'noelshack.com', 'pic-upload.de', 'pixhost.to', 'postimg.cc', 'prnt.sc', 
     'sfile.mobi', 'thefileslocker.net', 'turboimagehost.com', 'uploadhaven.com', 'uploadrar.com', 
     'usersdrive.com',
-  ].sort()),
+  ].sort(),
 
   /**
    * 🚫 [V40.51 強化, V40.61 擴充] 域名攔截黑名單
    * 說明：僅列出純粹用於廣告、追蹤或分析的域名。此清單將被高速查詢。
    */
-  BLOCK_DOMAINS: new Set([
+  BLOCK_DOMAINS: [
     // --- Ad & Tracking CDNs ---
     'adnext-a.akamaihd.net', 'appnext.hs.llnwd.net', 'fusioncdn.com', 'pgdt.gtimg.cn', 'toots-a.akamaihd.net',
     // --- Apple ---
@@ -269,7 +269,7 @@ const CONFIG = {
     'snap.licdn.com', 'spade.twitch.tv',
     // --- 其他 ---
     'adnx.com', 'cint.com', 'revjet.com', 'rlcdn.com', 'sc-static.net', 'wcs.naver.net',
-  ].sort()),
+  ].sort(),
 
   /**
    * 🚫 [V40.35 新增] Regex 域名攔截黑名單
@@ -283,7 +283,7 @@ const CONFIG = {
   /**
    * 🚨 [V40.61 擴充] 關鍵追蹤腳本攔截清單
    */
-  CRITICAL_TRACKING_SCRIPTS: new Set([
+  CRITICAL_TRACKING_SCRIPTS: [
     // --- Google ---
     'ads.js', 'adsbygoogle.js', 'analytics.js', 'ga.js', 'gtag.js', 'gtm.js', 'ytag.js',
     // --- Facebook / Meta ---
@@ -316,12 +316,12 @@ const CONFIG = {
     'autotrack.js', 'beacon.js', 'capture.js', 'cf.js', 'cmp.js', 'collect.js', 'conversion.js', 'event.js',
     'link-click-tracker.js', 'main-ad.js', 'scevent.min.js', 'showcoverad.min.js', 'sp.js', 'tracker.js',
     'tracking-api.js', 'tracking.js', 'user-id.js', 'user-timing.js', 'wcslog.js',
-  ].sort()),
+  ].sort(),
 
   /**
    * 🚨 [V40.61 擴充] 關鍵追蹤路徑模式
    */
-  CRITICAL_TRACKING_PATTERNS: new Set([
+  CRITICAL_TRACKING_PATTERNS: [
   // --- Google ---
   '/ads/ga-audiences', '/doubleclick/', '/google-analytics/', '/googleadservices/', '/googlesyndication/',
   '/googletagmanager/', '/pagead/gen_204', '/stats.g.doubleclick.net/j/collect', 'google.com/ads', 'google.com/pagead',
@@ -403,12 +403,12 @@ const CONFIG = {
 
   // --- 其他 ---
   '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc', '/user-profile/', 'cacafly/track',
-].sort()),
+].sort(),
 
   /**
    * 🚫 [V40.17 擴充] 路徑關鍵字黑名單
    */
-PATH_BLOCK_KEYWORDS: new Set([
+PATH_BLOCK_KEYWORDS: [
   // --- Ad Generic ---
   '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/banner/', '/interstitial/',
   '/midroll/', '/popads/', '/popup/', '/postroll/', '/prebid/', '/preroll/', '/promoted/', '/sponsor/', '/vclick/',
@@ -417,30 +417,29 @@ PATH_BLOCK_KEYWORDS: new Set([
   'admation', 'admdfs', 'admicro', 'admob', 'adnewnc', 'adpush', 'adpushup', 'adroll', 'adsage', 'adsame',
   'adsense', 'adsensor', 'adserver', 'adservice', 'adsh', 'adskeeper', 'adsmind', 'adsmogo', 'adsnew', 'adsrvmedia',
   'adsrvr', 'adsserving', 'adsterra', 'adsupply', 'adsupport', 'adswizz', 'adsystem', 'adtilt', 'adtima', 'adtrack',
-  'advert', 'advertise', 'advertisement', 'advertiser', 'adview', 'ad-video', 'adware', 'adwhirl', 'adwords', 'adzcore', 
-  'affiliate', 'alexametrics', 'allyes', 'amplitude', 'analysis', 'analysys', 'analytics', 'aottertrek', 'appadhoc',
-  'appads', 'appboy', 'appier', 'applovin', 'appsflyer', 'apptimize', 'apsalar', 'baichuan', 'bango', 'bangobango',
-  'bidvertiser', 'bingads', 'bkrtx', 'bluekai', 'breaktime', 'bugsense', 'burstly', 'cedexis', 'chartboost',
-  'circulate', 'click-fraud', 'clkservice', 'cnzz', 'cognitivlabs', 'crazyegg',
-  'crittercism', 'cross-device', 'dealerfire', 'dfp', 'dienst', 'djns', 'dlads', 'dnserror', 'domob',
-  'doubleclick', 'doublemax', 'dsp', 'duapps', 'duomeng', 'dwtrack', 'egoid', 'emarbox', 'en25', 'eyeota', 'fenxi',
-  'fingerprinting', 'flurry', 'fwmrm', 'getadvltem', 'getexceptional', 'googleads', 'googlesyndication',
-  'greenplasticdua', 'growingio', 'guanggao', 'guomob', 'guoshipartners', 'heapanalytics', 'hotjar', 'hsappstatic',
-  'hubspot', 'igstatic', 'inmobi', 'innity', 'instabug', 'intercom', 'izooto', 'jpush', 'juicer', 'jumptap',
-  'kissmetrics', 'lianmeng', 'litix', 'localytics', 'logly', 'mailmunch', 'malvertising', 'matomo', 'medialytics',
-  'meetrics', 'mgid', 'mifengv', 'mixpanel', 'mobaders', 'mobclix', 'mobileapptracking', 
-  '/monitoring/', 'mvfglobal', 'networkbench', 'newrelic', 'omgmta', 'omniture', 'onead', 'openinstall', 'openx', 'optimizely',
-  'outstream', 'partnerad', 'pingfore', 'piwik', 'pixanalytics', 'playtomic', 'polyad', 'popin',
-  'popin2mdn', 'programmatic', 'pushnotification', 'quantserve', 'quantumgraph', 'queryly', 'qxs',
-  'rayjump', 'retargeting', 'ronghub', 'rtb', 'scorecardresearch', 'scupio', 'securepubads', 'sensor',
-  'sentry', 'shence', 'shenyun', 'shoplytics', 'shujupie', 'smartadserver', 'smartbanner', 'snowplow', 'socdm', 'sponsors', 'spy',
-  'spyware', 'statcounter', 'stathat', 'sticky-ad', 'storageug', 'straas', 'studybreakmedia', 'stunninglover',
-  'supersonicads', 'syndication', 'taboola', 'tagtoo', 'talkingdata', 'tanx', 'tapjoy', 'tapjoyads',
-  'tenmax', 'tingyun', 'tiqcdn', 'tlcafftrax', 'toateeli', 'tongji', '/trace/', 'tracker', 'trackersimulator',
-  'tracking', 'trafficjunky', 'trafficmanager', 'tubemogul', 'uedas', 'umeng', 'umtrack', 'unidesk',
-  'usermaven', 'usertesting', 'venraas', 'vilynx', 'vpon', 'vungle', 'whalecloud', 'wistia',
-  'wlmonitor', 'woopra', 'xxshuyuan', 'yandex', 'zaoo', 'zarget', 'zgdfz6h7po', 'zgty365', 'zhengjian',
-  'zhengwunet', 'zhuichaguoji', 'zjtoolbar', 'zzhyyj',
+  'advert', 'advertise', 'advertisement', 'advertiser', 'adview', 'ad-video', 'advideo', 'adware', 'adwhirl', 'adwords', 
+  'adzcore', 'affiliate', 'alexametrics', 'allyes', 'amplitude', 'analysis', 'analysys', 'analytics', 'aottertrek', 
+  'appadhoc', 'appads', 'appboy', 'appier', 'applovin', 'appsflyer', 'apptimize', 'apsalar', 'baichuan', 'bango', 
+  'bangobango', 'bidvertiser', 'bingads', 'bkrtx', 'bluekai', 'breaktime', 'bugsense', 'burstly', 'cedexis', 
+  'chartboost', 'circulate', 'click-fraud', 'clkservice', 'cnzz', 'cognitivlabs', 'crazyegg', 'crittercism', 
+  'cross-device', 'dealerfire', 'dfp', 'dienst', 'djns', 'dlads', 'dnserror', 'domob', 'doubleclick', 'doublemax', 
+  'dsp', 'duapps', 'duomeng', 'dwtrack', 'egoid', 'emarbox', 'en25', 'eyeota', 'fenxi', 'fingerprinting', 'flurry', 
+  'fwmrm', 'getadvltem', 'getexceptional', 'googleads', 'googlesyndication', 'greenplasticdua', 'growingio', 
+  'guanggao', 'guomob', 'guoshipartners', 'heapanalytics', 'hotjar', 'hsappstatic', 'hubspot', 'igstatic', 'inmobi', 
+  'innity', 'instabug', 'intercom', 'izooto', 'jpush', 'juicer', 'jumptap', 'kissmetrics', 'lianmeng', 'litix', 
+  'localytics', 'logly', 'mailmunch', 'malvertising', 'matomo', 'medialytics', 'meetrics', 'mgid', 'mifengv', 
+  'mixpanel', 'mobaders', 'mobclix', 'mobileapptracking', '/monitoring/', 'mvfglobal', 'networkbench', 'newrelic', 
+  'omgmta', 'omniture', 'onead', 'openinstall', 'openx', 'optimizely', 'outstream', 'partnerad', 'pingfore', 'piwik', 
+  'pixanalytics', 'playtomic', 'polyad', 'popin', 'popin2mdn', 'programmatic', 'pushnotification', 'quantserve', 
+  'quantumgraph', 'queryly', 'qxs', 'rayjump', 'retargeting', 'ronghub', 'rtb', 'scorecardresearch', 'scupio', 
+  'securepubads', 'sensor', 'sentry', 'shence', 'shenyun', 'shoplytics', 'shujupie', 'smartadserver', 'smartbanner', 
+  'snowplow', 'socdm', 'sponsors', 'spy', 'spyware', 'statcounter', 'stathat', 'sticky-ad', 'storageug', 'straas', 
+  'studybreakmedia', 'stunninglover', 'supersonicads', 'syndication', 'taboola', 'tagtoo', 'talkingdata', 'tanx', 
+  'tapjoy', 'tapjoyads', 'tenmax', 'tingyun', 'tiqcdn', 'tlcafftrax', 'toateeli', 'tongji', '/trace/', 'tracker', 
+  'trackersimulator', 'tracking', 'trafficjunky', 'trafficmanager', 'tubemogul', 'uedas', 'umeng', 'umtrack', 
+  'unidesk', 'usermaven', 'usertesting', 'venraas', 'vilynx', 'vpon', 'vungle', 'whalecloud', 'wistia', 'wlmonitor', 
+  'woopra', 'xxshuyuan', 'yandex', 'zaoo', 'zarget', 'zgdfz6h7po', 'zgty365', 'zhengjian', 'zhengwunet', 'zhuichaguoji', 
+  'zjtoolbar', 'zzhyyj',
   // --- Ad Tech ---
   '/ad-choices', '/ad-click', '/ad-code', '/ad-conversion',
   '/ad-engagement', '/ad-event', '/ad-events', '/ad-exchange', '/ad-impression', '/ad-inventory', '/ad-loader',
@@ -462,21 +461,21 @@ PATH_BLOCK_KEYWORDS: new Set([
   'retargeting', 'session-replay', 'third-party-cookie', 'user-analytics', 'user-behavior', 'user-cohort', 'user-segment',
   // --- 3rd Party Services ---
   'appier', 'comscore', 'fbevents', 'fbq', 'google-analytics', 'onead', 'osano', 'sailthru', 'tapfiliate', 'utag.js',
-].sort()),
+].sort(),
     
   /**
    * ✅ 路徑前綴白名單
    * 說明：用於豁免正則表達式封鎖，避免誤殺 SPA/CDN 的合法資源。
    */
-  PATH_ALLOW_PREFIXES: new Set([
+  PATH_ALLOW_PREFIXES: [
       '/.well-known/'
-  ].sort()),
+  ].sort(),
   
   /**
    * ✅ [V40.6 安全強化] 路徑白名單 - 後綴 (Path Allowlist - Suffixes)
    * 說明：當路徑以此處的字串結尾時，將豁免 `PATH_BLOCK_KEYWORDS` 檢查。
    */
-  PATH_ALLOW_SUFFIXES: new Set([
+  PATH_ALLOW_SUFFIXES: [
     // --- 框架 & 套件常用檔 ---
     'app.js', 'bundle.js', 'chunk.js', 'chunk.mjs', 'common.js', 'framework.js', 'framework.mjs', 'index.js',
     'index.mjs', 'main.js', 'polyfills.js', 'polyfills.mjs', 'runtime.js', 'styles.css', 'styles.js', 'vendor.js',
@@ -485,37 +484,37 @@ PATH_BLOCK_KEYWORDS: new Set([
     'fetch-polyfill', 'head.js', 'header.js', 'icon.svg', 'legacy.js', 'loader.js', 'logo.svg', 'manifest.json',
     'modal.js', 'padding.css', 'page-data.js', 'polyfill.js', 'robots.txt', 'sitemap.xml', 'sw.js', 'theme.js', 
     'web.config',
-  ].sort()),
+  ].sort(),
 
   /**
    * ✅ [V40.6 安全強化] 路徑白名單 - 子字串 (Path Allowlist - Substrings)
    * 說明：當路徑包含此處的字串時，將豁免 `PATH_BLOCK_KEYWORDS` 檢查 (用於典型靜態路徑)。
    */
-  PATH_ALLOW_SUBSTRINGS: new Set([
-    '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/media/',
-  ].sort()),
+  PATH_ALLOW_SUBSTRINGS: [
+    '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/js/', 'static/media/',
+  ].sort(),
 
   /**
    * ✅ [V40.6 安全強化] 路徑白名單 - 區段 (Path Allowlist - Segments)
    * 說明：當路徑被 '/' 分割後，若任一區段完全匹配此處的字串，將豁免 `PATH_BLOCK_KEYWORDS` 檢查 (用於避免誤殺功能性路徑)。
    */
-  PATH_ALLOW_SEGMENTS: new Set([
+  PATH_ALLOW_SEGMENTS: [
     'admin', 'blog', 'catalog', 'dashboard', 'dialog', 'login',
-  ].sort()),
+  ].sort(),
 
   /**
    * 🚫 [V40.55 新增] 高信度追蹤關鍵字 (用於條件式豁免)
    * 說明：當一個請求的路徑後綴符合豁免條件時 (如 index.js)，將會使用此處的關鍵字對其上層路徑進行二次審查。
    */
-  HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH: new Set([
+  HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH: [
     '/ads', '/analytics', '/api/track', '/beacon', '/collect', '/pixel', '/tracker'
-  ].sort()),
+  ].sort(),
 
   /**
    * 💧 [V40.17 擴充] 直接拋棄請求 (DROP) 的關鍵字
    * 說明：用於識別應被「靜默拋棄」而非「明確拒絕」的請求。為避免誤殺，此處的關鍵字應盡可能完整，並包含分隔符。
    */
-  DROP_KEYWORDS: new Set([
+  DROP_KEYWORDS: [
     // --- 日誌 & 遙測 (Logging & Telemetry) ---
     '.log', '?diag=', '?log=', '-log.', '/diag/', '/log/', '/logging/', '/logs/', 'adlog', 'ads-beacon', 'airbrake',
     'amp-analytics', 'batch', 'beacon', 'client-event', 'collect', 'collect?', 'collector', 'crashlytics', 'csp-report',
@@ -524,18 +523,18 @@ PATH_BLOCK_KEYWORDS: new Set([
     'web-vitals',
     // --- 錯誤 & 診斷 (Error & Diagnostics) ---
     'crash-report', 'diagnostic.log', 'profiler', 'stacktrace', 'trace.json',
-  ].sort()),
+  ].sort(),
 
   /**
    * 🗑️ [V40.51 強化, V40.61 擴充] 追蹤參數黑名單 (全域)
    * 說明：用於高速比對常見的、靜態的追蹤參數。
    */
-  GLOBAL_TRACKING_PARAMS: new Set([
+  GLOBAL_TRACKING_PARAMS: [
      '_branch_match_id', '_ga', '_gid', 'dclid', 'fbclid', 'gclid', 'gclsrc', 'gbraid', 'igshid', 
      'ko_click_id', 'li_fat_id', 'mc_cid', 'mc_eid', 'mibextid', 'msclkid', 'twclid', 
      'ttclid', 'tt_c_id', 'tt_campaign', 'tt_creative', 'tt_adgroup', 'trk', 'linkedin_share', 
      'li_medium', 'li_source', 'wbraid', 'yclid', 'zanpid',
-  ].sort()),
+  ].sort(),
 
   /**
    * 🗑️ [V40.37 新增] Regex 追蹤參數黑名單 (全域)
@@ -554,12 +553,12 @@ PATH_BLOCK_KEYWORDS: new Set([
    * 🗑️ [V40.38 重構] 追蹤參數前綴黑名單
    * 說明：用於高速比對常見的追蹤參數前綴。
    */
-  TRACKING_PREFIXES: new Set([
+  TRACKING_PREFIXES: [
     '__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs', '_oly_', 'ad_', 'aff_', 'alg_', 'bd_',
     'campaign_', 'content_', 'creative_', 'fb_', 'from_', 'gcl_', 'hmsr_', 'hsa_', 'li_',
     'matomo_', 'medium_', 'mkt_', 'ms_', 'mtm', 'pk_', 'piwik_', 'placement_', 'ref_',
     'share_', 'source_', 'space_', 'term_', 'trk_', 'tt_', 'ttc_', 'li_fat_', 'linkedin_',
-  ].sort()),
+  ].sort(),
 
   /**
    * 🗑️ [V40.37 新增] Regex 追蹤參數前綴黑名單
@@ -575,7 +574,7 @@ PATH_BLOCK_KEYWORDS: new Set([
    * ✅ [V40.53 擴充] 必要參數白名單
    * 說明：此處的參數永遠不會被清理，以避免破壞網站核心功能。
    */
-  PARAMS_TO_KEEP_WHITELIST: new Set([
+  PARAMS_TO_KEEP_WHITELIST: [
     // --- 核心 & 搜尋 ---
     'code', 'id', 'item', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't', 'targetid', 'token', 'v',
     // --- 通用功能 ---
@@ -588,7 +587,7 @@ PATH_BLOCK_KEYWORDS: new Set([
     'aff_sub', 'click_id', 'deal_id', 'offer_id',
     // --- 支付與認證流程 ---
     'cancel_url', 'error_url', 'return_url', 'success_url',
-  ].sort()),
+  ].sort(),
 
   /**
    * 🚫 [V40.40 重構] 基於正規表示式的路徑黑名單 (高信度)
@@ -726,10 +725,26 @@ function compileRegexList(list) {
 }
 
 function initializeCoreEngine() {
+    // [V40.63] 自動化正規化，將所有陣列規則轉換為小寫 Set
+    const listsToNormalize = [
+        'REDIRECTOR_HOSTS', 'HARD_WHITELIST_EXACT', 'HARD_WHITELIST_WILDCARDS', 
+        'SOFT_WHITELIST_EXACT', 'SOFT_WHITELIST_WILDCARDS', 'BLOCK_DOMAINS',
+        'CRITICAL_TRACKING_SCRIPTS', 'CRITICAL_TRACKING_PATTERNS', 'PATH_BLOCK_KEYWORDS', 
+        'PATH_ALLOW_PREFIXES', 'PATH_ALLOW_SUFFIXES', 'PATH_ALLOW_SUBSTRINGS', 
+        'PATH_ALLOW_SEGMENTS', 'HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH',
+        'DROP_KEYWORDS', 'GLOBAL_TRACKING_PARAMS', 'TRACKING_PREFIXES', 
+        'PARAMS_TO_KEEP_WHITELIST'
+    ];
+    for (const key of listsToNormalize) {
+        if (Array.isArray(CONFIG[key])) {
+            CONFIG[key] = new Set(CONFIG[key].map(item => String(item).toLowerCase()));
+        }
+    }
+    
     // 初始化 Trie 結構
-    CONFIG.TRACKING_PREFIXES.forEach(p => OPTIMIZED_TRIES.prefix.insert(String(p).toLowerCase()));
-    CONFIG.CRITICAL_TRACKING_PATTERNS.forEach(p => OPTIMIZED_TRIES.criticalPattern.insert(String(p).toLowerCase()));
-    CONFIG.PATH_BLOCK_KEYWORDS.forEach(p => OPTIMIZED_TRIES.pathBlock.insert(String(p).toLowerCase()));
+    CONFIG.TRACKING_PREFIXES.forEach(p => OPTIMIZED_TRIES.prefix.insert(p));
+    CONFIG.CRITICAL_TRACKING_PATTERNS.forEach(p => OPTIMIZED_TRIES.criticalPattern.insert(p));
+    CONFIG.PATH_BLOCK_KEYWORDS.forEach(p => OPTIMIZED_TRIES.pathBlock.insert(p));
 
     // 預編譯所有 Regex 規則
     COMPILED_BLOCK_DOMAINS_REGEX = compileRegexList(CONFIG.BLOCK_DOMAINS_REGEX);
@@ -798,7 +813,7 @@ function isPathExplicitlyAllowed(path) {
         for (const trackerKeyword of CONFIG.HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH) {
             if (pathToCheck.includes(trackerKeyword)) {
                 if (CONFIG.DEBUG_MODE) {
-                    console.log(`[URL-Filter-v40.61][Debug] 路徑豁免被覆蓋。豁免規則: "${exemptionRule}" | 偵測到關鍵字: "${trackerKeyword}" | 路徑: "${path}"`);
+                    console.log(`[URL-Filter-v40.62][Debug] 路徑豁免被覆蓋。豁免規則: "${exemptionRule}" | 偵測到關鍵字: "${trackerKeyword}" | 路徑: "${path}"`);
                 }
                 return false; // 拒絕豁免
             }
@@ -863,7 +878,7 @@ function isPathBlockedByRegex(path) {
     for (const regex of COMPILED_HEURISTIC_PATH_BLOCK_REGEX) {
         if (regex.test(path)) {
             if (CONFIG.DEBUG_MODE) {
-                console.log(`[URL-Filter-v40.61][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
+                console.log(`[URL-Filter-v40.62][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
             }
             multiLevelCache.setUrlDecision(k, true);
             return true;
@@ -931,7 +946,7 @@ function cleanTrackingParams(url) {
         if (CONFIG.DEBUG_MODE) {
             const cleanedForLog = new URL(urlObj.toString());
             toDelete.forEach(k => cleanedForLog.searchParams.delete(k));
-            console.log(`[URL-Filter-v40.61][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
+            console.log(`[URL-Filter-v40.62][Debug] 偵測到追蹤參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
             return null;
         }
         toDelete.forEach(k => urlObj.searchParams.delete(k));
@@ -971,7 +986,7 @@ function logError(error, context = {}) {
             ...context,
             originalStack: error.stack
         });
-        console.error(`[URL-Filter-v40.61]`, executionError);
+        console.error(`[URL-Filter-v40.62]`, executionError);
     }
 }
 
@@ -981,6 +996,7 @@ function processRequest(request) {
     if (!request?.url || typeof request.url !== 'string' || request.url.length < 10) return null;
 
     const rawUrl = request.url;
+    
     let url;
     try {
         url = multiLevelCache.getUrlObject(rawUrl);
@@ -1003,7 +1019,7 @@ function processRequest(request) {
     if (hardWhitelistDetails.matched) {
         optimizedStats.increment('hardWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.61][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.62][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
         }
         return null;
     }
@@ -1012,7 +1028,7 @@ function processRequest(request) {
     if (softWhitelistDetails.matched) {
         optimizedStats.increment('softWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.61][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.62][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
         }
         const cleanedUrl = cleanTrackingParams(url);
         if (cleanedUrl) {
@@ -1038,7 +1054,7 @@ function processRequest(request) {
             for (const exemption of exemptions) {
                 if (currentPath.startsWith(exemption)) {
                     if (CONFIG.DEBUG_MODE) {
-                        console.log(`[URL-Filter-v40.61][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
+                        console.log(`[URL-Filter-v40.62][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
                     }
                     isExempted = true;
                     break;
@@ -1102,7 +1118,7 @@ function processRequest(request) {
     
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.61', status: 'ready', message: 'URL Filter v40.61 - 規則庫全面審查與擴充', stats: optimizedStats.getStats() });
+        $done({ version: '40.62', status: 'ready', message: 'URL Filter v40.62 - 二次深度審查與規則擴充', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -1112,7 +1128,7 @@ function processRequest(request) {
     if (CONFIG.DEBUG_MODE) {
       const endTime = __now__();
       const executionTime = (endTime - startTime).toFixed(3);
-      console.log(`[URL-Filter-v40.61][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
+      console.log(`[URL-Filter-v40.62][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
     }
 
     if (typeof $done !== 'undefined') {
