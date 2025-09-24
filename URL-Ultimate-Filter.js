@@ -499,7 +499,7 @@ const CONFIG = {
    * ✅ [V40.6 安全強化, V40.65 恢復] 路徑白名單 - 區段 (Path Allowlist - Segments)
    */
   PATH_ALLOW_SEGMENTS: new Set([
-    'admin', 'api', 'blog', 'catalog', 'dashboard', 'dialog', 'login',
+    'admin', 'api', 'blog', 'catalog', 'dashboard', 'dialog', 'login', 'collections',
   ]),
 
   /**
