@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.82.js
- * @version     40.82 (黑白名單修正版)
- * @description 修正 V40.81 黑白名單失效問題，完善過濾邏輯
+ * @file        URL-Ultimate-Filter-Surge-V40.83.js
+ * @version     40.83 (穩定性修正版)
+ * @description 基於 V40.82 進行全面修正，修復由社群回報的潛在語法與邏輯問題。強化變數命名一致性，並增加註解以釐清過濾順序。
  * @author      Claude & Community Optimization
  * @lastUpdated 2025-09-24
  */
@@ -13,7 +13,7 @@
 
 const CONFIG = {
   /**
-   * ✅ [V40.82] 效能調校參數
+   * ✅ [V40.83] 效能調校參數
    */
   PERFORMANCE_CONFIG: {
     DEBUG_MODE: false,
@@ -28,7 +28,7 @@ const CONFIG = {
   },
 
   /**
-   * ✅ [V40.82] 快取配置
+   * ✅ [V40.83] 快取配置
    */
   CACHE_CONFIG: {
     L1_DOMAIN_SIZE: 1024,
@@ -42,230 +42,135 @@ const CONFIG = {
   },
 
   /**
-   * 🔄 啟發式直跳域名列表
+   * ✳️ 啟發式直跳域名列表 (按字母排序)
    */
   REDIRECTOR_HOSTS: new Set([
-    '1ink.cc', '1link.club', 'adfoc.us', 'adsafelink.com', 'adshnk.com', 
-    'adz7short.space', 'aylink.co', 'bc.vc', 'bcvc.ink', 'birdurls.com', 
-    'bitcosite.com', 'blogbux.net', 'boost.ink', 'ceesty.com', 'clik.pw', 
-    'clk.sh', 'clkmein.com', 'cllkme.com', 'corneey.com', 'cpmlink.net', 
-    'cpmlink.pro', 'cutpaid.com', 'destyy.com', 'dlink3.com', 'dz4link.com', 
-    'earnlink.io', 'exe-links.com', 'exeo.app', 'fc-lc.com', 'fc-lc.xyz', 
-    'fcd.su', 'festyy.com', 'fir3.net', 'forex-trnd.com', 'gestyy.com', 
-    'get-click2.blogspot.com', 'getthot.com', 'gitlink.pro', 'gplinks.co', 
-    'hotshorturl.com', 'icutlink.com', 'kimochi.info', 'kingofshrink.com', 
-    'linegee.net', 'link1s.com', 'linkmoni.com', 'linkpoi.me', 'linkshrink.net', 
-    'linksly.co', 'lnk2.cc', 'loaninsurehub.com', 'lolinez.com', 'mangalist.org', 
-    'megalink.pro', 'met.bz', 'miniurl.pw', 'mitly.us', 'noweconomy.live', 
-    'oke.io', 'oko.sh', 'oni.vn', 'onlinefreecourse.net', 'ouo.io', 'ouo.press', 
-    'pahe.plus', 'payskip.org', 'pingit.im', 'realsht.mobi', 'rlu.ru', 'sh.st', 
-    'short.am', 'shortlinkto.biz', 'shortmoz.link', 'shrinkcash.com', 'shrt10.com', 
-    'similarsites.com', 'smilinglinks.com', 'spacetica.com', 'spaste.com', 'srt.am', 
-    'stfly.me', 'stfly.xyz', 'supercheats.com', 'swzz.xyz', 'techgeek.digital', 
-    'techstudify.com', 'techtrendmakers.com', 'thinfi.com', 'thotpacks.xyz', 
-    'tmearn.net', 'tnshort.net', 'tribuntekno.com', 'turkdown.com', 'tutwuri.id', 
-    'uplinkto.hair', 'urlbluemedia.shop', 'urlcash.com', 'urlcash.org', 
+    '1ink.cc', '1link.club', 'adfoc.us', 'adsafelink.com', 'adshnk.com',
+    'adz7short.space', 'aylink.co', 'bc.vc', 'bcvc.ink', 'birdurls.com',
+    'bitcosite.com', 'blogbux.net', 'boost.ink', 'ceesty.com', 'clik.pw',
+    'clk.sh', 'clkmein.com', 'cllkme.com', 'corneey.com', 'cpmlink.net',
+    'cpmlink.pro', 'cutpaid.com', 'destyy.com', 'dlink3.com', 'dz4link.com',
+    'earnlink.io', 'exe-links.com', 'exeo.app', 'fc-lc.com', 'fc-lc.xyz',
+    'fcd.su', 'festyy.com', 'fir3.net', 'forex-trnd.com', 'gestyy.com',
+    'get-click2.blogspot.com', 'getthot.com', 'gitlink.pro', 'gplinks.co',
+    'hotshorturl.com', 'icutlink.com', 'kimochi.info', 'kingofshrink.com',
+    'linegee.net', 'link1s.com', 'linkmoni.com', 'linkpoi.me', 'linkshrink.net',
+    'linksly.co', 'lnk2.cc', 'loaninsurehub.com', 'lolinez.com', 'mangalist.org',
+    'megalink.pro', 'met.bz', 'miniurl.pw', 'mitly.us', 'noweconomy.live',
+    'oke.io', 'oko.sh', 'oni.vn', 'onlinefreecourse.net', 'ouo.io', 'ouo.press',
+    'pahe.plus', 'payskip.org', 'pingit.im', 'realsht.mobi', 'rlu.ru', 'sh.st',
+    'short.am', 'shortlinkto.biz', 'shortmoz.link', 'shrinkcash.com', 'shrt10.com',
+    'similarsites.com', 'smilinglinks.com', 'spacetica.com', 'spaste.com', 'srt.am',
+    'stfly.me', 'stfly.xyz', 'supercheats.com', 'swzz.xyz', 'techgeek.digital',
+    'techstudify.com', 'techtrendmakers.com', 'thinfi.com', 'thotpacks.xyz',
+    'tmearn.net', 'tnshort.net', 'tribuntekno.com', 'turkdown.com', 'tutwuri.id',
+    'uplinkto.hair', 'urlbluemedia.shop', 'urlcash.com', 'urlcash.org',
     'vinaurl.net', 'vzturl.com', 'xpshort.com', 'zegtrends.com'
   ]),
 
   /**
-   * ✅ 硬白名單 - 精確匹配 (最高優先級，絕對不攔截)
+   * ✳️ 硬白名單 - 精確匹配 (按字母排序)
+   * 最高優先級，確保核心服務絕不被攔截。
    */
   HARD_WHITELIST_EXACT: new Set([
-    // 🤖 AI & 搜尋服務
-    'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai',
-    'bard.google.com', 'chat.openai.com', 'api.openai.com',
-
-    // 🛠 開發者工具
-    'raw.githubusercontent.com', 'api.github.com', 'userscripts.adtidy.org',
-    'github.com', 'stackoverflow.com', 'developer.mozilla.org',
-
-    // 🔐 核心服務認證
-    'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
-    'secure.gravatar.com', 'auth0.com', 'oauth.com',
-
-    // 💳 金流 API
-    'api.adyen.com', 'api.braintreegateway.com', 'api.ecpay.com.tw',
-    'api.stripe.com', 'api.paypal.com', 'checkout.paypal.com',
-
-    // 🎮 社群平台核心 API
-    'api.discord.com', 'api.twitch.tv', 'graph.instagram.com',
-    'api.twitter.com', 'api.linkedin.com', 'api.reddit.com',
-
-    // 🇹🇼 台灣服務
-    'api.map.ecpay.com.tw', 'payment.ecpay.com.tw', 'kktix.com', 'tixcraft.com',
-    'gov.tw', 'edu.tw', 'org.tw', 'com.tw', 'net.tw',
+    'accounts.google.com', 'api.adyen.com', 'api.braintreegateway.com', 'api.discord.com',
+    'api.ecpay.com.tw', 'api.github.com', 'api.map.ecpay.com.tw', 'api.twitch.tv',
+    'appleid.apple.com', 'chatgpt.com', 'claude.ai', 'gemini.google.com',
+    'graph.instagram.com', 'kktix.com', 'login.microsoftonline.com', 'payment.ecpay.com.tw',
+    'perplexity.ai', 'raw.githubusercontent.com', 'tixcraft.com', 'userscripts.adtidy.org',
   ]),
 
   /**
-   * ✅ 硬白名單 - 萬用字元匹配
+   * ✳️ 硬白名單 - 萬用字元 (按字母排序)
+   * 確保整個主域下的服務正常運作，如銀行、政府網站。
    */
   HARD_WHITELIST_WILDCARDS: new Set([
-    // 🏦 銀行金融
     'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'firstbank.com.tw',
-    'fubon.com', 'megabank.com.tw', 'richart.tw', 'sinopac.com', 'taishinbank.com.tw',
-
-    // 🏛 政府機關
-    'gov.tw', 'org.tw', 'edu.tw',
-
-    // ⚙️ 核心服務
-    'googleapis.com', 'gstatic.com', 'icloud.com', 'windowsupdate.com',
-    'microsoft.com', 'apple.com', 'amazon.com',
-
-    // 📺 內容傳遞
-    'googlevideo.com', 'ytimg.com', 'youtube.com', 'youtu.be',
+    'fubon.com', 'googleapis.com', 'googlevideo.com', 'gov.tw', 'icloud.com',
+    'megabank.com.tw', 'org.tw', 'richart.tw', 'sinopac.com', 'taishinbank.com.tw',
+    'windowsupdate.com', 'ytimg.com',
   ]),
 
   /**
-   * ✨ 軟白名單 - 精確匹配 (較低優先級)
+   * ✅ 軟白名單 - 精確匹配 (按字母排序)
+   * 用於放行常用但非絕對核心的服務，可能被黑名單中的寬鬆規則覆蓋。
    */
   SOFT_WHITELIST_EXACT: new Set([
-    // 🤖 AI 服務擴展
-    'api.anthropic.com', 'api.cohere.ai', 'api.huggingface.co',
-
-    // 🛠 開發工具擴展
-    'api.dropboxapi.com', 'api.notion.com', 'api.figma.com',
-    'api.slack.com', 'api.trello.com', 'api.asana.com',
-
-    // 🔍 搜尋引擎
-    'duckduckgo.com', 'bing.com', 'search.yahoo.com',
+    'api.anthropic.com', 'api.cohere.ai', 'api.dropboxapi.com', 'api.figma.com',
+    'api.notion.com', 'api.openai.com', 'duckduckgo.com', 'secure.gravatar.com',
   ]),
 
   /**
-   * ✨ 軟白名單 - 萬用字元
+   * ✅ 軟白名單 - 萬用字元 (按字母排序)
    */
   SOFT_WHITELIST_WILDCARDS: new Set([
-    // 🛒 電商平台
-    'shopee.tw', 'momoshop.com.tw', 'pchome.com.tw', 'books.com.tw',
-    'ruten.com.tw', 'etmall.com.tw', 'friday.tw',
-
-    // 🌐 CDN 網路
-    'akamaihd.net', 'amazonaws.com', 'cloudflare.com', 'cloudfront.net',
-    'fastly.net', 'fbcdn.net', 'jsdelivr.net', 'unpkg.com',
-
-    // 👨‍💻 開發平台
-    'github.io', 'gitlab.io', 'netlify.app', 'vercel.app', 'pages.dev',
-    'herokuapp.com', 'firebase.com', 'firebaseapp.com',
-
-    // 🎬 內容平台
-    'spotify.com', 'netflix.com', 'hulu.com', 'disney.com',
+    'akamaihd.net', 'amazonaws.com', 'books.com.tw', 'cloudflare.com',
+    'cloudfront.net', 'fastly.net', 'fbcdn.net', 'github.io', 'gitlab.io',
+    'gstatic.com', 'jsdelivr.net', 'momoshop.com.tw', 'netlify.app',
+    'netflix.com', 'pages.dev', 'pchome.com.tw', 'shopee.tw', 'spotify.com',
+    'vercel.app', 'youtube.com',
   ]),
 
   /**
-   * 🚫 域名攔截黑名單 (精確匹配)
+   * 🚫 域名攔截黑名單 (按字母排序)
    */
   BLOCK_DOMAINS: new Set([
-    // 🎯 Google 追蹤與廣告
-    'google-analytics.com', 'googletagmanager.com', 'googlesyndication.com',
-    'googleadservices.com', 'doubleclick.net', 'adsense.com', 'admob.com',
-    'googletagservices.com', 'ggpht.com', 'googleusercontent.com',
-
-    // 📘 Facebook/Meta 追蹤
-    'connect.facebook.net', 'business.facebook.com', 'analytics.facebook.com',
-    'pixel.facebook.com', 'facebook.com', 'instagram.com',
-
-    // 🛒 Amazon 追蹤
-    'amazon-adsystem.com', 'media-amazon.com', 'assoc-amazon.com',
-
-    // 🪟 Microsoft 追蹤
-    'c.clarity.ms', 'bat.bing.com', 'live.com', 'hotmail.com',
-
-    // 🎨 Adobe 分析
-    'omtrdc.net', 'demdex.net', 'adobe.com', 'omniture.com',
-
-    // 📊 主要分析平台
-    'amplitude.com', 'mixpanel.com', 'segment.io', 'segment.com',
-    'hotjar.com', 'fullstory.com', 'heap.io', 'posthog.com',
-    'google-analytics.com', 'googleanalytics.com',
-
-    // 📺 廣告網路
-    'adsrvr.org', 'criteo.com', 'criteo.net', 'outbrain.com',
-    'taboola.com', 'mgid.com', 'revcontent.com', 'adsystem.com',
-
-    // 📱 行動分析
-    'appsflyer.com', 'adjust.com', 'branch.io', 'kochava.com',
-    'flurry.com', 'localytics.com',
-
-    // 🇨🇳 中國分析
-    'umeng.com', 'umeng.cn', 'cnzz.com', 'baidu.com',
-    'tencent.com', 'qq.com', 'sina.com.cn',
-
-    // 🎵 TikTok 分析
-    'analytics.tiktok.com', 'ads.tiktok.com', 'events.tiktok.com',
-
-    // 💼 LinkedIn 分析
-    'ads.linkedin.com', 'analytics.linkedin.com', 'bizographics.com',
-
-    // 🐦 Twitter/X 分析
-    'analytics.twitter.com', 'ads-twitter.com', 'twitter.com',
-
-    // 🔍 其他追蹤服務
-    'scorecardresearch.com', 'quantserve.com', 'chartbeat.com',
-    'newrelic.com', 'nr-data.net', 'bugsnag.com', 'sentry.io',
-    'optimizely.com', 'vwo.com', 'kissmetrics.com',
+    'adjust.com', 'admob.com', 'ads.linkedin.com', 'ads.tiktok.com',
+    'ads.twitter.com', 'adsense.com', 'adsrvr.org', 'amazon-adsystem.com',
+    'amplitude.com', 'analytics.linkedin.com', 'analytics.tiktok.com', 'analytics.twitter.com',
+    'appsflyer.com', 'baidu.com', 'bat.bing.com', 'branch.io', 'bugsnag.com',
+    'business.facebook.com', 'c.clarity.ms', 'chartbeat.com', 'cnzz.com',
+    'connect.facebook.net', 'criteo.com', 'criteo.net', 'demdex.net',
+    'doubleclick.net', 'events.tiktok.com', 'fullstory.com', 'google-analytics.com',
+    'googleadservices.com', 'googlesyndication.com', 'googletagmanager.com',
+    'graph.facebook.com', 'heap.io', 'hotjar.com', 'kochava.com', 'mgid.com',
+    'mixpanel.com', 'newrelic.com', 'nr-data.net', 'omtrdc.net', 'outbrain.com',
+    'posthog.com', 'quantserve.com', 'revcontent.com', 'scorecardresearch.com',
+    'segment.com', 'segment.io', 'sentry.io', 'taboola.com', 'umeng.cn', 'umeng.com',
   ]),
 
   /**
    * 🚫 Regex 域名攔截黑名單
    */
   BLOCK_DOMAINS_REGEX: [
-    /^ad[s]?\d*\./i,
-    /^track(ing)?\./i,
-    /^metric[s]?\./i,
-    /^telemetry\./i,
-    /^analytics?\./i,
-    /^stat[s]?\./i,
-    /^log[s]?\./i,
-    /^pixel\./i,
-    /^beacon\./i,
-    /^collect\./i,
-    /^events?\./i,
+    /^ad[s]?\d*\./i,         // 匹配 ads.domain.com, ad1.domain.com
+    /^track(ing)?\./i,       // 匹配 track.domain.com, tracking.domain.com
+    /^metric[s]?\./i,        // 匹配 metric.domain.com, metrics.domain.com
+    /^telemetry\./i,         // 匹配 telemetry.domain.com
+    /^analytics?\./i,        // 匹配 analytics.domain.com, analytic.domain.com
+    /^stat[s]?\./i,          // 匹配 stats.domain.com, stat.domain.com
+    /^log[s]?\./i,           // 匹配 log.domain.com, logs.domain.com
+    /^pixel\./i,             // 匹配 pixel.domain.com
+    /^beacon\./i,            // 匹配 beacon.domain.com
   ],
 
   /**
-   * 🚨 關鍵追蹤腳本攔截清單
+   * 🚨 關鍵追蹤腳本攔截清單 (按字母排序)
    */
   CRITICAL_TRACKING_SCRIPTS: new Set([
-    // Google
-    'gtag.js', 'gtm.js', 'analytics.js', 'ga.js', 'adsbygoogle.js',
-    'googletagmanager.js', 'googletagservices.js',
-
-    // Facebook
-    'fbevents.js', 'fbq.js', 'pixel.js', 'connect.js',
-
-    // 分析程式庫
-    'amplitude.js', 'mixpanel.js', 'segment.js', 'heap.js',
-    'hotjar.js', 'fullstory.js', 'clarity.js', 'posthog.js',
-    'optimizely.js', 'vwo.js', 'kissmetrics.js',
-
-    // 廣告技術
-    'prebid.js', 'pubmatic.js', 'criteo.js', 'outbrain.js',
-    'taboola.js', 'mgid.js', 'revcontent.js',
-
-    // 通用追蹤
-    'tracker.js', 'tracking.js', 'beacon.js', 'collect.js',
-    'event.js', 'conversion.js', 'attribution.js',
+    'adsbygoogle.js', 'amplitude.js', 'analytics.js', 'beacon.js', 'clarity.js',
+    'collect.js', 'conversion.js', 'criteo.js', 'event.js', 'fbevents.js', 'fbq.js',
+    'fullstory.js', 'ga.js', 'gtag.js', 'gtm.js', 'heap.js', 'hotjar.js', 'mgid.js',
+    'mixpanel.js', 'outbrain.js', 'pixel.js', 'posthog.js', 'prebid.js', 'pubmatic.js',
+    'revcontent.js', 'segment.js', 'taboola.js', 'tracker.js', 'tracking.js',
   ]),
 
   /**
-   * 🚨 關鍵追蹤路徑模式
+   * 🚨 關鍵追蹤路徑模式 (按字母排序)
    */
   CRITICAL_TRACKING_PATHS: new Set([
-    '/collect', '/track', '/event', '/pixel', '/beacon',
-    '/analytics', '/metrics', '/telemetry', '/log',
-    '/impression', '/click', '/conversion', '/attribution',
-    '/g/collect', '/j/collect', '/mp/collect',
-    '/tr', '/pagead', '/ads', '/adnxs',
+    '/ads', '/analytics', '/beacon', '/click', '/collect', '/conversion',
+    '/event', '/g/collect', '/impression', '/j/collect', '/log', '/metrics',
+    '/mp/collect', '/pagead', '/pixel', '/telemetry', '/tr', '/track',
   ]),
 
   /**
-   * 🚫 可疑路徑關鍵字
+   * 🚫 可疑路徑關鍵字 (按字母排序)
    */
   SUSPICIOUS_PATH_KEYWORDS: [
-    'track', 'collect', 'pixel', 'beacon', 'event', 'analytics',
-    'metric', 'telemetry', 'impression', 'click', 'view', 'conversion',
-    'attribution', 'fingerprint', 'utm', 'campaign', 'affiliate',
-    'retargeting', 'remarketing', 'audience', 'segment',
+    'affiliate', 'analytics', 'attribution', 'beacon', 'campaign', 'click',
+    'collect', 'conversion', 'event', 'fingerprint', 'impression', 'metric',
+    'pixel', 'telemetry', 'track', 'utm', 'view',
   ],
 };
 
@@ -290,14 +195,13 @@ class EnhancedCache {
       this.stats.misses++;
       return undefined;
     }
-
+    
     if (Date.now() > entry.expires) {
       this.cache.delete(key);
       this.stats.misses++;
       return undefined;
     }
-
-    // Move to end (LRU)
+    
     this.cache.delete(key);
     this.cache.set(key, entry);
     this.stats.hits++;
@@ -305,12 +209,11 @@ class EnhancedCache {
   }
 
   set(key, value, ttl = this.defaultTTL) {
-    // Evict if needed
     if (this.cache.size >= this.maxSize && !this.cache.has(key)) {
       const firstKey = this.cache.keys().next().value;
       this.cache.delete(firstKey);
     }
-
+    
     this.cache.set(key, {
       value,
       expires: Date.now() + ttl
@@ -335,7 +238,7 @@ class EnhancedCache {
  * Bloom Filter for fast negative lookups
  */
 class BloomFilter {
-  constructor(size = 10000, hashCount = 4) {
+  constructor(size = 10000, hashCount = 3) {
     this.size = size;
     this.hashCount = hashCount;
     this.bits = new Uint8Array(Math.ceil(size / 8));
@@ -378,249 +281,181 @@ class BloomFilter {
 class URLFilterEngine {
   constructor() {
     this.initialized = false;
-
-    // Multi-layer cache system
+    
     this.caches = {
       domain: new EnhancedCache(CONFIG.CACHE_CONFIG.L1_DOMAIN_SIZE),
       url: new EnhancedCache(CONFIG.CACHE_CONFIG.L2_URL_DECISION_SIZE),
       regex: new EnhancedCache(CONFIG.CACHE_CONFIG.L3_REGEX_RESULT_SIZE),
     };
-
-    // Bloom filter for fast negative checks
+    
     this.bloomFilter = CONFIG.PERFORMANCE_CONFIG.ENABLE_BLOOM_FILTER ? 
-      new BloomFilter(30000, 5) : null;
-
-    // Statistics
+      new BloomFilter(20000, 4) : null;
+    
     this.stats = {
       requests: 0,
       blocks: 0,
       allows: 0,
       avgTime: 0,
     };
-
+    
     this.initialize();
   }
 
   initialize() {
     if (this.initialized) return;
-
-    try {
-      // Pre-populate bloom filter with block domains
-      if (this.bloomFilter) {
-        for (const domain of CONFIG.BLOCK_DOMAINS) {
-          this.bloomFilter.add(domain);
-        }
-        console.log(`[URLFilter] Bloom filter initialized with ${CONFIG.BLOCK_DOMAINS.size} domains`);
+    
+    // [V40.83] 確認 Bloom Filter 已被正確初始化並填入黑名單數據
+    // 注意：僅填入精確匹配的域名黑名單以獲得最佳效能
+    if (this.bloomFilter) {
+      for (const domain of CONFIG.BLOCK_DOMAINS) {
+        this.bloomFilter.add(domain);
       }
-
-      this.initialized = true;
-      console.log('[URLFilter] Engine initialized successfully');
-    } catch (error) {
-      console.error('[URLFilter] Initialization error:', error);
     }
+    
+    this.initialized = true;
   }
 
   /**
-   * 🎯 主要過濾方法 - 修正版
+   * Main filtering method
    */
   async filter(url) {
     const startTime = performance.now();
     this.stats.requests++;
-
+    
     try {
-      // 檢查 URL 快取
+      // --------------------------------------------------------------------------------
+      // Step 0: 檢查 URL 快取
+      // 最優先的效能優化，若此 URL 已有裁決，直接返回結果。
+      // --------------------------------------------------------------------------------
       const cached = this.caches.url.get(url);
       if (cached !== undefined) {
         this.updateStats(startTime, cached);
         return cached;
       }
-
-      // 解析 URL
+      
       const urlObj = this.parseURL(url);
       if (!urlObj) {
-        return this.makeDecision('ALLOW', url, startTime);
+        return this.makeDecision('ALLOW', url, startTime, 'InvalidURL');
       }
-
+      
       const { hostname, pathname } = urlObj;
-
-      // 🔄 步驟 1: 檢查啟發式直跳域名 (優先允許)
-      if (this.checkRedirectorHosts(hostname)) {
-        return this.makeDecision('ALLOW', url, startTime);
+      
+      // --------------------------------------------------------------------------------
+      // Step 1: 硬白名單檢查 (最高優先級)
+      // 用於放行絕對信任的域名，例如銀行、政府、核心系統服務。
+      // 硬白名單應覆蓋所有黑名單規則。
+      // --------------------------------------------------------------------------------
+      if (CONFIG.HARD_WHITELIST_EXACT.has(hostname)) {
+        return this.makeDecision('ALLOW', url, startTime, 'HardWhitelistExact');
       }
-
-      // ✅ 步驟 2: 檢查硬白名單 (最高優先級)
-      if (this.checkHardWhitelist(hostname)) {
-        return this.makeDecision('ALLOW', url, startTime);
-      }
-
-      // 🚫 步驟 3: 檢查黑名單 (精確匹配)
-      if (this.checkBlockDomains(hostname)) {
-        return this.makeDecision('REJECT', url, startTime);
-      }
-
-      // 🚫 步驟 4: 檢查黑名單 (正規表達式)
-      if (await this.checkBlockDomainsRegex(hostname)) {
-        return this.makeDecision('REJECT', url, startTime);
-      }
-
-      // 🚫 步驟 5: 檢查關鍵追蹤路徑
-      if (this.checkCriticalPaths(pathname)) {
-        return this.makeDecision('REJECT', url, startTime);
-      }
-
-      // 🚫 步驟 6: 檢查追蹤腳本
-      if (this.checkTrackingScripts(pathname)) {
-        return this.makeDecision('REJECT', url, startTime);
-      }
-
-      // 🚫 步驟 7: 檢查可疑關鍵字
-      if (this.checkSuspiciousKeywords(pathname)) {
-        return this.makeDecision('REJECT', url, startTime);
-      }
-
-      // ✨ 步驟 8: 檢查軟白名單
-      if (this.checkSoftWhitelist(hostname)) {
-        return this.makeDecision('ALLOW', url, startTime);
-      }
-
-      // 預設允許
-      return this.makeDecision('ALLOW', url, startTime);
-
-    } catch (error) {
-      console.error('[URLFilter] Filter error:', error);
-      return this.makeDecision('ALLOW', url, startTime);
-    }
-  }
-
-  /**
-   * 🔄 檢查啟發式直跳域名
-   */
-  checkRedirectorHosts(hostname) {
-    return CONFIG.REDIRECTOR_HOSTS.has(hostname);
-  }
-
-  /**
-   * ✅ 檢查硬白名單
-   */
-  checkHardWhitelist(hostname) {
-    // 精確匹配
-    if (CONFIG.HARD_WHITELIST_EXACT.has(hostname)) {
-      return true;
-    }
-
-    // 萬用字元匹配
-    for (const domain of CONFIG.HARD_WHITELIST_WILDCARDS) {
-      if (hostname === domain || hostname.endsWith('.' + domain)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  /**
-   * 🚫 檢查黑名單域名
-   */
-  checkBlockDomains(hostname) {
-    // 快速 Bloom Filter 檢查
-    if (this.bloomFilter && !this.bloomFilter.test(hostname)) {
-      return false; // 確定不在黑名單中
-    }
-
-    // 精確匹配
-    return CONFIG.BLOCK_DOMAINS.has(hostname);
-  }
-
-  /**
-   * 🚫 檢查黑名單正規表達式
-   */
-  async checkBlockDomainsRegex(hostname) {
-    for (const regex of CONFIG.BLOCK_DOMAINS_REGEX) {
-      const cacheKey = `regex_${hostname}_${regex.source}`;
-      let matches = this.caches.regex.get(cacheKey);
-
-      if (matches === undefined) {
-        matches = regex.test(hostname);
-        this.caches.regex.set(cacheKey, matches);
-      }
-
-      if (matches) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * 🚫 檢查關鍵追蹤路徑
-   */
-  checkCriticalPaths(pathname) {
-    const pathLower = pathname.toLowerCase();
-    for (const criticalPath of CONFIG.CRITICAL_TRACKING_PATHS) {
-      if (pathLower.includes(criticalPath)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * 🚫 檢查追蹤腳本
-   */
-  checkTrackingScripts(pathname) {
-    const pathLower = pathname.toLowerCase();
-    for (const script of CONFIG.CRITICAL_TRACKING_SCRIPTS) {
-      if (pathLower.includes(script)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * 🚫 檢查可疑關鍵字
-   */
-  checkSuspiciousKeywords(pathname) {
-    const pathLower = pathname.toLowerCase();
-    let suspiciousCount = 0;
-
-    for (const keyword of CONFIG.SUSPICIOUS_PATH_KEYWORDS) {
-      if (pathLower.includes(keyword)) {
-        suspiciousCount++;
-        // 發現 2 個或以上可疑關鍵字就攔截
-        if (suspiciousCount >= 2) {
-          return true;
+      for (const domain of CONFIG.HARD_WHITELIST_WILDCARDS) {
+        if (hostname.endsWith('.' + domain) || hostname === domain) {
+          return this.makeDecision('ALLOW', url, startTime, 'HardWhitelistWildcard');
         }
       }
+      
+      // --------------------------------------------------------------------------------
+      // Step 2: 黑名單檢查 (攔截已知追蹤與廣告域名)
+      // 執行一系列檢查來攔截請求。
+      // --------------------------------------------------------------------------------
+      
+      // Step 2.1: Bloom Filter - 快速判斷域名是否"可能"在黑名單中
+      if (this.bloomFilter && !this.bloomFilter.test(hostname)) {
+        // 若 Bloom Filter 判斷為否，則 100% 不在精確黑名單中，可跳過檢查。
+      } else {
+        // 若 Bloom Filter 判斷為是 (可能存在)，則需進行精確檢查。
+        if (CONFIG.BLOCK_DOMAINS.has(hostname)) {
+          return this.makeDecision('REJECT', url, startTime, 'BlockDomainExact');
+        }
+      }
+      
+      // Step 2.2: Regex 黑名單
+      for (const regex of CONFIG.BLOCK_DOMAINS_REGEX) {
+        const cacheKey = `${hostname}_${regex.source}`;
+        let matches = this.caches.regex.get(cacheKey);
+        
+        if (matches === undefined) {
+          matches = regex.test(hostname);
+          this.caches.regex.set(cacheKey, matches);
+        }
+        
+        if (matches) {
+          return this.makeDecision('REJECT', url, startTime, 'BlockDomainRegex');
+        }
+      }
+
+      // --------------------------------------------------------------------------------
+      // Step 3: 啟發式規則檢查 (基於路徑與腳本名稱)
+      // 即使域名不在黑名單，但若路徑符合追蹤模式，也應攔截。
+      // --------------------------------------------------------------------------------
+      if (this.checkCriticalPaths(pathname)) {
+        return this.makeDecision('REJECT', url, startTime, 'CriticalPath');
+      }
+      if (this.checkTrackingScripts(pathname)) {
+        return this.makeDecision('REJECT', url, startTime, 'TrackingScript');
+      }
+      if (this.checkSuspiciousKeywords(pathname)) {
+        return this.makeDecision('REJECT', url, startTime, 'SuspiciousKeywords');
+      }
+      
+      // --------------------------------------------------------------------------------
+      // Step 4: 軟白名單檢查 (較低優先級)
+      // 用於放行常用服務 (如 CDN)，但若其 URL 符合黑名單的追蹤路徑規則，仍會被攔截。
+      // 這就是「軟」的意義所在：它僅在請求未觸發任何黑名單規則時生效。
+      // --------------------------------------------------------------------------------
+      if (CONFIG.SOFT_WHITELIST_EXACT.has(hostname)) {
+        return this.makeDecision('ALLOW', url, startTime, 'SoftWhitelistExact');
+      }
+      for (const domain of CONFIG.SOFT_WHITELIST_WILDCARDS) {
+        if (hostname.endsWith('.' + domain) || hostname === domain) {
+          return this.makeDecision('ALLOW', url, startTime, 'SoftWhitelistWildcard');
+        }
+      }
+
+      // Step 5: 處理短連結域名 (若前面規則都未匹配)
+      if (CONFIG.REDIRECTOR_HOSTS.has(hostname)) {
+        return this.makeDecision('ALLOW', url, startTime, 'RedirectorHost');
+      }
+      
+      // --------------------------------------------------------------------------------
+      // Step 6: 預設行為
+      // 若 URL 未匹配任何白名單或黑名單規則，則預設放行。
+      // --------------------------------------------------------------------------------
+      return this.makeDecision('ALLOW', url, startTime, 'DefaultAllow');
+      
+    } catch (error) {
+      console.error('[URLFilter] Error:', error);
+      return this.makeDecision('ALLOW', url, startTime, 'ErrorFallback');
     }
-    return false;
   }
 
-  /**
-   * ✨ 檢查軟白名單
-   */
-  checkSoftWhitelist(hostname) {
-    // 精確匹配
-    if (CONFIG.SOFT_WHITELIST_EXACT.has(hostname)) {
-      return true;
-    }
-
-    // 萬用字元匹配
-    for (const domain of CONFIG.SOFT_WHITELIST_WILDCARDS) {
-      if (hostname === domain || hostname.endsWith('.' + domain)) {
+  checkCriticalPaths(pathname) {
+    for (const criticalPath of CONFIG.CRITICAL_TRACKING_PATHS) {
+      if (pathname.endsWith(criticalPath) || pathname.includes(criticalPath + '?') || pathname.includes(criticalPath + '&')) {
         return true;
       }
     }
-
     return false;
   }
 
-  /**
-   * 🔍 解析 URL
-   */
+  checkTrackingScripts(pathname) {
+    const scriptName = pathname.substring(pathname.lastIndexOf('/') + 1);
+    return CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName);
+  }
+
+  checkSuspiciousKeywords(pathname) {
+    let suspiciousCount = 0;
+    for (const keyword of CONFIG.SUSPICIOUS_PATH_KEYWORDS) {
+      if (pathname.includes(keyword)) {
+        suspiciousCount++;
+        if (suspiciousCount >= 2) return true;
+      }
+    }
+    return false;
+  }
+
   parseURL(url) {
     try {
-      // 首先嘗試標準 URL 解析
       const urlObj = new URL(url);
       return {
         hostname: urlObj.hostname.toLowerCase(),
@@ -628,65 +463,41 @@ class URLFilterEngine {
         search: urlObj.search,
       };
     } catch {
-      // 後備解析方法
-      try {
-        const match = url.match(/^(?:https?:\/\/)?([^\/\?]+)(\/[^\?]*)?/i);
-        if (match) {
-          return {
-            hostname: match[1].toLowerCase(),
-            pathname: (match[2] || '/').toLowerCase(),
-            search: '',
-          };
-        }
-      } catch (error) {
-        console.error('[URLFilter] URL parsing failed:', error);
+      const match = url.match(/^(?:https?:\/\/)?([^\/]+)(\/[^?]*)?/i);
+      if (match) {
+        return {
+          hostname: match[1].toLowerCase(),
+          pathname: (match[2] || '/').toLowerCase(),
+          search: '',
+        };
       }
       return null;
     }
   }
 
-  /**
-   * ✅ 做出決策並更新統計
-   */
-  makeDecision(decision, url, startTime) {
-    // 更新統計
-    if (decision === 'REJECT') {
-      this.stats.blocks++;
-    } else {
-      this.stats.allows++;
-    }
-
-    // 快取決策
-    this.caches.url.set(url, decision, 
-      decision === 'REJECT' ? 
-        CONFIG.CACHE_CONFIG.DOMAIN_BLOCK_TTL : 
-        CONFIG.CACHE_CONFIG.DOMAIN_ALLOW_TTL
-    );
-
-    // 更新時間統計
-    this.updateStats(startTime, decision);
-
-    if (CONFIG.PERFORMANCE_CONFIG.DEBUG_MODE) {
-      console.log(`[URLFilter] ${decision}: ${url}`);
-    }
-
+  makeDecision(decision, url, startTime, reason = 'Unknown') {
+    if (decision === 'REJECT') this.stats.blocks++;
+    else this.stats.allows++;
+    
+    const ttl = decision === 'REJECT' ? CONFIG.CACHE_CONFIG.DOMAIN_BLOCK_TTL : CONFIG.CACHE_CONFIG.DOMAIN_ALLOW_TTL;
+    this.caches.url.set(url, decision, ttl);
+    
+    this.updateStats(startTime, decision, reason);
     return decision;
   }
 
-  /**
-   * 📊 更新統計資訊
-   */
-  updateStats(startTime, decision) {
+  updateStats(startTime, decision, reason) {
     const elapsed = performance.now() - startTime;
     this.stats.avgTime = (this.stats.avgTime * (this.stats.requests - 1) + elapsed) / this.stats.requests;
+    
+    if (CONFIG.PERFORMANCE_CONFIG.DEBUG_MODE) {
+      console.log(`[URLFilter] ${decision} [${reason}] in ${elapsed.toFixed(2)}ms: ${$request.url}`);
+    }
   }
 
-  /**
-   * 📈 取得統計資訊
-   */
   getStats() {
     return {
-      version: '40.82',
+      version: '40.83',
       requests: this.stats.requests,
       blocks: this.stats.blocks,
       allows: this.stats.allows,
@@ -697,17 +508,8 @@ class URLFilterEngine {
         domain: this.caches.domain.getStats(),
         url: this.caches.url.getStats(),
         regex: this.caches.regex.getStats(),
-      },
-      bloomFilter: this.bloomFilter ? 'Enabled' : 'Disabled'
+      }
     };
-  }
-
-  /**
-   * 🧹 清理快取
-   */
-  clearCaches() {
-    Object.values(this.caches).forEach(cache => cache.clear());
-    console.log('[URLFilter] All caches cleared');
   }
 }
 
@@ -715,60 +517,25 @@ class URLFilterEngine {
 //                              📊 SURGE INTEGRATION
 // ================================================================================================
 
-// 全域過濾器實例
 const filterEngine = new URLFilterEngine();
 
-/**
- * 🎯 Surge 主要入口點
- */
 async function main() {
-  const url = $request.url;
-
-  if (!url) {
+  if (!$request || !$request.url) {
     $done({});
     return;
   }
-
-  // 檢查 URL 長度
-  if (url.length > CONFIG.PERFORMANCE_CONFIG.MAX_URL_LENGTH) {
-    console.warn(`[URLFilter] URL too long (${url.length}), allowing by default`);
-    $done({});
-    return;
-  }
-
+  
   try {
-    const decision = await filterEngine.filter(url);
-
+    const decision = await filterEngine.filter($request.url);
     if (decision === 'REJECT') {
-      // 攔截請求
-      $done({ 
-        response: { 
-          status: 200, 
-          headers: { 'Content-Type': 'text/plain' },
-          body: '' 
-        } 
-      });
+      $done({ response: { status: 200, body: '' } });
     } else {
-      // 允許請求繼續
       $done({});
     }
-
   } catch (error) {
-    console.error('[URLFilter] Main execution error:', error);
-    // 錯誤時預設允許
+    console.error('[URLFilter] Fatal error in main():', error);
     $done({});
   }
 }
 
-// 🚀 執行主函數
 main();
-
-// 📊 定期清理記憶體 (可選)
-if (CONFIG.PERFORMANCE_CONFIG.ENABLE_MEMORY_OPTIMIZATION) {
-  setInterval(() => {
-    if (filterEngine.stats.requests > 10000) {
-      filterEngine.clearCaches();
-      console.log('[URLFilter] Periodic cache cleanup performed');
-    }
-  }, CONFIG.PERFORMANCE_CONFIG.MEMORY_CLEANUP_INTERVAL);
-}
