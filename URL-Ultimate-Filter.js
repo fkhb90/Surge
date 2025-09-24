@@ -518,7 +518,7 @@ const CONFIG = {
     'amp-analytics', 'batch', 'beacon', 'client-event', 'collect', 'collect?', 'collector', 'crashlytics', 'csp-report',
     'data-pipeline', 'error-monitoring', 'error-report', 'heartbeat', 'ingest', 'intake', 'live-log', 'log-event',
     'logevents', 'loggly', 'log-hl', 'realtime-log', 'rum', 'server-event', 'telemetry', 'uploadmobiledata', 'web-beacon', 
-    'web-vitals', 'ucweb',
+    'web-vitals', 'agofld', 'ucweb',
     // --- 錯誤 & 診斷 (Error & Diagnostics) ---
     'crash-report', 'diagnostic.log', 'profiler', 'stacktrace', 'trace.json',
   ]),
