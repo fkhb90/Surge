@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.76.js
- * @version     40.76 (智慧快取 & 微觀優化)
- * @description 基於 V40.75 進行最終調校，引入快取預熱機制，並將部分高頻 Regex 替換為原生字串操作。
+ * @file        URL-Ultimate-Filter-Surge-V40.77.js
+ * @version     40.77 (規則微調)
+ * @description 基於 V40.76 進行規則微調，新增路徑區段白名單以修正 Feedly API 的誤攔截問題。
  * @note        此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-24
@@ -496,10 +496,10 @@ const CONFIG = {
   ]),
 
   /**
-   * ✅ [V40.6 安全強化, V40.65 恢復] 路徑白名單 - 區段 (Path Allowlist - Segments)
+   * ✅ [V40.6 安全強化, V40.77 修訂] 路徑白名單 - 區段 (Path Allowlist - Segments)
    */
   PATH_ALLOW_SEGMENTS: new Set([
-    'admin', 'api', 'blog', 'catalog', 'dashboard', 'dialog', 'login', 'collections',
+    'admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login', // [V40.77] 新增 Feedly API 豁免
   ]),
 
   /**
@@ -599,9 +599,9 @@ const CONFIG = {
     /^\/(?!_next\/static\/|static\/|assets\/|dist\/|build\/|public\/)[a-z0-9]{12,}\.js$/i,
     /[^\/]*sentry[^\/]*\.js/i,
     /\/v\d+\/event/i,
-    /\/collect$/i,
-    /\/api\/v\d+\/collect$/i,
+    // '/collect$/i' -> 已改為原生 .endsWith()
     // '/service\/collect$/i' -> 已改為原生 .endsWith()
+    /\/api\/v\d+\/collect$/i,
   ],
 
   /**
@@ -623,14 +623,14 @@ const CONFIG = {
 };
 // #################################################################################################
 // #                                                                                               #
-// #                      🚀 HYPER-OPTIMIZED CORE ENGINE (V40.76)                                  #
+// #                      🚀 HYPER-OPTIMIZED CORE ENGINE (V40.77)                                  #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.76'; // [V40.76] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.77'; // [V40.77] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1284,7 +1284,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.76 - Smart Cache & Final Optimizations', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.77 - Rule Fine-tuning', stats: optimizedStats.getStats() });
       }
       return;
     }
