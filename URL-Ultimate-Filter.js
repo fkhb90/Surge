@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.77.js
- * @version     40.77 (規則微調)
- * @description 基於 V40.76 進行規則微調，新增路徑區段白名單以修正 Feedly API 的誤攔截問題。
+ * @file        URL-Ultimate-Filter-Surge-V40.78.js
+ * @version     40.78 (規則微調)
+ * @description 基於 V40.77 進行規則微調，擴充參數白名單以修正 Feedly API 參數被過度清理的問題。
  * @note        此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-24
@@ -574,13 +574,13 @@ const CONFIG = {
   ]),
 
   /**
-   * ✅ [V40.53 擴充] 必要參數白名單
+   * ✅ [V40.53 擴充, V40.78 修訂] 必要參數白名單
    */
   PARAMS_TO_KEEP_WHITELIST: new Set([
     // --- 核心 & 搜尋 ---
     'code', 'id', 'item', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't', 'targetid', 'token', 'v',
     // --- 通用功能 ---
-    'callback', 'filter', 'format', 'lang', 'locale', 'status', 'timestamp', 'type',
+    'callback', 'ct', 'cv', 'filter', 'format', 'lang', 'locale', 'status', 'timestamp', 'type', 'withStats', // [V40.78] 新增 Feedly API 豁免
     // --- [V40.51 新增] OAuth 流程 ---
     'access_token', 'client_assertion', 'client_id', 'device_id', 'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope',
     // --- [V40.53 新增] 分頁 & 排序 ---
@@ -623,14 +623,14 @@ const CONFIG = {
 };
 // #################################################################################################
 // #                                                                                               #
-// #                      🚀 HYPER-OPTIMIZED CORE ENGINE (V40.77)                                  #
+// #                      🚀 HYPER-OPTIMIZED CORE ENGINE (V40.78)                                  #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.77'; // [V40.77] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.78'; // [V40.78] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1180,7 +1180,7 @@ function processRequest(request) {
     if (t0) optimizedStats.addTiming('l1', __now__() - tL10);
     
     let isSoftWhitelisted = false;
-    if (getWhitelistMatchDetails(hostname, CONFIG.SOFT_WHITELIST_WILDCARDS, CONFIG.SOFT_WHITELIST_WILDCARDS).matched) {
+    if (getWhitelistMatchDetails(hostname, CONFIG.SOFT_WHITELIST_EXACT, CONFIG.SOFT_WHITELIST_WILDCARDS).matched) {
         optimizedStats.increment('softWhitelistHits');
         isSoftWhitelisted = true;
     }
@@ -1284,7 +1284,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.77 - Rule Fine-tuning', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.78 - Rule Fine-tuning', stats: optimizedStats.getStats() });
       }
       return;
     }
