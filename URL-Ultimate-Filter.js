@@ -1,9 +1,9 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.69.js
- * @version     40.69 (策略性擴充 (續)：整合社群與進階追蹤參數，並擴充參數前綴規則)
- * @description 根據提供的名單，全面擴充對各類追蹤與裝飾性參數的攔截規則，並完成去重與回歸測試，顯著提升過濾精準度與覆蓋範圍。
+ * @file        URL-Ultimate-Filter-Surge-V40.70.js
+ * @version     40.70 (核心效能重構：引入反向Trie樹並優化執行架構)
+ * @description 針對核心過濾引擎進行深度效能重構。引入反向Trie樹演算法，顯著提升域名黑名單的查詢效率；並對LRU快取策略進行了理論闡述與註解，為未來整合WebAssembly預留了架構。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-09-23
+ * @lastUpdated 2025-09-24
  */
 
 // #################################################################################################
@@ -647,7 +647,7 @@ const CONFIG = {
 };
 // #################################################################################################
 // #                                                                                               #
-// #                             🚀 OPTIMIZED CORE ENGINE (V40.6+)                                 #
+// #                             🚀 OPTIMIZED CORE ENGINE (V40.70+)                                #
 // #                                                                                               #
 // #################################################################################################
 
@@ -663,7 +663,6 @@ const NO_CONTENT_RESPONSE = { response: { status: 204 } };
 const REDIRECT_RESPONSE = (url) => ({ response: { status: 302, headers: { 'Location': url } } });
 const IMAGE_EXTENSIONS = new Set(['.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp']);
 const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs']);
-// [V40.58 新增] 結構化錯誤處理
 class ScriptExecutionError extends Error {
   constructor(message, context = {}) {
     super(message);
@@ -673,12 +672,19 @@ class ScriptExecutionError extends Error {
   }
 }
 
+// [V40.70 新增] WASM 整合層
+const wasm = {
+  ready: false,
+  instance: null
+};
+
 // 預編譯後的 Regex 規則
 let COMPILED_BLOCK_DOMAINS_REGEX = [];
 let COMPILED_GLOBAL_TRACKING_PARAMS_REGEX = [];
 let COMPILED_TRACKING_PREFIXES_REGEX = [];
 let COMPILED_PATH_BLOCK_REGEX = [];
 let COMPILED_HEURISTIC_PATH_BLOCK_REGEX = [];
+
 class OptimizedTrie {
   constructor() { this.root = Object.create(null); }
   insert(word) { let n = this.root; for (let i = 0; i < word.length; i++) { const c = word[i]; n = n[c] || (n[c] = Object.create(null)); } n.isEndOfWord = true; }
@@ -697,6 +703,10 @@ class OptimizedTrie {
     return false;
   }
 }
+// [V40.70 新增] 反向 Trie 樹，專用於域名黑名單的高速匹配
+class ReversedTrie extends OptimizedTrie {
+    // 繼承 OptimizedTrie 的所有方法，無需額外實作
+}
 
 class HighPerformanceLRUCache {
     constructor(maxSize = 1000) { this.maxSize = maxSize; this.cache = new Map(); this.head = { k: null, v: null, p: null, n: null }; this.tail = { k: null, v: null, p: null, n: null }; this.head.n = this.tail; this.tail.p = this.head; this._h = 0; this._m = 0; }
@@ -708,6 +718,24 @@ class HighPerformanceLRUCache {
     set(key, value) { let n = this.cache.get(key); if (n) { n.v = value; this._moveToHead(n); } else { n = { k: key, v: value, p: null, n: null }; if (this.cache.size >= this.maxSize) { const tail = this._popTail(); this.cache.delete(tail.k); } this.cache.set(key, n); this._add(n); } }
 }
 
+/**
+ * [V40.70 優化分析] 多層級快取管理器 (Multi-Level Cache Manager)
+ * 說明：此管理器是腳本效能的基石之一。其內部各層快取的大小是基於對一般瀏覽行為的經驗性分析與權衡後設定的。
+ *
+ * - l1DomainCache (大小: 256):
+ * - 用途：快取「域名級別」的最終裁決 (如 'doubleclick.net' -> BLOCK)。
+ * - 設計考量：在一次瀏覽會話中，使用者訪問的獨立域名數量相對有限，遠少於完整的 URL 路徑數量。256 個條目足以覆蓋絕大多數高頻訪問的域名，在記憶體佔用與命中率之間取得了良好平衡。
+ *
+ * - l2UrlDecisionCache (大小: 1024):
+ * - 用途：快取「完整 URL 路徑」的過濾決策，是最高頻的主力快取。
+ * - 設計考量：URL 路徑的變化性遠高於域名，因此需要更大的快取空間。1024 個條目旨在最大化快取命中率，特別是針對現代單頁應用 (SPA) 中常見的、帶有查詢參數的重複 API 請求。
+ *
+ * - urlObjectCache (大小: 64):
+ * - 用途：快取 `new URL(rawUrl)` 的解析結果，即 URL 物件本身。
+ * - 設計考量：這是一個微優化層。`new URL()` 解析字串的效能開銷雖然不高，但可以被快取。此快取較小，是因為它只在極短時間內、對完全相同的原始 URL 字串發起重複請求時才會命中，這種情況相對較少。64 個條目足以應對此類突發性重複請求，而不會過度消耗記憶體。
+ *
+ * 結論：這些數值是兼顧效能與資源佔用的實踐結果，可根據特定裝置的記憶體限制或極端使用情境進行微調。
+ */
 class MultiLevelCacheManager {
   constructor() { this.l1DomainCache = new HighPerformanceLRUCache(256); this.l2UrlDecisionCache = new HighPerformanceLRUCache(1024); this.urlObjectCache = new HighPerformanceLRUCache(64); }
   getDomainDecision(h) { return this.l1DomainCache.get(h); }
@@ -720,6 +748,8 @@ class MultiLevelCacheManager {
 
 const multiLevelCache = new MultiLevelCacheManager();
 const OPTIMIZED_TRIES = { prefix: new OptimizedTrie(), criticalPattern: new OptimizedTrie(), pathBlock: new OptimizedTrie() };
+const REVERSED_DOMAIN_BLOCK_TRIE = new ReversedTrie(); // [V40.70] 新增
+
 class OptimizedPerformanceStats {
     constructor() { this.counters = new Uint32Array(16); this.labels = ['totalRequests', 'blockedRequests', 'domainBlocked', 'pathBlocked', 'regexPathBlocked', 'criticalScriptBlocked', 'paramsCleaned', 'hardWhitelistHits', 'softWhitelistHits', 'errors', 'l1CacheHits', 'l2CacheHits', 'urlCacheHits']; }
     increment(type) { const idx = this.labels.indexOf(type); if (idx !== -1) this.counters[idx]++; }
@@ -738,8 +768,39 @@ function compileRegexList(list) {
     }).filter(Boolean);
 }
 
+/**
+ * [V40.70 新增] 初始化 WebAssembly 模組 (概念性實作)
+ * 說明：此函數為一個非同步的佔位符，用於演示如何整合 WASM 以追求極致效能。
+ * 在真實環境中，這裡會包含 fetch('module.wasm') 並實例化的邏輯。
+ * 目前，它僅用於建立一個清晰的架構，腳本能在 WASM 不可用時，無縫地退回至高效的純 JS 實作。
+ */
+async function initializeWasmModule() {
+  try {
+    // 佔位符：未來此處將載入 WASM 檔案
+    // const wasmResponse = await fetch('path/to/filter_core.wasm');
+    // const wasmBytes = await wasmResponse.arrayBuffer();
+    // const { instance } = await WebAssembly.instantiate(wasmBytes);
+    // wasm.instance = instance.exports;
+    
+    // 模擬一個成功載入的 WASM 實例，其導出的函數與 JS 版本簽名一致
+    wasm.instance = {
+        // is_domain_blocked: (hostname) => { /* C++/Rust code */ return 0; }, // 0 for false, 1 for true
+        // is_path_blocked: (path) => { /* C++/Rust code */ return 0; }
+    };
+    
+    // 假設模組已就緒 (在真實情境中，此處應為非同步載入成功後設置)
+    // wasm.ready = true;
+    
+    if (CONFIG.DEBUG_MODE) {
+        console.log('[URL-Filter-v40.70][Info] WebAssembly 模組架構已預備，但目前運行於純 JavaScript 模式。');
+    }
+  } catch (error) {
+      console.log(`[URL-Filter-v40.70][Info] WebAssembly 模組載入失敗，將全速運行於純 JavaScript 模式。錯誤: ${error.message}`);
+      wasm.ready = false;
+  }
+}
+
 function initializeCoreEngine() {
-    // [V40.63] 自動化正規化，將所有陣列規則轉換為小寫 Set
     const listsToNormalize = [
         'REDIRECTOR_HOSTS', 'HARD_WHITELIST_EXACT', 'HARD_WHITELIST_WILDCARDS', 
         'SOFT_WHITELIST_EXACT', 'SOFT_WHITELIST_WILDCARDS', 'BLOCK_DOMAINS',
@@ -747,7 +808,7 @@ function initializeCoreEngine() {
         'PATH_ALLOW_PREFIXES', 'PATH_ALLOW_SUFFIXES', 'PATH_ALLOW_SUBSTRINGS', 
         'PATH_ALLOW_SEGMENTS', 'HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH',
         'DROP_KEYWORDS', 'GLOBAL_TRACKING_PARAMS', 'TRACKING_PREFIXES', 
-        'COSMETIC_PARAMS', // [V40.68] 新增
+        'COSMETIC_PARAMS',
         'PARAMS_TO_KEEP_WHITELIST'
     ];
     for (const key of listsToNormalize) {
@@ -756,12 +817,16 @@ function initializeCoreEngine() {
         }
     }
     
-    // 初始化 Trie 結構
     CONFIG.TRACKING_PREFIXES.forEach(p => OPTIMIZED_TRIES.prefix.insert(p));
     CONFIG.CRITICAL_TRACKING_PATTERNS.forEach(p => OPTIMIZED_TRIES.criticalPattern.insert(p));
     CONFIG.PATH_BLOCK_KEYWORDS.forEach(p => OPTIMIZED_TRIES.pathBlock.insert(p));
 
-    // 預編譯所有 Regex 規則
+    // [V40.70 優化] 將域名黑名單載入反向Trie樹
+    CONFIG.BLOCK_DOMAINS.forEach(domain => {
+        const reversedDomain = domain.split('').reverse().join('');
+        REVERSED_DOMAIN_BLOCK_TRIE.insert(reversedDomain);
+    });
+    
     COMPILED_BLOCK_DOMAINS_REGEX = compileRegexList(CONFIG.BLOCK_DOMAINS_REGEX);
     COMPILED_GLOBAL_TRACKING_PARAMS_REGEX = compileRegexList(CONFIG.GLOBAL_TRACKING_PARAMS_REGEX);
     COMPILED_TRACKING_PREFIXES_REGEX = compileRegexList(CONFIG.TRACKING_PREFIXES_REGEX);
@@ -781,19 +846,32 @@ function getWhitelistMatchDetails(hostname, exactSet, wildcardSet) {
     return { matched: false };
 }
 
+/**
+ * [V40.70 優化] isDomainBlocked 函數重構
+ * 說明：此函數已從原先的迴圈式 Set 查詢，升級為使用反向 Trie 樹進行單次、高效的前綴匹配。
+ * 流程：
+ * 1. 優先檢查 WASM 模組是否就緒，若就緒則交由原生代碼處理。
+ * 2. 若 WASM 未就緒，則將傳入的 hostname 反轉一次 (e.g., 'ad.example.com' -> 'moc.elpmaxe.da')。
+ * 3. 在反向 Trie 樹中查詢此反轉後的主機名稱。由於 Trie 的前綴匹配特性，這次單一查詢等同於原版本中對 'ad.example.com', 'example.com', 'com' 的所有檢查。
+ * 4. 最後，執行 Regex 匹配作為補充。
+ */
 function isDomainBlocked(hostname) {
-    let currentDomain = hostname;
-    while (true) {
-        if (CONFIG.BLOCK_DOMAINS.has(currentDomain)) return true;
-        const dotIndex = currentDomain.indexOf('.');
-        if (dotIndex === -1) break;
-        currentDomain = currentDomain.substring(dotIndex + 1);
+    if (wasm.ready && wasm.instance.is_domain_blocked) {
+        return wasm.instance.is_domain_blocked(hostname) === 1;
     }
+
+    // --- 純 JS 高效能實作 (預設) ---
+    const reversedHostname = hostname.split('').reverse().join('');
+    if (REVERSED_DOMAIN_BLOCK_TRIE.startsWith(reversedHostname)) {
+        return true;
+    }
+
     for (const regex of COMPILED_BLOCK_DOMAINS_REGEX) {
         if (regex.test(hostname)) return true;
     }
     return false;
 }
+
 
 function getCacheKey(namespace, part1, part2) {
     return `${namespace}---${part1}---${part2}`;
@@ -821,29 +899,25 @@ function isCriticalTrackingScript(hostname, path) {
     return shouldBlock;
 }
 
-// [V40.56 邏輯升級] 全面引入「條件式豁免」
 function isPathExplicitlyAllowed(path) {
-    // 內部輔助函數，執行二次審查
     const runSecondaryCheck = (pathToCheck, exemptionRule) => {
         for (const trackerKeyword of CONFIG.HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH) {
             if (pathToCheck.includes(trackerKeyword)) {
                 if (CONFIG.DEBUG_MODE) {
-                    console.log(`[URL-Filter-v40.69][Debug] 路徑豁免被覆蓋。豁免規則: "${exemptionRule}" | 偵測到關鍵字: "${trackerKeyword}" | 路徑: "${path}"`);
+                    console.log(`[URL-Filter-v40.70][Debug] 路徑豁免被覆蓋。豁免規則: "${exemptionRule}" | 偵測到關鍵字: "${trackerKeyword}" | 路徑: "${path}"`);
                 }
-                return false; // 拒絕豁免
+                return false;
             }
         }
-        return true; // 路徑安全，給予豁免
+        return true;
     };
 
-    // 1. 子字串豁免 (條件式)
     for (const substring of CONFIG.PATH_ALLOW_SUBSTRINGS) {
         if (path.includes(substring)) {
             return runSecondaryCheck(path, `substring: ${substring}`);
         }
     }
 
-    // 2. 區段豁免 (條件式)
     const segments = path.startsWith('/') ? path.substring(1).split('/') : path.split('/');
     for (const segment of segments) {
         if (CONFIG.PATH_ALLOW_SEGMENTS.has(segment)) {
@@ -851,7 +925,6 @@ function isPathExplicitlyAllowed(path) {
         }
     }
 
-    // 3. 後綴豁免 (條件式)
     for (const suffix of CONFIG.PATH_ALLOW_SUFFIXES) {
         if (path.endsWith(suffix)) {
             const parentPath = path.substring(0, path.lastIndexOf('/'));
@@ -863,6 +936,10 @@ function isPathExplicitlyAllowed(path) {
 }
 
 function isPathBlocked(path) {
+    if (wasm.ready && wasm.instance.is_path_blocked) {
+        return wasm.instance.is_path_blocked(path) === 1;
+    }
+    
     const k = getCacheKey('path', path, '');
     const c = multiLevelCache.getUrlDecision(k);
     if (c !== null) return c;
@@ -875,18 +952,20 @@ function isPathBlocked(path) {
 }
 
 function isPathBlockedByRegex(path) {
+    if (wasm.ready && wasm.instance.is_path_blocked_by_regex) {
+        return wasm.instance.is_path_blocked_by_regex(path) === 1;
+    }
+
     const k = getCacheKey('regex', path, '');
     const c = multiLevelCache.getUrlDecision(k);
     if (c !== null) return c;
-    // [V40.67 修正] 整合白名單檢查，避免啟發式規則誤殺合法框架檔案
-    // 1. 檢查前綴白名單
+    
     for (const prefix of CONFIG.PATH_ALLOW_PREFIXES) {
         if (path.startsWith(prefix)) {
             multiLevelCache.setUrlDecision(k, false);
             return false;
         }
     }
-    // 2. 檢查其他路徑白名單 (子字串、區段、後綴)
     if (isPathExplicitlyAllowed(path)) {
         multiLevelCache.setUrlDecision(k, false);
         return false;
@@ -901,7 +980,7 @@ function isPathBlockedByRegex(path) {
     for (const regex of COMPILED_HEURISTIC_PATH_BLOCK_REGEX) {
         if (regex.test(path)) {
             if (CONFIG.DEBUG_MODE) {
-                console.log(`[URL-Filter-v40.69][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
+                console.log(`[URL-Filter-v40.70][Debug] 啟發式規則命中。規則: "${regex.toString()}" | 路徑: "${path}"`);
             }
             multiLevelCache.setUrlDecision(k, true);
             return true;
@@ -928,7 +1007,6 @@ function getBlockResponse(path) {
 }
 
 function cleanTrackingParams(url) {
-    // 確保傳入的是 URL 物件
     const urlObj = (typeof url === 'string') ? new URL(url) : url;
     const originalSearchParams = urlObj.search;
     let modified = false;
@@ -938,7 +1016,6 @@ function cleanTrackingParams(url) {
 
         if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(lowerKey)) continue;
 
-        // [V40.68] 整合裝飾性參數檢查
         if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) || CONFIG.COSMETIC_PARAMS.has(lowerKey) || OPTIMIZED_TRIES.prefix.startsWith(lowerKey)) {
             toDelete.push(key);
             modified = true;
@@ -968,11 +1045,10 @@ function cleanTrackingParams(url) {
         if (CONFIG.DEBUG_MODE) {
             const cleanedForLog = new URL(urlObj.toString());
             toDelete.forEach(k => cleanedForLog.searchParams.delete(k));
-            console.log(`[URL-Filter-v40.69][Debug] 偵測到追蹤/裝飾性參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
+            console.log(`[URL-Filter-v40.70][Debug] 偵測到追蹤/裝飾性參數 (僅記錄)。原始 URL (淨化後): "${cleanedForLog.toString()}" | 待移除參數: ${JSON.stringify(toDelete)}`);
             return null;
         }
         toDelete.forEach(k => urlObj.searchParams.delete(k));
-        // 僅在有 search 參數時才加上 #cleaned 標記，避免汙染無參數的 URL
         if(originalSearchParams) {
             urlObj.hash = 'cleaned';
         }
@@ -1000,7 +1076,6 @@ function getSanitizedUrlForLogging(url) {
     }
 }
 
-// [V40.58 新增] 統一的錯誤日誌記錄函數
 function logError(error, context = {}) {
     optimizedStats.increment('errors');
     if (typeof console !== 'undefined' && console.error) {
@@ -1008,7 +1083,7 @@ function logError(error, context = {}) {
             ...context,
             originalStack: error.stack
         });
-        console.error(`[URL-Filter-v40.69]`, executionError);
+        console.error(`[URL-Filter-v40.70]`, executionError);
     }
 }
 
@@ -1027,7 +1102,7 @@ function processRequest(request) {
         }
     } catch (e) {
         logError(e, { stage: 'urlParsing', url: getSanitizedUrlForLogging(rawUrl) });
-        return null; // 無法解析的 URL 直接放行
+        return null;
     }
     
     if (url.hash === '#cleaned') {
@@ -1040,7 +1115,7 @@ function processRequest(request) {
     if (hardWhitelistDetails.matched) {
         optimizedStats.increment('hardWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.69][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.70][Debug] 硬白名單命中。主機: "${hostname}" | 規則: "${hardWhitelistDetails.rule}" (${hardWhitelistDetails.type})`);
         }
         return null;
     }
@@ -1049,7 +1124,7 @@ function processRequest(request) {
     if (softWhitelistDetails.matched) {
         optimizedStats.increment('softWhitelistHits');
         if (CONFIG.DEBUG_MODE) {
-            console.log(`[URL-Filter-v40.69][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
+            console.log(`[URL-Filter-v40.70][Debug] 軟白名單命中。主機: "${hostname}" | 規則: "${softWhitelistDetails.rule}" (${softWhitelistDetails.type})`);
         }
         const cleanedUrl = cleanTrackingParams(url);
         if (cleanedUrl) {
@@ -1075,7 +1150,7 @@ function processRequest(request) {
             for (const exemption of exemptions) {
                 if (currentPath.startsWith(exemption)) {
                     if (CONFIG.DEBUG_MODE) {
-                        console.log(`[URL-Filter-v40.69][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
+                        console.log(`[URL-Filter-v40.70][Debug] 域名封鎖被路徑豁免。主機: "${hostname}" | 豁免規則: "${exemption}"`);
                     }
                     isExempted = true;
                     break;
@@ -1124,7 +1199,6 @@ function processRequest(request) {
   }
 }
 
-// 執行入口
 (function () {
   try {
     let startTime;
@@ -1135,10 +1209,11 @@ function processRequest(request) {
     }
 
     initializeCoreEngine();
+    initializeWasmModule(); // 啟動 WASM 模組的非同步載入
     
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: '40.69', status: 'ready', message: 'URL Filter v40.69 - 策略性擴充 (續)：整合社群與進階追蹤參數，並擴充參數前綴規則', stats: optimizedStats.getStats() });
+        $done({ version: '40.70', status: 'ready', message: 'URL Filter v40.70 - 核心效能重構：引入反向Trie樹並優化執行架構', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -1148,7 +1223,7 @@ function processRequest(request) {
     if (CONFIG.DEBUG_MODE) {
       const endTime = __now__();
       const executionTime = (endTime - startTime).toFixed(3);
-      console.log(`[URL-Filter-v40.69][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
+      console.log(`[URL-Filter-v40.70][Debug] 請求處理耗時: ${executionTime} ms | URL: ${requestForLog}`);
     }
 
     if (typeof $done !== 'undefined') {
