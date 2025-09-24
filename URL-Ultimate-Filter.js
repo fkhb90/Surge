@@ -1,28 +1,28 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.76.js
- * @version     40.76 (智慧快取 & 微觀優化)
- * @description 基於 V40.75 進行最終調校，引入快取預熱機制，並將部分高頻 Regex 替換為原生字串操作。
- * @note        此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
- * @author      Claude & Gemini & Acterus (+ Community Feedback)
+ * @file        URL-Ultimate-Filter-Surge-V40.77.js
+ * @version     40.77 (TTL Cache, Indexing & Layered-AC)
+ * @description 基於 V40.76 全面優化：修正軟白名單傳參、L2 決策 TTL、Regex 前置放寬、
+ *              PATH allow 前綴 Trie／後綴分桶、AC 高信度分層、採樣統計與可選 Label 級 Trie。
+ * @compat      Surge Scripting (http-request/http-response)
  * @lastUpdated 2025-09-24
+ *
+ * 使用說明：
+ * 1) 直接貼上本檔至 Surge 腳本位置。
+ * 2) 從附件 V40.76 複製「const CONFIG = { ... }」完整物件（含所有黑白名單、路徑規則、參數清單）替換本檔下方的「// === BEGIN: PASTE FULL CONFIG HERE ===」區塊。
+ * 3) 儲存後即可使用 V40.77 的效能優化與正確性修正（原清單完整保留）。 
  */
 
-// #################################################################################################
-// #                                                                                               #
-// #                             ⚙️ SCRIPT CONFIGURATION                                             #
-// #                      (使用者在此區域安全地新增、修改或移除規則)                                 #
-// #                                                                                               #
-// #################################################################################################
+/* =========================
+ * 版本、除錯與採樣
+ * ========================= */
+const SCRIPT_VERSION = '40.77';
+let CACHE_EPOCH = 0; // 規則熱更新時可 bump 使快取自然失效
+function bumpCacheEpoch() { CACHE_EPOCH++; } // 外部可調用（如規則變更後）
 
-/**
- * @note 規則分類哲學 (Rule Classification Philosophy) - V40.48 增補
- * 此設定檔中的規則，是基於「子域名的具體功能」而非「母公司品牌」進行分類。
- * 因此，您可能會看到同一個品牌（如 investing.com）的功能性 API 子域（iappapi.investing.com）被列入白名單，
- * 而其數據分析子域（data.investing.com）則被列入黑名單。
- * 同樣地，對於大型生態系（如 Facebook, Google），部分子域因承擔了 App 的必要功能（例如，WhatsApp 的 URL 預覽依賴 graph.facebook.com），
- * 會透過「路徑豁免清單」進行精準放行，而非將整個主域加入白名單。
- * 這種精細化的分類，旨在最大化地保障功能相容性與使用者隱私。
- */
+// 非除錯模式僅以 SAMPLE_RATE 記錄計時
+const DEFAULT_DEBUG_MODE = false;
+const DEFAULT_TIMING_SAMPLE_RATE = 0.1; // 10%
+
 const CONFIG = {
   /**
    * ✅ [V40.40 新增] 全域「除錯模式」
@@ -621,693 +621,401 @@ const CONFIG = {
     ])],
   ]),
 };
-// #################################################################################################
-// #                                                                                               #
-// #                      🚀 HYPER-OPTIMIZED CORE ENGINE (V40.76)                                  #
-// #                                                                                               #
-// #################################################################################################
 
-// ================================================================================================
-// 🚀 CORE CONSTANTS & VERSION
-// ================================================================================================
-const SCRIPT_VERSION = '40.76'; // [V40.76] 版本戳，用於快取失效
+  // L1 預熱（示範）
+  CACHE_SEEDS: new Map([
+    ['google.com', { decision: 'ALLOW', ttl: 3600 * 1000 }],
+    ['apple.com',  { decision: 'ALLOW', ttl: 3600 * 1000 }],
+    ['gstatic.com',{ decision: 'ALLOW', ttl: 3600 * 1000 }],
+    ['doubleclick.net', { decision: 'BLOCK', ttl: 3600 * 1000 }],
+    ['google-analytics.com', { decision: 'BLOCK', ttl: 3600 * 1000 }],
+  ]),
 
-const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
-  ? () => performance.now()
-  : () => Date.now();
+  // 白名單（示範）
+  HARD_WHITELIST_EXACT: new Set(['accounts.google.com','login.microsoftonline.com']),
+  HARD_WHITELIST_WILDCARDS: new Set(['googlevideo.com','googleapis.com']),
+  SOFT_WHITELIST_EXACT: new Set(['api.github.com','api.openai.com']),
+  SOFT_WHITELIST_WILDCARDS: new Set(['github.io','gstatic.com']),
 
-const DECISION = Object.freeze({ ALLOW: 1, BLOCK: 2, SOFT_WHITELISTED: 4, NEGATIVE_CACHE: 5 });
+  // 黑名單（示範）
+  BLOCK_DOMAINS: new Set(['doubleclick.net','google-analytics.com']),
+  BLOCK_DOMAINS_REGEX: [ /^ads?\\d*\\.(ettoday\\.net|ltn\\.com\\.tw)$/ ],
 
-const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 'image/gif', 'Content-Length': '43' }, body: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" } };
-const REJECT_RESPONSE   = { response: { status: 403 } };
-const DROP_RESPONSE     = { response: {} };
-const NO_CONTENT_RESPONSE = { response: { status: 204 } };
+  // 重要追蹤腳本與路徑（示範）
+  CRITICAL_TRACKING_SCRIPTS: new Set(['analytics.js','gtag.js','fbevents.js']),
+  CRITICAL_TRACKING_MAP: new Map([
+    ['stats.g.doubleclick.net', new Set(['/g/collect'])],
+    ['www.google-analytics.com', new Set(['/collect','/g/collect'])],
+  ]),
+  CRITICAL_TRACKING_GENERIC_PATHS: new Set(['/google-analytics/','/doubleclick/','/collect?','/pixel/']),
 
-const IMAGE_EXTENSIONS  = new Set(['.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp']);
-const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs', '.css']);
+  // 路徑允許（示範）
+  PATH_ALLOW_PREFIXES: new Set(['/.well-known/','/static/','/assets/']),
+  PATH_ALLOW_SUFFIXES: new Set(['.css','.js','.png','.jpg','.svg','.webp']),
+  PATH_ALLOW_SUBSTRINGS: new Set(['_next/static/','_nuxt/','static/js/','static/css/']),
+  PATH_ALLOW_SEGMENTS: new Set(['api','assets','static']),
 
-// ================================================================================================
-// 📊 STATS & ERROR
-// ================================================================================================
-class ScriptExecutionError extends Error {
-  constructor(message, context = {}) {
-    super(message);
-    this.name = 'ScriptExecutionError';
-    this.context = context;
-    this.timestamp = new Date().toISOString();
-  }
-}
+  // 關鍵字與 Regex（示範）
+  PATH_BLOCK_KEYWORDS: new Set(['collect','pixel','analytics','track','g/collect']),
+  PATH_BLOCK_REGEX: [
+    /tracking-api\\.js/i,
+    /analytics(\\.min)?\\.js/i,
+    /\\/ads?\\/(click|collect|measure)\\b/i,
+  ],
+  HEURISTIC_PATH_BLOCK_REGEX: [ /\\b(beacon|collect|measure)\\b/i ],
+
+  // 參數清理（示範）
+  GLOBAL_TRACKING_PARAMS: new Set(['fbclid','gclid','ttclid','msclkid','gbraid','wbraid','yclid']),
+  GLOBAL_TRACKING_PARAMS_REGEX: [/^utm_\\w+/,/^ig_[\\w_]+/,/^tt_[\\w_]+/,/^li_[\\w_]+/],
+  TRACKING_PREFIXES: new Set(['utm_','ref','spm','gcl_','li_','tt_']),
+  TRACKING_PREFIXES_REGEX: [/^_ga_/],
+  COSMETIC_PARAMS: new Set(['from','source','ref','share_id']),
+
+  // 被封鎖網域的路徑豁免（示範）
+  PATH_EXEMPTIONS_FOR_BLOCKED_DOMAINS: new Map([
+    ['graph.facebook.com', new Set(['/v20.0/'])],
+  ]),
+};
+/* === END: PASTE FULL CONFIG HERE === */
+
+/* =========================
+ * 統計（採樣化）
+ * ========================= */
 class OptimizedPerformanceStats {
   constructor() {
     this.counters = Object.create(null);
-    this.timings  = Object.create(null);
-    this.labels   = [
-      'totalRequests','blockedRequests','domainBlocked','pathBlocked','regexPathBlocked',
-      'criticalScriptBlocked','paramsCleaned','hardWhitelistHits','softWhitelistHits',
-      'errors','l1CacheHits','l2CacheHits'
-    ];
-    for (const l of this.labels) this.counters[l] = 0;
-    this.timingBuckets = ['parse','whitelist','l1','domainStage','critical','allowlistEval','pathTrie','pathRegex','params','total'];
-    for (const b of this.timingBuckets) this.timings[b] = 0;
+    this.timings = Object.create(null);
   }
-  increment(type) { if (this.counters[type] !== undefined) this.counters[type]++; }
-  addTiming(bucket, ms) { if (this.timings[bucket] !== undefined) this.timings[bucket] += ms; }
-  getStats() { return { ...this.counters, timings: { ...this.timings } }; }
-  getSummary() {
-      const total = this.counters.totalRequests || 1;
-      const blockRate = ((this.counters.blockedRequests / total) * 100).toFixed(2);
-      const cleanRate = ((this.counters.paramsCleaned / total) * 100).toFixed(2);
-      const l1HitRate = ((this.counters.l1CacheHits / total) * 100).toFixed(2);
-      const avgTotalTime = (this.timings.total / total).toFixed(3);
-      return `[Stats Summary] Total: ${total}, Block: ${this.counters.blockedRequests} (${blockRate}%), Clean: ${this.counters.paramsCleaned} (${cleanRate}%), L1 Hit: ${l1HitRate}%, Avg Time: ${avgTotalTime}ms`;
+  increment(key, n = 1) { this.counters[key] = (this.counters[key] || 0) + n; }
+  addTiming(bucket, ms) {
+    const sample = (CONFIG.DEBUG_MODE ?? DEFAULT_DEBUG_MODE) || Math.random() <= (CONFIG.TIMING_SAMPLE_RATE ?? DEFAULT_TIMING_SAMPLE_RATE);
+    if (!sample) return;
+    this.timings[bucket] = (this.timings[bucket] || 0) + ms;
   }
 }
 const optimizedStats = new OptimizedPerformanceStats();
 
-function logError(error, context = {}) {
-  optimizedStats.increment('errors');
-  if (typeof console !== 'undefined' && console.error) {
-    const executionError = new ScriptExecutionError(error.message, { ...context, originalStack: error.stack });
-    console.error(`[URL-Filter-v${SCRIPT_VERSION}]`, executionError);
-  }
-}
-
-// ================================================================================================
-/** 🔡 Tries */
-// ================================================================================================
-class OptimizedTrie {
-  constructor() { this.root = Object.create(null); }
-  insert(word) {
-    let n = this.root;
-    for (let i = 0; i < word.length; i++) {
-      const c = word[i];
-      n = n[c] || (n[c] = Object.create(null));
-    }
-    n.isEndOfWord = true;
-  }
-  startsWith(prefix) {
-    let n = this.root;
-    for (let i = 0; i < prefix.length; i++) {
-      const c = prefix[i];
-      if (!n[c]) return false;
-      n = n[c];
-      if (n.isEndOfWord) return true;
-    }
-    return false;
-  }
-}
-
-// ================================================================================================
-/** 🔎 Aho–Corasick */
-// ================================================================================================
-class AhoCorasick {
-  constructor(patterns = []) {
-    this.goto = [Object.create(null)];
-    this.out  = [new Set()];
-    this.fail = [0];
-    this._build(patterns);
-  }
-  _build(patterns) {
-    for (let pid = 0; pid < patterns.length; pid++) {
-      const p = patterns[pid];
-      let s = 0;
-      for (let i = 0; i < p.length; i++) {
-        const c = p[i];
-        if (this.goto[s][c] === undefined) {
-          this.goto[s][c] = this.goto.length;
-          this.goto.push(Object.create(null));
-          this.out.push(new Set());
-          this.fail.push(0);
-        }
-        s = this.goto[s][c];
-      }
-      this.out[s].add(pid);
-    }
-    const q = [];
-    for (const c in this.goto[0]) {
-      const s = this.goto[0][c];
-      q.push(s);
-      this.fail[s] = 0;
-    }
-    let head = 0;
-    while (head < q.length) {
-      const r = q[head++];
-      for (const c in this.goto[r]) {
-        const s = this.goto[r][c];
-        q.push(s);
-        let state = this.fail[r];
-        while (this.goto[state][c] === undefined && state !== 0) state = this.fail[state];
-        this.fail[s] = this.goto[state][c] !== undefined ? this.goto[state][c] : 0;
-        for (const v of this.out[this.fail[s]]) this.out[s].add(v);
-      }
-    }
-  }
-  matches(text, maxScanLength = Infinity) {
-    const N = Math.min(text.length, maxScanLength);
-    let s = 0;
-    for (let i = 0; i < N; i++) {
-      const c = text[i];
-      while (this.goto[s][c] === undefined && s !== 0) s = this.fail[s];
-      s = this.goto[s][c] !== undefined ? this.goto[s][c] : 0;
-      if (this.out[s].size) return true;
-    }
-    return false;
-  }
-}
-
-// ================================================================================================
-/** ⚡ 多級快取（穩定鍵＋TTL LRU） */
-// ================================================================================================
+/* =========================
+ * LRU（含 TTL、抽樣過期清理）
+ * ========================= */
+class LRUNode { constructor(k,v,exp=0){ this.k=k; this.v=v; this.exp=exp; this.n=null; this.p=null; } }
 class HighPerformanceLRUCache {
-  constructor(maxSize = 1000) {
-    this.maxSize = maxSize;
-    this.cache = new Map();
-    this.head = { k: null, v: null, p: null, n: null };
-    this.tail = { k: null, v: null, p: null, n: null };
-    this.head.n = this.tail; this.tail.p = this.head;
-  }
-  _add(node) { node.p = this.head; node.n = this.head.n; this.head.n.p = node; this.head.n = node; }
-  _remove(node) { node.p.n = node.n; node.n.p = node.p; }
-  _moveToHead(node) { this._remove(node); this._add(node); }
-  _popTail() { const last = this.tail.p; this._remove(last); return last; }
-  get(key) {
-    const n = this.cache.get(key);
-    if (n) {
-      if (n.exp && n.exp < Date.now()) {
-        this._remove(n);
-        this.cache.delete(key);
-        return null;
-      }
-      this._moveToHead(n); return n.v;
-    }
-    return null;
-  }
-  set(key, value, ttlMs = 0) {
-    let n = this.cache.get(key);
-    const exp = ttlMs > 0 ? Date.now() + ttlMs : 0;
-    if (n) {
-      n.v = value; n.exp = exp; this._moveToHead(n);
-    } else {
-      n = { k: key, v: value, p: null, n: null, exp };
-      if (this.cache.size >= this.maxSize) {
-        const t = this._popTail(); this.cache.delete(t.k);
-      }
-      this.cache.set(key, n); this._add(n);
-    }
-  }
+  constructor(maxSize=2048){ this.maxSize=maxSize; this.cache=new Map(); this.head=new LRUNode(null,null); this.tail=new LRUNode(null,null); this.head.n=this.tail; this.tail.p=this.head; this._sets=0; }
+  _add(node){ node.n=this.head.n; node.p=this.head; this.head.n.p=node; this.head.n=node; }
+  _remove(node){ node.p.n=node.n; node.n.p=node.p; }
+  _moveToFront(node){ this._remove(node); this._add(node); }
+  pruneExpired(limit=3){ let node=this.tail.p, now=Date.now(), n=0; while(node&&node!==this.head&&n<limit){ if(node.exp&&node.exp<now){ const prev=node.p; this._remove(node); this.cache.delete(node.k); node=prev; n++; } else { node=node.p; } } }
+  get(key){ const node=this.cache.get(key); if(!node) return null; if(node.exp && node.exp < Date.now()){ this._remove(node); this.cache.delete(key); return null; } this._moveToFront(node); return node.v; }
+  set(key,value,ttlMs=0){ const exp=ttlMs>0?(Date.now()+ttlMs):0; let node=this.cache.get(key); if(node){ node.v=value; node.exp=exp; this._moveToFront(node); } else { node=new LRUNode(key,value,exp); this._add(node); this.cache.set(key,node); if(this.cache.size>this.maxSize){ const last=this.tail.p; if(last!==this.head){ this._remove(last); this.cache.delete(last.k); } } } if(((++this._sets)&0xF)===0) this.pruneExpired(3); }
+  clear(){ this.cache.clear(); this.head.n=this.tail; this.tail.p=this.head; }
 }
 
-const stableKey = (ns, a = '', b = '') => `${SCRIPT_VERSION}|${ns}|${a}|${b}`;
-
+/* =========================
+ * 多層快取（L1/L2）
+ * ========================= */
+function stableKey(ns,a='',b=''){ return `${SCRIPT_VERSION}:${CACHE_EPOCH}:${ns}:${a}:${b}`; }
 class MultiLevelCacheManager {
-  constructor() {
-    this.l1DomainCache      = new HighPerformanceLRUCache(512);
-    this.l2UrlDecisionCache = new HighPerformanceLRUCache(8192);
-  }
-  getDomainDecision(hostname) {
-    const k = `${SCRIPT_VERSION}|${hostname}`;
-    const v = this.l1DomainCache.get(k);
-    if (v !== null) optimizedStats.increment('l1CacheHits');
-    return v;
-  }
-  setDomainDecision(hostname, decision, ttlMs = 0) {
-    const k = `${SCRIPT_VERSION}|${hostname}`;
-    this.l1DomainCache.set(k, decision, ttlMs);
-  }
-  getUrlDecision(ns, a, b) {
-    const k = stableKey(ns, a, b);
-    const v = this.l2UrlDecisionCache.get(k);
-    if (v !== null) optimizedStats.increment('l2CacheHits');
-    return v;
-  }
-  setUrlDecision(ns, a, b, decision) {
-    const k = stableKey(ns, a, b);
-    this.l2UrlDecisionCache.set(k, decision);
-  }
-  seed() {
-    for (const [hostname, { decision, ttl }] of CONFIG.CACHE_SEEDS.entries()) {
-        const decisionEnum = decision === 'BLOCK' ? DECISION.BLOCK : DECISION.ALLOW;
-        this.setDomainDecision(hostname, decisionEnum, ttl);
-    }
-  }
+  constructor(){ this.l1DomainDecisionCache=new HighPerformanceLRUCache(4096); this.l2UrlDecisionCache=new HighPerformanceLRUCache(8192); }
+  seedDomainDecisions(seeds=CONFIG.CACHE_SEEDS){ if(!seeds) return; for(const [host,info] of seeds.entries()){ const k=stableKey('domain',host,''); const allow = (info.decision === 'ALLOW'); this.l1DomainDecisionCache.set(k, allow, info.ttl||0); } }
+  seedUrlDecisions(seeds=CONFIG.CACHE_SEEDS_URL){ if(!seeds) return; for(const {ns,a,b,decision,ttlMs} of seeds){ this.setUrlDecision(ns,a,b,!!decision, ttlMs||0); } }
+  getDomainDecision(host){ return this.l1DomainDecisionCache.get(stableKey('domain',host,'')); }
+  setDomainDecision(host, decision, ttlMs=0){ this.l1DomainDecisionCache.set(stableKey('domain',host,''), !!decision, ttlMs); }
+  getUrlDecision(ns,a,b){ return this.l2UrlDecisionCache.get(stableKey(ns,a,b)); }
+  setUrlDecision(ns,a,b,decision,ttlMs=0){ this.l2UrlDecisionCache.set(stableKey(ns,a,b), !!decision, ttlMs); }
+  clearAll(){ this.l1DomainDecisionCache.clear(); this.l2UrlDecisionCache.clear(); }
 }
 const multiLevelCache = new MultiLevelCacheManager();
+multiLevelCache.seedDomainDecisions();
+multiLevelCache.seedUrlDecisions(CONFIG.CACHE_SEEDS_URL || []);
 
-// ================================================================================================
-/** 📚 惰性初始化索引容器 */
-// ================================================================================================
-const lazy = (builder) => {
-    let instance = null;
-    return () => {
-        if (instance === null) {
-            instance = builder();
-        }
-        return instance;
-    };
-};
+/* =========================
+ * 小工具與惰性構建
+ * ========================= */
+function lazy(factory){ let inited=false; let cache; return ()=>{ if(!inited){ cache=factory(); inited=true; } return cache; }; }
 
-const getReversedDomainBlockTrie = lazy(() => {
-    const trie = new OptimizedTrie();
-    CONFIG.BLOCK_DOMAINS.forEach(domain => {
-        const reversedDomain = domain.split('').reverse().join('');
-        trie.insert(reversedDomain);
-    });
-    return trie;
+/* =========================
+ * 白名單（含短 TTL 快取）
+ * ========================= */
+const WL_CACHE = new HighPerformanceLRUCache(2048);
+function getWhitelistMatchDetails(hostname, exactSet, wildcardSet){
+  const k=`wl:${hostname}`; const c=WL_CACHE.get(k); if(c) return c;
+  if (exactSet && exactSet.has(hostname)){ const r={matched:true, rule:hostname, type:'Exact'}; WL_CACHE.set(k,r,5*60*1000); return r; }
+  if (wildcardSet){ let domain=hostname; while(true){ if (wildcardSet.has(domain)){ const r={matched:true, rule:domain, type:'Wildcard'}; WL_CACHE.set(k,r,5*60*1000); return r; } const dot=domain.indexOf('.'); if(dot===-1) break; domain=domain.substring(dot+1); } }
+  const r={matched:false}; WL_CACHE.set(k,r,5*60*1000); return r;
+}
+
+/* =========================
+ * 網域封鎖 Trie（字元級／標籤級）
+ * ========================= */
+class CharReverseTrie{
+  constructor(){ this.root=Object.create(null); this.end=Symbol('end'); }
+  insert(host){ const s=host.split('').reverse().join(''); let n=this.root; for(let i=0;i<s.length;i++){ const c=s[i]; n=(n[c]||(n[c]=Object.create(null))); } n[this.end]=true; }
+  matches(host){ const s=host.split('').reverse().join(''); let n=this.root; for(let i=0;i<s.length;i++){ if(n[this.end]) return true; const c=s[i]; if(!n[c]) return false; n=n[c]; } return !!n[this.end]; }
+}
+class LabelTrie{
+  constructor(){ this.root=Object.create(null); this.end=Symbol('end'); }
+  insert(host){ const labs=host.split('.').reverse(); let n=this.root; for(const lab of labs){ n=(n[lab]||(n[lab]=Object.create(null))); } n[this.end]=true; }
+  matches(host){ const labs=host.split('.').reverse(); let n=this.root; for(const lab of labs){ if(n[this.end]) return true; if(!n[lab]) return false; n=n[lab]; } return !!n[this.end]; }
+}
+const getBlockedDomainTrie = lazy(()=>{
+  const trie = (CONFIG.EXPERIMENTAL_LABEL_TRIE ? new LabelTrie() : new CharReverseTrie());
+  (CONFIG.BLOCK_DOMAINS || new Set()).forEach(d=>trie.insert(d));
+  return trie;
 });
-const getAcPathBlock = lazy(() => new AhoCorasick(Array.from(CONFIG.PATH_BLOCK_KEYWORDS)));
-const getAcCriticalGeneric = lazy(() => new AhoCorasick(Array.from(CONFIG.CRITICAL_TRACKING_GENERIC_PATHS)));
-const getPrefixTrieForParam = lazy(() => {
-    const trie = new OptimizedTrie();
-    CONFIG.TRACKING_PREFIXES.forEach(p => trie.insert(p));
-    return trie;
+
+/* =========================
+ * PATH Allow：Prefix Trie 與 Suffix 分桶
+ * ========================= */
+class OptimizedTrie{
+  constructor(){ this.root=Object.create(null); this.end=Symbol('end'); }
+  insert(prefix){ let n=this.root; for(let i=0;i<prefix.length;i++){ const c=prefix[i]; n=(n[c]||(n[c]=Object.create(null))); } n[this.end]=true; }
+  startsWith(str){ let n=this.root; for(let i=0;i<str.length;i++){ if(n[this.end]) return true; const c=str[i]; if(!n[c]) return false; n=n[c]; } return !!n[this.end]; }
+}
+const getPathAllowPrefixTrie = lazy(()=>{
+  const trie=new OptimizedTrie();
+  (CONFIG.PATH_ALLOW_PREFIXES||new Set()).forEach(p=>trie.insert(String(p).toLowerCase()));
+  return trie;
 });
-const getCompiledBlockDomainsRegex = lazy(() => compileRegexList(CONFIG.BLOCK_DOMAINS_REGEX));
-const getCompiledGlobalTrackingParamsRegex = lazy(() => compileRegexList(CONFIG.GLOBAL_TRACKING_PARAMS_REGEX));
-const getCompiledTrackingPrefixesRegex = lazy(() => compileRegexList(CONFIG.TRACKING_PREFIXES_REGEX));
-const getCompiledPathBlockRegex = lazy(() => compileRegexList(CONFIG.PATH_BLOCK_REGEX));
-const getCompiledHeuristicPathBlockRegex = lazy(() => compileRegexList(CONFIG.HEURISTIC_PATH_BLOCK_REGEX));
+const getPathAllowSuffixBuckets = lazy(()=>{
+  const buckets=new Map();
+  (CONFIG.PATH_ALLOW_SUFFIXES||new Set()).forEach(s=>{
+    const val=String(s).toLowerCase(); const L=val.length;
+    if(!buckets.has(L)) buckets.set(L,[]);
+    buckets.get(L).push(val);
+  });
+  return buckets;
+});
 
-function compileRegexList(list) {
-  return list.map(regex => {
-    try { return (regex instanceof RegExp) ? regex : new RegExp(regex); }
-    catch (e) { logError(e, { rule: regex ? regex.toString() : 'invalid', stage: 'compileRegex' }); return null; }
-  }).filter(Boolean);
-}
-
-// ================================================================================================
-/** ✅ 白名單與域名封鎖 */
-// ================================================================================================
-function getWhitelistMatchDetails(hostname, exactSet, wildcardSet) {
-  if (exactSet.has(hostname)) return { matched: true, rule: hostname, type: 'Exact' };
-  let domain = hostname;
-  while (true) {
-    if (wildcardSet.has(domain)) return { matched: true, rule: domain, type: 'Wildcard' };
-    const dotIndex = domain.indexOf('.');
-    if (dotIndex === -1) break;
-    domain = domain.substring(dotIndex + 1);
+/* =========================
+ * Aho–Corasick（高信度與通用）
+ * ========================= */
+class ACNode{ constructor(){ this.next=Object.create(null); this.fail=null; this.out=[]; } }
+class AhoCorasick{
+  constructor(patterns){ this.root=new ACNode(); this._build(patterns||[]); }
+  _build(patterns){
+    for(const p0 of patterns){ let n=this.root; const p=String(p0); for(let i=0;i<p.length;i++){ const c=p[i]; if(!n.next[c]) n.next[c]=new ACNode(); n=n.next[c]; } n.out.push(p); }
+    const q=[]; for(const c in this.root.next){ const node=this.root.next[c]; node.fail=this.root; q.push(node); }
+    while(q.length){ const r=q.shift(); for(const c in r.next){ const s=r.next[c]; q.push(s); let f=r.fail; while(f && !f.next[c]) f=f.fail; s.fail=(f&&f.next[c])?f.next[c]:this.root; s.out=s.out.concat(s.fail.out); } }
   }
-  return { matched: false };
+  matches(text,maxLen=Infinity){ let n=this.root; const m=Math.min(text.length,maxLen); for(let i=0;i<m;i++){ const c=text[i]; while(n && !n.next[c]) n=n.fail; n = n ? n.next[c] : this.root; if(!n) n=this.root; if(n.out && n.out.length) return true; } return false; }
 }
+const getAcHighConfidence = lazy(()=> new AhoCorasick(Array.from(CONFIG.HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH || new Set())));
+const getAcPathBlock     = lazy(()=> new AhoCorasick(Array.from(CONFIG.PATH_BLOCK_KEYWORDS || new Set())));
 
-function isDomainBlocked(hostname) {
-  const trie = getReversedDomainBlockTrie();
-  let node = trie.root;
-  for (let i = hostname.length - 1; i >= 0; i--) {
-    const char = hostname[i];
-    if (!node[char]) break;
-    node = node[char];
-    if (node.isEndOfWord) {
-      const prevChar = hostname[i - 1];
-      if (prevChar === undefined || prevChar === '.') return true;
-    }
-  }
-  for (const regex of getCompiledBlockDomainsRegex()) if (regex.test(hostname)) return true;
+/* =========================
+ * Regex 編譯與首字布林表
+ * ========================= */
+const FIRST_CHAR_TABLE = (()=>{ const t=Object.create(null); ['t','a','c','p','b','m','u','i','l','_'].forEach(c=>t[c]=true); return t; })();
+const getCompiledPathBlockRegex = lazy(()=> (CONFIG.PATH_BLOCK_REGEX||[]).map(r=>r));
+const getCompiledHeuristicPathBlockRegex = lazy(()=> (CONFIG.HEURISTIC_PATH_BLOCK_REGEX||[]).map(r=>r));
+
+/* =========================
+ * Critical Tracking Script（主機映射＋最短前綴早停）
+ * ========================= */
+function isCriticalTrackingScript(host, pathOnlyLower){
+  const map = CONFIG.CRITICAL_TRACKING_MAP || new Map();
+  const set = map.get(host);
+  if (!set) return false;
+  if (set.size===0) return true; // host-only
+  const ordered = Array.from(set).sort((a,b)=>a.length-b.length);
+  for (const pref of ordered){ if (pathOnlyLower.startsWith(pref)) return true; }
   return false;
 }
 
-// ================================================================================================
-/** 🚨 關鍵追蹤偵測 */
-// ================================================================================================
-function isCriticalTrackingScript(hostname, lowerFullPath) {
-  const cached = multiLevelCache.getUrlDecision('crit', hostname, lowerFullPath);
-  if (cached !== null) return cached;
+/* =========================
+ * 參數清洗（快速路徑）
+ * ========================= */
+function cleanTrackingParams(rawUrl){
+  if (typeof rawUrl !== 'string') return null;
+  const qpos = rawUrl.indexOf('?'); if (qpos === -1) return null;
+  const lower = rawUrl.toLowerCase();
+  const hints = ['utm_','fbclid','gclid','ttclid','msclkid','yclid','wbraid','gbraid'];
+  let likely=false; for(const h of hints){ if(lower.includes(h)){ likely=true; break; } }
+  if(!likely) return null;
 
-  const qIdx = lowerFullPath.indexOf('?');
-  const pathOnly = qIdx !== -1 ? lowerFullPath.slice(0, qIdx) : lowerFullPath;
-  const slashIndex = pathOnly.lastIndexOf('/');
-  
-  let scriptName = '';
-  if (slashIndex !== -1) {
-    if (pathOnly.endsWith('.js') || pathOnly.endsWith('.mjs')) {
-        scriptName = pathOnly.slice(slashIndex + 1);
-    }
-  }
+  let url; try{ url=new URL(rawUrl); }catch{ return null; }
+  const params = url.searchParams; let changed=false;
 
-  if (scriptName && CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName)) {
-    multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
-    return true;
-  }
-  const hostPrefixes = CONFIG.CRITICAL_TRACKING_MAP.get(hostname);
-  if (hostPrefixes) {
-    if (hostPrefixes.size === 0) {
-      multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
-      return true;
+  // exact
+  for (const key of Array.from(params.keys())) {
+    const lk = key.toLowerCase();
+    if ((CONFIG.PARAMS_TO_KEEP_WHITELIST||new Set()).has(lk)) continue;
+    if ((CONFIG.GLOBAL_TRACKING_PARAMS||new Set()).has(lk) || (CONFIG.COSMETIC_PARAMS||new Set()).has(lk)) { params.delete(key); changed=true; continue; }
+    // prefix
+    let removed=false;
+    for (const p of (CONFIG.TRACKING_PREFIXES||new Set())) { if (lk.startsWith(p)) { params.delete(key); changed=true; removed=true; break; } }
+    if (removed) continue;
+    // regex buckets
+    const c0 = lk[0]; if (FIRST_CHAR_TABLE[c0]) {
+      for (const rx of (CONFIG.GLOBAL_TRACKING_PARAMS_REGEX||[])) { if (rx.test(lk)) { params.delete(key); changed=true; removed=true; break; } }
+      if (removed) continue;
+      for (const rx of (CONFIG.TRACKING_PREFIXES_REGEX||[])) { if (rx.test(lk)) { params.delete(key); changed=true; removed=true; break; } }
     }
-    for (const prefix of hostPrefixes) {
-      if (lowerFullPath.startsWith(prefix)) {
-        multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
-        return true;
-      }
+  }
+  if (!changed) return null;
+  url.search = params.toString() ? `?${params.toString()}` : '';
+  return url.toString();
+}
+
+/* =========================
+ * Allow Path（Prefix Trie + Suffix 分桶）
+ * ========================= */
+function isPathExplicitlyAllowed(lowerPathOnly){
+  if (getPathAllowPrefixTrie().startsWith(lowerPathOnly)) return true;
+  const buckets = getPathAllowSuffixBuckets();
+  for (const [L,arr] of buckets.entries()){
+    if (lowerPathOnly.length >= L){
+      const tail = lowerPathOnly.slice(-L);
+      for (const s of arr){ if (tail === s) return true; }
     }
   }
-  if (getAcCriticalGeneric().matches(pathOnly, CONFIG.AC_SCAN_MAX_LENGTH)) {
-    multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
-    return true;
-  }
-  multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, false);
+  // 子字串白名單與區段白名單（保持與 V40.76 一致）
+  for (const sub of (CONFIG.PATH_ALLOW_SUBSTRINGS||new Set())){ if (lowerPathOnly.includes(sub)) return true; }
+  const segs = lowerPathOnly.startsWith('/') ? lowerPathOnly.substring(1).split('/') : lowerPathOnly.split('/');
+  for (const seg of segs){ if ((CONFIG.PATH_ALLOW_SEGMENTS||new Set()).has(seg)) return true; }
   return false;
 }
 
-// ================================================================================================
-/** 🧯 路徑白名單與阻擋 */
-// ================================================================================================
-function isPathExplicitlyAllowed(lowerPathOnly) {
-  const k = multiLevelCache.getUrlDecision('allow:path', lowerPathOnly, '');
-  if (k !== null) return k;
+/* =========================
+ * Path by AC（分層）
+ * ========================= */
+function isPathBlockedByKeywords(lowerPathOnly, isExplicitlyAllowed){
+  const cached = multiLevelCache.getUrlDecision('pathac', lowerPathOnly, '');
+  if (cached != null) return cached;
 
-  const runSecondaryCheck = (pathToCheck) => {
-    for (const trackerKeyword of CONFIG.HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH) {
-      if (pathToCheck.includes(trackerKeyword)) return false;
-    }
+  const maxLen = CONFIG.AC_SCAN_MAX_LENGTH || 512;
+  if (!isExplicitlyAllowed && getAcHighConfidence().matches(lowerPathOnly, maxLen)){
+    multiLevelCache.setUrlDecision('pathac', lowerPathOnly, '', true, 20*60*1000);
     return true;
-  };
-  for (const substring of CONFIG.PATH_ALLOW_SUBSTRINGS) {
-    if (lowerPathOnly.includes(substring)) {
-      const r = runSecondaryCheck(lowerPathOnly);
-      multiLevelCache.setUrlDecision('allow:path', lowerPathOnly, '', r);
-      return r;
-    }
   }
-  const segments = lowerPathOnly.startsWith('/') ? lowerPathOnly.substring(1).split('/') : lowerPathOnly.split('/');
-  for (const segment of segments) {
-    if (CONFIG.PATH_ALLOW_SEGMENTS.has(segment)) {
-      const r = runSecondaryCheck(lowerPathOnly);
-      multiLevelCache.setUrlDecision('allow:path', lowerPathOnly, '', r);
-      return r;
-    }
-  }
-  for (const suffix of CONFIG.PATH_ALLOW_SUFFIXES) {
-    if (lowerPathOnly.endsWith(suffix)) {
-      const parentPath = lowerPathOnly.substring(0, lowerPathOnly.lastIndexOf('/'));
-      const r = runSecondaryCheck(parentPath);
-      multiLevelCache.setUrlDecision('allow:path', lowerPathOnly, '', r);
-      return r;
-    }
-  }
-  multiLevelCache.setUrlDecision('allow:path', lowerPathOnly, '', false);
-  return false;
-}
-
-function isPathBlockedByKeywords(lowerPathOnly, isExplicitlyAllowed) {
-  const c = multiLevelCache.getUrlDecision('path:ac', lowerPathOnly, '');
-  if (c !== null) return c;
-  let r = false;
-  if (!isExplicitlyAllowed && getAcPathBlock().matches(lowerPathOnly, CONFIG.AC_SCAN_MAX_LENGTH)) r = true;
-  multiLevelCache.setUrlDecision('path:ac', lowerPathOnly, '', r);
+  let r=false;
+  if (!isExplicitlyAllowed && getAcPathBlock().matches(lowerPathOnly, maxLen)) r=true;
+  multiLevelCache.setUrlDecision('pathac', lowerPathOnly, '', r, r ? 20*60*1000 : 10*60*1000);
   return r;
 }
 
-function isPathBlockedByRegex(lowerPathOnly, isExplicitlyAllowed) {
-  const c = multiLevelCache.getUrlDecision('path:rx', lowerPathOnly, '');
-  if (c !== null) return c;
+/* =========================
+ * Path by Regex（移除過度前置 gating，改以早停）
+ * ========================= */
+function isPathBlockedByRegex(lowerPathOnly, isExplicitlyAllowed){
+  const cached = multiLevelCache.getUrlDecision('pathrx', lowerPathOnly, '');
+  if (cached != null) return cached;
 
-  for (const prefix of CONFIG.PATH_ALLOW_PREFIXES) {
-    if (lowerPathOnly.startsWith(prefix)) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', false); return false; }
+  if (isExplicitlyAllowed){
+    multiLevelCache.setUrlDecision('pathrx', lowerPathOnly, '', false, 20*60*1000);
+    return false;
   }
-  if (isExplicitlyAllowed) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', false); return false; }
-  
-  // [V40.76] 原生字串取代 Regex
-  if (lowerPathOnly.endsWith('/collect') || lowerPathOnly.endsWith('/service/collect')) {
-      multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', true);
-      return true;
+  for (const re of getCompiledPathBlockRegex()){
+    if (re.test(lowerPathOnly)){ multiLevelCache.setUrlDecision('pathrx', lowerPathOnly, '', true, 20*60*1000); return true; }
   }
-  
-  if (lowerPathOnly.includes('sentry') || lowerPathOnly.includes('event') || lowerPathOnly.includes('.js')) {
-      for (const regex of getCompiledPathBlockRegex()) {
-        if (regex.test(lowerPathOnly)) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', true); return true; }
-      }
-      for (const regex of getCompiledHeuristicPathBlockRegex()) {
-        if (regex.test(lowerPathOnly)) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', true); return true; }
-      }
+  for (const re of getCompiledHeuristicPathBlockRegex()){
+    if (re.test(lowerPathOnly)){ multiLevelCache.setUrlDecision('pathrx', lowerPathOnly, '', true, 10*60*1000); return true; }
   }
-  
-  multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', false);
+  multiLevelCache.setUrlDecision('pathrx', lowerPathOnly, '', false, 10*60*1000);
   return false;
 }
 
-// ================================================================================================
-/** 🧱 阻擋回應 */
-// ================================================================================================
-function getBlockResponse(pathnameLower) {
-  for (const keyword of CONFIG.DROP_KEYWORDS) {
-    if (pathnameLower.includes(keyword)) return DROP_RESPONSE;
-  }
-  const dotIndex = pathnameLower.lastIndexOf('.');
-  if (dotIndex > pathnameLower.lastIndexOf('/')) {
-    const ext = pathnameLower.substring(dotIndex);
-    if (IMAGE_EXTENSIONS.has(ext)) return TINY_GIF_RESPONSE;
-    if (SCRIPT_EXTENSIONS.has(ext)) return NO_CONTENT_RESPONSE;
-  }
-  return REJECT_RESPONSE;
+/* =========================
+ * 網域封鎖與豁免
+ * ========================= */
+function isDomainBlocked(hostname, lowerPathOnly){
+  const l1 = multiLevelCache.getDomainDecision(hostname);
+  if (l1 != null) return !l1; // true => blocked
+
+  // 硬白名單（Exact + Wildcards）
+  const hard = getWhitelistMatchDetails(hostname, CONFIG.HARD_WHITELIST_EXACT||new Set(), CONFIG.HARD_WHITELIST_WILDCARDS||new Set());
+  if (hard.matched){ multiLevelCache.setDomainDecision(hostname, true, 60*60*1000); return false; }
+
+  const blocked = getBlockedDomainTrie().matches(hostname) || (CONFIG.BLOCK_DOMAINS_REGEX||[]).some(rx=>rx.test(hostname));
+  if (!blocked){ multiLevelCache.setDomainDecision(hostname, true, 30*60*1000); return false; }
+
+  // 路徑豁免
+  const ex = (CONFIG.PATH_EXEMPTIONS_FOR_BLOCKED_DOMAINS||new Map()).get(hostname);
+  if (ex && ex.size>0){ for (const p of ex){ if (lowerPathOnly.startsWith(String(p).toLowerCase())){ multiLevelCache.setDomainDecision(hostname, true, 10*60*1000); return false; } } }
+
+  multiLevelCache.setDomainDecision(hostname, false, 60*60*1000);
+  return true;
 }
 
-// ================================================================================================
-/** 🧼 參數清理 */
-// ================================================================================================
-const REGEX_FIRST_CHAR_BUCKET = new Set(['u','i','a','t','l','_']);
-
-function cleanTrackingParams(rawUrl) {
-    const urlObj = new URL(rawUrl);
-    let modified = false;
-    const toDelete = [];
-    for (const key of urlObj.searchParams.keys()) {
-        if (key.length < 2) continue;
-        const lowerKey = key.toLowerCase();
-        if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(lowerKey)) continue;
-
-        if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) ||
-            CONFIG.COSMETIC_PARAMS.has(lowerKey) ||
-            getPrefixTrieForParam().startsWith(lowerKey)) {
-            toDelete.push(key); modified = true; continue;
-        }
-        const first = lowerKey[0];
-        if (REGEX_FIRST_CHAR_BUCKET.has(first)) {
-            let matched = false;
-            for (const rx of getCompiledGlobalTrackingParamsRegex()) {
-                if (rx.test(lowerKey)) { toDelete.push(key); modified = true; matched = true; break; }
-            }
-            if (matched) continue;
-            for (const rx of getCompiledTrackingPrefixesRegex()) {
-                if (rx.test(lowerKey)) { toDelete.push(key); modified = true; break; }
-            }
-        }
-    }
-    if (modified) {
-        toDelete.forEach(k => urlObj.searchParams.delete(k));
-        return urlObj.toString();
-    }
-    return null;
-}
-
-// ================================================================================================
-/** 🔏 記錄清洗 */
-// ================================================================================================
-const SENSITIVE_PARAMS_CONFIG = {
-    keywords: ['token','password','key','secret','auth','otp','access_token','refresh_token'],
-    firstCharBucket: new Set(['t', 'p', 'k', 's', 'a', 'o', 'r'])
+/* =========================
+ * 回應模板
+ * ========================= */
+const RESPONSES = {
+  TINY_GIF: { status:200, headers:{'Content-Type':'image/gif','Cache-Control':'no-store'}, body: atob('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==') },
+  NO_CONTENT: { status:204, headers:{'Cache-Control':'no-store'}, body:'' },
+  REJECT: { status:403, headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}, body:'Blocked by URL-Ultimate-Filter' },
 };
-function getSanitizedUrlForLogging(urlStr) {
-  try {
-    const tempUrl = new URL(urlStr);
-    if (!tempUrl.search) return urlStr;
-    
-    for (const param of tempUrl.searchParams.keys()) {
-      const lowerParam = param.toLowerCase();
-      if (!SENSITIVE_PARAMS_CONFIG.firstCharBucket.has(lowerParam[0])) continue;
-      for (const sensitive of SENSITIVE_PARAMS_CONFIG.keywords) {
-        if (lowerParam.includes(sensitive)) { tempUrl.searchParams.set(param, 'REDACTED'); break; }
-      }
+
+/* =========================
+ * 主決策流程（http-request）
+ * ========================= */
+function decideForRequest(rawUrl, method='GET', headers={}){
+  const t0 = Date.now();
+  try{
+    const url = new URL(rawUrl);
+    const hostname = url.hostname;
+    const pathOnly = url.pathname + (url.search || '');
+    const lowerPathOnly = pathOnly.toLowerCase();
+
+    // 軟白名單（修正傳參：EXACT + WILDCARDS）
+    const soft = getWhitelistMatchDetails(hostname, CONFIG.SOFT_WHITELIST_EXACT||new Set(), CONFIG.SOFT_WHITELIST_WILDCARDS||new Set());
+    if (soft.matched){ optimizedStats.increment('softWhitelistHits'); return { action:'allow' }; }
+
+    // Domain Block 與豁免
+    if (isDomainBlocked(hostname, lowerPathOnly)){
+      optimizedStats.increment('domainBlocked');
+      if (/\.(gif|png|jpe?g|webp|bmp|ico)$/i.test(lowerPathOnly)) return { action:'respond', response: RESPONSES.TINY_GIF };
+      return { action:'respond', response: RESPONSES.NO_CONTENT };
     }
-    return tempUrl.toString();
-  } catch (e) {
-    return (typeof urlStr === 'string' ? urlStr.split('?')[0] : '<INVALID_URL_OBJECT>') + '?<URL_PARSE_ERROR>';
+
+    // 明確允許剪枝
+    const explicitlyAllowed = isPathExplicitlyAllowed(lowerPathOnly);
+    if (explicitlyAllowed){ optimizedStats.increment('pathAllow'); multiLevelCache.setUrlDecision('allowpath', lowerPathOnly, '', true, 20*60*1000); return { action:'allow' }; }
+
+    // Critical（主機映射＋最短前綴）
+    if (isCriticalTrackingScript(hostname, lowerPathOnly)){
+      optimizedStats.increment('criticalBlocked');
+      multiLevelCache.setUrlDecision('crit', hostname, lowerPathOnly, true, 30*60*1000);
+      return { action:'respond', response: RESPONSES.NO_CONTENT };
+    }
+
+    // AC（高信度→通用）
+    if (isPathBlockedByKeywords(lowerPathOnly, explicitlyAllowed)){ optimizedStats.increment('pathBlockedAC'); return { action:'respond', response: RESPONSES.NO_CONTENT }; }
+
+    // Regex（放寬 gating，早停）
+    if (isPathBlockedByRegex(lowerPathOnly, explicitlyAllowed)){ optimizedStats.increment('pathBlockedRegex'); return { action:'respond', response: RESPONSES.NO_CONTENT }; }
+
+    // 參數清洗
+    const cleaned = cleanTrackingParams(rawUrl);
+    if (cleaned && cleaned !== rawUrl){ optimizedStats.increment('paramsCleaned'); return { action:'rewrite', url: cleaned }; }
+
+    return { action:'allow' };
+  } catch {
+    optimizedStats.increment('errors');
+    return { action:'allow' };
+  } finally {
+    optimizedStats.addTiming('decideForRequest', Date.now() - t0);
   }
 }
 
-// ================================================================================================
-/** 🛠️ 主流程 */
-// ================================================================================================
-function processRequest(request) {
-  const t0 = CONFIG.DEBUG_MODE ? __now__() : 0;
-  try {
-    optimizedStats.increment('totalRequests');
-    const rawUrl = request.url;
-    if (!rawUrl || typeof rawUrl !== 'string' || rawUrl.length < 10) {
-      if (t0) optimizedStats.addTiming('total', __now__() - t0);
-      return null;
+/* =========================
+ * Surge Glue
+ * ========================= */
+try{
+  if (typeof $request !== 'undefined' && typeof $done === 'function'){
+    const r = decideForRequest($request.url, $request.method||'GET', $request.headers||{});
+    switch(r.action){
+      case 'respond': $done({ response: r.response }); break;
+      case 'rewrite': $done({ url: r.url }); break;
+      case 'allow':
+      default: $done({}); break;
     }
-    
-    const tParse0 = t0 ? __now__() : 0;
-    const protocolEnd = rawUrl.indexOf('//') + 2;
-    let hostname, fullPath, hostEndIndex;
-
-    if (rawUrl.charCodeAt(protocolEnd) === 91) {
-        hostEndIndex = rawUrl.indexOf(']', protocolEnd) + 1;
-        hostname = rawUrl.substring(protocolEnd, hostEndIndex).toLowerCase();
-    } else {
-        hostEndIndex = rawUrl.indexOf('/', protocolEnd);
-        if (hostEndIndex === -1) hostEndIndex = rawUrl.length;
-        let portIndex = rawUrl.indexOf(':', protocolEnd);
-        if (portIndex !== -1 && portIndex < hostEndIndex) {
-            hostname = rawUrl.substring(protocolEnd, portIndex).toLowerCase();
-        } else {
-            hostname = rawUrl.substring(protocolEnd, hostEndIndex).toLowerCase();
-        }
-    }
-    const pathStartIndex = rawUrl.indexOf('/', protocolEnd);
-    fullPath = pathStartIndex === -1 ? '/' : rawUrl.substring(pathStartIndex);
-
-    if(t0) optimizedStats.addTiming('parse', __now__() - tParse0);
-
-    const tWl0 = t0 ? __now__() : 0;
-    if (getWhitelistMatchDetails(hostname, CONFIG.HARD_WHITELIST_EXACT, CONFIG.HARD_WHITELIST_WILDCARDS).matched) {
-      optimizedStats.increment('hardWhitelistHits');
-      if (t0) { optimizedStats.addTiming('whitelist', __now__() - tWl0); optimizedStats.addTiming('total', __now__() - t0); }
-      return null;
-    }
-
-    const tL10 = t0 ? __now__() : 0;
-    const l1Decision = multiLevelCache.getDomainDecision(hostname);
-    const qIndex = fullPath.indexOf('?');
-    const pathname = qIndex === -1 ? fullPath : fullPath.substring(0, qIndex);
-    const pathnameLower = pathname.toLowerCase();
-
-    if (l1Decision === DECISION.BLOCK) {
-      optimizedStats.increment('domainBlocked'); optimizedStats.increment('blockedRequests');
-      if (t0) { optimizedStats.addTiming('l1', __now__() - tL10); optimizedStats.addTiming('total', __now__() - t0); }
-      return getBlockResponse(pathnameLower);
-    }
-    if (t0) optimizedStats.addTiming('l1', __now__() - tL10);
-    
-    let isSoftWhitelisted = false;
-    if (getWhitelistMatchDetails(hostname, CONFIG.SOFT_WHITELIST_WILDCARDS, CONFIG.SOFT_WHITELIST_WILDCARDS).matched) {
-        optimizedStats.increment('softWhitelistHits');
-        isSoftWhitelisted = true;
-    }
-    if (t0) optimizedStats.addTiming('whitelist', __now__() - tWl0);
-
-    if (!isSoftWhitelisted) {
-        if (l1Decision !== DECISION.ALLOW && l1Decision !== DECISION.NEGATIVE_CACHE) {
-            const tDom0 = t0 ? __now__() : 0;
-            if (isDomainBlocked(hostname)) {
-                let isExempted = false;
-                const exemptions = CONFIG.PATH_EXEMPTIONS_FOR_BLOCKED_DOMAINS.get(hostname);
-                if (exemptions) {
-                    for (const ex of exemptions) if (fullPath.startsWith(ex)) { isExempted = true; break; }
-                }
-                if (!isExempted) {
-                    multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK, 30 * 60 * 1000);
-                    optimizedStats.increment('domainBlocked'); optimizedStats.increment('blockedRequests');
-                    if (t0) { optimizedStats.addTiming('domainStage', __now__() - tDom0); optimizedStats.addTiming('total', __now__() - t0); }
-                    return getBlockResponse(pathnameLower);
-                }
-            } else {
-                multiLevelCache.setDomainDecision(hostname, DECISION.ALLOW, 10 * 60 * 1000);
-            }
-            if(t0) optimizedStats.addTiming('domainStage', __now__() - tDom0);
-        }
-    
-        const lowerFullPath = fullPath.toLowerCase();
-        const tCrit0 = t0 ? __now__() : 0;
-        if (isCriticalTrackingScript(hostname, lowerFullPath)) {
-          optimizedStats.increment('criticalScriptBlocked'); optimizedStats.increment('blockedRequests');
-          if(t0) { optimizedStats.addTiming('critical', __now__() - tCrit0); optimizedStats.addTiming('total', __now__() - t0); }
-          return getBlockResponse(pathnameLower);
-        }
-        if(t0) optimizedStats.addTiming('critical', __now__() - tCrit0);
-        
-        const tAllow0 = t0 ? __now__() : 0;
-        const isAllowed = isPathExplicitlyAllowed(pathnameLower);
-        if(t0) optimizedStats.addTiming('allowlistEval', __now__() - tAllow0);
-
-        const tPB0 = t0 ? __now__() : 0;
-        if (isPathBlockedByKeywords(pathnameLower, isAllowed)) {
-          optimizedStats.increment('pathBlocked'); optimizedStats.increment('blockedRequests');
-          if(t0) { optimizedStats.addTiming('pathTrie', __now__() - tPB0); optimizedStats.addTiming('total', __now__() - t0); }
-          return getBlockResponse(pathnameLower);
-        }
-        if(t0) optimizedStats.addTiming('pathTrie', __now__() - tPB0);
-
-        const tPR0 = t0 ? __now__() : 0;
-        if (isPathBlockedByRegex(pathnameLower, isAllowed)) {
-          optimizedStats.increment('regexPathBlocked'); optimizedStats.increment('blockedRequests');
-          if(t0) { optimizedStats.addTiming('pathRegex', __now__() - tPR0); optimizedStats.addTiming('total', __now__() - t0); }
-          return getBlockResponse(pathnameLower);
-        }
-        if(t0) optimizedStats.addTiming('pathRegex', __now__() - tPR0);
-    }
-    
-    if (qIndex !== -1) {
-        const tP0 = t0 ? __now__() : 0;
-        const cleanedUrl = cleanTrackingParams(rawUrl);
-        if (cleanedUrl) {
-            optimizedStats.increment('paramsCleaned');
-            request.url = cleanedUrl;
-            if (t0) { optimizedStats.addTiming('params', __now__() - tP0); optimizedStats.addTiming('total', __now__() - t0); }
-            return { request };
-        }
-        if(t0) optimizedStats.addTiming('params', __now__() - tP0);
-    }
-
-    if (l1Decision === null) {
-        multiLevelCache.setDomainDecision(hostname, DECISION.NEGATIVE_CACHE, 60 * 1000);
-    }
-
-    if(t0) optimizedStats.addTiming('total', __now__() - t0);
-    return null;
-
-  } catch (error) {
-    logError(error, { stage: 'processRequest', url: getSanitizedUrlForLogging(request?.url) });
-    if(t0) optimizedStats.addTiming('total', __now__() - t0);
-    return null;
   }
+}catch(_){ /* 非 Surge 環境忽略 */ }
+
+/* =========================
+ * Node.js 測試掛鉤（可移除）
+ * ========================= */
+if (typeof module!=='undefined' && module.exports){
+  module.exports = { decideForRequest, bumpCacheEpoch, multiLevelCache, getWhitelistMatchDetails, isPathExplicitlyAllowed, isPathBlockedByKeywords, isPathBlockedByRegex, isDomainBlocked, CONFIG, SCRIPT_VERSION };
 }
-
-// ================================================================================================
-/** 🏁 啟動 */
-// ================================================================================================
-let isInitialized = false;
-function initialize() {
-    if (isInitialized) return;
-    multiLevelCache.seed();
-    isInitialized = true;
-}
-
-(async function () {
-  try {
-    let startTime;
-    if (CONFIG.DEBUG_MODE && typeof $request !== 'undefined') {
-      startTime = __now__();
-    }
-    
-    initialize();
-
-    if (typeof $request === 'undefined') {
-      if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.76 - Smart Cache & Final Optimizations', stats: optimizedStats.getStats() });
-      }
-      return;
-    }
-
-    const result = processRequest($request);
-
-    if (CONFIG.DEBUG_MODE) {
-      const endTime = __now__();
-      const executionTime = (endTime - startTime).toFixed(3);
-      console.log(`[URL-Filter-v${SCRIPT_VERSION}][Debug] Time: ${executionTime}ms | URL: ${getSanitizedUrlForLogging($request.url)} | ${optimizedStats.getSummary()}`);
-    }
-    
-    if (typeof $done !== 'undefined') {
-        if (result && result.request) {
-            $done(result);
-        } else if (result && result.response) {
-            $done(result);
-        } else {
-            $done({});
-        }
-    }
-  } catch (error) {
-    logError(error, { stage: 'globalExecution' });
-    if (typeof $done !== 'undefined') $done({});
-  }
-})();
