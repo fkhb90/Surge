@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.81.js
- * @version     40.81 (修正版)
- * @description 基於 V40.80 進行全面修正，解決編碼問題並優化黑白名單
+ * @file        URL-Ultimate-Filter-Surge-V40.82.js
+ * @version     40.82 (黑白名單修正版)
+ * @description 修正 V40.81 黑白名單失效問題，完善過濾邏輯
  * @author      Claude & Community Optimization
  * @lastUpdated 2025-09-24
  */
@@ -13,7 +13,7 @@
 
 const CONFIG = {
   /**
-   * ✅ [V40.81] 效能調校參數
+   * ✅ [V40.82] 效能調校參數
    */
   PERFORMANCE_CONFIG: {
     DEBUG_MODE: false,
@@ -28,7 +28,7 @@ const CONFIG = {
   },
 
   /**
-   * ✅ [V40.81] 快取配置
+   * ✅ [V40.82] 快取配置
    */
   CACHE_CONFIG: {
     L1_DOMAIN_SIZE: 1024,
@@ -42,7 +42,7 @@ const CONFIG = {
   },
 
   /**
-   * ✳️ 啟發式直跳域名列表
+   * 🔄 啟發式直跳域名列表
    */
   REDIRECTOR_HOSTS: new Set([
     '1ink.cc', '1link.club', 'adfoc.us', 'adsafelink.com', 'adshnk.com', 
@@ -69,119 +69,140 @@ const CONFIG = {
   ]),
 
   /**
-   * ✳️ 硬白名單 - 精確匹配
+   * ✅ 硬白名單 - 精確匹配 (最高優先級，絕對不攔截)
    */
   HARD_WHITELIST_EXACT: new Set([
-    // AI & Search Services
+    // 🤖 AI & 搜尋服務
     'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai',
-    
-    // Developer Tools
+    'bard.google.com', 'chat.openai.com', 'api.openai.com',
+
+    // 🛠 開發者工具
     'raw.githubusercontent.com', 'api.github.com', 'userscripts.adtidy.org',
-    
-    // Essential Services
+    'github.com', 'stackoverflow.com', 'developer.mozilla.org',
+
+    // 🔐 核心服務認證
     'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
-    
-    // Payment APIs
+    'secure.gravatar.com', 'auth0.com', 'oauth.com',
+
+    // 💳 金流 API
     'api.adyen.com', 'api.braintreegateway.com', 'api.ecpay.com.tw',
-    
-    // Social Platform Core APIs
+    'api.stripe.com', 'api.paypal.com', 'checkout.paypal.com',
+
+    // 🎮 社群平台核心 API
     'api.discord.com', 'api.twitch.tv', 'graph.instagram.com',
-    
-    // Taiwan Services
+    'api.twitter.com', 'api.linkedin.com', 'api.reddit.com',
+
+    // 🇹🇼 台灣服務
     'api.map.ecpay.com.tw', 'payment.ecpay.com.tw', 'kktix.com', 'tixcraft.com',
+    'gov.tw', 'edu.tw', 'org.tw', 'com.tw', 'net.tw',
   ]),
 
   /**
-   * ✳️ 硬白名單 - 萬用字元
+   * ✅ 硬白名單 - 萬用字元匹配
    */
   HARD_WHITELIST_WILDCARDS: new Set([
-    // Banking & Finance
+    // 🏦 銀行金融
     'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'firstbank.com.tw',
     'fubon.com', 'megabank.com.tw', 'richart.tw', 'sinopac.com', 'taishinbank.com.tw',
-    
-    // Government
-    'gov.tw', 'org.tw',
-    
-    // Core Services
-    'googleapis.com', 'icloud.com', 'windowsupdate.com',
-    
-    // Content Delivery
-    'googlevideo.com', 'ytimg.com',
+
+    // 🏛 政府機關
+    'gov.tw', 'org.tw', 'edu.tw',
+
+    // ⚙️ 核心服務
+    'googleapis.com', 'gstatic.com', 'icloud.com', 'windowsupdate.com',
+    'microsoft.com', 'apple.com', 'amazon.com',
+
+    // 📺 內容傳遞
+    'googlevideo.com', 'ytimg.com', 'youtube.com', 'youtu.be',
   ]),
 
   /**
-   * ✅ 軟白名單 - 精確匹配
+   * ✨ 軟白名單 - 精確匹配 (較低優先級)
    */
   SOFT_WHITELIST_EXACT: new Set([
-    'api.anthropic.com', 'api.openai.com', 'api.cohere.ai',
+    // 🤖 AI 服務擴展
+    'api.anthropic.com', 'api.cohere.ai', 'api.huggingface.co',
+
+    // 🛠 開發工具擴展
     'api.dropboxapi.com', 'api.notion.com', 'api.figma.com',
-    'duckduckgo.com', 'secure.gravatar.com',
+    'api.slack.com', 'api.trello.com', 'api.asana.com',
+
+    // 🔍 搜尋引擎
+    'duckduckgo.com', 'bing.com', 'search.yahoo.com',
   ]),
 
   /**
-   * ✅ 軟白名單 - 萬用字元
+   * ✨ 軟白名單 - 萬用字元
    */
   SOFT_WHITELIST_WILDCARDS: new Set([
-    // E-commerce
+    // 🛒 電商平台
     'shopee.tw', 'momoshop.com.tw', 'pchome.com.tw', 'books.com.tw',
-    
-    // CDN Networks
+    'ruten.com.tw', 'etmall.com.tw', 'friday.tw',
+
+    // 🌐 CDN 網路
     'akamaihd.net', 'amazonaws.com', 'cloudflare.com', 'cloudfront.net',
-    'fastly.net', 'fbcdn.net', 'gstatic.com', 'jsdelivr.net',
-    
-    // Development Platforms
+    'fastly.net', 'fbcdn.net', 'jsdelivr.net', 'unpkg.com',
+
+    // 👨‍💻 開發平台
     'github.io', 'gitlab.io', 'netlify.app', 'vercel.app', 'pages.dev',
-    
-    // Content Platforms
-    'youtube.com', 'spotify.com', 'netflix.com',
+    'herokuapp.com', 'firebase.com', 'firebaseapp.com',
+
+    // 🎬 內容平台
+    'spotify.com', 'netflix.com', 'hulu.com', 'disney.com',
   ]),
 
   /**
-   * 🚫 域名攔截黑名單
+   * 🚫 域名攔截黑名單 (精確匹配)
    */
   BLOCK_DOMAINS: new Set([
-    // Google Analytics & Ads
+    // 🎯 Google 追蹤與廣告
     'google-analytics.com', 'googletagmanager.com', 'googlesyndication.com',
     'googleadservices.com', 'doubleclick.net', 'adsense.com', 'admob.com',
-    
-    // Facebook/Meta Tracking
-    'connect.facebook.net', 'business.facebook.com', 'graph.facebook.com',
-    
-    // Amazon Tracking
-    'amazon-adsystem.com',
-    
-    // Microsoft Tracking
-    'c.clarity.ms', 'bat.bing.com',
-    
-    // Adobe Analytics
-    'omtrdc.net', 'demdex.net',
-    
-    // Major Analytics Platforms
+    'googletagservices.com', 'ggpht.com', 'googleusercontent.com',
+
+    // 📘 Facebook/Meta 追蹤
+    'connect.facebook.net', 'business.facebook.com', 'analytics.facebook.com',
+    'pixel.facebook.com', 'facebook.com', 'instagram.com',
+
+    // 🛒 Amazon 追蹤
+    'amazon-adsystem.com', 'media-amazon.com', 'assoc-amazon.com',
+
+    // 🪟 Microsoft 追蹤
+    'c.clarity.ms', 'bat.bing.com', 'live.com', 'hotmail.com',
+
+    // 🎨 Adobe 分析
+    'omtrdc.net', 'demdex.net', 'adobe.com', 'omniture.com',
+
+    // 📊 主要分析平台
     'amplitude.com', 'mixpanel.com', 'segment.io', 'segment.com',
     'hotjar.com', 'fullstory.com', 'heap.io', 'posthog.com',
-    
-    // Ad Networks
+    'google-analytics.com', 'googleanalytics.com',
+
+    // 📺 廣告網路
     'adsrvr.org', 'criteo.com', 'criteo.net', 'outbrain.com',
-    'taboola.com', 'mgid.com', 'revcontent.com',
-    
-    // Mobile Analytics
+    'taboola.com', 'mgid.com', 'revcontent.com', 'adsystem.com',
+
+    // 📱 行動分析
     'appsflyer.com', 'adjust.com', 'branch.io', 'kochava.com',
-    
-    // China Analytics
+    'flurry.com', 'localytics.com',
+
+    // 🇨🇳 中國分析
     'umeng.com', 'umeng.cn', 'cnzz.com', 'baidu.com',
-    
-    // TikTok Analytics
+    'tencent.com', 'qq.com', 'sina.com.cn',
+
+    // 🎵 TikTok 分析
     'analytics.tiktok.com', 'ads.tiktok.com', 'events.tiktok.com',
-    
-    // LinkedIn Analytics
-    'ads.linkedin.com', 'analytics.linkedin.com',
-    
-    // Twitter/X Analytics
-    'analytics.twitter.com', 'ads-twitter.com',
-    
-    // Other Tracking Services
+
+    // 💼 LinkedIn 分析
+    'ads.linkedin.com', 'analytics.linkedin.com', 'bizographics.com',
+
+    // 🐦 Twitter/X 分析
+    'analytics.twitter.com', 'ads-twitter.com', 'twitter.com',
+
+    // 🔍 其他追蹤服務
     'scorecardresearch.com', 'quantserve.com', 'chartbeat.com',
     'newrelic.com', 'nr-data.net', 'bugsnag.com', 'sentry.io',
+    'optimizely.com', 'vwo.com', 'kissmetrics.com',
   ]),
 
   /**
@@ -197,6 +218,8 @@ const CONFIG = {
     /^log[s]?\./i,
     /^pixel\./i,
     /^beacon\./i,
+    /^collect\./i,
+    /^events?\./i,
   ],
 
   /**
@@ -205,21 +228,23 @@ const CONFIG = {
   CRITICAL_TRACKING_SCRIPTS: new Set([
     // Google
     'gtag.js', 'gtm.js', 'analytics.js', 'ga.js', 'adsbygoogle.js',
-    
+    'googletagmanager.js', 'googletagservices.js',
+
     // Facebook
-    'fbevents.js', 'fbq.js', 'pixel.js',
-    
-    // Analytics Libraries
+    'fbevents.js', 'fbq.js', 'pixel.js', 'connect.js',
+
+    // 分析程式庫
     'amplitude.js', 'mixpanel.js', 'segment.js', 'heap.js',
     'hotjar.js', 'fullstory.js', 'clarity.js', 'posthog.js',
-    
-    // Ad Tech
+    'optimizely.js', 'vwo.js', 'kissmetrics.js',
+
+    // 廣告技術
     'prebid.js', 'pubmatic.js', 'criteo.js', 'outbrain.js',
     'taboola.js', 'mgid.js', 'revcontent.js',
-    
-    // Generic Tracking
+
+    // 通用追蹤
     'tracker.js', 'tracking.js', 'beacon.js', 'collect.js',
-    'event.js', 'conversion.js', 'pixel.js',
+    'event.js', 'conversion.js', 'attribution.js',
   ]),
 
   /**
@@ -228,9 +253,9 @@ const CONFIG = {
   CRITICAL_TRACKING_PATHS: new Set([
     '/collect', '/track', '/event', '/pixel', '/beacon',
     '/analytics', '/metrics', '/telemetry', '/log',
-    '/impression', '/click', '/conversion',
+    '/impression', '/click', '/conversion', '/attribution',
     '/g/collect', '/j/collect', '/mp/collect',
-    '/tr', '/pagead', '/ads',
+    '/tr', '/pagead', '/ads', '/adnxs',
   ]),
 
   /**
@@ -240,6 +265,7 @@ const CONFIG = {
     'track', 'collect', 'pixel', 'beacon', 'event', 'analytics',
     'metric', 'telemetry', 'impression', 'click', 'view', 'conversion',
     'attribution', 'fingerprint', 'utm', 'campaign', 'affiliate',
+    'retargeting', 'remarketing', 'audience', 'segment',
   ],
 };
 
@@ -264,13 +290,13 @@ class EnhancedCache {
       this.stats.misses++;
       return undefined;
     }
-    
+
     if (Date.now() > entry.expires) {
       this.cache.delete(key);
       this.stats.misses++;
       return undefined;
     }
-    
+
     // Move to end (LRU)
     this.cache.delete(key);
     this.cache.set(key, entry);
@@ -284,7 +310,7 @@ class EnhancedCache {
       const firstKey = this.cache.keys().next().value;
       this.cache.delete(firstKey);
     }
-    
+
     this.cache.set(key, {
       value,
       expires: Date.now() + ttl
@@ -309,7 +335,7 @@ class EnhancedCache {
  * Bloom Filter for fast negative lookups
  */
 class BloomFilter {
-  constructor(size = 10000, hashCount = 3) {
+  constructor(size = 10000, hashCount = 4) {
     this.size = size;
     this.hashCount = hashCount;
     this.bits = new Uint8Array(Math.ceil(size / 8));
@@ -352,18 +378,18 @@ class BloomFilter {
 class URLFilterEngine {
   constructor() {
     this.initialized = false;
-    
+
     // Multi-layer cache system
     this.caches = {
       domain: new EnhancedCache(CONFIG.CACHE_CONFIG.L1_DOMAIN_SIZE),
       url: new EnhancedCache(CONFIG.CACHE_CONFIG.L2_URL_DECISION_SIZE),
       regex: new EnhancedCache(CONFIG.CACHE_CONFIG.L3_REGEX_RESULT_SIZE),
     };
-    
+
     // Bloom filter for fast negative checks
     this.bloomFilter = CONFIG.PERFORMANCE_CONFIG.ENABLE_BLOOM_FILTER ? 
-      new BloomFilter(20000, 4) : null;
-    
+      new BloomFilter(30000, 5) : null;
+
     // Statistics
     this.stats = {
       requests: 0,
@@ -371,130 +397,163 @@ class URLFilterEngine {
       allows: 0,
       avgTime: 0,
     };
-    
+
     this.initialize();
   }
 
   initialize() {
     if (this.initialized) return;
-    
-    // Pre-populate bloom filter with block domains
-    if (this.bloomFilter) {
-      for (const domain of CONFIG.BLOCK_DOMAINS) {
-        this.bloomFilter.add(domain);
+
+    try {
+      // Pre-populate bloom filter with block domains
+      if (this.bloomFilter) {
+        for (const domain of CONFIG.BLOCK_DOMAINS) {
+          this.bloomFilter.add(domain);
+        }
+        console.log(`[URLFilter] Bloom filter initialized with ${CONFIG.BLOCK_DOMAINS.size} domains`);
       }
+
+      this.initialized = true;
+      console.log('[URLFilter] Engine initialized successfully');
+    } catch (error) {
+      console.error('[URLFilter] Initialization error:', error);
     }
-    
-    this.initialized = true;
   }
 
   /**
-   * Main filtering method
+   * 🎯 主要過濾方法 - 修正版
    */
   async filter(url) {
     const startTime = performance.now();
     this.stats.requests++;
-    
+
     try {
-      // Check URL cache first
+      // 檢查 URL 快取
       const cached = this.caches.url.get(url);
       if (cached !== undefined) {
         this.updateStats(startTime, cached);
         return cached;
       }
-      
-      // Parse URL
+
+      // 解析 URL
       const urlObj = this.parseURL(url);
       if (!urlObj) {
         return this.makeDecision('ALLOW', url, startTime);
       }
-      
+
       const { hostname, pathname } = urlObj;
-      
-      // Check redirector hosts
-      if (CONFIG.REDIRECTOR_HOSTS.has(hostname)) {
+
+      // 🔄 步驟 1: 檢查啟發式直跳域名 (優先允許)
+      if (this.checkRedirectorHosts(hostname)) {
         return this.makeDecision('ALLOW', url, startTime);
       }
-      
-      // Check hard whitelist (exact)
-      if (CONFIG.HARD_WHITELIST_EXACT.has(hostname)) {
+
+      // ✅ 步驟 2: 檢查硬白名單 (最高優先級)
+      if (this.checkHardWhitelist(hostname)) {
         return this.makeDecision('ALLOW', url, startTime);
       }
-      
-      // Check hard whitelist (wildcards)
-      for (const domain of CONFIG.HARD_WHITELIST_WILDCARDS) {
-        if (hostname.endsWith('.' + domain) || hostname === domain) {
-          return this.makeDecision('ALLOW', url, startTime);
-        }
-      }
-      
-      // Fast bloom filter check
-      if (this.bloomFilter && !this.bloomFilter.test(hostname)) {
-        // Definitely not in block list, continue to soft checks
-        return this.checkSoftRules(hostname, pathname, url, startTime);
-      }
-      
-      // Check block list (exact)
-      if (CONFIG.BLOCK_DOMAINS.has(hostname)) {
+
+      // 🚫 步驟 3: 檢查黑名單 (精確匹配)
+      if (this.checkBlockDomains(hostname)) {
         return this.makeDecision('REJECT', url, startTime);
       }
-      
-      // Check block list (regex)
-      for (const regex of CONFIG.BLOCK_DOMAINS_REGEX) {
-        const cacheKey = `${hostname}_${regex.source}`;
-        let matches = this.caches.regex.get(cacheKey);
-        
-        if (matches === undefined) {
-          matches = regex.test(hostname);
-          this.caches.regex.set(cacheKey, matches);
-        }
-        
-        if (matches) {
-          return this.makeDecision('REJECT', url, startTime);
-        }
+
+      // 🚫 步驟 4: 檢查黑名單 (正規表達式)
+      if (await this.checkBlockDomainsRegex(hostname)) {
+        return this.makeDecision('REJECT', url, startTime);
       }
-      
-      // Check critical paths
+
+      // 🚫 步驟 5: 檢查關鍵追蹤路徑
       if (this.checkCriticalPaths(pathname)) {
         return this.makeDecision('REJECT', url, startTime);
       }
-      
-      // Check tracking scripts
+
+      // 🚫 步驟 6: 檢查追蹤腳本
       if (this.checkTrackingScripts(pathname)) {
         return this.makeDecision('REJECT', url, startTime);
       }
-      
-      // Check suspicious keywords in path
+
+      // 🚫 步驟 7: 檢查可疑關鍵字
       if (this.checkSuspiciousKeywords(pathname)) {
         return this.makeDecision('REJECT', url, startTime);
       }
-      
-      // Continue with soft checks
-      return this.checkSoftRules(hostname, pathname, url, startTime);
-      
-    } catch (error) {
-      console.error('[URLFilter] Error:', error);
-      return this.makeDecision('ALLOW', url, startTime);
-    }
-  }
 
-  checkSoftRules(hostname, pathname, url, startTime) {
-    // Check soft whitelist (exact)
-    if (CONFIG.SOFT_WHITELIST_EXACT.has(hostname)) {
-      return this.makeDecision('ALLOW', url, startTime);
-    }
-    
-    // Check soft whitelist (wildcards)
-    for (const domain of CONFIG.SOFT_WHITELIST_WILDCARDS) {
-      if (hostname.endsWith('.' + domain) || hostname === domain) {
+      // ✨ 步驟 8: 檢查軟白名單
+      if (this.checkSoftWhitelist(hostname)) {
         return this.makeDecision('ALLOW', url, startTime);
       }
+
+      // 預設允許
+      return this.makeDecision('ALLOW', url, startTime);
+
+    } catch (error) {
+      console.error('[URLFilter] Filter error:', error);
+      return this.makeDecision('ALLOW', url, startTime);
     }
-    
-    // Default allow
-    return this.makeDecision('ALLOW', url, startTime);
   }
 
+  /**
+   * 🔄 檢查啟發式直跳域名
+   */
+  checkRedirectorHosts(hostname) {
+    return CONFIG.REDIRECTOR_HOSTS.has(hostname);
+  }
+
+  /**
+   * ✅ 檢查硬白名單
+   */
+  checkHardWhitelist(hostname) {
+    // 精確匹配
+    if (CONFIG.HARD_WHITELIST_EXACT.has(hostname)) {
+      return true;
+    }
+
+    // 萬用字元匹配
+    for (const domain of CONFIG.HARD_WHITELIST_WILDCARDS) {
+      if (hostname === domain || hostname.endsWith('.' + domain)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * 🚫 檢查黑名單域名
+   */
+  checkBlockDomains(hostname) {
+    // 快速 Bloom Filter 檢查
+    if (this.bloomFilter && !this.bloomFilter.test(hostname)) {
+      return false; // 確定不在黑名單中
+    }
+
+    // 精確匹配
+    return CONFIG.BLOCK_DOMAINS.has(hostname);
+  }
+
+  /**
+   * 🚫 檢查黑名單正規表達式
+   */
+  async checkBlockDomainsRegex(hostname) {
+    for (const regex of CONFIG.BLOCK_DOMAINS_REGEX) {
+      const cacheKey = `regex_${hostname}_${regex.source}`;
+      let matches = this.caches.regex.get(cacheKey);
+
+      if (matches === undefined) {
+        matches = regex.test(hostname);
+        this.caches.regex.set(cacheKey, matches);
+      }
+
+      if (matches) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 🚫 檢查關鍵追蹤路徑
+   */
   checkCriticalPaths(pathname) {
     const pathLower = pathname.toLowerCase();
     for (const criticalPath of CONFIG.CRITICAL_TRACKING_PATHS) {
@@ -505,6 +564,9 @@ class URLFilterEngine {
     return false;
   }
 
+  /**
+   * 🚫 檢查追蹤腳本
+   */
   checkTrackingScripts(pathname) {
     const pathLower = pathname.toLowerCase();
     for (const script of CONFIG.CRITICAL_TRACKING_SCRIPTS) {
@@ -515,13 +577,17 @@ class URLFilterEngine {
     return false;
   }
 
+  /**
+   * 🚫 檢查可疑關鍵字
+   */
   checkSuspiciousKeywords(pathname) {
     const pathLower = pathname.toLowerCase();
     let suspiciousCount = 0;
-    
+
     for (const keyword of CONFIG.SUSPICIOUS_PATH_KEYWORDS) {
       if (pathLower.includes(keyword)) {
         suspiciousCount++;
+        // 發現 2 個或以上可疑關鍵字就攔截
         if (suspiciousCount >= 2) {
           return true;
         }
@@ -530,8 +596,31 @@ class URLFilterEngine {
     return false;
   }
 
+  /**
+   * ✨ 檢查軟白名單
+   */
+  checkSoftWhitelist(hostname) {
+    // 精確匹配
+    if (CONFIG.SOFT_WHITELIST_EXACT.has(hostname)) {
+      return true;
+    }
+
+    // 萬用字元匹配
+    for (const domain of CONFIG.SOFT_WHITELIST_WILDCARDS) {
+      if (hostname === domain || hostname.endsWith('.' + domain)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * 🔍 解析 URL
+   */
   parseURL(url) {
     try {
+      // 首先嘗試標準 URL 解析
       const urlObj = new URL(url);
       return {
         hostname: urlObj.hostname.toLowerCase(),
@@ -539,48 +628,65 @@ class URLFilterEngine {
         search: urlObj.search,
       };
     } catch {
-      // Fallback parsing
-      const match = url.match(/^(?:https?:\/\/)?([^\/]+)(\/[^?]*)?/i);
-      if (match) {
-        return {
-          hostname: match[1].toLowerCase(),
-          pathname: (match[2] || '/').toLowerCase(),
-          search: '',
-        };
+      // 後備解析方法
+      try {
+        const match = url.match(/^(?:https?:\/\/)?([^\/\?]+)(\/[^\?]*)?/i);
+        if (match) {
+          return {
+            hostname: match[1].toLowerCase(),
+            pathname: (match[2] || '/').toLowerCase(),
+            search: '',
+          };
+        }
+      } catch (error) {
+        console.error('[URLFilter] URL parsing failed:', error);
       }
       return null;
     }
   }
 
+  /**
+   * ✅ 做出決策並更新統計
+   */
   makeDecision(decision, url, startTime) {
-    // Update stats
+    // 更新統計
     if (decision === 'REJECT') {
       this.stats.blocks++;
     } else {
       this.stats.allows++;
     }
-    
-    // Cache decision
-    this.caches.url.set(url, decision);
-    
-    // Update timing stats
+
+    // 快取決策
+    this.caches.url.set(url, decision, 
+      decision === 'REJECT' ? 
+        CONFIG.CACHE_CONFIG.DOMAIN_BLOCK_TTL : 
+        CONFIG.CACHE_CONFIG.DOMAIN_ALLOW_TTL
+    );
+
+    // 更新時間統計
     this.updateStats(startTime, decision);
-    
+
+    if (CONFIG.PERFORMANCE_CONFIG.DEBUG_MODE) {
+      console.log(`[URLFilter] ${decision}: ${url}`);
+    }
+
     return decision;
   }
 
+  /**
+   * 📊 更新統計資訊
+   */
   updateStats(startTime, decision) {
     const elapsed = performance.now() - startTime;
     this.stats.avgTime = (this.stats.avgTime * (this.stats.requests - 1) + elapsed) / this.stats.requests;
-    
-    if (CONFIG.PERFORMANCE_CONFIG.DEBUG_MODE) {
-      console.log(`[URLFilter] ${decision} in ${elapsed.toFixed(2)}ms`);
-    }
   }
 
+  /**
+   * 📈 取得統計資訊
+   */
   getStats() {
     return {
-      version: '40.81',
+      version: '40.82',
       requests: this.stats.requests,
       blocks: this.stats.blocks,
       allows: this.stats.allows,
@@ -591,12 +697,17 @@ class URLFilterEngine {
         domain: this.caches.domain.getStats(),
         url: this.caches.url.getStats(),
         regex: this.caches.regex.getStats(),
-      }
+      },
+      bloomFilter: this.bloomFilter ? 'Enabled' : 'Disabled'
     };
   }
 
+  /**
+   * 🧹 清理快取
+   */
   clearCaches() {
     Object.values(this.caches).forEach(cache => cache.clear());
+    console.log('[URLFilter] All caches cleared');
   }
 }
 
@@ -604,40 +715,60 @@ class URLFilterEngine {
 //                              📊 SURGE INTEGRATION
 // ================================================================================================
 
-// Global filter instance
+// 全域過濾器實例
 const filterEngine = new URLFilterEngine();
 
 /**
- * Surge main entry point
+ * 🎯 Surge 主要入口點
  */
 async function main() {
   const url = $request.url;
-  
+
   if (!url) {
     $done({});
     return;
   }
-  
+
+  // 檢查 URL 長度
+  if (url.length > CONFIG.PERFORMANCE_CONFIG.MAX_URL_LENGTH) {
+    console.warn(`[URLFilter] URL too long (${url.length}), allowing by default`);
+    $done({});
+    return;
+  }
+
   try {
     const decision = await filterEngine.filter(url);
-    
+
     if (decision === 'REJECT') {
-      if (CONFIG.PERFORMANCE_CONFIG.DEBUG_MODE) {
-        console.log(`[URLFilter] BLOCKED: ${url}`);
-      }
-      // Return empty response to block the request
-      $done({ response: { status: 200, body: '' } });
+      // 攔截請求
+      $done({ 
+        response: { 
+          status: 200, 
+          headers: { 'Content-Type': 'text/plain' },
+          body: '' 
+        } 
+      });
     } else {
-      // Allow the request to proceed
+      // 允許請求繼續
       $done({});
     }
-    
+
   } catch (error) {
-    console.error('[URLFilter] Fatal error:', error);
-    // On error, allow the request
+    console.error('[URLFilter] Main execution error:', error);
+    // 錯誤時預設允許
     $done({});
   }
 }
 
-// Execute main function
+// 🚀 執行主函數
 main();
+
+// 📊 定期清理記憶體 (可選)
+if (CONFIG.PERFORMANCE_CONFIG.ENABLE_MEMORY_OPTIMIZATION) {
+  setInterval(() => {
+    if (filterEngine.stats.requests > 10000) {
+      filterEngine.clearCaches();
+      console.log('[URLFilter] Periodic cache cleanup performed');
+    }
+  }, CONFIG.PERFORMANCE_CONFIG.MEMORY_CLEANUP_INTERVAL);
+}
