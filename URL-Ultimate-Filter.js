@@ -599,9 +599,9 @@ const CONFIG = {
     /^\/(?!_next\/static\/|static\/|assets\/|dist\/|build\/|public\/)[a-z0-9]{12,}\.js$/i,
     /[^\/]*sentry[^\/]*\.js/i,
     /\/v\d+\/event/i,
-    // '/collect$/i' -> 已改為原生 .endsWith()
-    // '/service\/collect$/i' -> 已改為原生 .endsWith()
+    /\/collect$/i,
     /\/api\/v\d+\/collect$/i,
+    // '/service\/collect$/i' -> 已改為原生 .endsWith()
   ],
 
   /**
