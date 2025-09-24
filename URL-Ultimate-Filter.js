@@ -28,7 +28,7 @@ const CONFIG = {
    * ✅ [V40.40 新增] 全域「除錯模式」
    * 說明：設為 true 時，將啟用一系列的進階日誌與細粒度計時功能。在生產環境中建議設為 false 以獲得最佳效能。
    */
-  DEBUG_MODE: false,
+  DEBUG_MODE: true,
 
   /**
    * ✅ [V40.75 修訂] Aho-Corasick 演算法掃描路徑的最大長度
