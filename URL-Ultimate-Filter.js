@@ -1,6 +1,6 @@
 /**
  * @file        URL-Ultimate-Filter-Surge-V40.77.js
- * @version     40.77 (TTL Cache, Indexing & Layered-AC)
+ * @version     40.77+ (TTL Cache, Indexing & Layered-AC)
  * @description 基於 V40.76 全面優化：修正軟白名單傳參、L2 決策 TTL、Regex 前置放寬、
  *              PATH allow 前綴 Trie／後綴分桶、AC 高信度分層、採樣統計與可選 Label 級 Trie。
  * @compat      Surge Scripting (http-request/http-response)
@@ -1019,3 +1019,693 @@ try{
 if (typeof module!=='undefined' && module.exports){
   module.exports = { decideForRequest, bumpCacheEpoch, multiLevelCache, getWhitelistMatchDetails, isPathExplicitlyAllowed, isPathBlockedByKeywords, isPathBlockedByRegex, isDomainBlocked, CONFIG, SCRIPT_VERSION };
 }
+// #################################################################################################
+// #                                                                                               #
+// #                      🚀 HYPER-OPTIMIZED CORE ENGINE (V40.77)                                  #
+// #                                                                                               #
+// #################################################################################################
+
+// ================================================================================================
+// 🚀 CORE CONSTANTS & VERSION
+// ================================================================================================
+const SCRIPT_VERSION = '40.77'; // [V40.76] 版本戳，用於快取失效
+
+const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+  ? () => performance.now()
+  : () => Date.now();
+
+const DECISION = Object.freeze({ ALLOW: 1, BLOCK: 2, SOFT_WHITELISTED: 4, NEGATIVE_CACHE: 5 });
+
+const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 'image/gif', 'Content-Length': '43' }, body: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" } };
+const REJECT_RESPONSE   = { response: { status: 403 } };
+const DROP_RESPONSE     = { response: {} };
+const NO_CONTENT_RESPONSE = { response: { status: 204 } };
+
+const IMAGE_EXTENSIONS  = new Set(['.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp']);
+const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs', '.css']);
+
+// ================================================================================================
+// 📊 STATS & ERROR
+// ================================================================================================
+class ScriptExecutionError extends Error {
+  constructor(message, context = {}) {
+    super(message);
+    this.name = 'ScriptExecutionError';
+    this.context = context;
+    this.timestamp = new Date().toISOString();
+  }
+}
+class OptimizedPerformanceStats {
+  constructor() {
+    this.counters = Object.create(null);
+    this.timings  = Object.create(null);
+    this.labels   = [
+      'totalRequests','blockedRequests','domainBlocked','pathBlocked','regexPathBlocked',
+      'criticalScriptBlocked','paramsCleaned','hardWhitelistHits','softWhitelistHits',
+      'errors','l1CacheHits','l2CacheHits'
+    ];
+    for (const l of this.labels) this.counters[l] = 0;
+    this.timingBuckets = ['parse','whitelist','l1','domainStage','critical','allowlistEval','pathTrie','pathRegex','params','total'];
+    for (const b of this.timingBuckets) this.timings[b] = 0;
+  }
+  increment(type) { if (this.counters[type] !== undefined) this.counters[type]++; }
+  addTiming(bucket, ms) { if (this.timings[bucket] !== undefined) this.timings[bucket] += ms; }
+  getStats() { return { ...this.counters, timings: { ...this.timings } }; }
+  getSummary() {
+      const total = this.counters.totalRequests || 1;
+      const blockRate = ((this.counters.blockedRequests / total) * 100).toFixed(2);
+      const cleanRate = ((this.counters.paramsCleaned / total) * 100).toFixed(2);
+      const l1HitRate = ((this.counters.l1CacheHits / total) * 100).toFixed(2);
+      const avgTotalTime = (this.timings.total / total).toFixed(3);
+      return `[Stats Summary] Total: ${total}, Block: ${this.counters.blockedRequests} (${blockRate}%), Clean: ${this.counters.paramsCleaned} (${cleanRate}%), L1 Hit: ${l1HitRate}%, Avg Time: ${avgTotalTime}ms`;
+  }
+}
+const optimizedStats = new OptimizedPerformanceStats();
+
+function logError(error, context = {}) {
+  optimizedStats.increment('errors');
+  if (typeof console !== 'undefined' && console.error) {
+    const executionError = new ScriptExecutionError(error.message, { ...context, originalStack: error.stack });
+    console.error(`[URL-Filter-v${SCRIPT_VERSION}]`, executionError);
+  }
+}
+
+// ================================================================================================
+/** 🔡 Tries */
+// ================================================================================================
+class OptimizedTrie {
+  constructor() { this.root = Object.create(null); }
+  insert(word) {
+    let n = this.root;
+    for (let i = 0; i < word.length; i++) {
+      const c = word[i];
+      n = n[c] || (n[c] = Object.create(null));
+    }
+    n.isEndOfWord = true;
+  }
+  startsWith(prefix) {
+    let n = this.root;
+    for (let i = 0; i < prefix.length; i++) {
+      const c = prefix[i];
+      if (!n[c]) return false;
+      n = n[c];
+      if (n.isEndOfWord) return true;
+    }
+    return false;
+  }
+}
+
+// ================================================================================================
+/** 🔎 Aho–Corasick */
+// ================================================================================================
+class AhoCorasick {
+  constructor(patterns = []) {
+    this.goto = [Object.create(null)];
+    this.out  = [new Set()];
+    this.fail = [0];
+    this._build(patterns);
+  }
+  _build(patterns) {
+    for (let pid = 0; pid < patterns.length; pid++) {
+      const p = patterns[pid];
+      let s = 0;
+      for (let i = 0; i < p.length; i++) {
+        const c = p[i];
+        if (this.goto[s][c] === undefined) {
+          this.goto[s][c] = this.goto.length;
+          this.goto.push(Object.create(null));
+          this.out.push(new Set());
+          this.fail.push(0);
+        }
+        s = this.goto[s][c];
+      }
+      this.out[s].add(pid);
+    }
+    const q = [];
+    for (const c in this.goto[0]) {
+      const s = this.goto[0][c];
+      q.push(s);
+      this.fail[s] = 0;
+    }
+    let head = 0;
+    while (head < q.length) {
+      const r = q[head++];
+      for (const c in this.goto[r]) {
+        const s = this.goto[r][c];
+        q.push(s);
+        let state = this.fail[r];
+        while (this.goto[state][c] === undefined && state !== 0) state = this.fail[state];
+        this.fail[s] = this.goto[state][c] !== undefined ? this.goto[state][c] : 0;
+        for (const v of this.out[this.fail[s]]) this.out[s].add(v);
+      }
+    }
+  }
+  matches(text, maxScanLength = Infinity) {
+    const N = Math.min(text.length, maxScanLength);
+    let s = 0;
+    for (let i = 0; i < N; i++) {
+      const c = text[i];
+      while (this.goto[s][c] === undefined && s !== 0) s = this.fail[s];
+      s = this.goto[s][c] !== undefined ? this.goto[s][c] : 0;
+      if (this.out[s].size) return true;
+    }
+    return false;
+  }
+}
+
+// ================================================================================================
+/** ⚡ 多級快取（穩定鍵＋TTL LRU） */
+// ================================================================================================
+class HighPerformanceLRUCache {
+  constructor(maxSize = 1000) {
+    this.maxSize = maxSize;
+    this.cache = new Map();
+    this.head = { k: null, v: null, p: null, n: null };
+    this.tail = { k: null, v: null, p: null, n: null };
+    this.head.n = this.tail; this.tail.p = this.head;
+  }
+  _add(node) { node.p = this.head; node.n = this.head.n; this.head.n.p = node; this.head.n = node; }
+  _remove(node) { node.p.n = node.n; node.n.p = node.p; }
+  _moveToHead(node) { this._remove(node); this._add(node); }
+  _popTail() { const last = this.tail.p; this._remove(last); return last; }
+  get(key) {
+    const n = this.cache.get(key);
+    if (n) {
+      if (n.exp && n.exp < Date.now()) {
+        this._remove(n);
+        this.cache.delete(key);
+        return null;
+      }
+      this._moveToHead(n); return n.v;
+    }
+    return null;
+  }
+  set(key, value, ttlMs = 0) {
+    let n = this.cache.get(key);
+    const exp = ttlMs > 0 ? Date.now() + ttlMs : 0;
+    if (n) {
+      n.v = value; n.exp = exp; this._moveToHead(n);
+    } else {
+      n = { k: key, v: value, p: null, n: null, exp };
+      if (this.cache.size >= this.maxSize) {
+        const t = this._popTail(); this.cache.delete(t.k);
+      }
+      this.cache.set(key, n); this._add(n);
+    }
+  }
+}
+
+const stableKey = (ns, a = '', b = '') => `${SCRIPT_VERSION}|${ns}|${a}|${b}`;
+
+class MultiLevelCacheManager {
+  constructor() {
+    this.l1DomainCache      = new HighPerformanceLRUCache(512);
+    this.l2UrlDecisionCache = new HighPerformanceLRUCache(8192);
+  }
+  getDomainDecision(hostname) {
+    const k = `${SCRIPT_VERSION}|${hostname}`;
+    const v = this.l1DomainCache.get(k);
+    if (v !== null) optimizedStats.increment('l1CacheHits');
+    return v;
+  }
+  setDomainDecision(hostname, decision, ttlMs = 0) {
+    const k = `${SCRIPT_VERSION}|${hostname}`;
+    this.l1DomainCache.set(k, decision, ttlMs);
+  }
+  getUrlDecision(ns, a, b) {
+    const k = stableKey(ns, a, b);
+    const v = this.l2UrlDecisionCache.get(k);
+    if (v !== null) optimizedStats.increment('l2CacheHits');
+    return v;
+  }
+  setUrlDecision(ns, a, b, decision) {
+    const k = stableKey(ns, a, b);
+    this.l2UrlDecisionCache.set(k, decision);
+  }
+  seed() {
+    for (const [hostname, { decision, ttl }] of CONFIG.CACHE_SEEDS.entries()) {
+        const decisionEnum = decision === 'BLOCK' ? DECISION.BLOCK : DECISION.ALLOW;
+        this.setDomainDecision(hostname, decisionEnum, ttl);
+    }
+  }
+}
+const multiLevelCache = new MultiLevelCacheManager();
+
+// ================================================================================================
+/** 📚 惰性初始化索引容器 */
+// ================================================================================================
+const lazy = (builder) => {
+    let instance = null;
+    return () => {
+        if (instance === null) {
+            instance = builder();
+        }
+        return instance;
+    };
+};
+
+const getReversedDomainBlockTrie = lazy(() => {
+    const trie = new OptimizedTrie();
+    CONFIG.BLOCK_DOMAINS.forEach(domain => {
+        const reversedDomain = domain.split('').reverse().join('');
+        trie.insert(reversedDomain);
+    });
+    return trie;
+});
+const getAcPathBlock = lazy(() => new AhoCorasick(Array.from(CONFIG.PATH_BLOCK_KEYWORDS)));
+const getAcCriticalGeneric = lazy(() => new AhoCorasick(Array.from(CONFIG.CRITICAL_TRACKING_GENERIC_PATHS)));
+const getPrefixTrieForParam = lazy(() => {
+    const trie = new OptimizedTrie();
+    CONFIG.TRACKING_PREFIXES.forEach(p => trie.insert(p));
+    return trie;
+});
+const getCompiledBlockDomainsRegex = lazy(() => compileRegexList(CONFIG.BLOCK_DOMAINS_REGEX));
+const getCompiledGlobalTrackingParamsRegex = lazy(() => compileRegexList(CONFIG.GLOBAL_TRACKING_PARAMS_REGEX));
+const getCompiledTrackingPrefixesRegex = lazy(() => compileRegexList(CONFIG.TRACKING_PREFIXES_REGEX));
+const getCompiledPathBlockRegex = lazy(() => compileRegexList(CONFIG.PATH_BLOCK_REGEX));
+const getCompiledHeuristicPathBlockRegex = lazy(() => compileRegexList(CONFIG.HEURISTIC_PATH_BLOCK_REGEX));
+
+function compileRegexList(list) {
+  return list.map(regex => {
+    try { return (regex instanceof RegExp) ? regex : new RegExp(regex); }
+    catch (e) { logError(e, { rule: regex ? regex.toString() : 'invalid', stage: 'compileRegex' }); return null; }
+  }).filter(Boolean);
+}
+
+// ================================================================================================
+/** ✅ 白名單與域名封鎖 */
+// ================================================================================================
+function getWhitelistMatchDetails(hostname, exactSet, wildcardSet) {
+  if (exactSet.has(hostname)) return { matched: true, rule: hostname, type: 'Exact' };
+  let domain = hostname;
+  while (true) {
+    if (wildcardSet.has(domain)) return { matched: true, rule: domain, type: 'Wildcard' };
+    const dotIndex = domain.indexOf('.');
+    if (dotIndex === -1) break;
+    domain = domain.substring(dotIndex + 1);
+  }
+  return { matched: false };
+}
+
+function isDomainBlocked(hostname) {
+  const trie = getReversedDomainBlockTrie();
+  let node = trie.root;
+  for (let i = hostname.length - 1; i >= 0; i--) {
+    const char = hostname[i];
+    if (!node[char]) break;
+    node = node[char];
+    if (node.isEndOfWord) {
+      const prevChar = hostname[i - 1];
+      if (prevChar === undefined || prevChar === '.') return true;
+    }
+  }
+  for (const regex of getCompiledBlockDomainsRegex()) if (regex.test(hostname)) return true;
+  return false;
+}
+
+// ================================================================================================
+/** 🚨 關鍵追蹤偵測 */
+// ================================================================================================
+function isCriticalTrackingScript(hostname, lowerFullPath) {
+  const cached = multiLevelCache.getUrlDecision('crit', hostname, lowerFullPath);
+  if (cached !== null) return cached;
+
+  const qIdx = lowerFullPath.indexOf('?');
+  const pathOnly = qIdx !== -1 ? lowerFullPath.slice(0, qIdx) : lowerFullPath;
+  const slashIndex = pathOnly.lastIndexOf('/');
+  
+  let scriptName = '';
+  if (slashIndex !== -1) {
+    if (pathOnly.endsWith('.js') || pathOnly.endsWith('.mjs')) {
+        scriptName = pathOnly.slice(slashIndex + 1);
+    }
+  }
+
+  if (scriptName && CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName)) {
+    multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
+    return true;
+  }
+  const hostPrefixes = CONFIG.CRITICAL_TRACKING_MAP.get(hostname);
+  if (hostPrefixes) {
+    if (hostPrefixes.size === 0) {
+      multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
+      return true;
+    }
+    for (const prefix of hostPrefixes) {
+      if (lowerFullPath.startsWith(prefix)) {
+        multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
+        return true;
+      }
+    }
+  }
+  if (getAcCriticalGeneric().matches(pathOnly, CONFIG.AC_SCAN_MAX_LENGTH)) {
+    multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
+    return true;
+  }
+  multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, false);
+  return false;
+}
+
+// ================================================================================================
+/** 🧯 路徑白名單與阻擋 */
+// ================================================================================================
+function isPathExplicitlyAllowed(lowerPathOnly) {
+  const k = multiLevelCache.getUrlDecision('allow:path', lowerPathOnly, '');
+  if (k !== null) return k;
+
+  const runSecondaryCheck = (pathToCheck) => {
+    for (const trackerKeyword of CONFIG.HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH) {
+      if (pathToCheck.includes(trackerKeyword)) return false;
+    }
+    return true;
+  };
+  for (const substring of CONFIG.PATH_ALLOW_SUBSTRINGS) {
+    if (lowerPathOnly.includes(substring)) {
+      const r = runSecondaryCheck(lowerPathOnly);
+      multiLevelCache.setUrlDecision('allow:path', lowerPathOnly, '', r);
+      return r;
+    }
+  }
+  const segments = lowerPathOnly.startsWith('/') ? lowerPathOnly.substring(1).split('/') : lowerPathOnly.split('/');
+  for (const segment of segments) {
+    if (CONFIG.PATH_ALLOW_SEGMENTS.has(segment)) {
+      const r = runSecondaryCheck(lowerPathOnly);
+      multiLevelCache.setUrlDecision('allow:path', lowerPathOnly, '', r);
+      return r;
+    }
+  }
+  for (const suffix of CONFIG.PATH_ALLOW_SUFFIXES) {
+    if (lowerPathOnly.endsWith(suffix)) {
+      const parentPath = lowerPathOnly.substring(0, lowerPathOnly.lastIndexOf('/'));
+      const r = runSecondaryCheck(parentPath);
+      multiLevelCache.setUrlDecision('allow:path', lowerPathOnly, '', r);
+      return r;
+    }
+  }
+  multiLevelCache.setUrlDecision('allow:path', lowerPathOnly, '', false);
+  return false;
+}
+
+function isPathBlockedByKeywords(lowerPathOnly, isExplicitlyAllowed) {
+  const c = multiLevelCache.getUrlDecision('path:ac', lowerPathOnly, '');
+  if (c !== null) return c;
+  let r = false;
+  if (!isExplicitlyAllowed && getAcPathBlock().matches(lowerPathOnly, CONFIG.AC_SCAN_MAX_LENGTH)) r = true;
+  multiLevelCache.setUrlDecision('path:ac', lowerPathOnly, '', r);
+  return r;
+}
+
+function isPathBlockedByRegex(lowerPathOnly, isExplicitlyAllowed) {
+  const c = multiLevelCache.getUrlDecision('path:rx', lowerPathOnly, '');
+  if (c !== null) return c;
+
+  for (const prefix of CONFIG.PATH_ALLOW_PREFIXES) {
+    if (lowerPathOnly.startsWith(prefix)) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', false); return false; }
+  }
+  if (isExplicitlyAllowed) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', false); return false; }
+  
+  // [V40.76] 原生字串取代 Regex
+  if (lowerPathOnly.endsWith('/collect') || lowerPathOnly.endsWith('/service/collect')) {
+      multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', true);
+      return true;
+  }
+  
+  if (lowerPathOnly.includes('sentry') || lowerPathOnly.includes('event') || lowerPathOnly.includes('.js')) {
+      for (const regex of getCompiledPathBlockRegex()) {
+        if (regex.test(lowerPathOnly)) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', true); return true; }
+      }
+      for (const regex of getCompiledHeuristicPathBlockRegex()) {
+        if (regex.test(lowerPathOnly)) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', true); return true; }
+      }
+  }
+  
+  multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', false);
+  return false;
+}
+
+// ================================================================================================
+/** 🧱 阻擋回應 */
+// ================================================================================================
+function getBlockResponse(pathnameLower) {
+  for (const keyword of CONFIG.DROP_KEYWORDS) {
+    if (pathnameLower.includes(keyword)) return DROP_RESPONSE;
+  }
+  const dotIndex = pathnameLower.lastIndexOf('.');
+  if (dotIndex > pathnameLower.lastIndexOf('/')) {
+    const ext = pathnameLower.substring(dotIndex);
+    if (IMAGE_EXTENSIONS.has(ext)) return TINY_GIF_RESPONSE;
+    if (SCRIPT_EXTENSIONS.has(ext)) return NO_CONTENT_RESPONSE;
+  }
+  return REJECT_RESPONSE;
+}
+
+// ================================================================================================
+/** 🧼 參數清理 */
+// ================================================================================================
+const REGEX_FIRST_CHAR_BUCKET = new Set(['u','i','a','t','l','_']);
+
+function cleanTrackingParams(rawUrl) {
+    const urlObj = new URL(rawUrl);
+    let modified = false;
+    const toDelete = [];
+    for (const key of urlObj.searchParams.keys()) {
+        if (key.length < 2) continue;
+        const lowerKey = key.toLowerCase();
+        if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(lowerKey)) continue;
+
+        if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) ||
+            CONFIG.COSMETIC_PARAMS.has(lowerKey) ||
+            getPrefixTrieForParam().startsWith(lowerKey)) {
+            toDelete.push(key); modified = true; continue;
+        }
+        const first = lowerKey[0];
+        if (REGEX_FIRST_CHAR_BUCKET.has(first)) {
+            let matched = false;
+            for (const rx of getCompiledGlobalTrackingParamsRegex()) {
+                if (rx.test(lowerKey)) { toDelete.push(key); modified = true; matched = true; break; }
+            }
+            if (matched) continue;
+            for (const rx of getCompiledTrackingPrefixesRegex()) {
+                if (rx.test(lowerKey)) { toDelete.push(key); modified = true; break; }
+            }
+        }
+    }
+    if (modified) {
+        toDelete.forEach(k => urlObj.searchParams.delete(k));
+        return urlObj.toString();
+    }
+    return null;
+}
+
+// ================================================================================================
+/** 🔏 記錄清洗 */
+// ================================================================================================
+const SENSITIVE_PARAMS_CONFIG = {
+    keywords: ['token','password','key','secret','auth','otp','access_token','refresh_token'],
+    firstCharBucket: new Set(['t', 'p', 'k', 's', 'a', 'o', 'r'])
+};
+function getSanitizedUrlForLogging(urlStr) {
+  try {
+    const tempUrl = new URL(urlStr);
+    if (!tempUrl.search) return urlStr;
+    
+    for (const param of tempUrl.searchParams.keys()) {
+      const lowerParam = param.toLowerCase();
+      if (!SENSITIVE_PARAMS_CONFIG.firstCharBucket.has(lowerParam[0])) continue;
+      for (const sensitive of SENSITIVE_PARAMS_CONFIG.keywords) {
+        if (lowerParam.includes(sensitive)) { tempUrl.searchParams.set(param, 'REDACTED'); break; }
+      }
+    }
+    return tempUrl.toString();
+  } catch (e) {
+    return (typeof urlStr === 'string' ? urlStr.split('?')[0] : '<INVALID_URL_OBJECT>') + '?<URL_PARSE_ERROR>';
+  }
+}
+
+// ================================================================================================
+/** 🛠️ 主流程 */
+// ================================================================================================
+function processRequest(request) {
+  const t0 = CONFIG.DEBUG_MODE ? __now__() : 0;
+  try {
+    optimizedStats.increment('totalRequests');
+    const rawUrl = request.url;
+    if (!rawUrl || typeof rawUrl !== 'string' || rawUrl.length < 10) {
+      if (t0) optimizedStats.addTiming('total', __now__() - t0);
+      return null;
+    }
+    
+    const tParse0 = t0 ? __now__() : 0;
+    const protocolEnd = rawUrl.indexOf('//') + 2;
+    let hostname, fullPath, hostEndIndex;
+
+    if (rawUrl.charCodeAt(protocolEnd) === 91) {
+        hostEndIndex = rawUrl.indexOf(']', protocolEnd) + 1;
+        hostname = rawUrl.substring(protocolEnd, hostEndIndex).toLowerCase();
+    } else {
+        hostEndIndex = rawUrl.indexOf('/', protocolEnd);
+        if (hostEndIndex === -1) hostEndIndex = rawUrl.length;
+        let portIndex = rawUrl.indexOf(':', protocolEnd);
+        if (portIndex !== -1 && portIndex < hostEndIndex) {
+            hostname = rawUrl.substring(protocolEnd, portIndex).toLowerCase();
+        } else {
+            hostname = rawUrl.substring(protocolEnd, hostEndIndex).toLowerCase();
+        }
+    }
+    const pathStartIndex = rawUrl.indexOf('/', protocolEnd);
+    fullPath = pathStartIndex === -1 ? '/' : rawUrl.substring(pathStartIndex);
+
+    if(t0) optimizedStats.addTiming('parse', __now__() - tParse0);
+
+    const tWl0 = t0 ? __now__() : 0;
+    if (getWhitelistMatchDetails(hostname, CONFIG.HARD_WHITELIST_EXACT, CONFIG.HARD_WHITELIST_WILDCARDS).matched) {
+      optimizedStats.increment('hardWhitelistHits');
+      if (t0) { optimizedStats.addTiming('whitelist', __now__() - tWl0); optimizedStats.addTiming('total', __now__() - t0); }
+      return null;
+    }
+
+    const tL10 = t0 ? __now__() : 0;
+    const l1Decision = multiLevelCache.getDomainDecision(hostname);
+    const qIndex = fullPath.indexOf('?');
+    const pathname = qIndex === -1 ? fullPath : fullPath.substring(0, qIndex);
+    const pathnameLower = pathname.toLowerCase();
+
+    if (l1Decision === DECISION.BLOCK) {
+      optimizedStats.increment('domainBlocked'); optimizedStats.increment('blockedRequests');
+      if (t0) { optimizedStats.addTiming('l1', __now__() - tL10); optimizedStats.addTiming('total', __now__() - t0); }
+      return getBlockResponse(pathnameLower);
+    }
+    if (t0) optimizedStats.addTiming('l1', __now__() - tL10);
+    
+    let isSoftWhitelisted = false;
+    if (getWhitelistMatchDetails(hostname, CONFIG.SOFT_WHITELIST_WILDCARDS, CONFIG.SOFT_WHITELIST_WILDCARDS).matched) {
+        optimizedStats.increment('softWhitelistHits');
+        isSoftWhitelisted = true;
+    }
+    if (t0) optimizedStats.addTiming('whitelist', __now__() - tWl0);
+
+    if (!isSoftWhitelisted) {
+        if (l1Decision !== DECISION.ALLOW && l1Decision !== DECISION.NEGATIVE_CACHE) {
+            const tDom0 = t0 ? __now__() : 0;
+            if (isDomainBlocked(hostname)) {
+                let isExempted = false;
+                const exemptions = CONFIG.PATH_EXEMPTIONS_FOR_BLOCKED_DOMAINS.get(hostname);
+                if (exemptions) {
+                    for (const ex of exemptions) if (fullPath.startsWith(ex)) { isExempted = true; break; }
+                }
+                if (!isExempted) {
+                    multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK, 30 * 60 * 1000);
+                    optimizedStats.increment('domainBlocked'); optimizedStats.increment('blockedRequests');
+                    if (t0) { optimizedStats.addTiming('domainStage', __now__() - tDom0); optimizedStats.addTiming('total', __now__() - t0); }
+                    return getBlockResponse(pathnameLower);
+                }
+            } else {
+                multiLevelCache.setDomainDecision(hostname, DECISION.ALLOW, 10 * 60 * 1000);
+            }
+            if(t0) optimizedStats.addTiming('domainStage', __now__() - tDom0);
+        }
+    
+        const lowerFullPath = fullPath.toLowerCase();
+        const tCrit0 = t0 ? __now__() : 0;
+        if (isCriticalTrackingScript(hostname, lowerFullPath)) {
+          optimizedStats.increment('criticalScriptBlocked'); optimizedStats.increment('blockedRequests');
+          if(t0) { optimizedStats.addTiming('critical', __now__() - tCrit0); optimizedStats.addTiming('total', __now__() - t0); }
+          return getBlockResponse(pathnameLower);
+        }
+        if(t0) optimizedStats.addTiming('critical', __now__() - tCrit0);
+        
+        const tAllow0 = t0 ? __now__() : 0;
+        const isAllowed = isPathExplicitlyAllowed(pathnameLower);
+        if(t0) optimizedStats.addTiming('allowlistEval', __now__() - tAllow0);
+
+        const tPB0 = t0 ? __now__() : 0;
+        if (isPathBlockedByKeywords(pathnameLower, isAllowed)) {
+          optimizedStats.increment('pathBlocked'); optimizedStats.increment('blockedRequests');
+          if(t0) { optimizedStats.addTiming('pathTrie', __now__() - tPB0); optimizedStats.addTiming('total', __now__() - t0); }
+          return getBlockResponse(pathnameLower);
+        }
+        if(t0) optimizedStats.addTiming('pathTrie', __now__() - tPB0);
+
+        const tPR0 = t0 ? __now__() : 0;
+        if (isPathBlockedByRegex(pathnameLower, isAllowed)) {
+          optimizedStats.increment('regexPathBlocked'); optimizedStats.increment('blockedRequests');
+          if(t0) { optimizedStats.addTiming('pathRegex', __now__() - tPR0); optimizedStats.addTiming('total', __now__() - t0); }
+          return getBlockResponse(pathnameLower);
+        }
+        if(t0) optimizedStats.addTiming('pathRegex', __now__() - tPR0);
+    }
+    
+    if (qIndex !== -1) {
+        const tP0 = t0 ? __now__() : 0;
+        const cleanedUrl = cleanTrackingParams(rawUrl);
+        if (cleanedUrl) {
+            optimizedStats.increment('paramsCleaned');
+            request.url = cleanedUrl;
+            if (t0) { optimizedStats.addTiming('params', __now__() - tP0); optimizedStats.addTiming('total', __now__() - t0); }
+            return { request };
+        }
+        if(t0) optimizedStats.addTiming('params', __now__() - tP0);
+    }
+
+    if (l1Decision === null) {
+        multiLevelCache.setDomainDecision(hostname, DECISION.NEGATIVE_CACHE, 60 * 1000);
+    }
+
+    if(t0) optimizedStats.addTiming('total', __now__() - t0);
+    return null;
+
+  } catch (error) {
+    logError(error, { stage: 'processRequest', url: getSanitizedUrlForLogging(request?.url) });
+    if(t0) optimizedStats.addTiming('total', __now__() - t0);
+    return null;
+  }
+}
+
+// ================================================================================================
+/** 🏁 啟動 */
+// ================================================================================================
+let isInitialized = false;
+function initialize() {
+    if (isInitialized) return;
+    multiLevelCache.seed();
+    isInitialized = true;
+}
+
+(async function () {
+  try {
+    let startTime;
+    if (CONFIG.DEBUG_MODE && typeof $request !== 'undefined') {
+      startTime = __now__();
+    }
+    
+    initialize();
+
+    if (typeof $request === 'undefined') {
+      if (typeof $done !== 'undefined') {
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.77 - Smart Cache & Final Optimizations', stats: optimizedStats.getStats() });
+      }
+      return;
+    }
+
+    const result = processRequest($request);
+
+    if (CONFIG.DEBUG_MODE) {
+      const endTime = __now__();
+      const executionTime = (endTime - startTime).toFixed(3);
+      console.log(`[URL-Filter-v${SCRIPT_VERSION}][Debug] Time: ${executionTime}ms | URL: ${getSanitizedUrlForLogging($request.url)} | ${optimizedStats.getSummary()}`);
+    }
+    
+    if (typeof $done !== 'undefined') {
+        if (result && result.request) {
+            $done(result);
+        } else if (result && result.response) {
+            $done(result);
+        } else {
+            $done({});
+        }
+    }
+  } catch (error) {
+    logError(error, { stage: 'globalExecution' });
+    if (typeof $done !== 'undefined') $done({});
+  }
+})();
