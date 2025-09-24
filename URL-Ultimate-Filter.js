@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.74.js
- * @version     40.74 (系統強固 & 微觀優化)
- * @description 基於 V40.73 進行系統性強化，包含 IPv6 解析、回應類型修正、熱路徑優化與更嚴謹的工程實踐。
+ * @file        URL-Ultimate-Filter-Surge-V40.75.js
+ * @version     40.75 (惰性初始化 & 熱路徑優化)
+ * @description 基於 V40.74 進行架構性優化，引入惰性初始化以降低冷啟動成本，並針對熱路徑進行深度效能調校。
  * @note        此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-24
@@ -31,11 +31,11 @@ const CONFIG = {
   DEBUG_MODE: false,
 
   /**
-   * ✅ [V40.73 新增] Aho-Corasick 演算法掃描路徑的最大長度
-   * 說明：限制 AC 自動機掃描 URL 路徑的字元數，以在效能和攔截率之間取得平衡。
-   * 追蹤關鍵字通常出現在 URL 的前半部分。可選值建議：512 (高效能), 768 (平衡), 1024 (最大攔截)。
+   * ✅ [V40.75 修訂] Aho-Corasick 演算法掃描路徑的最大長度
+   * 說明：限制 AC 自動機掃描 URL 路徑的字元數。下調至 512 以進一步最佳化常見請求的處理速度。
+   * 可選值建議：512 (高效能), 768 (平衡), 1024 (最大攔截)。
    */
-  AC_SCAN_MAX_LENGTH: 768,
+  AC_SCAN_MAX_LENGTH: 512,
 
   /**
    * ✳️ [V40.59 新增, V40.60 重構] 啟發式直跳域名列表
@@ -607,14 +607,14 @@ const CONFIG = {
 };
 // #################################################################################################
 // #                                                                                               #
-// #                      🚀 HYPER-OPTIMIZED CORE ENGINE (V40.74)                                  #
+// #                      🚀 HYPER-OPTIMIZED CORE ENGINE (V40.75)                                  #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.74'; // [V40.74] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.75'; // [V40.75] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -628,7 +628,7 @@ const DROP_RESPONSE     = { response: {} };
 const NO_CONTENT_RESPONSE = { response: { status: 204 } };
 
 const IMAGE_EXTENSIONS  = new Set(['.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp']);
-const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs']);
+const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs', '.css']); // [V40.75] 新增 .css
 
 // ================================================================================================
 // 📊 STATS & ERROR
@@ -645,7 +645,7 @@ class OptimizedPerformanceStats {
   constructor() {
     this.counters = Object.create(null);
     this.timings  = Object.create(null);
-    this.labels   = [ // [V40.74] 移除 urlCacheHits
+    this.labels   = [
       'totalRequests','blockedRequests','domainBlocked','pathBlocked','regexPathBlocked',
       'criticalScriptBlocked','paramsCleaned','hardWhitelistHits','softWhitelistHits',
       'errors','l1CacheHits','l2CacheHits'
@@ -760,16 +760,6 @@ class AhoCorasick {
 }
 
 // ================================================================================================
-/** 🧰 Regex compile */
-// ================================================================================================
-function compileRegexList(list) {
-  return list.map(regex => {
-    try { return (regex instanceof RegExp) ? regex : new RegExp(regex); }
-    catch (e) { logError(e, { rule: regex ? regex.toString() : 'invalid', stage: 'compileRegex' }); return null; }
-  }).filter(Boolean);
-}
-
-// ================================================================================================
 /** ⚡ 多級快取（穩定鍵＋TTL LRU） */
 // ================================================================================================
 class HighPerformanceLRUCache {
@@ -816,7 +806,7 @@ const stableKey = (ns, a = '', b = '') => `${SCRIPT_VERSION}|${ns}|${a}|${b}`;
 class MultiLevelCacheManager {
   constructor() {
     this.l1DomainCache      = new HighPerformanceLRUCache(512);
-    this.l2UrlDecisionCache = new HighPerformanceLRUCache(4096);
+    this.l2UrlDecisionCache = new HighPerformanceLRUCache(8192); // [V40.75] 提升 L2 容量
   }
   getDomainDecision(hostname) {
     const k = `${SCRIPT_VERSION}|${hostname}`;
@@ -842,35 +832,44 @@ class MultiLevelCacheManager {
 const multiLevelCache = new MultiLevelCacheManager();
 
 // ================================================================================================
-/** 📚 索引容器（沿用外部 CONFIG） */
+/** 📚 惰性初始化索引容器 */
 // ================================================================================================
-let COMPILED_BLOCK_DOMAINS_REGEX = [];
-let COMPILED_GLOBAL_TRACKING_PARAMS_REGEX = [];
-let COMPILED_TRACKING_PREFIXES_REGEX = [];
-let COMPILED_PATH_BLOCK_REGEX = [];
-let COMPILED_HEURISTIC_PATH_BLOCK_REGEX = [];
+const lazy = (builder) => {
+    let instance = null;
+    return () => {
+        if (instance === null) {
+            instance = builder();
+        }
+        return instance;
+    };
+};
 
-const REVERSED_DOMAIN_BLOCK_TRIE = new OptimizedTrie();
-let AC_PATH_BLOCK = null;
-let AC_CRITICAL_GENERIC = null;
-const PREFIX_TRIE_FOR_PARAM = new OptimizedTrie();
+const getReversedDomainBlockTrie = lazy(() => {
+    const trie = new OptimizedTrie();
+    CONFIG.BLOCK_DOMAINS.forEach(domain => {
+        const reversedDomain = domain.split('').reverse().join('');
+        trie.insert(reversedDomain);
+    });
+    return trie;
+});
+const getAcPathBlock = lazy(() => new AhoCorasick(Array.from(CONFIG.PATH_BLOCK_KEYWORDS)));
+const getAcCriticalGeneric = lazy(() => new AhoCorasick(Array.from(CONFIG.CRITICAL_TRACKING_GENERIC_PATHS)));
+const getPrefixTrieForParam = lazy(() => {
+    const trie = new OptimizedTrie();
+    CONFIG.TRACKING_PREFIXES.forEach(p => trie.insert(p));
+    return trie;
+});
+const getCompiledBlockDomainsRegex = lazy(() => compileRegexList(CONFIG.BLOCK_DOMAINS_REGEX));
+const getCompiledGlobalTrackingParamsRegex = lazy(() => compileRegexList(CONFIG.GLOBAL_TRACKING_PARAMS_REGEX));
+const getCompiledTrackingPrefixesRegex = lazy(() => compileRegexList(CONFIG.TRACKING_PREFIXES_REGEX));
+const getCompiledPathBlockRegex = lazy(() => compileRegexList(CONFIG.PATH_BLOCK_REGEX));
+const getCompiledHeuristicPathBlockRegex = lazy(() => compileRegexList(CONFIG.HEURISTIC_PATH_BLOCK_REGEX));
 
-// ================================================================================================
-/** 🔧 初始化 */
-// ================================================================================================
-function initializeCoreEngine() {
-  CONFIG.TRACKING_PREFIXES.forEach(p => PREFIX_TRIE_FOR_PARAM.insert(p));
-  AC_PATH_BLOCK = new AhoCorasick(Array.from(CONFIG.PATH_BLOCK_KEYWORDS));
-  AC_CRITICAL_GENERIC = new AhoCorasick(Array.from(CONFIG.CRITICAL_TRACKING_GENERIC_PATHS));
-  CONFIG.BLOCK_DOMAINS.forEach(domain => {
-    const reversedDomain = domain.split('').reverse().join('');
-    REVERSED_DOMAIN_BLOCK_TRIE.insert(reversedDomain);
-  });
-  COMPILED_BLOCK_DOMAINS_REGEX            = compileRegexList(CONFIG.BLOCK_DOMAINS_REGEX);
-  COMPILED_GLOBAL_TRACKING_PARAMS_REGEX   = compileRegexList(CONFIG.GLOBAL_TRACKING_PARAMS_REGEX);
-  COMPILED_TRACKING_PREFIXES_REGEX        = compileRegexList(CONFIG.TRACKING_PREFIXES_REGEX);
-  COMPILED_PATH_BLOCK_REGEX               = compileRegexList(CONFIG.PATH_BLOCK_REGEX);
-  COMPILED_HEURISTIC_PATH_BLOCK_REGEX     = compileRegexList(CONFIG.HEURISTIC_PATH_BLOCK_REGEX);
+function compileRegexList(list) {
+  return list.map(regex => {
+    try { return (regex instanceof RegExp) ? regex : new RegExp(regex); }
+    catch (e) { logError(e, { rule: regex ? regex.toString() : 'invalid', stage: 'compileRegex' }); return null; }
+  }).filter(Boolean);
 }
 
 // ================================================================================================
@@ -889,19 +888,18 @@ function getWhitelistMatchDetails(hostname, exactSet, wildcardSet) {
 }
 
 function isDomainBlocked(hostname) {
-  const reversedHostname = hostname.split('').reverse().join('');
-  let node = REVERSED_DOMAIN_BLOCK_TRIE.root;
-  for (let i = 0; i < reversedHostname.length; i++) {
-    const char = reversedHostname[i];
+  const trie = getReversedDomainBlockTrie();
+  let node = trie.root;
+  for (let i = hostname.length - 1; i >= 0; i--) { // [V40.75] 優化：避免字串反轉配置
+    const char = hostname[i];
     if (!node[char]) break;
     node = node[char];
     if (node.isEndOfWord) {
-      // [V40.73] 邊界修正：確保是完整標籤匹配
-      const nextChar = reversedHostname[i + 1];
-      if (nextChar === undefined || nextChar === '.') return true;
+      const prevChar = hostname[i - 1];
+      if (prevChar === undefined || prevChar === '.') return true;
     }
   }
-  for (const regex of COMPILED_BLOCK_DOMAINS_REGEX) if (regex.test(hostname)) return true;
+  for (const regex of getCompiledBlockDomainsRegex()) if (regex.test(hostname)) return true;
   return false;
 }
 
@@ -915,7 +913,14 @@ function isCriticalTrackingScript(hostname, lowerFullPath) {
   const qIdx = lowerFullPath.indexOf('?');
   const pathOnly = qIdx !== -1 ? lowerFullPath.slice(0, qIdx) : lowerFullPath;
   const slashIndex = pathOnly.lastIndexOf('/');
-  const scriptName = slashIndex !== -1 ? pathOnly.slice(slashIndex + 1) : pathOnly;
+  
+  let scriptName = '';
+  if (slashIndex !== -1) {
+    const extIndex = pathOnly.indexOf('.', slashIndex);
+    if (extIndex !== -1 && (pathOnly.endsWith('.js') || pathOnly.endsWith('.mjs'))) {
+        scriptName = pathOnly.slice(slashIndex + 1);
+    }
+  }
 
   if (scriptName && CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName)) {
     multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
@@ -934,7 +939,7 @@ function isCriticalTrackingScript(hostname, lowerFullPath) {
       }
     }
   }
-  if (AC_CRITICAL_GENERIC.matches(pathOnly, CONFIG.AC_SCAN_MAX_LENGTH)) {
+  if (getAcCriticalGeneric().matches(pathOnly, CONFIG.AC_SCAN_MAX_LENGTH)) {
     multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
     return true;
   }
@@ -986,7 +991,7 @@ function isPathBlockedByKeywords(lowerPathOnly, isExplicitlyAllowed) {
   const c = multiLevelCache.getUrlDecision('path:ac', lowerPathOnly, '');
   if (c !== null) return c;
   let r = false;
-  if (!isExplicitlyAllowed && AC_PATH_BLOCK.matches(lowerPathOnly, CONFIG.AC_SCAN_MAX_LENGTH)) r = true;
+  if (!isExplicitlyAllowed && getAcPathBlock().matches(lowerPathOnly, CONFIG.AC_SCAN_MAX_LENGTH)) r = true;
   multiLevelCache.setUrlDecision('path:ac', lowerPathOnly, '', r);
   return r;
 }
@@ -999,12 +1004,19 @@ function isPathBlockedByRegex(lowerPathOnly, isExplicitlyAllowed) {
     if (lowerPathOnly.startsWith(prefix)) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', false); return false; }
   }
   if (isExplicitlyAllowed) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', false); return false; }
-  for (const regex of COMPILED_PATH_BLOCK_REGEX) {
-    // [V40.74] 微優化：為高頻 Regex 增加快速前綴測試
-    if (regex.source.includes('sentry') && !lowerPathOnly.includes('sentry')) continue;
+  
+  // [V40.75] 擴大 Regex 前置快篩
+  if (lowerPathOnly.endsWith('/collect') || lowerPathOnly.endsWith('/event')) {
+      // 快速通道給常見的追蹤端點
+  } else if (!lowerPathOnly.includes('sentry') && !lowerPathOnly.includes('.js')) {
+      multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', false);
+      return false;
+  }
+
+  for (const regex of getCompiledPathBlockRegex()) {
     if (regex.test(lowerPathOnly)) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', true); return true; }
   }
-  for (const regex of COMPILED_HEURISTIC_PATH_BLOCK_REGEX) {
+  for (const regex of getCompiledHeuristicPathBlockRegex()) {
     if (regex.test(lowerPathOnly)) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', true); return true; }
   }
   multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', false);
@@ -1014,12 +1026,12 @@ function isPathBlockedByRegex(lowerPathOnly, isExplicitlyAllowed) {
 // ================================================================================================
 /** 🧱 阻擋回應 */
 // ================================================================================================
-function getBlockResponse(pathnameLower) { // [V40.74] 修正：使用純路徑
+function getBlockResponse(pathnameLower) {
   for (const keyword of CONFIG.DROP_KEYWORDS) {
     if (pathnameLower.includes(keyword)) return DROP_RESPONSE;
   }
   const dotIndex = pathnameLower.lastIndexOf('.');
-  if (dotIndex > pathnameLower.lastIndexOf('/')) { // 確保 '.' 在最後一個 '/' 之後
+  if (dotIndex > pathnameLower.lastIndexOf('/')) {
     const ext = pathnameLower.substring(dotIndex);
     if (IMAGE_EXTENSIONS.has(ext)) return TINY_GIF_RESPONSE;
     if (SCRIPT_EXTENSIONS.has(ext)) return NO_CONTENT_RESPONSE;
@@ -1033,30 +1045,27 @@ function getBlockResponse(pathnameLower) { // [V40.74] 修正：使用純路徑
 const REGEX_FIRST_CHAR_BUCKET = new Set(['u','i','a','t','l','_']);
 
 function cleanTrackingParams(rawUrl) {
-    const qIndex = rawUrl.indexOf('?');
-    if (qIndex === -1) return null;
-
     const urlObj = new URL(rawUrl);
     let modified = false;
     const toDelete = [];
     for (const key of urlObj.searchParams.keys()) {
-        if (key.length < 2) continue; // [V40.74] 微優化：跳過極短鍵
+        if (key.length < 2) continue;
         const lowerKey = key.toLowerCase();
         if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(lowerKey)) continue;
 
         if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) ||
             CONFIG.COSMETIC_PARAMS.has(lowerKey) ||
-            PREFIX_TRIE_FOR_PARAM.startsWith(lowerKey)) {
+            getPrefixTrieForParam().startsWith(lowerKey)) {
             toDelete.push(key); modified = true; continue;
         }
         const first = lowerKey[0];
         if (REGEX_FIRST_CHAR_BUCKET.has(first)) {
             let matched = false;
-            for (const rx of COMPILED_GLOBAL_TRACKING_PARAMS_REGEX) {
+            for (const rx of getCompiledGlobalTrackingParamsRegex()) {
                 if (rx.test(lowerKey)) { toDelete.push(key); modified = true; matched = true; break; }
             }
             if (matched) continue;
-            for (const rx of COMPILED_TRACKING_PREFIXES_REGEX) {
+            for (const rx of getCompiledTrackingPrefixesRegex()) {
                 if (rx.test(lowerKey)) { toDelete.push(key); modified = true; break; }
             }
         }
@@ -1106,12 +1115,11 @@ function processRequest(request) {
       return null;
     }
     
-    // [V40.74] 惰性解析強化：支援 IPv6
     const tParse0 = t0 ? __now__() : 0;
     const protocolEnd = rawUrl.indexOf('//') + 2;
     let hostname, fullPath, hostEndIndex;
 
-    if (rawUrl.charCodeAt(protocolEnd) === 91) { // '[' for IPv6
+    if (rawUrl.charCodeAt(protocolEnd) === 91) {
         hostEndIndex = rawUrl.indexOf(']', protocolEnd) + 1;
         hostname = rawUrl.substring(protocolEnd, hostEndIndex).toLowerCase();
     } else {
@@ -1124,7 +1132,8 @@ function processRequest(request) {
             hostname = rawUrl.substring(protocolEnd, hostEndIndex).toLowerCase();
         }
     }
-    fullPath = rawUrl.substring(rawUrl.indexOf('/', protocolEnd));
+    const pathStartIndex = rawUrl.indexOf('/', protocolEnd);
+    fullPath = pathStartIndex === -1 ? '/' : rawUrl.substring(pathStartIndex);
 
     if(t0) optimizedStats.addTiming('parse', __now__() - tParse0);
 
@@ -1137,9 +1146,9 @@ function processRequest(request) {
 
     const tL10 = t0 ? __now__() : 0;
     const l1Decision = multiLevelCache.getDomainDecision(hostname);
-    const lowerFullPath = fullPath.toLowerCase();
-    const qIndex = lowerFullPath.indexOf('?');
-    const pathnameLower = qIndex === -1 ? lowerFullPath : lowerFullPath.substring(0, qIndex);
+    const qIndex = fullPath.indexOf('?');
+    const pathname = qIndex === -1 ? fullPath : fullPath.substring(0, qIndex);
+    const pathnameLower = pathname.toLowerCase();
 
     if (l1Decision === DECISION.BLOCK) {
       optimizedStats.increment('domainBlocked'); optimizedStats.increment('blockedRequests');
@@ -1148,7 +1157,6 @@ function processRequest(request) {
     }
     if (t0) optimizedStats.addTiming('l1', __now__() - tL10);
     
-    // [V40.74] 流程重構：合併清理邏輯
     let isSoftWhitelisted = false;
     if (getWhitelistMatchDetails(hostname, CONFIG.SOFT_WHITELIST_EXACT, CONFIG.SOFT_WHITELIST_WILDCARDS).matched) {
         optimizedStats.increment('softWhitelistHits');
@@ -1156,29 +1164,60 @@ function processRequest(request) {
     }
     if (t0) optimizedStats.addTiming('whitelist', __now__() - tWl0);
 
-    if (l1Decision !== DECISION.ALLOW && l1Decision !== DECISION.NEGATIVE_CACHE) {
-        const tDom0 = t0 ? __now__() : 0;
-        if (isDomainBlocked(hostname)) {
-            let isExempted = false;
-            const exemptions = CONFIG.PATH_EXEMPTIONS_FOR_BLOCKED_DOMAINS.get(hostname);
-            if (exemptions) {
-                for (const ex of exemptions) if (fullPath.startsWith(ex)) { isExempted = true; break; }
+    // [V40.75] 流程重構：先判定域名是否封鎖，再決定軟白名單是否能安全跳過路徑檢查
+    if (!isSoftWhitelisted) {
+        if (l1Decision !== DECISION.ALLOW && l1Decision !== DECISION.NEGATIVE_CACHE) {
+            const tDom0 = t0 ? __now__() : 0;
+            if (isDomainBlocked(hostname)) {
+                let isExempted = false;
+                const exemptions = CONFIG.PATH_EXEMPTIONS_FOR_BLOCKED_DOMAINS.get(hostname);
+                if (exemptions) {
+                    for (const ex of exemptions) if (fullPath.startsWith(ex)) { isExempted = true; break; }
+                }
+                if (!isExempted) {
+                    multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK, 30 * 60 * 1000); // 30 min TTL for block
+                    optimizedStats.increment('domainBlocked'); optimizedStats.increment('blockedRequests');
+                    if (t0) { optimizedStats.addTiming('domainStage', __now__() - tDom0); optimizedStats.addTiming('total', __now__() - t0); }
+                    return getBlockResponse(pathnameLower);
+                }
+            } else {
+                multiLevelCache.setDomainDecision(hostname, DECISION.ALLOW, 10 * 60 * 1000); // 10 min TTL for allow
             }
-            if (!isExempted) {
-                multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK, 10 * 60 * 1000);
-                optimizedStats.increment('domainBlocked'); optimizedStats.increment('blockedRequests');
-                if (t0) { optimizedStats.addTiming('domainStage', __now__() - tDom0); optimizedStats.addTiming('total', __now__() - t0); }
-                return getBlockResponse(pathnameLower);
-            }
-        } else {
-            multiLevelCache.setDomainDecision(hostname, DECISION.ALLOW, 5 * 60 * 1000);
+            if(t0) optimizedStats.addTiming('domainStage', __now__() - tDom0);
         }
-        if(t0) optimizedStats.addTiming('domainStage', __now__() - tDom0);
-    }
+    
+        const lowerFullPath = fullPath.toLowerCase();
+        const tCrit0 = t0 ? __now__() : 0;
+        if (isCriticalTrackingScript(hostname, lowerFullPath)) {
+          optimizedStats.increment('criticalScriptBlocked'); optimizedStats.increment('blockedRequests');
+          if(t0) { optimizedStats.addTiming('critical', __now__() - tCrit0); optimizedStats.addTiming('total', __now__() - t0); }
+          return getBlockResponse(pathnameLower);
+        }
+        if(t0) optimizedStats.addTiming('critical', __now__() - tCrit0);
+        
+        const tAllow0 = t0 ? __now__() : 0;
+        const isAllowed = isPathExplicitlyAllowed(pathnameLower);
+        if(t0) optimizedStats.addTiming('allowlistEval', __now__() - tAllow0);
 
-    // 軟白名單在此處短路或繼續
-    if (isSoftWhitelisted) {
-        // 對軟白名單僅做參數清理
+        const tPB0 = t0 ? __now__() : 0;
+        if (isPathBlockedByKeywords(pathnameLower, isAllowed)) {
+          optimizedStats.increment('pathBlocked'); optimizedStats.increment('blockedRequests');
+          if(t0) { optimizedStats.addTiming('pathTrie', __now__() - tPB0); optimizedStats.addTiming('total', __now__() - t0); }
+          return getBlockResponse(pathnameLower);
+        }
+        if(t0) optimizedStats.addTiming('pathTrie', __now__() - tPB0);
+
+        const tPR0 = t0 ? __now__() : 0;
+        if (isPathBlockedByRegex(pathnameLower, isAllowed)) {
+          optimizedStats.increment('regexPathBlocked'); optimizedStats.increment('blockedRequests');
+          if(t0) { optimizedStats.addTiming('pathRegex', __now__() - tPR0); optimizedStats.addTiming('total', __now__() - t0); }
+          return getBlockResponse(pathnameLower);
+        }
+        if(t0) optimizedStats.addTiming('pathRegex', __now__() - tPR0);
+    }
+    
+    // 統一的參數清理階段
+    if (qIndex !== -1) {
         const tP0 = t0 ? __now__() : 0;
         const cleanedUrl = cleanTrackingParams(rawUrl);
         if (cleanedUrl) {
@@ -1187,50 +1226,11 @@ function processRequest(request) {
             if (t0) { optimizedStats.addTiming('params', __now__() - tP0); optimizedStats.addTiming('total', __now__() - t0); }
             return { request };
         }
-        if(t0) { optimizedStats.addTiming('params', __now__() - tP0); optimizedStats.addTiming('total', __now__() - t0); }
-        return null;
+        if(t0) optimizedStats.addTiming('params', __now__() - tP0);
     }
-    
-    const tCrit0 = t0 ? __now__() : 0;
-    if (isCriticalTrackingScript(hostname, lowerFullPath)) {
-      optimizedStats.increment('criticalScriptBlocked'); optimizedStats.increment('blockedRequests');
-      if(t0) { optimizedStats.addTiming('critical', __now__() - tCrit0); optimizedStats.addTiming('total', __now__() - t0); }
-      return getBlockResponse(pathnameLower);
-    }
-    if(t0) optimizedStats.addTiming('critical', __now__() - tCrit0);
-    
-    const tAllow0 = t0 ? __now__() : 0;
-    const isAllowed = isPathExplicitlyAllowed(pathnameLower);
-    if(t0) optimizedStats.addTiming('allowlistEval', __now__() - tAllow0);
-
-    const tPB0 = t0 ? __now__() : 0;
-    if (isPathBlockedByKeywords(pathnameLower, isAllowed)) {
-      optimizedStats.increment('pathBlocked'); optimizedStats.increment('blockedRequests');
-      if(t0) { optimizedStats.addTiming('pathTrie', __now__() - tPB0); optimizedStats.addTiming('total', __now__() - t0); }
-      return getBlockResponse(pathnameLower);
-    }
-    if(t0) optimizedStats.addTiming('pathTrie', __now__() - tPB0);
-
-    const tPR0 = t0 ? __now__() : 0;
-    if (isPathBlockedByRegex(pathnameLower, isAllowed)) {
-      optimizedStats.increment('regexPathBlocked'); optimizedStats.increment('blockedRequests');
-      if(t0) { optimizedStats.addTiming('pathRegex', __now__() - tPR0); optimizedStats.addTiming('total', __now__() - t0); }
-      return getBlockResponse(pathnameLower);
-    }
-    if(t0) optimizedStats.addTiming('pathRegex', __now__() - tPR0);
-
-    const tP0 = t0 ? __now__() : 0;
-    const cleanedUrl = cleanTrackingParams(rawUrl);
-    if (cleanedUrl) {
-        optimizedStats.increment('paramsCleaned');
-        request.url = cleanedUrl;
-        if (t0) { optimizedStats.addTiming('params', __now__() - tP0); optimizedStats.addTiming('total', __now__() - t0); }
-        return { request };
-    }
-    if(t0) optimizedStats.addTiming('params', __now__() - tP0);
 
     if (l1Decision === null) {
-        multiLevelCache.setDomainDecision(hostname, DECISION.NEGATIVE_CACHE, 30 * 1000);
+        multiLevelCache.setDomainDecision(hostname, DECISION.NEGATIVE_CACHE, 60 * 1000); // 60s TTL for negative
     }
 
     if(t0) optimizedStats.addTiming('total', __now__() - t0);
@@ -1253,11 +1253,12 @@ function processRequest(request) {
       startTime = __now__();
     }
 
-    initializeCoreEngine();
+    // [V40.75] 惰性初始化模式下，此處不執行任何操作
+    // initializeCoreEngine();
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.74 - System Hardening & Micro-Optimizations', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.75 - Lazy Init & Hot-Path Optimizations', stats: optimizedStats.getStats() });
       }
       return;
     }
