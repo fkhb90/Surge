@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.79.js
- * @version     40.79 (規則修正)
- * @description 基於 V40.78 進行規則修正，將 DuckDuckGo 追蹤保護列表的 CDN 加入硬白名單以解決誤擋問題。
+ * @file        URL-Ultimate-Filter-Surge-V40.80.js
+ * @version     40.80 (邏輯修正)
+ * @description 基於 V40.79 進行邏輯修正，使「關鍵追蹤腳本」攔截優先於軟白名單，以處理 momoshop 等網站的第一方追蹤問題。
  * @note        此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-28
@@ -297,7 +297,7 @@ const CONFIG = {
   ],
   
   /**
-   * 🚨 [V40.61 擴充] 關鍵追蹤腳本攔截清單
+   * 🚨 [V40.61 擴充, V40.80 修訂] 關鍵追蹤腳本攔截清單
    */
   CRITICAL_TRACKING_SCRIPTS: new Set([
     // --- Google ---
@@ -317,6 +317,8 @@ const CONFIG = {
     'criteo.js', 'doubleclick.js', 'mgid.js', 'outbrain.js', 'prebid.js', 'pubmatic.js', 'revcontent.js', 'taboola.js',
     // --- 平台特定腳本 (Platform-Specific) ---
     'ad-full-page.min.js', // Pixnet Full Page Ad
+    'api_event_tracking.js', // [V40.80] MOMO
+    'api_event_tracking_rtb_house.js', // [V40.80] MOMO
     // --- 內容傳遞 & 標籤管理 ---
     'adobedtm.js', 'dax.js', 'tag.js', 'utag.js', 'visitorapi.js',
     // --- 效能監控 ---
@@ -624,14 +626,14 @@ const CONFIG = {
 };
 // #################################################################################################
 // #                                                                                               #
-// #                      🚀 HYPER-OPTIMIZED CORE ENGINE (V40.78)                                  #
+// #                      🚀 HYPER-OPTIMIZED CORE ENGINE (V40.80)                                  #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.78'; // [V40.78] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.80'; // [V40.80] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1180,6 +1182,16 @@ function processRequest(request) {
     }
     if (t0) optimizedStats.addTiming('l1', __now__() - tL10);
     
+    // [V40.80] 邏輯提升：關鍵追蹤腳本攔截，優先於軟白名單豁免
+    const lowerFullPath = fullPath.toLowerCase();
+    const tCrit0 = t0 ? __now__() : 0;
+    if (isCriticalTrackingScript(hostname, lowerFullPath)) {
+      optimizedStats.increment('criticalScriptBlocked'); optimizedStats.increment('blockedRequests');
+      if(t0) { optimizedStats.addTiming('critical', __now__() - tCrit0); optimizedStats.addTiming('total', __now__() - t0); }
+      return getBlockResponse(pathnameLower);
+    }
+    if(t0) optimizedStats.addTiming('critical', __now__() - tCrit0);
+
     let isSoftWhitelisted = false;
     if (getWhitelistMatchDetails(hostname, CONFIG.SOFT_WHITELIST_EXACT, CONFIG.SOFT_WHITELIST_WILDCARDS).matched) {
         optimizedStats.increment('softWhitelistHits');
@@ -1207,15 +1219,6 @@ function processRequest(request) {
             }
             if(t0) optimizedStats.addTiming('domainStage', __now__() - tDom0);
         }
-    
-        const lowerFullPath = fullPath.toLowerCase();
-        const tCrit0 = t0 ? __now__() : 0;
-        if (isCriticalTrackingScript(hostname, lowerFullPath)) {
-          optimizedStats.increment('criticalScriptBlocked'); optimizedStats.increment('blockedRequests');
-          if(t0) { optimizedStats.addTiming('critical', __now__() - tCrit0); optimizedStats.addTiming('total', __now__() - t0); }
-          return getBlockResponse(pathnameLower);
-        }
-        if(t0) optimizedStats.addTiming('critical', __now__() - tCrit0);
         
         const tAllow0 = t0 ? __now__() : 0;
         const isAllowed = isPathExplicitlyAllowed(pathnameLower);
@@ -1285,7 +1288,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.78 - Rule Fine-tuning', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.80 - Logic Enhancement', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -1312,4 +1315,3 @@ function initialize() {
     if (typeof $done !== 'undefined') $done({});
   }
 })();
-}
