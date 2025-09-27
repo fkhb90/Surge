@@ -1,10 +1,10 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.78.js
- * @version     40.78 (規則微調)
- * @description 基於 V40.77 進行規則微調，擴充參數白名單以修正 Feedly API 參數被過度清理的問題。
+ * @file        URL-Ultimate-Filter-Surge-V40.79.js
+ * @version     40.79 (規則修正)
+ * @description 基於 V40.78 進行規則修正，將 DuckDuckGo 追蹤保護列表的 CDN 加入硬白名單以解決誤擋問題。
  * @note        此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-09-24
+ * @lastUpdated 2025-09-28
  */
 
 // #################################################################################################
@@ -88,6 +88,7 @@ const CONFIG = {
     'ar-genai.graph.meta.com', 'ar.graph.meta.com', 'gateway.facebook.com', 'meta-ai-realtime.facebook.com', 'meta.graph.meta.com', 'wearable-ai-realtime.facebook.com',
     // --- Media & CDNs ---
     'cdn.ghostery.com', 'cdn.shortpixel.ai', 'cdn.syndication.twimg.com', 'd.ghostery.com', 'data-cloud.flightradar24.com', 'ssl.p.jwpcdn.com',
+    'staticcdn.duckduckgo.com', // [V40.79] DuckDuckGo 追蹤保護列表 CDN
     // --- Music & Content Recognition ---
     'secureapi.midomi.com',
     // --- Services & App APIs ---
@@ -518,7 +519,7 @@ const CONFIG = {
     'amp-analytics', 'batch', 'beacon', 'client-event', 'collect', 'collect?', 'collector', 'crashlytics', 'csp-report',
     'data-pipeline', 'error-monitoring', 'error-report', 'heartbeat', 'ingest', 'intake', 'live-log', 'log-event',
     'logevents', 'loggly', 'log-hl', 'realtime-log', 'rum', 'server-event', 'telemetry', 'uploadmobiledata', 'web-beacon', 
-    'web-vitals', 'agofld', 'track/upload',
+    'web-vitals',
     // --- 錯誤 & 診斷 (Error & Diagnostics) ---
     'crash-report', 'diagnostic.log', 'profiler', 'stacktrace', 'trace.json',
   ]),
@@ -1311,3 +1312,4 @@ function initialize() {
     if (typeof $done !== 'undefined') $done({});
   }
 })();
+}
