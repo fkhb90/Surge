@@ -1,7 +1,7 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.82.js
- * @version     40.82 (功能性修正)
- * @description 基於 V40.81 進行結構性修正。新增「參數清理豁免」機制以解決 Google Maps 連結因重定向後參數被清除而失效的問題。同時將 Google 核心短網域加入硬白名單。
+ * @file        URL-Ultimate-Filter-Surge-V40.83.js
+ * @version     40.83 (規則增補)
+ * @description 基於 V40.82 新增對 `rtb.momoshop.com.tw` 的精確攔截規則，以處理其即時競價 (RTB) 廣告追蹤請求。
  * @note        此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-09-29
@@ -186,7 +186,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 [V40.51 強化, V40.81 擴充] 域名攔截黑名單
+   * 🚫 [V40.51 強化, V40.83 擴充] 域名攔截黑名單
    */
   BLOCK_DOMAINS: new Set([
     // --- Ad & Tracking CDNs ---
@@ -272,7 +272,8 @@ const CONFIG = {
     // --- 台灣地區 (純廣告/追蹤) ---
     'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'cacafly.com',
     'clickforce.com.tw', 'fast-trk.com', 'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com',
-    'likr.tw', 'sitetag.us', 'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com',
+    'likr.tw', 'rtb.momoshop.com.tw', // [V40.83] 新增
+    'sitetag.us', 'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com',
     // --- 台灣內容農場 (預測性防禦) ---
     'ad-serv.teepr.com',
     // --- 在地化 & App SDK 追蹤 ---
@@ -636,14 +637,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                       🚀 HYPER-OPTIMIZED CORE ENGINE (V40.82)                                  #
+// #                       🚀 HYPER-OPTIMIZED CORE ENGINE (V40.83)                                  #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.82'; // [V40.82] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.83'; // [V40.83] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1179,6 +1180,15 @@ function processRequest(request) {
     const qIndex = fullPath.indexOf('?');
     const pathname = qIndex === -1 ? fullPath : fullPath.substring(0, qIndex);
     const pathnameLower = pathname.toLowerCase();
+
+    // [V40.83] 邏輯修正：將域名黑名單檢查提前，使其優先於軟白名單
+    if (isDomainBlocked(hostname)) {
+        multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK, 30 * 60 * 1000);
+        optimizedStats.increment('domainBlocked'); optimizedStats.increment('blockedRequests');
+        if (t0) { optimizedStats.addTiming('domainStage', __now__() - tL10); optimizedStats.addTiming('total', __now__() - t0); }
+        return getBlockResponse(pathnameLower);
+    }
+    
     if (l1Decision === DECISION.BLOCK) {
       optimizedStats.increment('domainBlocked'); optimizedStats.increment('blockedRequests');
       if (t0) { optimizedStats.addTiming('l1', __now__() - tL10); optimizedStats.addTiming('total', __now__() - t0); }
@@ -1204,23 +1214,9 @@ function processRequest(request) {
 
     if (!isSoftWhitelisted) {
         if (l1Decision !== DECISION.ALLOW && l1Decision !== DECISION.NEGATIVE_CACHE) {
-            const tDom0 = t0 ?
-            __now__() : 0;
-            if (isDomainBlocked(hostname)) {
-                let isExempted = false;
-                const exemptions = CONFIG.PATH_EXEMPTIONS_FOR_BLOCKED_DOMAINS.get(hostname);
-                if (exemptions) {
-                    for (const ex of exemptions) if (fullPath.startsWith(ex)) { isExempted = true; break; }
-                }
-                if (!isExempted) {
-                    multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK, 30 * 60 * 1000);
-                    optimizedStats.increment('domainBlocked'); optimizedStats.increment('blockedRequests');
-                    if (t0) { optimizedStats.addTiming('domainStage', __now__() - tDom0); optimizedStats.addTiming('total', __now__() - t0); }
-                    return getBlockResponse(pathnameLower);
-                }
-            } else {
-                multiLevelCache.setDomainDecision(hostname, DECISION.ALLOW, 10 * 60 * 1000);
-            }
+            const tDom0 = t0 ? __now__() : 0;
+            // The isDomainBlocked check is now at the top
+            multiLevelCache.setDomainDecision(hostname, DECISION.ALLOW, 10 * 60 * 1000);
             if(t0) optimizedStats.addTiming('domainStage', __now__() - tDom0);
         }
         
@@ -1306,7 +1302,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.82 - Functionality Fix', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.83 - Rule Enhancement', stats: optimizedStats.getStats() });
       }
       return;
     }
