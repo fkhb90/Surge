@@ -1,10 +1,10 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.87.js
- * @version     40.87 (邏輯增強)
- * @description 針對 V40.86 的問題進行修正。引入帶有排除條件的精細化攔截邏輯，以在不影響 DuckDuckGo 正常搜尋功能的前提下，精準攔截其非必要的遙測腳本。
+ * @file        URL-Ultimate-Filter-Surge-V40.84.js
+ * @version     40.84 (規則增補)
+ * @description 基於 V40.83 新增對 DuckDuckGo 回饋遙測腳本 (`wpm.feedback-modal`) 的精確攔截規則。
  * @note        此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
  * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-10-06
+ * @lastUpdated 2025-10-05
  */
 
 // #################################################################################################
@@ -70,7 +70,7 @@ const CONFIG = {
     'shortmoz.link', 'shrinkcash.com', 'shrt10.com', 'similarsites.com', 'smilinglinks.com', 
     'spacetica.com', 'spaste.com', 'srt.am', 'stfly.me', 'stfly.xyz', 'supercheats.com', 'swzz.xyz', 
     'techgeek.digital', 'techstudify.com', 'techtrendmakers.com', 'thinfi.com', 'thotpacks.xyz', 
-    'tmearn.net', 'tnshort.net', 'tribuntekno.com', 'turdown.com', 'tutwuri.id', 'uplinkto.hair', 
+    'tmearn.net', 'tnshort.net', 'tribuntekno.com', 'turkdown.com', 'tutwuri.id', 'uplinkto.hair', 
     'urlbluemedia.shop', 'urlcash.com', 'urlcash.org', 'vinaurl.net', 'vzturl.com', 'xpshort.com', 
     'zegtrends.com'
   ]),
@@ -341,7 +341,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 重構, V40.86 移除] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
+   * 🚨 [V40.71 重構, V40.84 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
     ['analytics.google.com', new Set(['/g/collect'])],
@@ -397,7 +397,7 @@ const CONFIG = {
     ['s.pinimg.com', new Set(['/ct/core.js'])],
     ['www.redditstatic.com', new Set(['/ads/pixel.js'])],
     ['discord.com', new Set(['/api/v10/science', '/api/v9/science'])],
-    // [V40.86] 移除 V40.84/85 新增的 duckduckgo.com 規則，以恢復搜尋功能
+    ['duckduckgo.com', new Set(['/dist/wpm.feedback-modal'])], // [V40.84] 新增
     ['vk.com', new Set(['/rtrg'])],
   ]),
 
@@ -638,14 +638,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                       🚀 HYPER-OPTIMIZED CORE ENGINE (V40.87)                                  #
+// #                       🚀 HYPER-OPTIMIZED CORE ENGINE (V40.84)                                  #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.87'; // [V40.87] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.84'; // [V40.84] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -944,19 +944,6 @@ function isCriticalTrackingScript(hostname, lowerFullPath) {
   const cached = multiLevelCache.getUrlDecision('crit', hostname, lowerFullPath);
   if (cached !== null) return cached;
 
-  // [V40.87] 針對 DuckDuckGo 的精細化規則
-  if (hostname === 'duckduckgo.com') {
-    // 封鎖 wpm. 遙測腳本，但排除 wpm.main. 和 wpmv. 核心腳本
-    if (lowerFullPath.startsWith('/dist/wpm.') && !lowerFullPath.includes('.main.')) {
-        multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
-        return true;
-    }
-    if (lowerFullPath.startsWith('/dist/wpmv.')) {
-        multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, false);
-        return false;
-    }
-  }
-  
   const qIdx = lowerFullPath.indexOf('?');
   const pathOnly = qIdx !== -1 ?
   lowerFullPath.slice(0, qIdx) : lowerFullPath;
@@ -1315,7 +1302,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.87 - Logic Enhancement', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.84 - Rule Enhancement', stats: optimizedStats.getStats() });
       }
       return;
     }
