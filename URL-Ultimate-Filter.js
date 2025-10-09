@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V40.84.js
- * @version   40.84 (規則增補)
- * @description 基於 V40.83 新增對 `www.perplexity.ai` 的精確硬白名單規則，以最佳化其請求處理效率。
+ * @file      URL-Ultimate-Filter-Surge-V40.86.js
+ * @version   40.86 (規則修正)
+ * @description 基於 V40.85 進行修正，重新補上先前由使用者手動加入的 `api.felo.ai` 硬白名單規則。此版本整合了近期所有變更。
  * @note      此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-10-09
@@ -80,10 +80,9 @@ const CONFIG = {
    */
   HARD_WHITELIST_EXACT: new Set([
     // --- AI & Search Services ---
-    'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai', 'private-us-east-1.monica.im',
-    'api.felo.ai',
+    'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
     // --- Business & Developer Tools ---
-    'adsbypasser.github.io', 'code.createjs.com', 'nextdns.io', 'oa.ledabangong.com', 'oa.qianyibangong.com', 'qianwen.aliyun.com',
+    'adsbypasser.github.io', 'code.createjs.com', 'oa.ledabangong.com', 'oa.qianyibangong.com', 'qianwen.aliyun.com',
     'raw.githubusercontent.com', 'reportaproblem.apple.com', 'ss.ledabangong.com', 'userscripts.adtidy.org',
     // --- Meta / Facebook ---
     'ar-genai.graph.meta.com', 'ar.graph.meta.com', 'gateway.facebook.com', 'meta-ai-realtime.facebook.com', 'meta.graph.meta.com', 'wearable-ai-realtime.facebook.com',
@@ -111,7 +110,7 @@ const CONFIG = {
   ]),
 
   /**
-   * ✳️ [V40.82 強化] 硬白名單 - 萬用字元 (Hard Whitelist - Wildcards)
+   * ✳️ [V40.82 強化, V40.85 修訂] 硬白名單 - 萬用字元 (Hard Whitelist - Wildcards)
    */
   HARD_WHITELIST_WILDCARDS: new Set([
     // --- Financial, Banking & Payments ---
@@ -126,6 +125,8 @@ const CONFIG = {
     'app.goo.gl', 'goo.gl',
     // --- 核心登入 & 協作平台 ---
     'atlassian.net', 'auth0.com', 'okta.com', 'slack.com',
+    // --- [V40.85 新增] DNS & 隱私工具 ---
+    'nextdns.io',
     // --- 系統 & 平台核心服務 ---
     'googleapis.com',
     'icloud.com', // [V40.48] 註解強化：因其大量動態生成的功能性子域，暫時保留於萬用字元硬白名單中。
