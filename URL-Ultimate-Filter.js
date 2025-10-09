@@ -1,16 +1,16 @@
 /**
- * @file        URL-Ultimate-Filter-Surge-V40.83.js
- * @version     40.83 (規則增補)
- * @description 基於 V40.82 新增對 `rtb.momoshop.com.tw` 的精確攔截規則，以處理其即時競價 (RTB) 廣告追蹤請求。
- * @note        此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
- * @author      Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-09-29
+ * @file      URL-Ultimate-Filter-Surge-V40.84.js
+ * @version   40.84 (規則增補)
+ * @description 基於 V40.83 新增對 `www.perplexity.ai` 的精確硬白名單規則，以最佳化其請求處理效率。
+ * @note      此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
+ * @author    Claude & Gemini & Acterus (+ Community Feedback)
+ * @lastUpdated 2025-10-09
  */
 
 // #################################################################################################
 // #                                                                                               #
-// #                             ⚙️ SCRIPT CONFIGURATION                                         #
-// #                      (使用者在此區域安全地新增、修改或移除規則)                                 #
+// #                               ⚙️ SCRIPT CONFIGURATION                                        #
+// #                               (使用者在此區域安全地新增、修改或移除規則)                                #
 // #                                                                                               #
 // #################################################################################################
 
@@ -80,7 +80,7 @@ const CONFIG = {
    */
   HARD_WHITELIST_EXACT: new Set([
     // --- AI & Search Services ---
-    'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'private-us-east-1.monica.im',
+    'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai', 'private-us-east-1.monica.im',
     // --- Business & Developer Tools ---
     'adsbypasser.github.io', 'code.createjs.com', 'nextdns.io', 'oa.ledabangong.com', 'oa.qianyibangong.com', 'qianwen.aliyun.com',
     'raw.githubusercontent.com', 'reportaproblem.apple.com', 'ss.ledabangong.com', 'userscripts.adtidy.org',
@@ -534,12 +534,12 @@ const CONFIG = {
    * 🗑️ [V40.69 擴充] 追蹤參數黑名單 (全域)
    */
   GLOBAL_TRACKING_PARAMS: new Set([
-     '_branch_match_id', '_ga', '_gl', '_gid', '_openstat', 'admitad_uid', 'aiad_clid', 'awc', 'btag',
-     'cjevent', 'cmpid', 'cuid', 'dclid', 'external_click_id', 'fbclid', 'gad_source', 'gclid', 
-     'gclsrc', 'gbraid', 'gps_adid', 'iclid', 'igshid', 'irclickid', 'is_retargeting', 
-     'ko_click_id', 'li_fat_id', 'mc_cid', 'mc_eid', 'mibextid', 'msclkid', 'oprtrack', 'rb_clickid',
-     'srsltid', 'sscid', 'trk', 'ttclid', 'twclid', 'usqp', 'vero_conv', 'vero_id', 'wbraid',
-     'wt_mc', 'xtor', 'yclid', 'ysclid', 'zanpid',
+      '_branch_match_id', '_ga', '_gl', '_gid', '_openstat', 'admitad_uid', 'aiad_clid', 'awc', 'btag',
+      'cjevent', 'cmpid', 'cuid', 'dclid', 'external_click_id', 'fbclid', 'gad_source', 'gclid', 
+      'gclsrc', 'gbraid', 'gps_adid', 'iclid', 'igshid', 'irclickid', 'is_retargeting', 
+      'ko_click_id', 'li_fat_id', 'mc_cid', 'mc_eid', 'mibextid', 'msclkid', 'oprtrack', 'rb_clickid',
+      'srsltid', 'sscid', 'trk', 'ttclid', 'twclid', 'usqp', 'vero_conv', 'vero_id', 'wbraid',
+      'wt_mc', 'xtor', 'yclid', 'ysclid', 'zanpid',
   ]),
 
   /**
@@ -568,7 +568,7 @@ const CONFIG = {
    * 🗑️ [V40.37 新增] Regex 追蹤參數前綴黑名單
    */
   TRACKING_PREFIXES_REGEX: [
-      /^_ga_/,
+      /_ga_/,
       /^tt_[\w_]+/,
       /^li_[\w_]+/,
   ],
@@ -637,14 +637,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                       🚀 HYPER-OPTIMIZED CORE ENGINE (V40.83)                                  #
+// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.84)                             #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.83'; // [V40.83] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.84'; // [V40.84] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1149,7 +1149,7 @@ function processRequest(request) {
     const tParse0 = t0 ? __now__() : 0;
     const protocolEnd = rawUrl.indexOf('//') + 2;
     let hostname, fullPath, hostEndIndex;
-    if (rawUrl.charCodeAt(protocolEnd) === 91) {
+    if (rawUrl.charCodeAt(protocolEnd) === 91) { // IPv6
         hostEndIndex = rawUrl.indexOf(']', protocolEnd) + 1;
         hostname = rawUrl.substring(protocolEnd, hostEndIndex).toLowerCase();
     } else {
@@ -1302,7 +1302,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.83 - Rule Enhancement', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.84 - Rule Enhancement', stats: optimizedStats.getStats() });
       }
       return;
     }
