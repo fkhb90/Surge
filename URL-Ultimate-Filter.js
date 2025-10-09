@@ -81,6 +81,7 @@ const CONFIG = {
   HARD_WHITELIST_EXACT: new Set([
     // --- AI & Search Services ---
     'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai', 'private-us-east-1.monica.im',
+    'api.felo.ai',
     // --- Business & Developer Tools ---
     'adsbypasser.github.io', 'code.createjs.com', 'nextdns.io', 'oa.ledabangong.com', 'oa.qianyibangong.com', 'qianwen.aliyun.com',
     'raw.githubusercontent.com', 'reportaproblem.apple.com', 'ss.ledabangong.com', 'userscripts.adtidy.org',
