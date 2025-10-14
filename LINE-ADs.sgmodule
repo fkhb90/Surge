@@ -23,10 +23,14 @@ DOMAIN-SUFFIX,gwx.line.naver.jp,Cloudflare
 DOMAIN-SUFFIX,api.line.me,Cloudflare
 DOMAIN-SUFFIX,profile.line-scdn.net,Cloudflare
 DOMAIN-SUFFIX,stickershop.line-scdn.net,Proxy
-URL-REGEX,^https:\/\/legy\.line-apps\.com\/(?!ext\/(lgfp\/lad|smartch|today)\/).*$,Cloudflare
-URL-REGEX,^https:\/\/legy(-backup)?\.line-apps\.com:443\/[A-Z0-9]+$,Cloudflare
-URL-REGEX,^https:\/\/obs\.line-scdn\.net\/(?!.*(\/banner\/|r\/linecrs)).*$,Cloudflare
-URL-REGEX,^https:\/\/obs\-tw\.line\-apps\.com\/talk$,Cloudflare
+URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/ext\/album\/api\/v\d+\/albums\/(?:preview|\d+\/photos(?:\/\d+\/likes\/preview)?)(?:\?.*)?$,Cloudflare
+URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/ext\/album\/?$,Cloudflare
+URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/talk$,Cloudflare
+URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/[A-Za-z0-9_-]+$,Cloudflare
+URL-REGEX,^https?:\/\/legy-backup\.line-apps\.com(:443)?\/[A-Z0-9]+$,Cloudflare
+URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/[A-Z0-9]+$,Cloudflare
+URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/(?!ext\/(lgfp\/lad|smartch|today)\/).*$,Cloudflare
+URL-REGEX,^https?:\/\/obs\.line-scdn\.net\/(?!.*(\/banner\/|r\/linecrs)).*$,Cloudflare
 
 # -------------------------------------------------------------------
 # B. 全域廣告 API 與追蹤服務 (攔截核心)
