@@ -31,8 +31,10 @@ URL-REGEX,^https?:\/\/legy-backup\.line-apps\.com(:443)?\/[A-Z0-9]+(\?.*)?$,Clou
 URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/talk$,Cloudflare
 URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/talk\/emi\/.*$,Cloudflare
 URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/talk\/emv\/.*\/ud-preview$,Cloudflare
+URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/talk\/emv\/.*$,Cloudflare
 URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/album\/a\/.*$,Cloudflare
 URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/[A-Za-z0-9_-]+$,Cloudflare
+URL-REGEX,^https?:\/\/manager\.line-scdn\.net(:443)?\/[A-Za-z0-9_-]+$,Cloudflare
 URL-REGEX,^https?:\/\/obs\.line-scdn\.net\/(?!.*(\/banner\/|r\/linecrs)).*$,Cloudflare
 
 # -------------------------------------------------------------------
