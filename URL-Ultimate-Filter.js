@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V40.89.js
- * @version   40.89 (Momo 追蹤強化)
- * @description 基於 V40.88，新增對 Momo 供應方平台 (sspap) 域名與核心追蹤腳本 (ed.js) 的封鎖。
+ * @file      URL-Ultimate-Filter-Surge-V40.90.js
+ * @version   40.90 (規則生命週期管理 & 電商追蹤強化)
+ * @description 基於 V40.89，移除 Mopub 等 5 個失效規則。新增 Shopee/ETMall 廣告與分析域名。
  * @note      此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-10-24
@@ -188,7 +188,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 [V40.51 強化, V40.89 修訂] 域名攔截黑名單
+   * 🚫 [V40.51 強化, V40.90 修訂] 域名攔截黑名單
    */
   BLOCK_DOMAINS: new Set([
     // --- Ad & Tracking CDNs ---
@@ -220,7 +220,7 @@ const CONFIG = {
     // --- 主流分析 & 追蹤服務 ---
     'adform.net', 'adjust.com', 'ads.linkedin.com', 'adsrvr.org', 'agn.aty.sohu.com', 'amplitude.com', 'analytics.line.me',
     'analytics.slashdotmedia.com', 'analytics.strava.com', 'analytics.twitter.com', 'analytics.yahoo.com', 'api.pendo.io',
-    'apm.gotokeep.com', 'applog.mobike.com', 'applog.uc.cn', 'appsflyer.com', 'branch.io', 'braze.com', 'bugsnag.com', 'c.clarity.ms',
+    'apm.gotokeep.com', 'applog.uc.cn', 'appsflyer.com', 'branch.io', 'braze.com', 'bugsnag.com', 'c.clarity.ms', // [V40.90] 移除 applog.mobike.com
     'c.segment.com', // [V40.88] 新增 (Segment CDP)
     'chartbeat.com', 'clicktale.net', 'clicky.com', 'cn-huabei-1-lg.xf-yun.com', 'comscore.com', 'crazyegg.com', 'criteo.com',
     'criteo.net', 'customer.io', 'data.investing.com', 'datadoghq.com', 'dynatrace.com', 'fullstory.com', 'gs.getui.com', 'heap.io', 
@@ -245,16 +245,16 @@ const CONFIG = {
     // --- Mobile & Performance ---
     'instana.io', 'kochava.com', 'launchdarkly.com', 'raygun.io', 'singular.net',
     // --- 主流廣告聯播網 & 平台 ---
-    'abema-adx.ameba.jp', 'abtest.yuewen.cn', 'ad-cn.jovcloud.com', 'ad.12306.cn', 'ad.360in.com', 'ad.51wnl-cq.com', 'ad.api.3g.youku.com', 'ad.caiyunapp.com', 'ad.huajiao.com',
-    'ad.hzyoka.com', 'ad.jiemian.com', 'ad.qingting.fm', 'ad.wappalyzer.com', 'ad.yieldmanager.com', 'adashxgc.ut.taobao.com', 'adashz4yt.m.taobao.com', 'adcolony.com',
-    'adextra.51wnl-cq.com', 'adroll.com', 'ads.adadapted.com', 'ads.daydaycook.com.cn', 'ads.mopub.com', 'ads.weilitoutiao.net',
+    'abema-adx.ameba.jp', 'abtest.yuewen.cn', 'ad-cn.jovcloud.com', 'ad.12306.cn', 'ad.360in.com', 'ad.51wnl-cq.com', 'ad.api.3g.youku.com', 'ad.caiyunapp.com',
+    'ad.hzyoka.com', 'ad.jiemian.com', 'ad.qingting.fm', 'ad.wappalyzer.com', 'ad.yieldmanager.com', 'adashxgc.ut.taobao.com', 'adashz4yt.m.taobao.com', 'adcolony.com', // [V40.90] 移除 ad.huajiao.com
+    'adextra.51wnl-cq.com', 'adroll.com', 'ads.adadapted.com', 'ads.daydaycook.com.cn', 'ads.weilitoutiao.net', // [V40.90] 移除 ads.mopub.com
     'ads.yahoo.com', 'adsapi.manhuaren.com', 'adsdk.dmzj.com', 'adse.ximalaya.com', 'adserver.pandora.com', 'adserver.yahoo.com', 'adsnative.com',
     'adswizz.com', 'adtrack.quark.cn', 'adui.tg.meitu.com', 'adv.bandi.so', 'adxserver.ad.cmvideo.cn', 'amazon-adsystem.com',
-    'api.cupid.dns.iqiyi.com', 'api.joybj.com', 'api.whizzone.com', 'app-ad.variflight.com', 'applovin.com', 'appnexus.com', 'ark.letv.com',
+    'api.cupid.dns.iqiyi.com', 'api.joybj.com', 'api.whizzone.com', 'app-ad.variflight.com', 'applovin.com', 'appnexus.com', // [V40.90] 移除 ark.letv.com
     'asimgs.pplive.cn', 'atm.youku.com', 'beacon-api.aliyuncs.com', 'bdurl.net', 'bidswitch.net', 'bluekai.com', 'casalemedia.com',
     'contextweb.com', 'conversantmedia.com', 'cr-serving.com', 'creativecdn.com', 'csp.yahoo.com', 'flashtalking.com', 'geo.yahoo.com', 'ggs.myzaker.com',
     'go-mpulse.net', 'gumgum.com', 'idatalog.iflysec.com', 'indexexchange.com', 'inmobi.com', 'ironsrc.com', 'itad.linetv.tw', 'ja.chushou.tv',
-    'liveintent.com', 'mads.suning.com', 'magnite.com', 'media.net', 'mobileads.msn.com', 'mopnativeadv.037201.com', 'mopub.com', 'mum.alibabachengdun.com',
+    'liveintent.com', 'mads.suning.com', 'magnite.com', 'media.net', 'mobileads.msn.com', 'mopnativeadv.037201.com', 'mum.alibabachengdun.com', // [V40.90] 移除 mopub.com
     'narrative.io', 'nativeadv.dftoutiao.com', 'neustar.biz', 'pbd.yahoo.com', 'pf.s.360.cn', 'puds.ucweb.com', 'pv.sohu.com', 's.youtube.com',
     'sharethrough.com', 'sitescout.com', 'smartadserver.com', 'soom.la', 'spotx.tv', 'spotxchange.com', 'tapad.com', 'teads.tv', 'thetradedesk.com',
     'tremorhub.com', 'unityads.unity3d.com', 'volces.com', 'vungle.com', 'yieldify.com', 'yieldmo.com', 'zemanta.com', 'zztfly.com',
@@ -285,6 +285,10 @@ const CONFIG = {
     'fast-trk.com', 'funp.com', 'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com', // [V40.88] funp.com
     'likr.tw', 'rtb.momoshop.com.tw', // [V40.83]
     'sitetag.us', 'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com',
+    'analytics.shopee.tw', // [V40.90]
+    'dmp.shopee.tw', // [V40.90]
+    'analytics.etmall.com.tw', // [V40.90]
+    'ad.etmall.com.tw', // [V40.90]
     // --- 台灣內容農場 (預測性防禦) ---
     'ad-serv.teepr.com',
     // --- 在地化 & App SDK 追蹤 ---
@@ -382,7 +386,7 @@ const CONFIG = {
     ['in.hotjar.com', new Set(['/api/v2/client'])],
     ['scorecardresearch.com', new Set(['/beacon.js'])],
     ['segment.io', new Set(['/v1/track'])],
-    ['tr.snap.com', new Set(['/v2/conversion'])], // [V40.88] 新增
+    ['tr.snap.com', new Set(['/v2/conversion'])], // [V44.88] 新增
     ['widget.intercom.io', new Set([])], // Host only
     ['ads-api.tiktok.com', new Set(['/api/v2/pixel'])],
     ['ads.pinterest.com', new Set(['/v3/conversions/events'])],
@@ -655,14 +659,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.89)                             #
+// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.90)                             #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.89'; // [V40.89] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.90'; // [V40.90] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1331,7 +1335,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.89 - Momo Tracking Enhancement', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.90 - Rule Lifecycle & E-commerce Tracking', stats: optimizedStats.getStats() });
       }
       return;
     }
