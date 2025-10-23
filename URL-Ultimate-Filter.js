@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V40.88.js
- * @version   40.88 (規則增補與風險管理)
- * @description 基於 V40.87，新增 momo 追蹤子域、Segment、Snap Pixel 等規則。主動豁免 Facebook Graph API v21/v22，並修正 V40.87 內部版本號。
+ * @file      URL-Ultimate-Filter-Surge-V40.89.js
+ * @version   40.89 (Momo 追蹤強化)
+ * @description 基於 V40.88，新增對 Momo 供應方平台 (sspap) 域名與核心追蹤腳本 (ed.js) 的封鎖。
  * @note      此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-10-24
@@ -188,7 +188,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 [V40.51 強化, V40.88 修訂] 域名攔截黑名單
+   * 🚫 [V40.51 強化, V40.89 修訂] 域名攔截黑名單
    */
   BLOCK_DOMAINS: new Set([
     // --- Ad & Tracking CDNs ---
@@ -281,6 +281,7 @@ const CONFIG = {
     'event.momoshop.com.tw', // [V40.88]
     'log.momoshop.com.tw', // [V40.88]
     'trk.momoshop.com.tw', // [V40.88]
+    'sspap.momoshop.com.tw', // [V40.89]
     'fast-trk.com', 'funp.com', 'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com', // [V40.88] funp.com
     'likr.tw', 'rtb.momoshop.com.tw', // [V40.83]
     'sitetag.us', 'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com',
@@ -311,7 +312,7 @@ const CONFIG = {
   ],
   
   /**
-   * 🚨 [V40.61 擴充, V40.80 修訂] 關鍵追蹤腳本攔截清單
+   * 🚨 [V40.61 擴充, V40.89 修訂] 關鍵追蹤腳本攔截清單
    */
   CRITICAL_TRACKING_SCRIPTS: new Set([
     // --- Google ---
@@ -333,6 +334,7 @@ const CONFIG = {
     'ad-full-page.min.js', // Pixnet Full Page Ad
     'api_event_tracking.js', // [V40.80] MOMO
     'api_event_tracking_rtb_house.js', // [V40.80] MOMO
+    'ed.js', // [V40.89] MOMO (edq 核心追蹤器)
     // --- 內容傳遞 & 標籤管理 ---
     'adobedtm.js', 'dax.js', 'tag.js', 'utag.js', 'visitorapi.js',
     // --- 效能監控 ---
@@ -426,7 +428,8 @@ const CONFIG = {
     '/v2/track', '/v3/track', '/2/client/addlog_batch', '/plugins/easy-social-share-buttons/', '/event_report',
     '/log/aplus', '/v.gif', '/ad-sw.js', '/ads-sw.js', '/ad-call', '/adx/', '/adsales/', '/adserver/',
     '/adsync/', '/adtech/', '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc',
-    '/user-profile/', 'cacafly/track'
+    '/user-profile/', 'cacafly/track',
+    '/api/v1/t', // [V40.89] ed.js 追蹤端點
   ]),
 
   /**
@@ -652,14 +655,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.88)                             #
+// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.89)                             #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.88'; // [V40.88] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.89'; // [V40.89] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1328,7 +1331,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.88 - Rule Expansion & Risk Management', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.89 - Momo Tracking Enhancement', stats: optimizedStats.getStats() });
       }
       return;
     }
