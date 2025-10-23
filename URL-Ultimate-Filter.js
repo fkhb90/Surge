@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V40.86.js
- * @version   40.86 (規則修正)
- * @description 基於 V40.85 進行修正，重新補上先前由使用者手動加入的 `api.felo.ai` 硬白名單規則。此版本整合了近期所有變更。
+ * @file      URL-Ultimate-Filter-Surge-V40.87.js
+ * @version   40.87 (規則增補)
+ * @description 基於 V40.86 新增對 `ecdmp.momoshop.com.tw` 的域名攔截規則，以阻擋其潛在的客戶數據追蹤行為。
  * @note      此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-10-09
+ * @lastUpdated 2025-10-23
  */
 
 // #################################################################################################
@@ -188,7 +188,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 [V40.51 強化, V40.83 擴充] 域名攔截黑名單
+   * 🚫 [V40.51 強化, V40.87 修訂] 域名攔截黑名單
    */
   BLOCK_DOMAINS: new Set([
     // --- Ad & Tracking CDNs ---
@@ -273,7 +273,8 @@ const CONFIG = {
     'cookielaw.org', 'onetrust.com', 'sourcepoint.com', 'trustarc.com', 'usercentrics.eu',
     // --- 台灣地區 (純廣告/追蹤) ---
     'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'cacafly.com',
-    'clickforce.com.tw', 'fast-trk.com', 'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com',
+    'clickforce.com.tw', 'ecdmp.momoshop.com.tw', // [V40.87] 新增
+    'fast-trk.com', 'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com',
     'likr.tw', 'rtb.momoshop.com.tw', // [V40.83] 新增
     'sitetag.us', 'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com',
     // --- 台灣內容農場 (預測性防禦) ---
@@ -639,14 +640,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.84)                             #
+// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.86)                             #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.84'; // [V40.84] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.86'; // [V40.86] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1304,7 +1305,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.84 - Rule Enhancement', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.86 - Rule Enhancement', stats: optimizedStats.getStats() });
       }
       return;
     }
