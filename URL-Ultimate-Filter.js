@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V40.87.js
- * @version   40.87 (規則增補)
- * @description 基於 V40.86 新增對 `ecdmp.momoshop.com.tw` 的域名攔截規則，以阻擋其潛在的客戶數據追蹤行為。
+ * @file      URL-Ultimate-Filter-Surge-V40.88.js
+ * @version   40.88 (規則增補與風險管理)
+ * @description 基於 V40.87，新增 momo 追蹤子域、Segment、Snap Pixel 等規則。主動豁免 Facebook Graph API v21/v22，並修正 V40.87 內部版本號。
  * @note      此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-10-23
+ * @lastUpdated 2025-10-24
  */
 
 // #################################################################################################
@@ -188,7 +188,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 [V40.51 強化, V40.87 修訂] 域名攔截黑名單
+   * 🚫 [V40.51 強化, V40.88 修訂] 域名攔截黑名單
    */
   BLOCK_DOMAINS: new Set([
     // --- Ad & Tracking CDNs ---
@@ -221,6 +221,7 @@ const CONFIG = {
     'adform.net', 'adjust.com', 'ads.linkedin.com', 'adsrvr.org', 'agn.aty.sohu.com', 'amplitude.com', 'analytics.line.me',
     'analytics.slashdotmedia.com', 'analytics.strava.com', 'analytics.twitter.com', 'analytics.yahoo.com', 'api.pendo.io',
     'apm.gotokeep.com', 'applog.mobike.com', 'applog.uc.cn', 'appsflyer.com', 'branch.io', 'braze.com', 'bugsnag.com', 'c.clarity.ms',
+    'c.segment.com', // [V40.88] 新增 (Segment CDP)
     'chartbeat.com', 'clicktale.net', 'clicky.com', 'cn-huabei-1-lg.xf-yun.com', 'comscore.com', 'crazyegg.com', 'criteo.com',
     'criteo.net', 'customer.io', 'data.investing.com', 'datadoghq.com', 'dynatrace.com', 'fullstory.com', 'gs.getui.com', 'heap.io', 
     'hotjar.com', 'inspectlet.com', 'iterable.com', 'keen.io', 'kissmetrics.com', 'log.b612kaji.com', 'loggly.com', 'logrocket.com', 'matomo.cloud', 
@@ -236,6 +237,7 @@ const CONFIG = {
     'fingerprint.com',
     // --- 廣告驗證 & 可見度追蹤 ---
     'doubleverify.com', 'iasds.com', 'moat.com', 'moatads.com', 'sdk.iad-07.braze.com', 'serving-sys.com',
+    'tw.ad.doubleverify.com', // [V40.88] 新增
     // --- 客戶數據平台 (CDP) & 身分識別 ---
     'agkn.com', 'id5-sync.com', 'liveramp.com', 'permutive.com', 'tags.tiqcdn.com',
     // --- CDP & 行銷自動化 ---
@@ -273,9 +275,14 @@ const CONFIG = {
     'cookielaw.org', 'onetrust.com', 'sourcepoint.com', 'trustarc.com', 'usercentrics.eu',
     // --- 台灣地區 (純廣告/追蹤) ---
     'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'cacafly.com',
-    'clickforce.com.tw', 'ecdmp.momoshop.com.tw', // [V40.87] 新增
-    'fast-trk.com', 'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com',
-    'likr.tw', 'rtb.momoshop.com.tw', // [V40.83] 新增
+    'clickforce.com.tw', 
+    'ecdmp.momoshop.com.tw', // [V40.87]
+    'analysis.momoshop.com.tw', // [V40.88]
+    'event.momoshop.com.tw', // [V40.88]
+    'log.momoshop.com.tw', // [V40.88]
+    'trk.momoshop.com.tw', // [V40.88]
+    'fast-trk.com', 'funp.com', 'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com', // [V40.88] funp.com
+    'likr.tw', 'rtb.momoshop.com.tw', // [V40.83]
     'sitetag.us', 'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com',
     // --- 台灣內容農場 (預測性防禦) ---
     'ad-serv.teepr.com',
@@ -287,10 +294,10 @@ const CONFIG = {
     'talkingdata.cn', 'talkingdata.com', 'tanx.com', 'umeng.cn', 'umeng.co', 'umeng.com',  'umengcloud.com', 'youmi.net', 'zhugeio.com',
     // --- 雲端與平台分析/廣告像素 ---
     'bat.bing.com', 'cdn.vercel-insights.com', 'cloudflareinsights.com', 'demdex.net', 'hs-analytics.net',
-    'hs-scripts.com', 'monorail-edge.shopifysvc.com', 'omtrdc.net', 'plausible.io', 'static.cloudflareinsights.com', 'vitals.vercel-insights.com',
+    'hs-scripts.com', 'metrics.vitals.vercel-insights.com', 'monorail-edge.shopifysvc.com', 'omtrdc.net', 'plausible.io', 'static.cloudflareinsights.com', 'vitals.vercel-insights.com', // [V40.88] metrics.vitals...
     // --- 社交平台追蹤子網域 ---
     'business-api.tiktok.com', 'ct.pinterest.com', 'events.redditmedia.com', 'px.srvcs.tumblr.com',
-    'snap.licdn.com', 'spade.twitch.tv',
+    'snap.licdn.com', 'spade.twitch.tv', 'tr.snap.com', // [V40.88] Snap Pixel
     // --- 其他 ---
     'adnx.com', 'cint.com', 'revjet.com', 'rlcdn.com', 'sc-static.net', 'wcs.naver.net',
   ]),
@@ -368,10 +375,12 @@ const CONFIG = {
     ['api-js.mixpanel.com', new Set(['/track'])],
     ['api.mixpanel.com', new Set(['/track'])],
     ['api.segment.io', new Set(['/v1/page', '/v1/track'])],
+    ['c.segment.com', new Set(['/v1/track', '/v1/page', '/v1/identify'])], // [V40.88] 新增
     ['heap.io', new Set(['/api/track'])],
     ['in.hotjar.com', new Set(['/api/v2/client'])],
     ['scorecardresearch.com', new Set(['/beacon.js'])],
     ['segment.io', new Set(['/v1/track'])],
+    ['tr.snap.com', new Set(['/v2/conversion'])], // [V40.88] 新增
     ['widget.intercom.io', new Set([])], // Host only
     ['ads-api.tiktok.com', new Set(['/api/v2/pixel'])],
     ['ads.pinterest.com', new Set(['/v3/conversions/events'])],
@@ -382,6 +391,7 @@ const CONFIG = {
     ['cloudflareinsights.com', new Set(['/cdn-cgi/rum'])],
     ['static.cloudflareinsights.com', new Set(['/beacon.min.js'])],
     ['bat.bing.com', new Set(['/action'])],
+    ['metrics.vitals.vercel-insights.com', new Set(['/v1/metrics'])], // [V40.88] 新增
     ['monorail-edge.shopifysvc.com', new Set(['/v1/produce'])],
     ['vitals.vercel-insights.com', new Set(['/v1/vitals'])],
     ['pbd.yahoo.com', new Set(['/data/logs'])],
@@ -628,26 +638,28 @@ const CONFIG = {
   ],
 
   /**
-   * ✅ [V40.45 新增] 路徑豁免清單 (高風險)
+   * ✅ [V40.45 新增, V40.88 修訂] 路徑豁免清單 (高風險)
    */
   PATH_EXEMPTIONS_FOR_BLOCKED_DOMAINS: new Map([
     ['graph.facebook.com', new Set([
         '/v19.0/',
         '/v20.0/',
+        '/v21.0/', // [V40.88] 新增
+        '/v22.0/', // [V40.88] 新增
     ])],
   ]),
 };
 
 // #################################################################################################
 // #                                                                                               #
-// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.86)                             #
+// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.88)                             #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.86'; // [V40.86] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.88'; // [V40.88] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1171,6 +1183,17 @@ function processRequest(request) {
 
     if(t0) optimizedStats.addTiming('parse', __now__() - tParse0);
 
+    // [V40.88] Path Exemption Check for Blocked Domains (Moved earlier for efficiency)
+    const exemptions = CONFIG.PATH_EXEMPTIONS_FOR_BLOCKED_DOMAINS.get(hostname);
+    if (exemptions) {
+        for (const prefix of exemptions) {
+            if (fullPath.startsWith(prefix)) {
+                if (t0) { optimizedStats.addTiming('whitelist', __now__() - t0); optimizedStats.addTiming('total', __now__() - t0); }
+                return null; // Exempted path on a blocked domain, allow request
+            }
+        }
+    }
+
     const tWl0 = t0 ? __now__() : 0;
     if (getWhitelistMatchDetails(hostname, CONFIG.HARD_WHITELIST_EXACT, CONFIG.HARD_WHITELIST_WILDCARDS).matched) {
       optimizedStats.increment('hardWhitelistHits');
@@ -1305,7 +1328,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.86 - Rule Enhancement', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.88 - Rule Expansion & Risk Management', stats: optimizedStats.getStats() });
       }
       return;
     }
