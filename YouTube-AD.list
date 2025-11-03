@@ -2,7 +2,7 @@
 
 ## 基礎網路協定規則
 # 阻擋可疑 UDP 連線
-AND,((PROTOCOL,UDP), (DEST-PORT,443)),REJECT-NO-DROP
+# AND,((PROTOCOL,UDP), (DEST-PORT,443)),REJECT-NO-DROP
 
 ## 🎬 **精準影片廣告攔截（Premium 兼容）**
 # Googlevideo 廣告內容（精確匹配，保護 Premium 播放）
@@ -51,3 +51,4 @@ URL-REGEX,^https?\:\/\/.*\.google\.com\/ads\/on-device\/conversions\?
 # 指紋追蹤防護
 URL-REGEX,^https?\:\/\/.*\.googleapis\.com\/adsmeasurement\/
 URL-REGEX,^https?\:\/\/.*\.youtube\.com\/youtubei\/.*\/log_event\?.*ad_
+
