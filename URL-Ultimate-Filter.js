@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V40.91.js
- * @version   40.91 (MOMO 購物車追蹤強化)
- * @description 基於 V40.90，新增 MOMO GA 載入腳本 (ga-init.js) 與 Criteo 再行銷腳本 (criteo-loader.js) 攔截。
+ * @file      URL-Ultimate-Filter-Surge-V40.92.js
+ * @version   40.92 (使用者自訂規則調整)
+ * @description 基於 V40.91，根據使用者請求，將 MOMO 事件追蹤腳本 (api_event_tracking.js) 移出攔截清單。
  * @note      此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-10-25
@@ -123,7 +123,7 @@ const CONFIG = {
     'gov.tw', 'org.tw', 'pay.taipei', 'tdcc.com.tw', 'twca.com.tw', 'twmp.com.tw',
     // --- [V40.82 新增] 核心重定向 & App 連結服務 ---
     'app.goo.gl', 'goo.gl',
-    // --- 核心登入 & 協作平台 ---
+    // --- 核心登入 & 協ро平台 ---
     'atlassian.net', 'auth0.com', 'okta.com', 'slack.com',
     // --- [V40.85 新增] DNS & 隱私工具 ---
     'nextdns.io',
@@ -316,7 +316,7 @@ const CONFIG = {
   ],
   
   /**
-   * 🚨 [V40.61 擴充, V40.91 修訂] 關鍵追蹤腳本攔截清單
+   * 🚨 [V40.61 擴充, V40.92 修訂] 關鍵追蹤腳本攔截清單
    */
   CRITICAL_TRACKING_SCRIPTS: new Set([
     // --- Google ---
@@ -338,7 +338,6 @@ const CONFIG = {
     'criteo.js', 'doubleclick.js', 'mgid.js', 'outbrain.js', 'prebid.js', 'pubmatic.js', 'revcontent.js', 'taboola.js',
     // --- 平台特定腳本 (Platform-Specific) ---
     'ad-full-page.min.js', // Pixnet Full Page Ad
-    'api_event_tracking.js', // [V40.80] MOMO
     'api_event_tracking_rtb_house.js', // [V40.80] MOMO
     'ed.js', // [V40.89] MOMO (edq 核心追蹤器)
     // --- 內容傳遞 & 標籤管理 ---
@@ -660,14 +659,14 @@ const CONFIG = {
 };
 // #################################################################################################
 // #                                                                                               #
-// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.91)                             #
+// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.92)                             #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.91'; // [V40.91] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.92'; // [V40.92] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1326,7 +1325,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.91 - MOMO Cart Tracking Enhancement', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.92 - User-Defined Rule Adjustment', stats: optimizedStats.getStats() });
       }
       return;
     }
