@@ -1,15 +1,15 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V40.90.js
- * @version   40.90 (規則生命週期管理 & 電商追蹤強化)
- * @description 基於 V40.89，移除 Mopub 等 5 個失效規則。新增 Shopee/ETMall 廣告與分析域名。
+ * @file      URL-Ultimate-Filter-Surge-V40.91.js
+ * @version   40.91 (MOMO 購物車追蹤強化)
+ * @description 基於 V40.90，新增 MOMO GA 載入腳本 (ga-init.js) 與 Criteo 再行銷腳本 (criteo-loader.js) 攔截。
  * @note      此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-10-24
+ * @lastUpdated 2025-10-25
  */
 
 // #################################################################################################
 // #                                                                                               #
-// #                               ⚙️ SCRIPT CONFIGURATION                                        #
+// #                               ⚙️ SCRIPT CONFIGURATION                                      #
 // #                               (使用者在此區域安全地新增、修改或移除規則)                                #
 // #                                                                                               #
 // #################################################################################################
@@ -316,11 +316,12 @@ const CONFIG = {
   ],
   
   /**
-   * 🚨 [V40.61 擴充, V40.89 修訂] 關鍵追蹤腳本攔截清單
+   * 🚨 [V40.61 擴充, V40.91 修訂] 關鍵追蹤腳本攔截清單
    */
   CRITICAL_TRACKING_SCRIPTS: new Set([
     // --- Google ---
-    'ads.js', 'adsbygoogle.js', 'analytics.js', 'ga.js', 'gtag.js', 'gtm.js', 'ytag.js',
+    'ads.js', 'adsbygoogle.js', 'analytics.js', 'ga-init.js', // [V40.91] 新增 MOMO GA 載入腳本
+    'ga.js', 'gtag.js', 'gtm.js', 'ytag.js',
     // --- Facebook / Meta ---
     'connect.js', 'fbevents.js', 'fbq.js', 'pixel.js',
     // --- [V40.51 新增] TikTok 追蹤腳本 ---
@@ -333,6 +334,7 @@ const CONFIG = {
     'piwik.js', 'posthog.js', 'quant.js', 'quantcast.js', 'segment.js', 'statsig.js', 'vwo.js',
     // --- 廣告技術平台 (Ad Tech) ---
     'ad-manager.js', 'ad-player.js', 'ad-sdk.js', 'adloader.js', 'adroll.js', 'adsense.js', 'advideo.min.js', 'apstag.js',
+    'criteo-loader.js', // [V40.91] 新增 Criteo 再行銷腳本
     'criteo.js', 'doubleclick.js', 'mgid.js', 'outbrain.js', 'prebid.js', 'pubmatic.js', 'revcontent.js', 'taboola.js',
     // --- 平台特定腳本 (Platform-Specific) ---
     'ad-full-page.min.js', // Pixnet Full Page Ad
@@ -656,17 +658,16 @@ const CONFIG = {
     ])],
   ]),
 };
-
 // #################################################################################################
 // #                                                                                               #
-// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.90)                             #
+// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.91)                             #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.90'; // [V40.90] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.91'; // [V40.91] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -679,7 +680,6 @@ const DROP_RESPONSE     = { response: {} };
 const NO_CONTENT_RESPONSE = { response: { status: 204 } };
 const IMAGE_EXTENSIONS  = new Set(['.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp']);
 const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs', '.css']);
-
 // ================================================================================================
 // 📊 STATS & ERROR
 // ================================================================================================
@@ -879,14 +879,12 @@ class MultiLevelCacheManager {
   }
   seed() {
     for (const [hostname, { decision, ttl }] of CONFIG.CACHE_SEEDS.entries()) {
-        const decisionEnum = decision === 'BLOCK' ?
-        DECISION.BLOCK : DECISION.ALLOW;
+        const decisionEnum = decision === 'BLOCK' ? DECISION.BLOCK : DECISION.ALLOW;
         this.setDomainDecision(hostname, decisionEnum, ttl);
     }
   }
 }
 const multiLevelCache = new MultiLevelCacheManager();
-
 // ================================================================================================
 /** 📚 惰性初始化索引容器 */
 // ================================================================================================
@@ -919,7 +917,6 @@ const getCompiledGlobalTrackingParamsRegex = lazy(() => compileRegexList(CONFIG.
 const getCompiledTrackingPrefixesRegex = lazy(() => compileRegexList(CONFIG.TRACKING_PREFIXES_REGEX));
 const getCompiledPathBlockRegex = lazy(() => compileRegexList(CONFIG.PATH_BLOCK_REGEX));
 const getCompiledHeuristicPathBlockRegex = lazy(() => compileRegexList(CONFIG.HEURISTIC_PATH_BLOCK_REGEX));
-
 function compileRegexList(list) {
   return list.map(regex => {
     try { return (regex instanceof RegExp) ? regex : new RegExp(regex); }
@@ -966,8 +963,7 @@ function isCriticalTrackingScript(hostname, lowerFullPath) {
   if (cached !== null) return cached;
 
   const qIdx = lowerFullPath.indexOf('?');
-  const pathOnly = qIdx !== -1 ?
-  lowerFullPath.slice(0, qIdx) : lowerFullPath;
+  const pathOnly = qIdx !== -1 ? lowerFullPath.slice(0, qIdx) : lowerFullPath;
   const slashIndex = pathOnly.lastIndexOf('/');
   
   let scriptName = '';
@@ -1185,8 +1181,7 @@ function processRequest(request) {
         }
     }
     const pathStartIndex = rawUrl.indexOf('/', protocolEnd);
-    fullPath = pathStartIndex === -1 ?
-    '/' : rawUrl.substring(pathStartIndex);
+    fullPath = pathStartIndex === -1 ? '/' : rawUrl.substring(pathStartIndex);
 
     if(t0) optimizedStats.addTiming('parse', __now__() - tParse0);
 
@@ -1213,7 +1208,6 @@ function processRequest(request) {
     const qIndex = fullPath.indexOf('?');
     const pathname = qIndex === -1 ? fullPath : fullPath.substring(0, qIndex);
     const pathnameLower = pathname.toLowerCase();
-
     // [V40.83] 邏輯修正：將域名黑名單檢查提前，使其優先於軟白名單
     if (isDomainBlocked(hostname)) {
         multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK, 30 * 60 * 1000);
@@ -1244,7 +1238,6 @@ function processRequest(request) {
         isSoftWhitelisted = true;
     }
     if (t0) optimizedStats.addTiming('whitelist', __now__() - tWl0);
-
     if (!isSoftWhitelisted) {
         if (l1Decision !== DECISION.ALLOW && l1Decision !== DECISION.NEGATIVE_CACHE) {
             const tDom0 = t0 ? __now__() : 0;
@@ -1253,8 +1246,7 @@ function processRequest(request) {
             if(t0) optimizedStats.addTiming('domainStage', __now__() - tDom0);
         }
         
-        const tAllow0 = t0 ?
-        __now__() : 0;
+        const tAllow0 = t0 ? __now__() : 0;
         const isAllowed = isPathExplicitlyAllowed(pathnameLower);
         if(t0) optimizedStats.addTiming('allowlistEval', __now__() - tAllow0);
 
@@ -1266,8 +1258,7 @@ function processRequest(request) {
         }
         if(t0) optimizedStats.addTiming('pathTrie', __now__() - tPB0);
 
-        const tPR0 = t0 ?
-        __now__() : 0;
+        const tPR0 = t0 ? __now__() : 0;
         if (isPathBlockedByRegex(pathnameLower, isAllowed)) {
           optimizedStats.increment('regexPathBlocked'); optimizedStats.increment('blockedRequests');
           if(t0) { optimizedStats.addTiming('pathRegex', __now__() - tPR0); optimizedStats.addTiming('total', __now__() - t0); }
@@ -1335,7 +1326,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.90 - Rule Lifecycle & E-commerce Tracking', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.91 - MOMO Cart Tracking Enhancement', stats: optimizedStats.getStats() });
       }
       return;
     }
