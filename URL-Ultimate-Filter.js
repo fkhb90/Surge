@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V40.95.js
- * @version   40.95 (規則精準度優化)
- * @description 基於 V40.94，重新評估並優化啟發式路徑攔截規則，使其僅匹配純雜湊檔名，以降低誤判率。
+ * @file      URL-Ultimate-Filter-Surge-V40.96.js
+ * @version   40.96 (啟發式規則強化)
+ * @description 基於 V40.95，擴充 PATH_BLOCK_KEYWORDS 清單，加入 13 個高信度的「關鍵字組合」以強化啟發式防禦。
  * @note      此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-11-10
@@ -25,7 +25,7 @@
  */
 const CONFIG = {
   /**
-   * ✅ [V40.40 新新增] 全域「除錯模式」
+   * ✅ [V40.40 新增] 全域「除錯模式」
    * 說明：設為 true 時，將啟用一系列的進階日誌與細粒度計時功能。在生產環境中建議設為 false 以獲得最佳效能。
    */
   DEBUG_MODE: false,
@@ -441,7 +441,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 [V40.17 擴充, V40.68 擴充] 路徑關鍵字黑名單
+   * 🚫 [V40.17 擴充, V40.96 擴充] 路徑關鍵字黑名單
    */
   PATH_BLOCK_KEYWORDS: new Set([
     // --- Ad Generic ---
@@ -476,11 +476,16 @@ const CONFIG = {
     'woopra', 'xxshuyuan', 'yandex', 'zaoo', 'zarget', 'zgdfz6h7po', 'zgty365', 'zhengjian', 'zhengwunet', 'zhuichaguoji', 
     'zjtoolbar', 'zzhyyj',
     // --- Ad Tech ---
-    '/ad-choices', '/ad-click', '/ad-code', '/ad-conversion',
-    '/ad-engagement', '/ad-event', '/ad-events', '/ad-exchange', '/ad-impression', '/ad-inventory', '/ad-loader',
+    '/ad-choices', '/ad-click', '/ad-code', 'ad-conversion', // [V40.96]
+    '/ad-engagement', 'ad-engagement', // [V40.96]
+    '/ad-event', '/ad-events', '/ad-exchange', 'ad-impression', // [V40.96]
+    '/ad-impression', '/ad-inventory', '/ad-loader',
     '/ad-logic', '/ad-manager', '/ad-metrics', '/ad-network', '/ad-placement', '/ad-platform', '/ad-request',
     '/ad-response', '/ad-script', '/ad-server', '/ad-slot', '/ad-specs', '/ad-system', '/ad-tag', '/ad-tech',
-    '/ad-telemetry', '/ad-unit', '/ad-verification', '/ad-view', '/ad-viewability', '/ad-wrapper', '/adframe/',
+    'ad-telemetry', // [V40.96]
+    '/ad-telemetry', '/ad-unit', 'ad-verification', // [V40.96]
+    '/ad-verification', '/ad-view', 'ad-viewability', // [V40.96]
+    '/ad-viewability', '/ad-wrapper', '/adframe/',
     '/adrequest/', '/adretrieve/', '/adserve/', '/adserving/', '/fetch_ads/', '/getad/', '/getads/', 'ad-break', 
     'ad_event', 'ad_logic', 'ad_pixel', 'ad-call', 'adsbygoogle', 'amp-ad', 'amp-analytics', 'amp-auto-ads', 
     'amp-sticky-ad', 'amp4ads', 'apstag', 'google_ad', 'pagead', 'pwt.js',
@@ -490,10 +495,11 @@ const CONFIG = {
     '/telemetry/', '/unstable/produce_batch', '/v1/produce',
     // --- Error & Performance ---
     '/bugsnag/', '/crash/', 'debug/mp/collect', '/error/', '/envelope', '/exception/', '/sentry/', '/stacktrace/',
-    'performance-tracking', 'real-user-monitoring', 'web-vitals',
+    'performance-tracking', 'real-user-monitoring', 'web-vitals', // [V40.96]
     // --- User Behavior ---
-    'audience', 'attribution', 'behavioral-targeting', 'cohort', 'data-collection', 'data-sync', 'fingerprint',
-    'retargeting', 'session-replay', 'third-party-cookie', 'user-analytics', 'user-behavior', 'user-cohort', 'user-segment',
+    'audience', 'attribution', 'behavioral-targeting', 'cohort', 'cohort-analysis', 'data-collection', // [V40.96]
+    'data-sync', 'fingerprint',
+    'retargeting', 'session-replay', 'third-party-cookie', 'user-analytics', 'user-behavior', 'user-cohort', 'user-segment', // [V40.96]
     // --- 3rd Party Services ---
     'appier', 'comscore', 'fbevents', 'fbq', 'google-analytics', 'onead', 'osano', 'sailthru', 'tapfiliate', 'utag.js',
   ]),
@@ -611,8 +617,7 @@ const CONFIG = {
     // --- 核心 & 搜尋 ---
     'code', 'id', 'item', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't', 'targetid', 'token', 'v',
     // --- 通用功能 ---
-    'callback', 'ct', 'cv', 'filter', 'format', 'lang', 'locale', 'status', 'timestamp', 'type', 'withStats', // [V40.78] 新增 Feedly API 豁免
-    // --- [V40.51 新增] OAuth 流程 ---
+    'callback', 'ct', 'cv', 'filter', 'format', 'lang', 'locale', 'status', 'timestamp', 'type', 'withStats', // [V4In(1)
     'access_token', 'client_assertion', 'client_id', 'device_id', 'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope',
     // --- [V40.53 新增] 分頁 & 排序 ---
     'direction', 'limit', 'offset', 'order', 'page_number', 'size', 'sort', 'sort_by',
@@ -663,14 +668,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.95)                             #
+// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.96)                             #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.95'; // [V40.95] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.96'; // [V40.96] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1356,7 +1361,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.95 - Rule Precision Tuning', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.96 - Heuristic Ruleset Expansion', stats: optimizedStats.getStats() });
       }
       return;
     }
