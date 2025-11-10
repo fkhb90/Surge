@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V40.94.js
- * @version   40.94 (穩定性修復)
- * @description 基於 V40.93，修復 Perplexity AI 啟發式攔截誤判問題，將 `pplx-next-static-public.perplexity.ai` 加入硬白名單。
+ * @file      URL-Ultimate-Filter-Surge-V40.95.js
+ * @version   40.95 (規則精準度優化)
+ * @description 基於 V40.94，重新評估並優化啟發式路徑攔截規則，使其僅匹配純雜湊檔名，以降低誤判率。
  * @note      此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-11-10
@@ -25,7 +25,7 @@
  */
 const CONFIG = {
   /**
-   * ✅ [V40.40 新增] 全域「除錯模式」
+   * ✅ [V40.40 新新增] 全域「除錯模式」
    * 說明：設為 true 時，將啟用一系列的進階日誌與細粒度計時功能。在生產環境中建議設為 false 以獲得最佳效能。
    */
   DEBUG_MODE: false,
@@ -642,10 +642,10 @@ const CONFIG = {
   ],
 
   /**
-   * 🚫 [V40.40 新增] 啟發式路徑攔截 Regex (實驗性)
+   * 🚫 [V40.40 新增, V40.95 修訂] 啟發式路徑攔截 Regex (實驗性)
    */
   HEURISTIC_PATH_BLOCK_REGEX: [
-      /[a-z0-9\-_]{32,}\.(js|mjs)$/i,
+      /^[a-z0-9]{32,}\.(js|mjs)$/i, // [V40.95] 僅匹配純雜湊檔名
   ],
 
   /**
@@ -663,14 +663,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.94)                             #
+// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.95)                             #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.94'; // [V40.94] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.95'; // [V40.95] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1084,7 +1084,9 @@ function isPathBlockedByRegex(lowerPathOnly, isExplicitlyAllowed) {
         if (regex.test(lowerPathOnly)) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', true); return true; }
       }
       for (const regex of getCompiledHeuristicPathBlockRegex()) {
-        if (regex.test(lowerPathOnly)) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', true); return true; }
+        const segments = lowerPathOnly.split('/');
+        const filename = segments[segments.length - 1];
+        if (regex.test(filename)) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', true); return true; }
       }
   }
   
@@ -1354,7 +1356,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.94 - Stability Fix', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.95 - Rule Precision Tuning', stats: optimizedStats.getStats() });
       }
       return;
     }
