@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V40.93.js
- * @version   40.93 (使用者自訂規則調整)
- * @description 基於 V40.92，根據使用者請求，將 MOMO 第一方網站日誌腳本 (itriweblog.js) 加入攔截清單。
+ * @file      URL-Ultimate-Filter-Surge-V40.94.js
+ * @version   40.94 (穩定性修復)
+ * @description 基於 V40.93，修復 Perplexity AI 啟發式攔截誤判問題，將 `pplx-next-static-public.perplexity.ai` 加入硬白名單。
  * @note      此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-11-10
@@ -80,7 +80,9 @@ const CONFIG = {
    */
   HARD_WHITELIST_EXACT: new Set([
     // --- AI & Search Services ---
-    'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
+    'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
+    'pplx-next-static-public.perplexity.ai', // [V40.94] 修復啟發式攔截誤判
+    'private-us-east-1.monica.im', 'api.felo.ai',
     // --- Business & Developer Tools ---
     'adsbypasser.github.io', 'code.createjs.com', 'oa.ledabangong.com', 'oa.qianyibangong.com', 'qianwen.aliyun.com',
     'raw.githubusercontent.com', 'reportaproblem.apple.com', 'ss.ledabangong.com', 'userscripts.adtidy.org',
@@ -661,14 +663,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.93)                             #
+// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.94)                             #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.93'; // [V40.93] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.94'; // [V40.94] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1352,7 +1354,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.93 - User-Defined Rule Adjustment', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.94 - Stability Fix', stats: optimizedStats.getStats() });
       }
       return;
     }
