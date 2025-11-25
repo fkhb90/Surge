@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>露點計算器（含牆面風險判斷）</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      max-width: 520px;
+      margin: 24px auto;
+      padding: 0 12px;
+      line-height: 1.6;
+    }
+    h1 {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+    p.desc {
+      font-size: 14px;
+      color: #444;
+      margin-top: 0;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    input {
+      width: 100%;
+      padding: 6px 8px;
+      box-sizing: border-box;
+      margin-top: 4px;
+      font-size: 14px;
+    }
+    button {
+      margin-top: 16px;
+      padding: 8px 18px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .result {
+      margin-top: 18px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: #f4f4f4;
+      font-size: 14px;
+      white-space: pre-line;
+    }
+    .risk-high {
+      border-left: 4px solid #c00;
+      background: #fff0f0;
+    }
+    .risk-mid {
+      border-left: 4px solid #e79d00;
+      background: #fff7e6;
+    }
+    .risk-low {
+      border-left: 4px solid #008000;
+      background: #f0fff0;
+    }
+    .error {
+      margin-top: 10px;
+      color: #c00;
+      font-size: 13px;
+      white-space: pre-line;
+    }
+    small {
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <h1>露點計算器</h1>
+  <p class="desc">
+    輸入室內溫度、相對濕度與牆面溫度（可選），計算露點並判斷是否有結露／發霉風險。
+  </p>
+
+  <label>
+    室內溫度（°C）：
+    <input type="number" id="temp" placeholder="例如：25">
+  </label>
+
+  <label>
+    相對濕度（%）：
+    <input type="number" id="rh" placeholder="例如：70">
+  </label>
+
+  <label>
+    牆面／櫃體表面溫度（°C，可選）：
+    <input type="number" id="wall" placeholder="例如：18（量測或估算）">
+  </label>
+
+  <button type="button" onclick="calculate()">計算</button>
+
+  <div id="result" class="result" style="display:none;"></div>
+  <div id="error" class="error"></div>
+
+  <script>
+    function dewPoint(tempC, rh) {
+      // Magnus 公式
+      var a = 17.62;
+      var b = 243.12; // °C
+      var gamma = Math.log(rh / 100.0) + (a * tempC) / (b + tempC);
+      return (b * gamma) / (a - gamma);
+    }
+
+    function calculate() {
+      var tempStr = document.getElementById('temp').value;
+      var rhStr   = document.getElementById('rh').value;
+      var wallStr = document.getElementById('wall').value;
+
+      var errorDiv  = document.getElementById('error');
+      var resultDiv = document.getElementById('result');
+
+      errorDiv.textContent = "";
+      resultDiv.textContent = "";
+      resultDiv.style.display = "none";
+      resultDiv.className = "result";
+
+      var t   = parseFloat(tempStr);
+      var rh  = parseFloat(rhStr);
+      var wall = wallStr === "" ? NaN : parseFloat(wallStr);
+
+      // 基本檢查
+      var errors = [];
+      if (isNaN(t)) {
+        errors.push("請輸入有效的室內溫度（°C）。");
+      }
+      if (isNaN(rh)) {
+        errors.push("請輸入有效的相對濕度（%）。");
+      } else if (rh < 0 || rh > 100) {
+        errors.push("相對濕度必須介於 0〜100 %。");
+      }
+
+      if (errors.length > 0) {
+        errorDiv.textContent = errors.join("\n");
+        return;
+      }
+
+      var dp = dewPoint(t, rh);
+      var text = "";
+
+      text += "室內條件：\n";
+      text += "・溫度： " + t.toFixed(1) + " °C\n";
+      text += "・相對濕度： " + rh.toFixed(1) + " %\n\n";
+      text += "計算結果：\n";
+      text += "・露點溫度：約 " + dp.toFixed(2) + " °C\n";
+
+      // 牆面溫度風險判斷
+      if (!isNaN(wall)) {
+        var diff = wall - dp;
+        text += "\n牆面／櫃體表面：\n";
+        text += "・實際溫度： " + wall.toFixed(1) + " °C\n\n";
+        text += "風險判斷：\n";
+
+        if (wall <= dp) {
+          // 高風險
+          resultDiv.className += " risk-high";
+          text += "・牆面溫度 ≤ 露點\n";
+          text += "→ 高風險：容易結露並導致發霉，建議立即加強除濕或提高牆面溫度。";
+        } else if (diff < 1.0) {
+          // 中等風險
+          resultDiv.className += " risk-mid";
+          text += "・牆面溫度僅略高於露點（差約 " + diff.toFixed(2) + " °C）\n";
+          text += "→ 中度風險：長時間高濕或溫度波動時仍可能結露，建議改善除濕或通風。";
+        } else {
+          // 低風險
+          resultDiv.className += " risk-low";
+          text += "・牆面溫度高於露點（差約 " + diff.toFixed(2) + " °C）\n";
+          text += "→ 目前風險較低，但若環境濕度長期偏高仍可能逐漸吸濕。";
+        }
+
+        text += "\n\n建議參考：牆面溫度最好高於露點至少 1〜2 °C。";
+      } else {
+        text += "\n（未輸入牆面溫度，只顯示露點，不判斷結露風險。）";
+      }
+
+      resultDiv.textContent = text;
+      resultDiv.style.display = "block";
+    }
+  </script>
+
+  <p><small>說明：露點為空氣在不改變含水量情況下冷卻至開始凝結的溫度；當牆面溫度低於露點時，容易產生結露與發霉問題。</small></p>
+</body>
+</html>
