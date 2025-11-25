@@ -1,9 +1,10 @@
 #!name=露點計算器
-#!desc=以外部 JavaScript 生成 HTML 面板 (露點換算)
-#!author=Jason & ChatGPT
+#!desc=使用腳本在面板顯示露點計算結果
+#!author=Jason
 
 [Panel]
 露點計算器 = script-name=dewpoint-panel, update-interval=0
 
 [Script]
-dewpoint-panel = type=generic,timeout=10,script-url=https://raw.githubusercontent.com/fkhb90/Surge/main/dewpoint.js
+# 以參數傳入室內溫度 t（°C）、相對濕度 rh（%）
+dewpoint-panel = type=generic,timeout=10,script-url=https://raw.githubusercontent.com/fkhb90/Surge/main/dewpoint.js,argument=t=25&rh=70&title=露點計算器
