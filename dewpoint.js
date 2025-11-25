@@ -1,95 +1,121 @@
-// dewpoint.js - 給 Surge Panel 用的露點 + 牆面結露風險判斷
+// dewpoint.js - 無預設值版（所有參數需自行輸入）
 
 (function () {
-  // 解析 argument，例如：t=25&rh=70&wall=18&title=露點計算器
-  var args = {};
-  if (typeof $argument === "string" && $argument.length > 0) {
-    $argument.split("&").forEach(function (pair) {
-      var parts = pair.split("=");
-      var key = parts[0];
-      var value = parts[1] ? decodeURIComponent(parts[1]) : "";
-      if (key) args[key] = value;
-    });
+  function safeDone(obj) {
+    try { $done(obj); } catch (e) {}
   }
 
-  // 讀取參數，並給預設值
-  var t = parseFloat(args.t || args.temp || 25);   // 室內溫度 °C
-  var rh = parseFloat(args.rh || 70);              // 相對濕度 %
-  var wall = args.wall !== undefined ? parseFloat(args.wall) : NaN; // 牆面溫度 °C
+  try {
+    // 解析參數 t=25&rh=70&wall=18&title=露點計算器
+    var args = {};
+    if ($argument) {
+      $argument.split("&").forEach(function (p) {
+        var kv = p.split("=");
+        var key = kv[0];
+        var val = kv.length > 1 ? decodeURIComponent(kv[1]) : "";
+        if (key) args[key] = val;
+      });
+    }
 
-  // Magnus 公式計算露點
-  function dewPoint(tempC, rhVal) {
-    var a = 17.62;
-    var b = 243.12; // 攝氏
-    var gamma = Math.log(rhVal / 100.0) + (a * tempC) / (b + tempC);
-    return (b * gamma) / (a - gamma); // °C
-  }
+    // 必填：t, rh
+    var t = parseFloat(args.t);
+    var rh = parseFloat(args.rh);
 
-  var title = args.title || "露點計算器";
-  var content;
+    // 選填：牆面溫度
+    var wall =
+      args.wall !== undefined && args.wall !== ""
+        ? parseFloat(args.wall)
+        : NaN;
 
-  // 基本參數檢查
-  if (isNaN(t) || isNaN(rh) || rh < 0 || rh > 100) {
-    content =
-      "參數錯誤：\n" +
-      "・t：室內溫度（°C）\n" +
-      "・rh：相對濕度（0–100）\n" +
-      "・wall：牆面溫度（°C，可選）\n\n" +
-      "使用方式示例：\n" +
-      "argument=t=25&rh=70&wall=18&title=露點計算器";
-  } else {
+    // 選填：標題
+    var panelTitle = args.title || "露點計算器";
+
+    // 如果少必要參數 → 顯示錯誤
+    if (isNaN(t) || isNaN(rh)) {
+      safeDone({
+        title: panelTitle,
+        content:
+          "❗ 參數不足\n\n" +
+          "請在 Script argument 填入：\n" +
+          "・t=室內溫度（°C）\n" +
+          "・rh=相對濕度（%）\n\n" +
+          "可選：\n" +
+          "・wall=牆面溫度\n" +
+          "・title=自訂標題\n\n" +
+          "示例：\n" +
+          "t=25&rh=70&wall=18&title=露點計算器",
+        style: "error"
+      });
+      return;
+    }
+
+    // 相對濕度範圍檢查
+    if (rh < 0 || rh > 100) {
+      safeDone({
+        title: panelTitle,
+        content: "❗ 相對濕度 rh 必須介於 0–100 之間。",
+        style: "error"
+      });
+      return;
+    }
+
+    // Magnus 公式
+    function dewPoint(tempC, rhVal) {
+      var a = 17.62;
+      var b = 243.12;
+      var gamma =
+        Math.log(rhVal / 100.0) + (a * tempC) / (b + tempC);
+      return (b * gamma) / (a - gamma);
+    }
+
     var dp = dewPoint(t, rh);
-    var lines = [];
 
+    var lines = [];
     lines.push("室內條件：");
     lines.push("・溫度： " + t.toFixed(1) + " °C");
     lines.push("・相對濕度： " + rh.toFixed(1) + " %");
     lines.push("");
-
-    lines.push("計算結果：");
-    lines.push("・露點：約 " + dp.toFixed(2) + " °C");
+    lines.push("露點：約 " + dp.toFixed(2) + " °C");
     lines.push("");
 
-    // 牆面溫度風險判斷
+    // 如果有提供 wall → 判斷結露風險
     if (!isNaN(wall)) {
-      lines.push("牆面條件：");
-      lines.push("・牆面溫度： " + wall.toFixed(1) + " °C");
+      var diff = wall - dp;
+
+      lines.push("牆面溫度： " + wall.toFixed(1) + " °C");
+      lines.push("");
 
       if (wall <= dp) {
-        // 牆面已經在露點以下 → 高風險
-        lines.push("");
         lines.push("風險判斷：");
-        lines.push("・牆面溫度 ≤ 露點");
-        lines.push("→ 有結露／發霉風險（需特別注意）。");
+        lines.push("・牆面 ≤ 露點");
+        lines.push("→ 有結露／發霉風險");
+      } else if (diff < 1.0) {
+        lines.push("風險判斷：");
+        lines.push(
+          "・牆面僅略高於露點（差 " + diff.toFixed(2) + " °C）"
+        );
+        lines.push("→ 風險偏高");
       } else {
-        // 可再加一點安全緩衝概念
-        var diff = wall - dp;
-        lines.push("");
         lines.push("風險判斷：");
-        if (diff < 1.0) {
-          lines.push("・牆面溫度僅略高於露點（差約 " + diff.toFixed(2) + " °C）");
-          lines.push("→ 風險偏高，建議加強除濕或提高牆面溫度。");
-        } else {
-          lines.push("・牆面溫度高於露點（差約 " + diff.toFixed(2) + " °C）");
-          lines.push("→ 目前無明顯結露風險，但長期高濕仍可能發霉。");
-        }
+        lines.push(
+          "・牆面溫度高於露點（差 " + diff.toFixed(2) + " °C）"
+        );
+        lines.push("→ 目前風險低");
       }
     } else {
-      lines.push("（未提供牆面溫度 wall，僅顯示露點，無法判斷結露風險。）");
+      lines.push("（未提供 wall，僅顯示露點）");
     }
 
-    lines.push("");
-    lines.push("說明：");
-    lines.push("・當牆面或櫃體表面溫度 ≤ 露點時，容易結露並導致發霉。");
-    lines.push("・實務上常建議牆面溫度最好高於露點至少 1–2 °C。");
-
-    content = lines.join("\n");
+    safeDone({
+      title: panelTitle,
+      content: lines.join("\n"),
+      style: "info"
+    });
+  } catch (e) {
+    safeDone({
+      title: "露點計算器（錯誤）",
+      content: "腳本發生例外：\n" + String(e),
+      style: "error"
+    });
   }
-
-  // Surge Info Panel 規格輸出
-  $done({
-    title: title,
-    content: content,
-    style: "info"
-  });
 })();
