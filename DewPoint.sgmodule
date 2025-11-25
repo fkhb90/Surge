@@ -3,7 +3,8 @@
 #!author=Jason
 
 [Panel]
-DewPoint=title="露點計算器",content="載入中…",style=info,script-name=dewpoint-panel,update-interval=0
+# 名稱 DewPointPanel 可隨意，關鍵是 script-name 要對到 [Script] 段
+DewPointPanel=title="露點計算器",content="載入中…",style=info,script-name=dewpoint-panel,update-interval=0
 
 [Script]
 # 參數說明：
@@ -11,4 +12,4 @@ DewPoint=title="露點計算器",content="載入中…",style=info,script-name=d
 # rh  = 相對濕度（%）
 # wall= 牆面溫度（°C）
 # title 可自訂面板標題（選填）
-dewpoint-panel = type=generic,timeout=10,script-url=https://raw.githubusercontent.com/fkhb90/Surge/main/dewpoint.js,argument=t=25&rh=70&wall=18&title=露點計算器
+dewpoint-panel=type=generic,timeout=10,script-path=https://raw.githubusercontent.com/fkhb90/Surge/main/dewpoint.js,argument=t=25&rh=70&wall=18&title=露點計算器
