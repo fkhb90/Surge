@@ -1,6 +1,6 @@
-#!name=露點計算器啟動器
-#!desc=點擊面板開啟 GitHub 上的露點計算器
+#!name=露點計算器網址
+#!desc=顯示 GitHub 上的露點計算器網址，點 URL 開啟
 #!author=Jason
 
 [Panel]
-DewPointPanel = title="露點計算器（點擊開啟）",content="開啟 GitHub 露點計算器頁面",style=good,url=https://raw.githubusercontent.com/fkhb90/Surge/main/dewpoint.html,update-interval=0
+DewPointPanel=title="露點計算器（點下面的網址）",content="https://raw.githubusercontent.com/fkhb90/Surge/main/dewpoint.html",style=info,update-interval=0
