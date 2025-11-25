@@ -1,6 +1,3 @@
-// dewpoint.js
-// Surge 面板：露點計算器（HTML）
-
 ;(function () {
   const html = `
 <!DOCTYPE html>
@@ -10,48 +7,39 @@
   <title>露點計算器</title>
   <style>
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       max-width: 480px;
-      margin: 40px auto;
+      margin: 20px auto;
       line-height: 1.6;
     }
-    label {
-      display: block;
-      margin-top: 10px;
-    }
+    label { display: block; margin-top: 10px; }
     input {
       width: 100%;
       padding: 6px 8px;
-      box-sizing: border-box;
       margin-top: 4px;
+      box-sizing: border-box;
     }
     button {
       margin-top: 15px;
       padding: 8px 16px;
       cursor: pointer;
     }
-    .result {
-      margin-top: 20px;
-      font-weight: bold;
-    }
-    .error {
-      color: #c00;
-      margin-top: 10px;
-    }
+    .result { margin-top: 20px; font-weight: bold; }
+    .error { color: #c00; margin-top: 10px; }
   </style>
 </head>
 <body>
   <h1>露點計算器</h1>
-  <p>輸入室內溫度與相對濕度，計算露點溫度。</p>
+  <p>輸入室內溫度與相對濕度，計算露點。</p>
 
   <label>
     室內溫度（°C）：
-    <input type="number" id="temp" placeholder="例如：25">
+    <input type="number" id="temp" placeholder="如 25">
   </label>
 
   <label>
     相對濕度（%）：
-    <input type="number" id="rh" placeholder="例如：70">
+    <input type="number" id="rh" placeholder="如 70">
   </label>
 
   <button onclick="calculateDewPoint()">計算露點</button>
@@ -61,50 +49,33 @@
 
   <script>
     function dewPoint(tempC, rh) {
-      // Magnus 公式參數
-      var a = 17.62;
-      var b = 243.12; // 攝氏
-
-      var gamma = Math.log(rh / 100.0) + (a * tempC) / (b + tempC);
-      var dp = (b * gamma) / (a - gamma);
-      return dp; // °C
+      var a = 17.62, b = 243.12;
+      var gamma = Math.log(rh / 100) + (a * tempC) / (b + tempC);
+      return (b * gamma) / (a - gamma);
     }
 
     function calculateDewPoint() {
-      var tempInput = document.getElementById('temp');
-      var rhInput = document.getElementById('rh');
-      var resultDiv = document.getElementById('result');
-      var errorDiv = document.getElementById('error');
+      var t = parseFloat(document.getElementById('temp').value);
+      var rh = parseFloat(document.getElementById('rh').value);
 
-      resultDiv.textContent = '';
-      errorDiv.textContent = '';
+      var result = document.getElementById('result');
+      var error = document.getElementById('error');
 
-      var temp = parseFloat(tempInput.value);
-      var rh = parseFloat(rhInput.value);
+      result.textContent = "";
+      error.textContent = "";
 
-      // 基本輸入檢查
-      if (isNaN(temp)) {
-        errorDiv.textContent = '請輸入有效的室內溫度（°C）。';
-        return;
-      }
-      if (isNaN(rh)) {
-        errorDiv.textContent = '請輸入有效的相對濕度（%）。';
-        return;
-      }
-      if (rh < 0 || rh > 100) {
-        errorDiv.textContent = '相對濕度必須介於 0 到 100 之間。';
-        return;
-      }
+      if (isNaN(t)) { error.textContent = "請輸入有效的溫度。"; return; }
+      if (isNaN(rh) || rh < 0 || rh > 100) { error.textContent = "請輸入 0–100 的濕度。"; return; }
 
-      var dp = dewPoint(temp, rh);
-      resultDiv.textContent = '露點溫度：約 ' + dp.toFixed(2) + ' °C';
+      var dp = dewPoint(t, rh).toFixed(2);
+      result.textContent = "露點：約 " + dp + " °C";
     }
   </script>
 </body>
 </html>
 `;
 
-  // Surge 面板輸出：使用 HTML
+  // **加上 title，避免 Untitled Panel**
   $done({
     title: "露點計算器",
     html: html
