@@ -1,9 +1,29 @@
-#!name=露點計算器
-#!desc=露點 + 牆面風險判斷（無預設值版）
-#!author=Jason
+#!name=露點計算器啟動器
+#!desc=點一下開啟 GitHub 上的露點計算器頁面
+#!author=Jason & ChatGPT
 
 [Panel]
-DewPointPanel=title="露點計算器",content="請輸入參數…",style=info,script-name=dewpoint-panel,update-interval=0
+OpenDewPoint = title="露點計算器（點擊開啟）",content="打開輸入工具（GitHub 版）",style=good,script-name=open-dewpoint,update-interval=0
 
 [Script]
-dewpoint-panel=type=generic,timeout=10,script-path=https://raw.githubusercontent.com/fkhb90/Surge/main/dewpoint.js,argument=t=&rh=&wall=&title=露點計算器
+open-dewpoint = type=generic,timeout=5,script=
+              if ($trigger == "button") {
+                SafariOpen("https://raw.githubusercontent.com/fkhb90/Surge/main/dewpoint.html");
+              } else {
+                $done({
+                  title: "露點計算器（點擊開啟）",
+                  content: "點一下卡片即可開啟 GitHub 上的 dewpoint.html。",
+                  style: "good"
+                });
+              }
+
+function SafariOpen(url) {
+  $httpClient.get(url, function(_e, resp, _b) {
+    $done({
+      title: "正在開啟露點計算器…",
+      content: "若未自動開啟，請確認此網址可正常存取：\n" + url,
+      style: "info",
+      url: url
+    });
+  });
+}
