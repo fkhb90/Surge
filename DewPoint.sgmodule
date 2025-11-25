@@ -1,15 +1,9 @@
 #!name=露點計算器
-#!desc=計算露點並判斷牆面結露／發霉風險
+#!desc=露點 + 牆面風險判斷（無預設值版）
 #!author=Jason
 
 [Panel]
-# 名稱 DewPointPanel 可隨意，關鍵是 script-name 要對到 [Script] 段
-DewPointPanel=title="露點計算器",content="載入中…",style=info,script-name=dewpoint-panel,update-interval=0
+DewPointPanel=title="露點計算器",content="請輸入參數…",style=info,script-name=dewpoint-panel,update-interval=0
 
 [Script]
-# 參數說明：
-# t   = 室內溫度（°C）
-# rh  = 相對濕度（%）
-# wall= 牆面溫度（°C）
-# title 可自訂面板標題（選填）
-dewpoint-panel=type=generic,timeout=10,script-path=https://raw.githubusercontent.com/fkhb90/Surge/main/dewpoint.js,argument=t=25&rh=70&wall=18&title=露點計算器
+dewpoint-panel=type=generic,timeout=10,script-path=https://raw.githubusercontent.com/fkhb90/Surge/main/dewpoint.js,argument=t=&rh=&wall=&title=露點計算器
