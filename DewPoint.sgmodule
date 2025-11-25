@@ -3,7 +3,7 @@
 #!author=Jason
 
 [Panel]
-DewPoint = title="露點計算器",content="載入中…",style=info,script-name=dewpoint-panel,update-interval=0
+DewPoint=title="露點計算器",content="載入中…",style=info,script-name=dewpoint-panel,update-interval=0
 
 [Script]
 # 參數說明：
