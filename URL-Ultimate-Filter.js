@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V40.96.js
- * @version   40.96 (啟發式規則強化)
- * @description 基於 V40.95，擴充 PATH_BLOCK_KEYWORDS 清單，加入 13 個高信度的「關鍵字組合」以強化啟發式防禦。
- * @note      此為完整腳本，可直接替換舊有版本。建議在部署前，可使用工具移除註解與空白以縮短解析時間。
+ * @file      URL-Ultimate-Filter-Surge-V40.97.js
+ * @version   40.97 (Sensors Analytics 強化防禦)
+ * @description 基於 V40.96，新增針對 LootBar (GearUP) 的追蹤域名攔截，並將神策數據標準端點 (/sa.gif) 納入通用啟發式防禦體系。
+ * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-11-10
+ * @lastUpdated 2025-11-28
  */
 
 // #################################################################################################
@@ -36,7 +36,7 @@ const CONFIG = {
    * 可選值建議：512 (高效能), 768 (平衡), 1024 (最大攔截)。
    */
   AC_SCAN_MAX_LENGTH: 512,
-  
+   
   /**
    * ✅ [V40.76 新增] L1 快取預熱種子
    * 說明：在腳本首次初始化時，預先將全球最高頻的域名決策寫入快取，以消除這些域名的首次請求判定延遲。
@@ -219,6 +219,8 @@ const CONFIG = {
     '2o7.net', 'everesttech.net',
     // --- 平台內部追蹤 & 分析 ---
     'log.felo.ai',
+    // --- [V40.97 新增] LootBar / GearUP 追蹤 ---
+    'event.sc.gearupportal.com',
     // --- 主流分析 & 追蹤服務 ---
     'adform.net', 'adjust.com', 'ads.linkedin.com', 'adsrvr.org', 'agn.aty.sohu.com', 'amplitude.com', 'analytics.line.me',
     'analytics.slashdotmedia.com', 'analytics.strava.com', 'analytics.twitter.com', 'analytics.yahoo.com', 'api.pendo.io',
@@ -316,7 +318,7 @@ const CONFIG = {
     // --- 台灣新聞媒體廣告 (動態子域名) ---
     /^ad[s]?\d*\.(ettoday\.net|ltn\.com\.tw)$/,
   ],
-  
+   
   /**
    * 🚨 [V40.61 擴充, V40.93 修訂] 關鍵追蹤腳本攔截清單
    */
@@ -438,6 +440,7 @@ const CONFIG = {
     '/adsync/', '/adtech/', '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc',
     '/user-profile/', 'cacafly/track',
     '/api/v1/t', // [V40.89] ed.js 追蹤端點
+    '/sa.gif', // [V40.97] Sensors Analytics (神策數據) 通用追蹤端點
   ]),
 
   /**
@@ -510,7 +513,7 @@ const CONFIG = {
   PATH_ALLOW_PREFIXES: new Set([
       '/.well-known/'
   ]),
-  
+   
   /**
    * ✅ [V40.6 安全強化] 路徑白名單 - 後綴 (Path Allowlist - Suffixes)
    */
@@ -626,7 +629,7 @@ const CONFIG = {
     // --- 支付與認證流程 ---
     'cancel_url', 'error_url', 'return_url', 'success_url',
   ]),
-  
+   
   /**
    * ✅ [V40.82 新增] 參數清理豁免清單
    * 說明：用於防止功能性參數被錯誤清除。主機名 -> 路徑前綴集。
@@ -668,14 +671,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                           🚀 HYPER-OPTIMIZED CORE ENGINE (V40.96)                             #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V40.97)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.96'; // [V40.96] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.97'; // [V40.97] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -864,7 +867,7 @@ class HighPerformanceLRUCache {
 const stableKey = (ns, a = '', b = '') => `${SCRIPT_VERSION}|${ns}|${a}|${b}`;
 class MultiLevelCacheManager {
   constructor() {
-    this.l1DomainCache      = new HighPerformanceLRUCache(512);
+    this.l1DomainCache        = new HighPerformanceLRUCache(512);
     this.l2UrlDecisionCache = new HighPerformanceLRUCache(8192);
   }
   getDomainDecision(hostname) {
@@ -981,7 +984,7 @@ function isCriticalTrackingScript(hostname, lowerFullPath) {
   const qIdx = lowerFullPath.indexOf('?');
   const pathOnly = qIdx !== -1 ? lowerFullPath.slice(0, qIdx) : lowerFullPath;
   const slashIndex = pathOnly.lastIndexOf('/');
-  
+   
   let scriptName = '';
   if (slashIndex !== -1) {
     if (pathOnly.endsWith('.js') || pathOnly.endsWith('.mjs')) {
@@ -1078,12 +1081,12 @@ function isPathBlockedByRegex(lowerPathOnly, isExplicitlyAllowed) {
     if (lowerPathOnly.startsWith(prefix)) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', false); return false; }
   }
   if (isExplicitlyAllowed) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', false); return false; }
-  
+   
   if (lowerPathOnly.endsWith('/collect') || lowerPathOnly.endsWith('/service/collect')) {
       multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', true);
       return true;
   }
-  
+   
   if (lowerPathOnly.includes('sentry') || lowerPathOnly.includes('event') || lowerPathOnly.includes('.js')) {
       for (const regex of getCompiledPathBlockRegex()) {
         if (regex.test(lowerPathOnly)) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', true); return true; }
@@ -1094,7 +1097,7 @@ function isPathBlockedByRegex(lowerPathOnly, isExplicitlyAllowed) {
         if (regex.test(filename)) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', true); return true; }
       }
   }
-  
+   
   multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', false);
   return false;
 }
@@ -1196,7 +1199,7 @@ function processRequest(request) {
       if (t0) optimizedStats.addTiming('total', __now__() - t0);
       return null;
     }
-    
+     
     const tParse0 = t0 ? __now__() : 0;
     const protocolEnd = rawUrl.indexOf('//') + 2;
     let hostname, fullPath, hostEndIndex;
@@ -1241,7 +1244,7 @@ function processRequest(request) {
     const qIndex = fullPath.indexOf('?');
     const pathname = qIndex === -1 ? fullPath : fullPath.substring(0, qIndex);
     const pathnameLower = pathname.toLowerCase();
-    
+     
     // [V40.83] 邏輯修正：將域名黑名單檢查提前，使其優先於軟白名單
     if (isDomainBlocked(hostname)) {
         multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK, 30 * 60 * 1000);
@@ -1249,14 +1252,14 @@ function processRequest(request) {
         if (t0) { optimizedStats.addTiming('domainStage', __now__() - tL10); optimizedStats.addTiming('total', __now__() - t0); }
         return getBlockResponse(pathnameLower);
     }
-    
+     
     if (l1Decision === DECISION.BLOCK) {
       optimizedStats.increment('domainBlocked'); optimizedStats.increment('blockedRequests');
       if (t0) { optimizedStats.addTiming('l1', __now__() - tL10); optimizedStats.addTiming('total', __now__() - t0); }
       return getBlockResponse(pathnameLower);
     }
     if (t0) optimizedStats.addTiming('l1', __now__() - tL10);
-    
+     
     const lowerFullPath = fullPath.toLowerCase();
     const tCrit0 = t0 ? __now__() : 0;
     if (isCriticalTrackingScript(hostname, lowerFullPath)) {
@@ -1301,7 +1304,7 @@ function processRequest(request) {
         }
         if(t0) optimizedStats.addTiming('pathRegex', __now__() - tPR0);
     }
-    
+     
     if (qIndex !== -1) {
         let isExemptFromParamCleaning = false;
         const exemptions = CONFIG.PARAM_CLEANING_EXEMPTIONS.get(hostname);
@@ -1356,12 +1359,12 @@ function initialize() {
     if (CONFIG.DEBUG_MODE && typeof $request !== 'undefined') {
       startTime = __now__();
     }
-    
+     
     initialize();
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.96 - Heuristic Ruleset Expansion', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.97 - Sensors Analytics & LootBar Tracking Defense', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -1373,7 +1376,7 @@ function initialize() {
       const executionTime = (endTime - startTime).toFixed(3);
       console.log(`[URL-Filter-v${SCRIPT_VERSION}][Debug] Time: ${executionTime}ms | URL: ${getSanitizedUrlForLogging($request.url)} | ${optimizedStats.getSummary()}`);
     }
-    
+     
     if (typeof $done !== 'undefined') {
         if (result && result.request) {
             $done(result);
