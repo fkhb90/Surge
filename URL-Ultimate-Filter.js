@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V40.97.js
- * @version   40.97 (Sensors Analytics 強化防禦)
- * @description 基於 V40.96，新增針對 LootBar (GearUP) 的追蹤域名攔截，並將神策數據標準端點 (/sa.gif) 納入通用啟發式防禦體系。
+ * @file      URL-Ultimate-Filter-Surge-V40.98.js
+ * @version   40.98 (穩定性修復與模擬回應)
+ * @description 基於 V40.97，修復 OptimizedPerformanceStats 在 Debug 模式下的潛在崩潰問題；針對 Sensors Analytics (/sa.gif) 強制回傳 200 OK 偽造訊號，防止 LootBar 等 App 因請求失敗而閃退。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-11-28
@@ -671,14 +671,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V40.97)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V40.98)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.97'; // [V40.97] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.98'; // [V40.98] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -720,13 +720,21 @@ class OptimizedPerformanceStats {
   increment(type) { if (this.counters[type] !== undefined) this.counters[type]++; }
   addTiming(bucket, ms) { if (this.timings[bucket] !== undefined) this.timings[bucket] += ms; }
   getStats() { return { ...this.counters, timings: { ...this.timings } }; }
+  
+  // [V40.98] Fix: Enhanced safety checks for getSummary to prevent crashes in Debug mode
   getSummary() {
       const total = this.counters.totalRequests || 1;
-      const blockRate = ((this.counters.blockedRequests / total) * 100).toFixed(2);
-      const cleanRate = ((this.counters.paramsCleaned / total) * 100).toFixed(2);
-      const l1HitRate = ((this.counters.l1CacheHits / total) * 100).toFixed(2);
-      const avgTotalTime = (this.timings.total / total).toFixed(3);
-      return `[Stats Summary] Total: ${total}, Block: ${this.counters.blockedRequests} (${blockRate}%), Clean: ${this.counters.paramsCleaned} (${cleanRate}%), L1 Hit: ${l1HitRate}%, Avg Time: ${avgTotalTime}ms`;
+      const blocked = this.counters.blockedRequests || 0;
+      const cleaned = this.counters.paramsCleaned || 0;
+      const l1Hits = this.counters.l1CacheHits || 0;
+      const totalTime = this.timings.total || 0;
+
+      const blockRate = ((blocked / total) * 100).toFixed(2);
+      const cleanRate = ((cleaned / total) * 100).toFixed(2);
+      const l1HitRate = ((l1Hits / total) * 100).toFixed(2);
+      const avgTotalTime = (totalTime / total).toFixed(3);
+      
+      return `[Stats Summary] Total: ${total}, Block: ${blocked} (${blockRate}%), Clean: ${cleaned} (${cleanRate}%), L1 Hit: ${l1HitRate}%, Avg Time: ${avgTotalTime}ms`;
   }
 }
 const optimizedStats = new OptimizedPerformanceStats();
@@ -1106,6 +1114,11 @@ function isPathBlockedByRegex(lowerPathOnly, isExplicitlyAllowed) {
 /** 🧱 阻擋回應 */
 // ================================================================================================
 function getBlockResponse(pathnameLower) {
+  // [V40.98] Special Mock for Sensors Analytics to prevent LootBar crash
+  if (pathnameLower.includes('/sa.gif')) {
+    return TINY_GIF_RESPONSE;
+  }
+
   for (const keyword of CONFIG.DROP_KEYWORDS) {
     if (pathnameLower.includes(keyword)) return DROP_RESPONSE;
   }
@@ -1364,7 +1377,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.97 - Sensors Analytics & LootBar Tracking Defense', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.98 - Stability Fix & LootBar Mock Response', stats: optimizedStats.getStats() });
       }
       return;
     }
