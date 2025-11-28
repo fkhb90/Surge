@@ -1,0 +1,110 @@
+flowchart TB
+  %% 直向 (Top-to-Bottom) 版本
+  %% 子圖與節點文字皆為中文，採高對比配色，適合貼到支援 Mermaid 的編輯器
+
+  %% 樣式定義（高對比）
+  classDef header fill:#ffffff,stroke:#000,stroke-width:2px,color:#000,font-size:14px,font-weight:bold;
+  classDef allow  fill:#eaffea,stroke:#004d00,stroke-width:2.5px,color:#002200,font-size:13px;
+  classDef warn   fill:#fff8e0,stroke:#7a4a00,stroke-width:2.5px,color:#332200,font-size:13px;
+  classDef block  fill:#a40000,stroke:#300000,stroke-width:2.5px,color:#ffffff,font-size:13px;
+  classDef info   fill:#ffffff,stroke:#003a8c,stroke-width:2.5px,color:#000000,font-size:13px;
+  classDef groupFill fill:#fbfbfb,stroke:#bbbbbb,stroke-width:1px,color:#111,font-size:12px;
+
+  %% 解析組
+  subgraph ParseGroup[解析階段]
+    direction TB
+    Start[開始]
+    Parse[解析 URL：主機、路徑、查詢]
+  end
+
+  %% 白名單與快取組
+  subgraph WhitelistCache[白名單與快取]
+    direction TB
+    Exemptions{路徑豁免？}
+    HardWhitelist{硬性白名單？}
+    L1Cache{L1 快取 決策}
+  end
+
+  %% 域名與關鍵腳本檢查組
+  subgraph DomainGroup[域名與關鍵腳本檢查]
+    direction TB
+    DomainBlocked{域名在黑名單？}
+    Critical{為關鍵追蹤腳本？}
+    SoftWhitelisted{軟性白名單？}
+  end
+
+  %% 路徑檢查組
+  subgraph PathGroup[路徑檢查]
+    direction TB
+    PathAllow{路徑由允許清單放行？}
+    PathKeywords{路徑匹配追蹤關鍵字？}
+    PathRegex{路徑匹配正則或啟發式？}
+  end
+
+  %% 參數處理組
+  subgraph ParamGroup[參數處理]
+    direction TB
+    HasQuery{含查詢參數？}
+    ParamExempt{主機豁免參數清理？}
+    CleanParams{清理追蹤參數後 URL 是否改變？}
+  end
+
+  %% 結果節點
+  FinalNegCache[若未知 設負向快取然後放行]
+  ReturnReq[返回 修改後請求]
+  Allow[允許 通過]
+  BlockResponse[阻擋 並回應：丟棄 或 小圖 或 204 或 403]
+
+  %% 主流程（由上而下）
+  Start --> Parse
+  Parse --> Exemptions
+  Exemptions -- 是 --> Allow
+  Exemptions -- 否 --> HardWhitelist
+
+  HardWhitelist -- 是 --> Allow
+  HardWhitelist -- 否 --> L1Cache
+
+  L1Cache -- 被標記阻擋 --> BlockResponse
+  L1Cache -- 否或未知 --> DomainBlocked
+
+  DomainBlocked -- 是 --> BlockResponse
+  DomainBlocked -- 否 --> Critical
+
+  Critical -- 是 --> BlockResponse
+  Critical -- 否 --> SoftWhitelisted
+
+  SoftWhitelisted -- 是 --> PathAllow
+  SoftWhitelisted -- 否 --> PathAllow
+
+  PathAllow -- 是 --> Allow
+  PathAllow -- 否 --> PathKeywords
+
+  PathKeywords -- 是 --> BlockResponse
+  PathKeywords -- 否 --> PathRegex
+
+  PathRegex -- 是 --> BlockResponse
+  PathRegex -- 否 --> HasQuery
+
+  HasQuery -- 否 --> FinalNegCache
+  HasQuery -- 是 --> ParamExempt
+
+  ParamExempt -- 是 --> FinalNegCache
+  ParamExempt -- 否 --> CleanParams
+
+  CleanParams -- 有變更 --> ReturnReq
+  CleanParams -- 無變更 --> FinalNegCache
+
+  FinalNegCache --> Allow
+
+  %% 套用樣式
+  class Start,Parse header;
+  class Exemptions,ParamExempt,CleanParams,ReturnReq info;
+  class HardWhitelist,PathAllow,Allow allow;
+  class L1Cache,FinalNegCache warn;
+  class DomainBlocked,Critical,PathKeywords,PathRegex,BlockResponse block;
+
+  %% 群組底色
+  class ParseGroup,WhitelistCache,DomainGroup,PathGroup,ParamGroup groupFill;
+
+  %% 連線樣式（深色與加粗）
+  linkStyle default stroke:#111,stroke-width:2.2px,stroke-linecap:round;
