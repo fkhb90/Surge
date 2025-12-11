@@ -45,7 +45,7 @@ async function fetchTraceIPv4(requestOptions) {
 
 async function fetchTraceIPv6(requestOptions) {
   try {
-    const r = await httpGet({ url: 'https://[2606:4700:4700::1111]/cdn-cgi/trace', ...requestOptions });
+    const r = await httpGet({ url: 'https://www.cloudflare.com/cdn-cgi/trace', ...requestOptions });
     return r.ok ? parseTrace(r.body) : null;
   } catch { return null; }
 }
