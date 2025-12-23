@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.00.js
- * @version   41.00 (Uber Architecture & Privacy Tuning)
- * @description 基於 V40.99，針對 Uber 架構進行深度優化：將 account.uber.com 降級為軟白名單以精準攔截 /_events 遙測路徑；將核心閘道 cfe.uber.com 加入硬白名單以防止誤殺。
+ * @file      URL-Ultimate-Filter-Surge-V41.02.js
+ * @version   41.02 (Uber Feed Stability)
+ * @description 基於 V41.01，新增 xlb.uber.com 至軟白名單，確保 App 首頁動態牆 (Feed) 內容正常載入，避免空白或錯誤；保留 t.uber.com 短網址修復與其他核心優化。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-23
@@ -112,6 +112,8 @@ const CONFIG = {
     'api.discord.com', 'api.twitch.tv', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com',
     'iappapi.investing.com',
     'today.line.me', // [V40.99] LINE TODAY 核心服務
+    // --- 品牌短網址 & 重定向 ---
+    't.uber.com', // [V41.01] Uber 品牌短網址 (SMS/Email 連結與驗證)，必須放行
   ]),
 
   /**
@@ -167,6 +169,8 @@ const CONFIG = {
     'api-paywalls.revenuecat.com',
     // --- [V41.00] Uber Auth (從硬白名單移入，以便過濾 /_events) ---
     'account.uber.com',
+    // --- [V41.02] Uber Feed (動態牆內容核心) ---
+    'xlb.uber.com', // 負責載入 App 首頁資訊卡片 (包含廣告但不可封鎖，否則首頁空白)
   ]),
 
   /**
@@ -686,14 +690,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.00)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.02)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.00'; // [V41.00] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.02'; // [V41.02] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1392,7 +1396,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.00 - Uber Architecture & Privacy Tuning', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.02 - Uber Feed Stability', stats: optimizedStats.getStats() });
       }
       return;
     }
