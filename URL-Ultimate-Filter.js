@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.04.js
- * @version   41.04 (MOMO Cart Privacy & Uber Stability)
- * @description 基於 V41.03，新增 MOMO 購物車追蹤腳本 (api_event_tracking.js) 的安全攔截；完整保留 Uber 動態牆修復與廣告阻擋規則。
+ * @file      URL-Ultimate-Filter-Surge-V41.05.js
+ * @version   41.05 (MOMO Bridge Optimization & Stability)
+ * @description 基於 V41.04，將 MOMO 主網域加入精確白名單以優化 crossBridge.jsp 跨域橋接請求的效能；完整保留購物車隱私攔截與 Uber 修復規則。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-23
@@ -162,6 +162,7 @@ const CONFIG = {
     'api.cloudflare.com', 'auth.docker.io', 'database.windows.net', 'login.docker.com',
     // --- 台灣地區服務 ---
     'api.irentcar.com.tw', 'gateway.shopback.com.tw', 'usiot.roborock.com',
+    'www.momoshop.com.tw', // [V41.05] 優化 crossBridge.jsp 跨域橋接效能，避免掃描
     // --- [V40.47] 修正：內容功能域不應被完全封鎖 ---
     'visuals.feedly.com',
     // --- [V40.99] RevenueCat 訂閱服務核心 ---
@@ -694,14 +695,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.04)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.05)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.04'; // [V41.04] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.05'; // [V41.05] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1400,7 +1401,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.04 - MOMO Cart Privacy & Uber Stability', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.05 - MOMO Bridge Optimization & Stability', stats: optimizedStats.getStats() });
       }
       return;
     }
