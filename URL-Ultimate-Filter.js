@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.12.js
- * @version   41.12 (Slack Privacy++ & Stability Rollup)
- * @description 基於 V41.11，新增 Slack 遙測上傳端點 (/api/telemetry) 攔截，經評估不影響 Huddles 通話；完整保留支付寶、MOMO、Uber 與 AI 產品的優化。
+ * @file      URL-Ultimate-Filter-Surge-V41.13.js
+ * @version   41.13 (MOMO DMP Block & Generic Tracking)
+ * @description 基於 V41.12，強化 MOMO DMP 追蹤 (/api/v1/t) 的攔截規則，並擴充通用極簡追蹤路徑定義；完整保留 Slack、支付寶與 Uber 的所有優化。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-23
@@ -10,7 +10,7 @@
 // #################################################################################################
 // #                                                                                               #
 // #                               ⚙️ SCRIPT CONFIGURATION                                         #
-// #                               (使用者在此區域安全地新增、修改或移除規則)                          #
+// #                               (使用者在此區域安全地新增、修改或移除規則)                             #
 // #                                                                                               #
 // #################################################################################################
 
@@ -393,7 +393,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
+   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
     // [V41.00] Uber 登入頁面遙測阻擋
@@ -464,7 +464,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 新增] 關鍵追蹤路徑模式 (通用)
+   * 🚨 [V40.71 新增, V41.13 擴充] 關鍵追蹤路徑模式 (通用)
    */
   CRITICAL_TRACKING_GENERIC_PATHS: new Set([
     '/ads/ga-audiences', '/doubleclick/', '/google-analytics/', '/googleadservices/', '/googlesyndication/',
@@ -477,7 +477,7 @@ const CONFIG = {
     '/log/aplus', '/v.gif', '/ad-sw.js', '/ads-sw.js', '/ad-call', '/adx/', '/adsales/', '/adserver/',
     '/adsync/', '/adtech/', '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc',
     '/user-profile/', 'cacafly/track',
-    '/api/v1/t', // [V40.89] ed.js 追蹤端點
+    '/api/v1/t', // [V41.13] 通用極簡追蹤路徑 (MOMO DMP 等)
     '/sa.gif', // [V40.97] Sensors Analytics (神策數據) 通用追蹤端點
   ]),
 
@@ -713,14 +713,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.12)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.13)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.12'; // [V41.12] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.13'; // [V41.13] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1419,7 +1419,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.12 - Slack Privacy++ & Stability Rollup', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.13 - MOMO DMP Block & Generic Tracking', stats: optimizedStats.getStats() });
       }
       return;
     }
