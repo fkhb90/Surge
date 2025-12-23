@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.10.js
- * @version   41.10 (Alipay Log Config Block & AI Stability)
- * @description 基於 V41.09，新增支付寶日誌配置 (logConfig.do) 的源頭攔截，進一步癱瘓遙測機制；完整保留通義千問、MOMO 與 Uber 的所有優化。
+ * @file      URL-Ultimate-Filter-Surge-V41.12.js
+ * @version   41.12 (Slack Privacy++ & Stability Rollup)
+ * @description 基於 V41.11，新增 Slack 遙測上傳端點 (/api/telemetry) 攔截，經評估不影響 Huddles 通話；完整保留支付寶、MOMO、Uber 與 AI 產品的優化。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-23
@@ -131,7 +131,8 @@ const CONFIG = {
     // --- [V40.82 新增] 核心重定向 & App 連結服務 ---
     'app.goo.gl', 'goo.gl',
     // --- 核心登入 & 協作平台 ---
-    'atlassian.net', 'auth0.com', 'okta.com', 'slack.com',
+    'atlassian.net', 'auth0.com', 'okta.com',
+    // [V41.11] slack.com 已移至 Soft Whitelist 以支援路徑過濾 (profiling.logging.enablement)
     // --- [V40.85 新增] DNS & 隱私工具 ---
     'nextdns.io',
     // --- 系統 & 平台核心服務 ---
@@ -194,6 +195,8 @@ const CONFIG = {
     'oraclecloud.com', 'pages.dev', 'vercel.app', 'windows.net',
     // --- 社群平台相容性 ---
     'instagram.com', 'threads.net',
+    // [V41.11] Slack 核心協作平台 (從硬白名單移入，以便過濾 /api/profiling.logging.enablement)
+    'slack.com',
     // --- [V40.57, V40.60 重構] AdsBypasser 規則庫整合 (檔案託管與圖片空間) ---
     'ak.sv', 'bayimg.com', 'beeimg.com', 'binbox.io', 'casimages.com', 'cocoleech.com', 'cubeupload.com', 
     'dlupload.com', 'fastpic.org', 'fotosik.pl', 'gofile.download', 'ibb.co', 'imagebam.com', 
@@ -316,6 +319,9 @@ const CONFIG = {
     // --- [V41.06] MOMO Predictive Defense (潛在第一方追蹤) ---
     'pixel.momoshop.com.tw',
     'trace.momoshop.com.tw',
+    // --- [V41.07] Alibaba / Alipay Telemetry ---
+    'mdap.alipay.com',
+    'loggw-ex.alipay.com',
     // --- 台灣內容農場 (預測性防禦) ---
     'ad-serv.teepr.com',
     // --- 在地化 & App SDK 追蹤 ---
@@ -343,7 +349,7 @@ const CONFIG = {
   ],
    
   /**
-   * 🚨 [V40.61 擴充, V40.93 修訂, V41.04 擴充, V41.08 擴充] 關鍵追蹤腳本攔截清單
+   * 🚨 [V40.61 擴充, V40.93 修訂, V41.04 擴充, V41.08 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充] 關鍵追蹤腳本攔截清單
    */
   CRITICAL_TRACKING_SCRIPTS: new Set([
     // --- Google ---
@@ -387,7 +393,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
+   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
     // [V41.00] Uber 登入頁面遙測阻擋
@@ -396,6 +402,8 @@ const CONFIG = {
     ['api.tongyi.com', new Set(['/app/mobilelog', '/qianwen/event/track'])],
     // [V41.10] 支付寶 (Alipay) 日誌配置檔源頭攔截 (防止 App 獲取上傳策略)
     ['gw.alipayobjects.com', new Set(['/config/loggw/'])],
+    // [V41.11 & V41.12] Slack 效能剖析、日誌啟用與遙測上傳
+    ['slack.com', new Set(['/api/profiling.logging.enablement', '/api/telemetry'])],
     ['analytics.google.com', new Set(['/g/collect'])],
     ['region1.analytics.google.com', new Set(['/g/collect'])],
     ['stats.g.doubleclick.net', new Set(['/g/collect', '/j/collect'])],
@@ -705,14 +713,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.10)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.12)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.10'; // [V41.10] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.12'; // [V41.12] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1411,7 +1419,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.10 - Alipay Log Config Block & AI Stability', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.12 - Slack Privacy++ & Stability Rollup', stats: optimizedStats.getStats() });
       }
       return;
     }
