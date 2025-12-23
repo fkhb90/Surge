@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.07.js
- * @version   41.07 (Alipay Privacy Shield & Stability Rollup)
- * @description 基於 V41.06，新增支付寶 (Alipay) 遙測域名 mdap.alipay.com 的封鎖規則，減少隱私數據上傳；完整保留 MOMO 與 Uber 的所有優化。
+ * @file      URL-Ultimate-Filter-Surge-V41.08.js
+ * @version   41.08 (Tongyi AI Privacy & Alipay Shield)
+ * @description 基於 V41.07，新增通義千問 (Tongyi AI) 的路徑級追蹤攔截，確保 AI 對話功能不受影響；保留支付寶、MOMO 與 Uber 的所有優化。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-23
@@ -10,7 +10,7 @@
 // #################################################################################################
 // #                                                                                               #
 // #                               ⚙️ SCRIPT CONFIGURATION                                         #
-// #                               (使用者在此區域安全地新增、修改或移除規則)                                #
+// #                               (使用者在此區域安全地新增、修改或移除規則)                          #
 // #                                                                                               #
 // #################################################################################################
 
@@ -343,7 +343,7 @@ const CONFIG = {
   ],
    
   /**
-   * 🚨 [V40.61 擴充, V40.93 修訂, V41.04 擴充] 關鍵追蹤腳本攔截清單
+   * 🚨 [V40.61 擴充, V40.93 修訂, V41.04 擴充, V41.08 擴充] 關鍵追蹤腳本攔截清單
    */
   CRITICAL_TRACKING_SCRIPTS: new Set([
     // --- Google ---
@@ -387,11 +387,13 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 重構, V41.00 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
+   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
     // [V41.00] Uber 登入頁面遙測阻擋
-    ['account.uber.com', new Set(['/_events'])], 
+    ['account.uber.com', new Set(['/_events'])],
+    // [V41.08] 通義千問 (Tongyi AI) 使用者行為追蹤
+    ['api.tongyi.com', new Set(['/app/mobilelog'])],
     ['analytics.google.com', new Set(['/g/collect'])],
     ['region1.analytics.google.com', new Set(['/g/collect'])],
     ['stats.g.doubleclick.net', new Set(['/g/collect', '/j/collect'])],
@@ -701,14 +703,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.07)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.08)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.07'; // [V41.07] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.08'; // [V41.08] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1407,7 +1409,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.07 - Alipay Privacy Shield & Stability Rollup', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.08 - Tongyi AI Privacy & Alipay Shield', stats: optimizedStats.getStats() });
       }
       return;
     }
