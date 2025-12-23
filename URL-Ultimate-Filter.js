@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V40.98.js
- * @version   40.98 (穩定性修復與模擬回應)
- * @description 基於 V40.97，修復 OptimizedPerformanceStats 在 Debug 模式下的潛在崩潰問題；針對 Sensors Analytics (/sa.gif) 強制回傳 200 OK 偽造訊號，防止 LootBar 等 App 因請求失敗而閃退。
+ * @file      URL-Ultimate-Filter-Surge-V40.99.js
+ * @version   40.99 (Uber Telemetry Block & Stability Rollup)
+ * @description 基於 V40.98，新增 Uber 專用追蹤網域 (pidetupop.com) 攔截；整合先前針對 LootBar (/sa.gif) 的模擬回應與 RevenueCat 的白名單優化；移除易誤殺的 RTB 規則依賴。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-11-28
+ * @lastUpdated 2025-12-23
  */
 
 // #################################################################################################
@@ -98,6 +98,7 @@ const CONFIG = {
     'mushroomtrack.com', 'phtracker.com', 'pro.104.com.tw', 'prodapp.babytrackers.com', 'sensordata.open.cn', 'static.stepfun.com', 'track.fstry.me',
     // --- 核心登入 & 認證 ---
     'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com', 'sso.godaddy.com',
+    'idmsa.apple.com', // [V40.99] Apple ID 身分驗證核心 (建議直連，此處作為雙重保險)
     // --- 台灣地區服務 ---
     'api.etmall.com.tw', 'tw.fd-api.com',
     // --- [V40.42] 台灣關鍵基礎設施 ---
@@ -109,6 +110,7 @@ const CONFIG = {
     // --- 高互動性服務 API ---
     'api.discord.com', 'api.twitch.tv', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com',
     'iappapi.investing.com',
+    'today.line.me', // [V40.99] LINE TODAY 核心服務
   ]),
 
   /**
@@ -157,6 +159,9 @@ const CONFIG = {
     'api.irentcar.com.tw', 'gateway.shopback.com.tw', 'usiot.roborock.com',
     // --- [V40.47] 修正：內容功能域不應被完全封鎖 ---
     'visuals.feedly.com',
+    // --- [V40.99] RevenueCat 訂閱服務核心 ---
+    'api.revenuecat.com', 
+    'api-paywalls.revenuecat.com',
   ]),
 
   /**
@@ -221,6 +226,8 @@ const CONFIG = {
     'log.felo.ai',
     // --- [V40.97 新增] LootBar / GearUP 追蹤 ---
     'event.sc.gearupportal.com',
+    // --- [V40.99 新增] Uber 遙測/追蹤 ---
+    'pidetupop.com',
     // --- 主流分析 & 追蹤服務 ---
     'adform.net', 'adjust.com', 'ads.linkedin.com', 'adsrvr.org', 'agn.aty.sohu.com', 'amplitude.com', 'analytics.line.me',
     'analytics.slashdotmedia.com', 'analytics.strava.com', 'analytics.twitter.com', 'analytics.yahoo.com', 'api.pendo.io',
@@ -278,7 +285,7 @@ const CONFIG = {
     // --- 隱私權 & Cookie 同意管理 ---
     'cookielaw.org', 'onetrust.com', 'sourcepoint.com', 'trustarc.com', 'usercentrics.eu',
     // --- 台灣地區 (純廣告/追蹤) ---
-    'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'cacafly.com',
+    'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'cacafly.com',
     'clickforce.com.tw', 
     'ecdmp.momoshop.com.tw', // [V40.87]
     'analysis.momoshop.com.tw', // [V40.88]
@@ -445,6 +452,7 @@ const CONFIG = {
 
   /**
    * 🚫 [V40.17 擴充, V40.96 擴充] 路徑關鍵字黑名單
+   * [V40.99] 移除 'rtb' 以避免誤殺 CloudFront 隨機子網域
    */
   PATH_BLOCK_KEYWORDS: new Set([
     // --- Ad Generic ---
@@ -469,7 +477,7 @@ const CONFIG = {
     'mixpanel', 'mobaders', 'mobclix', 'mobileapptracking', '/monitoring/', 'mvfglobal', 'networkbench', 'newrelic', 
     'omgmta', 'omniture', 'onead', 'openinstall', 'openx', 'optimizely', 'outstream', 'partnerad', 'pingfore', 'piwik', 
     'pixanalytics', 'playtomic', 'polyad', 'popin', 'popin2mdn', 'programmatic', 'pushnotification', 'quantserve', 
-    'quantumgraph', 'queryly', 'qxs', 'rayjump', 'retargeting', 'ronghub', 'rtb', 'scorecardresearch', 'scupio', 
+    'quantumgraph', 'queryly', 'qxs', 'rayjump', 'retargeting', 'ronghub', 'scorecardresearch', 'scupio', // [V40.99] Removed 'rtb'
     'securepubads', 'sensor', 'sentry', 'shence', 'shenyun', 'shoplytics', 'shujupie', 'smartadserver', 'smartbanner', 
     'snowplow', 'socdm', 'sponsors', 'spy', 'spyware', 'statcounter', 'stathat', 'sticky-ad', 'storageug', 'straas', 
     'studybreakmedia', 'stunninglover', 'supersonicads', 'syndication', 'taboola', 'tagtoo', 'talkingdata', 'tanx', 
@@ -671,14 +679,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V40.98)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V40.99)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.98'; // [V40.98] 版本戳，用於快取失效
+const SCRIPT_VERSION = '40.99'; // [V40.99] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1377,7 +1385,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.98 - Stability Fix & LootBar Mock Response', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.99 - Uber Telemetry Block & Stability Rollup', stats: optimizedStats.getStats() });
       }
       return;
     }
