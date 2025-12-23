@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.13.js
- * @version   41.13 (MOMO DMP Block & Generic Tracking)
- * @description 基於 V41.12，強化 MOMO DMP 追蹤 (/api/v1/t) 的攔截規則，並擴充通用極簡追蹤路徑定義；完整保留 Slack、支付寶與 Uber 的所有優化。
+ * @file      URL-Ultimate-Filter-Surge-V41.14.js
+ * @version   41.14 (MOMO UI Mobile Optimization & Stability)
+ * @description 基於 V41.13，將 MOMO 行動版主網域 (m.momoshop.com.tw) 加入精確白名單，確保 UI 載入腳本 (momocoLoadingEnd.js) 正常執行；保留 DMP 追蹤攔截與其他優化。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-23
@@ -10,7 +10,7 @@
 // #################################################################################################
 // #                                                                                               #
 // #                               ⚙️ SCRIPT CONFIGURATION                                         #
-// #                               (使用者在此區域安全地新增、修改或移除規則)                             #
+// #                               (使用者在此區域安全地新增、修改或移除規則)                          #
 // #                                                                                               #
 // #################################################################################################
 
@@ -164,6 +164,7 @@ const CONFIG = {
     // --- 台灣地區服務 ---
     'api.irentcar.com.tw', 'gateway.shopback.com.tw', 'usiot.roborock.com',
     'www.momoshop.com.tw', // [V41.05] 優化 crossBridge.jsp 跨域橋接效能，避免掃描
+    'm.momoshop.com.tw', // [V41.14] 優化行動版 UI 載入腳本 (momocoLoadingEnd.js)，避免卡死
     // --- [V40.47] 修正：內容功能域不應被完全封鎖 ---
     'visuals.feedly.com',
     // --- [V40.99] RevenueCat 訂閱服務核心 ---
@@ -349,7 +350,7 @@ const CONFIG = {
   ],
    
   /**
-   * 🚨 [V40.61 擴充, V40.93 修訂, V41.04 擴充, V41.08 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充] 關鍵追蹤腳本攔截清單
+   * 🚨 [V40.61 擴充, V40.93 修訂, V41.04 擴充, V41.08 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充] 關鍵追蹤腳本攔截清單
    */
   CRITICAL_TRACKING_SCRIPTS: new Set([
     // --- Google ---
@@ -713,14 +714,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.13)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.14)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.13'; // [V41.13] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.14'; // [V41.14] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1419,7 +1420,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.13 - MOMO DMP Block & Generic Tracking', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.14 - MOMO UI Mobile Optimization & Stability', stats: optimizedStats.getStats() });
       }
       return;
     }
