@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.02.js
- * @version   41.02 (Uber Feed Stability)
- * @description 基於 V41.01，新增 xlb.uber.com 至軟白名單，確保 App 首頁動態牆 (Feed) 內容正常載入，避免空白或錯誤；保留 t.uber.com 短網址修復與其他核心優化。
+ * @file      URL-Ultimate-Filter-Surge-V41.03.js
+ * @version   41.03 (Uber Ad Creative Block)
+ * @description 基於 V41.02，新增針對 /ads-self-serve/ 的路徑攔截，精準阻擋 Uber 自助廣告平台的素材載入；保留所有核心功能修復與遙測阻擋。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-23
@@ -462,13 +462,16 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 [V40.17 擴充, V40.96 擴充] 路徑關鍵字黑名單
+   * 🚫 [V40.17 擴充, V40.96 擴充, V41.03 擴充] 路徑關鍵字黑名單
    * [V40.99] 移除 'rtb' 以避免誤殺 CloudFront 隨機子網域
+   * [V41.03] 新增 '/ads-self-serve/' 以攔截 Uber 自助廣告平台素材
    */
   PATH_BLOCK_KEYWORDS: new Set([
     // --- Ad Generic ---
     '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/banner/', '/interstitial/',
     '/midroll/', '/popads/', '/popup/', '/postroll/', '/preroll/', '/promoted/', '/sponsor/', '/vclick/',
+    // [V41.03] Uber Ads Creative Block
+    '/ads-self-serve/', 
     '112wan', '2mdn', '51y5', '51yes', '789htbet', '96110', 'acs86', 'ad-choices', 'ad-logics', 'adash', 'adashx',
     'adcash', 'adcome', 'addsticky', 'addthis', 'adform', 'adhacker', 'adinfuse', 'adjust', 'admarvel', 'admaster',
     'admation', 'admdfs', 'admicro', 'admob', 'adnewnc', 'adpush', 'adpushup', 'adroll', 'adsage', 'adsame',
@@ -690,14 +693,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.02)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.03)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.02'; // [V41.02] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.03'; // [V41.03] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1396,7 +1399,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.02 - Uber Feed Stability', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.03 - Uber Ad Creative Block', stats: optimizedStats.getStats() });
       }
       return;
     }
