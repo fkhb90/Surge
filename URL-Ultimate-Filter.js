@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.08.js
- * @version   41.08 (Tongyi AI Privacy & Alipay Shield)
- * @description 基於 V41.07，新增通義千問 (Tongyi AI) 的路徑級追蹤攔截，確保 AI 對話功能不受影響；保留支付寶、MOMO 與 Uber 的所有優化。
+ * @file      URL-Ultimate-Filter-Surge-V41.09.js
+ * @version   41.09 (Tongyi Track Block+ & Stability Rollup)
+ * @description 基於 V41.08，擴充通義千問 (Tongyi AI) 的路徑攔截規則，新增 /qianwen/event/track 以阻斷業務埋點；完整保留支付寶、MOMO 與 Uber 的所有優化。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-23
@@ -387,13 +387,13 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
+   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
     // [V41.00] Uber 登入頁面遙測阻擋
     ['account.uber.com', new Set(['/_events'])],
-    // [V41.08] 通義千問 (Tongyi AI) 使用者行為追蹤
-    ['api.tongyi.com', new Set(['/app/mobilelog'])],
+    // [V41.08 & V41.09] 通義千問 (Tongyi AI) 行為日誌與業務埋點
+    ['api.tongyi.com', new Set(['/app/mobilelog', '/qianwen/event/track'])],
     ['analytics.google.com', new Set(['/g/collect'])],
     ['region1.analytics.google.com', new Set(['/g/collect'])],
     ['stats.g.doubleclick.net', new Set(['/g/collect', '/j/collect'])],
@@ -703,14 +703,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.08)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.09)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.08'; // [V41.08] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.09'; // [V41.09] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1409,7 +1409,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.08 - Tongyi AI Privacy & Alipay Shield', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.09 - Tongyi Track Block+ & Stability Rollup', stats: optimizedStats.getStats() });
       }
       return;
     }
