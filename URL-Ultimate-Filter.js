@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.05.js
- * @version   41.05 (MOMO Bridge Optimization & Stability)
- * @description 基於 V41.04，將 MOMO 主網域加入精確白名單以優化 crossBridge.jsp 跨域橋接請求的效能；完整保留購物車隱私攔截與 Uber 修復規則。
+ * @file      URL-Ultimate-Filter-Surge-V41.06.js
+ * @version   41.06 (MOMO Predictive Defense & Uber Stability)
+ * @description 基於 V41.05，新增針對 MOMO 潛在追蹤子域 (pixel/trace) 的預防性攔截，防止 crossBridge.jsp 回傳第一方數據；保留所有核心功能修復。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-23
@@ -310,6 +310,9 @@ const CONFIG = {
     'dmp.shopee.tw', // [V40.90]
     'analytics.etmall.com.tw', // [V40.90]
     'ad.etmall.com.tw', // [V40.90]
+    // --- [V41.06] MOMO Predictive Defense (潛在第一方追蹤) ---
+    'pixel.momoshop.com.tw',
+    'trace.momoshop.com.tw',
     // --- 台灣內容農場 (預測性防禦) ---
     'ad-serv.teepr.com',
     // --- 在地化 & App SDK 追蹤 ---
@@ -695,14 +698,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.05)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.06)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.05'; // [V41.05] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.06'; // [V41.06] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1401,7 +1404,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.05 - MOMO Bridge Optimization & Stability', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.06 - MOMO Predictive Defense & Uber Stability', stats: optimizedStats.getStats() });
       }
       return;
     }
