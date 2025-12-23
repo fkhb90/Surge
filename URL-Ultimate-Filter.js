@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V40.99.js
- * @version   40.99 (Uber Telemetry Block & Stability Rollup)
- * @description 基於 V40.98，新增 Uber 專用追蹤網域 (pidetupop.com) 攔截；整合先前針對 LootBar (/sa.gif) 的模擬回應與 RevenueCat 的白名單優化；移除易誤殺的 RTB 規則依賴。
+ * @file      URL-Ultimate-Filter-Surge-V41.00.js
+ * @version   41.00 (Uber Architecture & Privacy Tuning)
+ * @description 基於 V40.99，針對 Uber 架構進行深度優化：將 account.uber.com 降級為軟白名單以精準攔截 /_events 遙測路徑；將核心閘道 cfe.uber.com 加入硬白名單以防止誤殺。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-23
@@ -99,6 +99,7 @@ const CONFIG = {
     // --- 核心登入 & 認證 ---
     'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com', 'sso.godaddy.com',
     'idmsa.apple.com', // [V40.99] Apple ID 身分驗證核心 (建議直連，此處作為雙重保險)
+    // [V41.00] account.uber.com 已移至 Soft Whitelist 以支援路徑過濾 (_events)
     // --- 台灣地區服務 ---
     'api.etmall.com.tw', 'tw.fd-api.com',
     // --- [V40.42] 台灣關鍵基礎設施 ---
@@ -140,6 +141,8 @@ const CONFIG = {
     'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'webcache.googleusercontent.com', 'www.webarchive.org.uk',
     // --- YouTube 核心服務 (僅保留基礎建設) ---
     'googlevideo.com',
+    // --- Uber 核心基礎設施 [V41.00] ---
+    'cfe.uber.com', // Cloud Front End (Edge Gateway) - 絕對不能封鎖
   ]),
 
   /**
@@ -162,6 +165,8 @@ const CONFIG = {
     // --- [V40.99] RevenueCat 訂閱服務核心 ---
     'api.revenuecat.com', 
     'api-paywalls.revenuecat.com',
+    // --- [V41.00] Uber Auth (從硬白名單移入，以便過濾 /_events) ---
+    'account.uber.com',
   ]),
 
   /**
@@ -370,9 +375,11 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 重構] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
+   * 🚨 [V40.71 重構, V41.00 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
+    // [V41.00] Uber 登入頁面遙測阻擋
+    ['account.uber.com', new Set(['/_events'])], 
     ['analytics.google.com', new Set(['/g/collect'])],
     ['region1.analytics.google.com', new Set(['/g/collect'])],
     ['stats.g.doubleclick.net', new Set(['/g/collect', '/j/collect'])],
@@ -679,14 +686,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V40.99)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.00)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '40.99'; // [V40.99] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.00'; // [V41.00] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1385,7 +1392,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v40.99 - Uber Telemetry Block & Stability Rollup', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.00 - Uber Architecture & Privacy Tuning', stats: optimizedStats.getStats() });
       }
       return;
     }
