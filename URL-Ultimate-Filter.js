@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.03.js
- * @version   41.03 (Uber Ad Creative Block)
- * @description 基於 V41.02，新增針對 /ads-self-serve/ 的路徑攔截，精準阻擋 Uber 自助廣告平台的素材載入；保留所有核心功能修復與遙測阻擋。
+ * @file      URL-Ultimate-Filter-Surge-V41.04.js
+ * @version   41.04 (MOMO Cart Privacy & Uber Stability)
+ * @description 基於 V41.03，新增 MOMO 購物車追蹤腳本 (api_event_tracking.js) 的安全攔截；完整保留 Uber 動態牆修復與廣告阻擋規則。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-23
@@ -336,7 +336,7 @@ const CONFIG = {
   ],
    
   /**
-   * 🚨 [V40.61 擴充, V40.93 修訂] 關鍵追蹤腳本攔截清單
+   * 🚨 [V40.61 擴充, V40.93 修訂, V41.04 擴充] 關鍵追蹤腳本攔截清單
    */
   CRITICAL_TRACKING_SCRIPTS: new Set([
     // --- Google ---
@@ -361,6 +361,7 @@ const CONFIG = {
     'api_event_tracking_rtb_house.js', // [V40.80] MOMO
     'ed.js', // [V40.89] MOMO (edq 核心追蹤器)
     'itriweblog.js', // [V40.93] MOMO (ITRI 網站日誌)
+    'api_event_tracking.js', // [V41.04] MOMO 購物車事件追蹤 (Safe Block)
     // --- 內容傳遞 & 標籤管理 ---
     'adobedtm.js', 'dax.js', 'tag.js', 'utag.js', 'visitorapi.js',
     // --- 效能監控 ---
@@ -693,14 +694,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.03)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.04)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.03'; // [V41.03] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.04'; // [V41.04] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1399,7 +1400,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.03 - Uber Ad Creative Block', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.04 - MOMO Cart Privacy & Uber Stability', stats: optimizedStats.getStats() });
       }
       return;
     }
