@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.14.js
- * @version   41.14 (MOMO UI Mobile Optimization & Stability)
- * @description 基於 V41.13，將 MOMO 行動版主網域 (m.momoshop.com.tw) 加入精確白名單，確保 UI 載入腳本 (momocoLoadingEnd.js) 正常執行；保留 DMP 追蹤攔截與其他優化。
+ * @file      URL-Ultimate-Filter-Surge-V41.15.js
+ * @version   41.15 (Yahoo EC Shopping Optimization)
+ * @description 基於 V41.14，針對 Yahoo 奇摩購物中心 App 進行深度淨化。阻擋混合廣告流 (streamWithAds) 與全站推廣 (fullSitePromotions)，同時封鎖 Oath 隱私追蹤，並保護核心登入流程。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-12-23
+ * @lastUpdated 2025-12-24
  */
 
 // #################################################################################################
@@ -99,6 +99,7 @@ const CONFIG = {
     // --- 核心登入 & 認證 ---
     'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com', 'sso.godaddy.com',
     'idmsa.apple.com', // [V40.99] Apple ID 身分驗證核心 (建議直連，此處作為雙重保險)
+    'api.login.yahoo.com', // [V41.15] Yahoo OpenID 登入核心 (絕對保護)
     // [V41.00] account.uber.com 已移至 Soft Whitelist 以支援路徑過濾 (_events)
     // --- 台灣地區服務 ---
     'api.etmall.com.tw', 'tw.fd-api.com',
@@ -165,6 +166,9 @@ const CONFIG = {
     'api.irentcar.com.tw', 'gateway.shopback.com.tw', 'usiot.roborock.com',
     'www.momoshop.com.tw', // [V41.05] 優化 crossBridge.jsp 跨域橋接效能，避免掃描
     'm.momoshop.com.tw', // [V41.14] 優化行動版 UI 載入腳本 (momocoLoadingEnd.js)，避免卡死
+    // --- Yahoo EC Services [V41.15] ---
+    'prism.ec.yahoo.com', // Yahoo Shopping Discovery Stream (網域放行，但路徑 /streamWithAds 會被 Critical Map 攔截)
+    'graphql.ec.yahoo.com', // Yahoo Shopping GraphQL (網域放行，但路徑 /fullSitePromotions 會被 Critical Map 攔截)
     // --- [V40.47] 修正：內容功能域不應被完全封鎖 ---
     'visuals.feedly.com',
     // --- [V40.99] RevenueCat 訂閱服務核心 ---
@@ -212,6 +216,8 @@ const CONFIG = {
    * 🚫 [V40.51 強化, V40.90 修訂, V41.07 擴充] 域名攔截黑名單
    */
   BLOCK_DOMAINS: new Set([
+    // --- [V41.15] Yahoo / Oath Privacy Tracking ---
+    'guce.oath.com', // Verizon Media 隱私權同意追蹤 (GDPR Consent Check)
     // --- [V41.07] Alibaba / Alipay Telemetry ---
     'mdap.alipay.com',
     'loggw-ex.alipay.com',
@@ -394,7 +400,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
+   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
     // [V41.00] Uber 登入頁面遙測阻擋
@@ -405,6 +411,10 @@ const CONFIG = {
     ['gw.alipayobjects.com', new Set(['/config/loggw/'])],
     // [V41.11 & V41.12] Slack 效能剖析、日誌啟用與遙測上傳
     ['slack.com', new Set(['/api/profiling.logging.enablement', '/api/telemetry'])],
+    // [V41.15] Yahoo Shopping UI Clean Up
+    ['graphql.ec.yahoo.com', new Set(['/app/sas/v1/fullSitePromotions'])], // 全站行銷蓋板廣告
+    ['prism.ec.yahoo.com', new Set(['/api/prism/v2/streamWithAds'])],     // 混合廣告串流 (經實測封鎖不影響瀏覽)
+    // Common Trackers
     ['analytics.google.com', new Set(['/g/collect'])],
     ['region1.analytics.google.com', new Set(['/g/collect'])],
     ['stats.g.doubleclick.net', new Set(['/g/collect', '/j/collect'])],
@@ -714,14 +724,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.14)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.15)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.14'; // [V41.14] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.15'; // [V41.15] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1420,7 +1430,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.14 - MOMO UI Mobile Optimization & Stability', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.15 - Yahoo EC Shopping Optimization', stats: optimizedStats.getStats() });
       }
       return;
     }
