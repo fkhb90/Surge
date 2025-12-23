@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.06.js
- * @version   41.06 (MOMO Predictive Defense & Uber Stability)
- * @description 基於 V41.05，新增針對 MOMO 潛在追蹤子域 (pixel/trace) 的預防性攔截，防止 crossBridge.jsp 回傳第一方數據；保留所有核心功能修復。
+ * @file      URL-Ultimate-Filter-Surge-V41.07.js
+ * @version   41.07 (Alipay Privacy Shield & Stability Rollup)
+ * @description 基於 V41.06，新增支付寶 (Alipay) 遙測域名 mdap.alipay.com 的封鎖規則，減少隱私數據上傳；完整保留 MOMO 與 Uber 的所有優化。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-23
@@ -205,9 +205,12 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 [V40.51 強化, V40.90 修訂] 域名攔截黑名單
+   * 🚫 [V40.51 強化, V40.90 修訂, V41.07 擴充] 域名攔截黑名單
    */
   BLOCK_DOMAINS: new Set([
+    // --- [V41.07] Alibaba / Alipay Telemetry ---
+    'mdap.alipay.com',
+    'loggw-ex.alipay.com',
     // --- Ad & Tracking CDNs ---
     'adnext-a.akamaihd.net', 'appnext.hs.llnwd.net', 'cache.ltn.com.tw',
     'fusioncdn.com', 'pgdt.gtimg.cn', 'toots-a.akamaihd.net',
@@ -698,14 +701,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.06)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.07)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.06'; // [V41.06] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.07'; // [V41.07] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1404,7 +1407,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.06 - MOMO Predictive Defense & Uber Stability', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.07 - Alipay Privacy Shield & Stability Rollup', stats: optimizedStats.getStats() });
       }
       return;
     }
