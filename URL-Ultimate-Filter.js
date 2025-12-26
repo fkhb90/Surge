@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.16.js
- * @version   41.16 (104 Job Bank Clean Up & MOMO Vendor Fix)
- * @description 基於 V41.15，新增 104 人力銀行廣告與遙測攔截 (源自使用者 Regex 優化)；修復 MOMO 供應商圖文詳情破圖問題 (bsp)。
+ * @file      URL-Ultimate-Filter-Surge-V41.17.js
+ * @version   41.17 (104 Regex Logic Restoration)
+ * @description 基於 V41.16，針對 104 人力銀行實作「萬用字元子網域」攔截邏輯，解決因 API 子網域變動導致的過濾失效問題；完整保留 MOMO 與 Yahoo 優化。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-26
@@ -401,7 +401,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.16 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
+   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
     // [V41.00] Uber 登入頁面遙測阻擋
@@ -415,19 +415,7 @@ const CONFIG = {
     // [V41.15] Yahoo Shopping UI Clean Up
     ['graphql.ec.yahoo.com', new Set(['/app/sas/v1/fullSitePromotions'])], // 全站行銷蓋板廣告
     ['prism.ec.yahoo.com', new Set(['/api/prism/v2/streamWithAds'])],     // 混合廣告串流 (經實測封鎖不影響瀏覽)
-    // [V41.16] 104 Corp (Job Bank) Ad & Telemetry Block (Based on User Regex)
-    ['www.104.com.tw', new Set([
-        '/ad/general', '/ad/premium', '/ad/recommend', // Ads
-        '/web/alexa.html', // Analytics
-        '/jb/service/ad/', // Ad Service
-        '/publish/', // Ad Configs (Targeting .txt)
-        '/api/apps/createapploginlog' // App Telemetry
-    ])],
-    ['m.104.com.tw', new Set([
-        '/ad/', 
-        '/web/alexa.html', 
-        '/api/apps/createapploginlog'
-    ])],
+    // [V41.17] 104 Job Bank Rules - 現在移至 isCriticalTrackingScript 進行萬用字元處理，此處保留空白佔位以作紀錄
     // Common Trackers
     ['analytics.google.com', new Set(['/g/collect'])],
     ['region1.analytics.google.com', new Set(['/g/collect'])],
@@ -738,14 +726,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.16)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.17)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.16'; // [V41.16] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.17'; // [V41.17] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1070,6 +1058,21 @@ function isCriticalTrackingScript(hostname, lowerFullPath) {
   if (scriptName && CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName)) {
     multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
     return true;
+  }
+
+  // [V41.17] 104 Job Bank (Regex-based Logic with Wildcard Subdomain)
+  if (hostname.endsWith('104.com.tw') || hostname === '104.com.tw') {
+      if (lowerFullPath.includes('/ad/general') || 
+          lowerFullPath.includes('/ad/premium') || 
+          lowerFullPath.includes('/ad/recommend') ||
+          lowerFullPath.includes('/web/alexa.html') ||
+          lowerFullPath.includes('/jb/service/ad/') ||
+          (lowerFullPath.includes('/publish/') && lowerFullPath.endsWith('.txt')) ||
+          lowerFullPath.includes('/api/apps/createapploginlog')) {
+          
+          multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
+          return true;
+      }
   }
 
   const hostPrefixes = CONFIG.CRITICAL_TRACKING_MAP.get(hostname);
@@ -1444,7 +1447,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.16 - 104 Job Bank Clean Up & MOMO Vendor Fix', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.17 - 104 Regex Logic Restoration', stats: optimizedStats.getStats() });
       }
       return;
     }
