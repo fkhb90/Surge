@@ -1,10 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.07.js
- * @version   42.07 (Shopee Chatbot & Mobile Regex Fix)
- * @description [蝦皮生態系深度淨化] 
- * 1. 新增 chatbot.shopee.tw 的日誌回報攔截。
- * 2. 針對 shopeemobile.com 實作複雜 Regex 攔截 (直播檢測、追蹤配置、遊戲 SDK)。
- * 3. 繼承 V42.06 所有優化 (104, Segment, Yahoo, MOMO, 文件修復)。
+ * @file      URL-Ultimate-Filter-Surge-V42.08.js
+ * @version   42.08 (Shopee Live Tech Deep Subdomain Fix)
+ * @description [攔截規則強化] 針對 Shopee Live Tech (data-rep) 實施獨立的精確攔截規則，解決因深層子網域匹配問題導致的漏網之魚；繼承 V42.07 所有功能。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-26
  */
@@ -41,46 +38,49 @@ const CONFIG = {
    * 說明：支援 Regex 與自定義攔截動作 (Action)。
    */
   ADVANCED_COMPLEX_RULES: [
-    // --- Shopee Taiwan (Tracking & Reporting) ---
+    // --- [V42.08 Fix] Shopee Live Tech (Independent Target Root) ---
     {
-      target_root: "shopee.tw", // 涵蓋 data-rep, chatbot 等子網域
-      description: "Shopee TW - Tracking, Reporting & Chatbot Logs",
+      target_root: "livetech.shopee.tw", // 針對 livetech 子網域獨立設定，避免被 shopee.tw 泛用規則覆蓋
+      description: "Shopee Live Tech - Data Reporting (Deep Subdomain Fix)",
       rules: [
-        // [V42.06] reportPB 二進制回報
-        { pattern: "/dataapi/dataweb/event/reportpb", flags: "i", action: "REJECT" },
-        // [V42.07] Chatbot Log
+        // 攔截所有 reportPB 相關請求，無論大小寫或路徑前綴
+        { pattern: "reportpb", flags: "i", action: "REJECT" }
+      ]
+    },
+    // --- Shopee Taiwan (General) ---
+    {
+      target_root: "shopee.tw",
+      description: "Shopee TW - Chatbot Logs",
+      rules: [
         { pattern: "/report/v1/log", flags: "i", action: "REJECT" }
       ]
     },
-    // --- [V42.07 New] Shopee Mobile (Assets & Live Streaming) ---
+    // --- Shopee Mobile (Global Assets & Live) ---
     {
       target_root: "shopeemobile.com",
       description: "Shopee Mobile - Live, Game & Debug Tracking",
       rules: [
-        // 直播健康檢查與除錯資訊
         { pattern: "/shopee/shopee-fe-live-sg/ccms/(health_check|debug)\\.json", flags: "i", action: "REJECT" },
-        // 直播追蹤事件配置檔
         { pattern: "/shopee/shopee-toclivestream/download/live/ssz_tracking_event_config\\.json", flags: "i", action: "REJECT" },
-        // 遊戲平台 SDK (WLS SDK)
         { pattern: "/shopee/shopee-gameplatform-live-cn/wlssdk/.*\\.js", flags: "i", action: "REJECT" }
       ]
     },
-    // --- 104 Job Bank (Mixed Case/Params/Wildcards) ---
+    // --- 104 Job Bank ---
     {
       target_root: "104.com.tw",
       description: "104 Job Bank - Fine-grained Control",
       rules: [
-        { pattern: "/api/apps/createapploginlog", flags: "i", action: "JSON_EMPTY" }, // App Telemetry
-        { pattern: "/jb/service/ad/.*\\?", flags: "i", action: "REJECT" }, // Ad Service
-        { pattern: "/ad/(general|premium|recommend)\\?", flags: "i", action: "BLOCK" }, // Ad Images
-        { pattern: "/publish/.*\\.txt", flags: "i", action: "REJECT" }, // Configs
-        { pattern: "/web/alexa\\.html", flags: "i", action: "REJECT" } // Analytics
+        { pattern: "/api/apps/createapploginlog", flags: "i", action: "JSON_EMPTY" },
+        { pattern: "/jb/service/ad/.*\\?", flags: "i", action: "REJECT" },
+        { pattern: "/ad/(general|premium|recommend)\\?", flags: "i", action: "BLOCK" },
+        { pattern: "/publish/.*\\.txt", flags: "i", action: "REJECT" },
+        { pattern: "/web/alexa\\.html", flags: "i", action: "REJECT" }
       ]
     },
-    // --- Segment.io (Retry Storm Prevention) ---
+    // --- Segment.io ---
     {
       target_root: "segment.io",
-      description: "Segment Analytics - Stealth Blocking to prevent retries",
+      description: "Segment Analytics - Stealth Blocking",
       rules: [
         { pattern: "/v\\d+/(track|identify|page|screen|group|alias|batch)", flags: "i", action: "JSON_EMPTY" }
       ]
@@ -334,7 +334,7 @@ const CONFIG = {
    * 🚨 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
-    // [V42.06] Removed incorrectly cased Shopee rule (moved to ADVANCED_COMPLEX_RULES)
+    // [V42.08] Cleaned up Shopee rules (using ADVANCED_COMPLEX_RULES)
     ['account.uber.com', new Set(['/_events'])],
     ['api.tongyi.com', new Set(['/app/mobilelog', '/qianwen/event/track'])],
     ['gw.alipayobjects.com', new Set(['/config/loggw/'])],
@@ -630,14 +630,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V42.05)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V42.08)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '42.06';
+const SCRIPT_VERSION = '42.08';
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1114,7 +1114,7 @@ function initialize() {
   if (isInitialized) return;
   multiLevelCache.seed();
   
-  // [V42.05] Compile advanced complex rules
+  // [V42.08] Compile advanced complex rules
   const tCompile = CONFIG.DEBUG_MODE ? __now__() : 0;
   complexRuleEngine.compile(CONFIG.ADVANCED_COMPLEX_RULES);
   if (CONFIG.DEBUG_MODE) optimizedStats.addTiming('complex', __now__() - tCompile);
@@ -1133,7 +1133,7 @@ try {
 
   if (typeof $request === 'undefined') {
     if (typeof $done !== 'undefined') {
-      $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v42.05 - Docs Restoration & Shopee Tracking Fix', stats: optimizedStats.getStats() });
+      $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v42.08 - Shopee Live Tech Deep Subdomain Fix', stats: optimizedStats.getStats() });
     }
     return;
   }
