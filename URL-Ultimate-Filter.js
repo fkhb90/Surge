@@ -1,10 +1,8 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.11.js
- * @version   42.11 (Critical Syntax Fix & Fault Tolerance)
- * @description [緊急修復版] 
- * 1. 修正 V42.10 設定檔遺漏逗號導致的「全腳本失效」嚴重錯誤。
- * 2. 新增「編譯安全網」，確保單一規則錯誤不會癱瘓整個腳本。
- * 3. 整合 Shopee 所有複雜規則至單一入口，確保 Chatbot 與 Live Tech 絕對攔截。
+ * @file      URL-Ultimate-Filter-Surge-V42.00.js
+ * @version   42.00 (Architectural Milestone - Hybrid Rule Engine)
+ * @description [架構里程碑] 正式引入「混合式規則引擎」。將 104 人力銀行遷移至 Advanced Complex Rules (Regex) 進行試點，以精準處理參數與大小寫；其餘規則維持高效能 Trie/Map 架構。
+ * @note      此版本包含完整的 MOMO/Yahoo 優化與 104 修正。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-26
  */
@@ -12,18 +10,13 @@
 // #################################################################################################
 // #                                                                                               #
 // #                               ⚙️ SCRIPT CONFIGURATION                                         #
-// #                               (使用者在此區域安全地新增、修改或移除規則)                             #
+// #                               (使用者在此區域安全地新增、修改或移除規則)                          #
 // #                                                                                               #
 // #################################################################################################
 
 /**
  * @note 規則分類哲學 (Rule Classification Philosophy) - V40.48 增補
  * 此設定檔中的規則，是基於「子域名的具體功能」而非「母公司品牌」進行分類。
- * 因此，您可能會看到同一個品牌（如 investing.com）的功能性 API 子域（iappapi.investing.com）被列入白名單，
- * 而其數據分析子域（data.investing.com）則被列入黑名單。
- * 同樣地，對於大型生態系（如 Facebook, Google），部分子域因承擔了 App 的必要功能（例如，WhatsApp 的 URL 預覽依賴 graph.facebook.com），
- * 會透過「路徑豁免清單」進行精準放行，而非將整個主域加入白名單。
- * 這種精細化的分類，旨在最大化地保障功能相容性與使用者隱私。
  */
 const CONFIG = {
   /**
@@ -37,53 +30,29 @@ const CONFIG = {
   AC_SCAN_MAX_LENGTH: 512,
 
   /**
-   * 🏗️ 進階複雜規則配置區 (Advanced Complex Rules)
-   * 說明：支援 Regex 與自定義攔截動作 (Action)。
+   * 🏗️ [V42.00 新增] 進階複雜規則配置區 (Advanced Complex Rules)
+   * 說明：專門處理需要 Regex、查詢參數匹配、或區分大小寫的複雜攔截規則。
+   * 此區域為 V42 架構核心，目前僅 104 人力銀行採用此結構。
    */
   ADVANCED_COMPLEX_RULES: [
-    // --- Shopee Ecosystem (Unified Regex Block) ---
-    // [V42.11] 將所有蝦皮子網域規則合併，避免匹配優先級衝突
-    {
-      target_root: "shopee.tw", 
-      description: "Shopee TW Ecosystem - Tracking & Logs",
-      rules: [
-        // 1. Chatbot Interaction Logs
-        { pattern: "/report/v1/log", flags: "i", action: "REJECT" },
-        // 2. Live Tech Data Reporting (reportPB)
-        { pattern: "reportpb", flags: "i", action: "REJECT" }
-      ]
-    },
-    // --- Shopee Mobile (Global Assets & Live) ---
-    {
-      target_root: "shopeemobile.com",
-      description: "Shopee Mobile - Live, Game & Debug Tracking",
-      rules: [
-        { pattern: "/shopee/shopee-fe-live-sg/ccms/(health_check|debug)\\.json", flags: "i", action: "REJECT" },
-        { pattern: "/shopee/shopee-toclivestream/download/live/ssz_tracking_event_config\\.json", flags: "i", action: "REJECT" },
-        { pattern: "/shopee/shopee-gameplatform-live-cn/wlssdk/.*\\.js", flags: "i", action: "REJECT" }
-      ]
-    },
-    // --- 104 Job Bank ---
     {
       target_root: "104.com.tw",
-      description: "104 Job Bank - Fine-grained Control",
+      description: "104 Job Bank - Ads, Analytics & Telemetry (Mixed Case/Params/Wildcards)",
       rules: [
-        { pattern: "/api/apps/createapploginlog", flags: "i", action: "JSON_EMPTY" }, // App Telemetry
-        { pattern: "/jb/service/ad/.*\\?", flags: "i", action: "REJECT" }, // Ad Service
-        { pattern: "/ad/(general|premium|recommend)\\?", flags: "i", action: "BLOCK" }, // Ad Images
-        { pattern: "/publish/.*\\.txt", flags: "i", action: "REJECT" }, // Configs
-        { pattern: "/web/alexa\\.html", flags: "i", action: "REJECT" } // Analytics
-      ]
-    },
-    // --- Segment.io ---
-    {
-      target_root: "segment.io",
-      description: "Segment Analytics - Stealth Blocking",
-      rules: [
-        { pattern: "/v\\d+/(track|identify|page|screen|group|alias|batch)", flags: "i", action: "JSON_EMPTY" }
+        // [源自使用者提供的 Regex 拆解與優化]
+        // 1. 廣告相關 (含查詢參數 ? 匹配)
+        { pattern: "/ad/(general|premium|recommend)\\?", flags: "i" },
+        { pattern: "/jb/service/ad/.*\\?", flags: "i" },
+        // 2. 廣告配置檔 (Text 結尾)
+        { pattern: "/publish/.*\\.txt", flags: "i" },
+        // 3. 網站分析與排名
+        { pattern: "/web/alexa\\.html", flags: "i" },
+        // 4. App 遙測 (CamelCase 大小寫敏感支援)
+        { pattern: "/api/apps/createapploginlog", flags: "i" }
       ]
     }
-  ], // ✅ [V42.11 Fix] 補回此處遺漏的逗號，修復全域語法錯誤
+    // 未來若有其他無法用簡單字串匹配的規則，請依此格式新增
+  ],
    
   /**
    * ✅ [V40.76] L1 快取預熱種子
@@ -126,81 +95,132 @@ const CONFIG = {
    * ✳️ 硬白名單 - 精確匹配 (Hard Whitelist - Exact)
    */
   HARD_WHITELIST_EXACT: new Set([
+    // --- AI & Search Services ---
     'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
-    'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
+    'pplx-next-static-public.perplexity.ai',
+    'private-us-east-1.monica.im', 'api.felo.ai',
+    // --- Business & Developer Tools ---
     'adsbypasser.github.io', 'code.createjs.com', 'oa.ledabangong.com', 'oa.qianyibangong.com', 'qianwen.aliyun.com',
     'raw.githubusercontent.com', 'reportaproblem.apple.com', 'ss.ledabangong.com', 'userscripts.adtidy.org',
+    // --- Meta / Facebook ---
     'ar-genai.graph.meta.com', 'ar.graph.meta.com', 'gateway.facebook.com', 'meta-ai-realtime.facebook.com', 'meta.graph.meta.com', 'wearable-ai-realtime.facebook.com',
+    // --- Media & CDNs ---
     'cdn.ghostery.com', 'cdn.shortpixel.ai', 'cdn.syndication.twimg.com', 'd.ghostery.com', 'data-cloud.flightradar24.com', 'ssl.p.jwpcdn.com',
     'staticcdn.duckduckgo.com',
+    // --- Music & Content Recognition ---
     'secureapi.midomi.com',
+    // --- Services & App APIs ---
     'ap02.in.treasuredata.com', 
+    // 'appapi.104.com.tw', // [V41.18] 已移至軟白名單，確保 V42 複雜規則能生效
     'eco-push-api-client.meiqia.com', 'exp.acsnets.com.tw', 'mpaystore.pcstore.com.tw',
     'mushroomtrack.com', 'phtracker.com', 
     'prodapp.babytrackers.com', 'sensordata.open.cn', 'static.stepfun.com', 'track.fstry.me',
+    // --- 核心登入 & 認證 ---
     'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com', 'sso.godaddy.com',
-    'idmsa.apple.com', 'api.login.yahoo.com',
-    'api.etmall.com.tw', 'tw.fd-api.com', 'api.map.ecpay.com.tw',
+    'idmsa.apple.com',
+    'api.login.yahoo.com',
+    // --- 台灣地區服務 ---
+    'api.etmall.com.tw', 'tw.fd-api.com',
+    // --- [V40.42] 台灣關鍵基礎設施 ---
+    'api.map.ecpay.com.tw',
+    // --- 支付 & 金流 API ---
     'api.adyen.com', 'api.braintreegateway.com', 'api.ecpay.com.tw', 'api.jkos.com', 'payment.ecpay.com.tw',
+    // --- 票務 & 關鍵 API ---
     'api.line.me', 'kktix.com', 'tixcraft.com',
+    // --- 高互動性服務 API ---
     'api.discord.com', 'api.twitch.tv', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com',
-    'iappapi.investing.com', 'today.line.me', 't.uber.com',
+    'iappapi.investing.com',
+    'today.line.me',
+    // --- 品牌短網址 & 重定向 ---
+    't.uber.com',
   ]),
 
   /**
    * ✳️ 硬白名單 - 萬用字元 (Hard Whitelist - Wildcards)
    */
   HARD_WHITELIST_WILDCARDS: new Set([
+    // --- Financial, Banking & Payments ---
     'bot.com.tw', 'cathaybk.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw', 'ctbcbank.com', 'dawho.tw', 'dbs.com.tw',
     'esunbank.com.tw', 'firstbank.com.tw', 'fubon.com', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw',
     'megabank.com.tw', 'megatime.com.tw', 'mitake.com.tw', 'money-link.com.tw', 'momopay.com.tw', 'mymobibank.com.tw', 'paypal.com', 'richart.tw',
     'scsb.com.tw', 'sinopac.com', 'sinotrade.com.tw', 'standardchartered.com.tw', 'stripe.com', 'taipeifubon.com.tw', 'taishinbank.com.tw',
     'taiwanpay.com.tw', 'tcb-bank.com.tw',
+    // --- Government & Utilities ---
     'gov.tw', 'org.tw', 'pay.taipei', 'tdcc.com.tw', 'twca.com.tw', 'twmp.com.tw',
+    // --- [V40.82 新增] 核心重定向 & App 連結服務 ---
     'app.goo.gl', 'goo.gl',
+    // --- 核心登入 & 協作平台 ---
     'atlassian.net', 'auth0.com', 'okta.com',
+    // --- [V40.85 新增] DNS & 隱私工具 ---
     'nextdns.io',
-    'googleapis.com', 'icloud.com',
+    // --- 系統 & 平台核心服務 ---
+    'googleapis.com',
+    'icloud.com',
     'linksyssmartwifi.com', 'update.microsoft.com', 'windowsupdate.com',
+    // --- 網頁存檔服務 (對參數極度敏感) ---
     'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com', 'perma.cc',
     'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'webcache.googleusercontent.com', 'www.webarchive.org.uk',
-    'googlevideo.com', 'cfe.uber.com',
+    // --- YouTube 核心服務 (僅保留基礎建設) ---
+    'googlevideo.com',
+    // --- Uber 核心基礎設施 ---
+    'cfe.uber.com',
   ]),
 
   /**
    * ✅ 軟白名單 - 精確匹配 (Soft Whitelist - Exact)
    */
   SOFT_WHITELIST_EXACT: new Set([
+    // --- Common APIs ---
     'a-api.anthropic.com', 'api.anthropic.com', 'api.cohere.ai', 'api.digitalocean.com', 'api.fastly.com', 
     'api.feedly.com', 'api.github.com', 'api.heroku.com', 'api.hubapi.com', 'api.mailgun.com', 'api.netlify.com', 
     'api.openai.com', 'api.pagerduty.com', 'api.sendgrid.com', 'api.telegram.org', 'api.vercel.com', 
     'api.zendesk.com', 'duckduckgo.com', 'legy.line-apps.com', 'obs.line-scdn.net', 'secure.gravatar.com',
+    // --- 生產力 & 協作工具 ---
     'api.asana.com', 'api.dropboxapi.com', 'api.figma.com', 'api.notion.com', 'api.trello.com',
+    // --- 開發 & 部署平台 ---
     'api.cloudflare.com', 'auth.docker.io', 'database.windows.net', 'login.docker.com',
+    // --- 台灣地區服務 ---
     'api.irentcar.com.tw', 'gateway.shopback.com.tw', 'usiot.roborock.com',
-    'www.momoshop.com.tw', 'm.momoshop.com.tw', 'bsp.momoshop.com.tw',
-    'appapi.104.com.tw', 'pro.104.com.tw',
-    'prism.ec.yahoo.com', 'graphql.ec.yahoo.com',
+    'www.momoshop.com.tw', // [V41.05] 優化 crossBridge.jsp
+    'm.momoshop.com.tw', // [V41.14] 優化行動版 UI
+    'bsp.momoshop.com.tw', // [V41.16] MOMO 供應商商品詳情
+    // --- 104 Job Bank Services [V41.18] (降級至軟白名單以支援 Regex 攔截) ---
+    'appapi.104.com.tw',
+    'pro.104.com.tw',
+    // --- Yahoo EC Services [V41.15] ---
+    'prism.ec.yahoo.com',
+    'graphql.ec.yahoo.com',
+    // --- 其他 ---
     'visuals.feedly.com',
-    'api.revenuecat.com', 'api-paywalls.revenuecat.com',
-    'account.uber.com', 'xlb.uber.com',
+    'api.revenuecat.com', 
+    'api-paywalls.revenuecat.com',
+    'account.uber.com',
+    'xlb.uber.com',
   ]),
 
   /**
    * ✅ 軟白名單 - 萬用字元 (Soft Whitelist - Wildcards)
    */
   SOFT_WHITELIST_WILDCARDS: new Set([
+    // --- 電商與內容平台 ---
     'book.com.tw', 'citiesocial.com', 'coupang.com', 'iherb.biz', 'iherb.com',
     'm.youtube.com', 'momo.dm', 'momoshop.com.tw', 'pxmart.com.tw', 'pxpayplus.com',
     'shopee.com', 'shopeemobile.com', 'shopee.tw', 'shopback.com.tw', 'spotify.com', 'youtube.com',
+    // --- 核心 CDN ---
     'akamaihd.net', 'amazonaws.com', 'cloudflare.com', 'cloudfront.net', 'fastly.net', 'fbcdn.net', 
     'gstatic.com', 'jsdelivr.net', 'cdnjs.cloudflare.com', 'twimg.com', 'unpkg.com', 'ytimg.com',
+    // --- Publishing & CMS ---
     'new-reporter.com', 'wp.com',
+    // --- 閱讀器 & 新聞 ---
     'flipboard.com', 'inoreader.com', 'itofoo.com', 'newsblur.com', 'theoldreader.com',
+    // --- 開發 & 部署平台 ---
     'azurewebsites.net', 'cloudfunctions.net', 'digitaloceanspaces.com', 'github.io', 'gitlab.io', 'netlify.app',
     'oraclecloud.com', 'pages.dev', 'vercel.app', 'windows.net',
+    // --- 社群平台相容性 ---
     'instagram.com', 'threads.net',
+    // --- 協作平台 ---
     'slack.com',
+    // --- AdsBypasser ---
     'ak.sv', 'bayimg.com', 'beeimg.com', 'binbox.io', 'casimages.com', 'cocoleech.com', 'cubeupload.com', 
     'dlupload.com', 'fastpic.org', 'fotosik.pl', 'gofile.download', 'ibb.co', 'imagebam.com', 
     'imageban.ru', 'imageshack.com', 'imagetwist.com', 'imagevenue.com', 'imgbb.com', 'imgbox.com', 
@@ -214,7 +234,8 @@ const CONFIG = {
    * 🚫 域名攔截黑名單
    */
   BLOCK_DOMAINS: new Set([
-    'guce.oath.com', 'mdap.alipay.com', 'loggw-ex.alipay.com',
+    'guce.oath.com', // [V41.15] Yahoo Privacy
+    'mdap.alipay.com', 'loggw-ex.alipay.com',
     'adnext-a.akamaihd.net', 'appnext.hs.llnwd.net', 'cache.ltn.com.tw',
     'fusioncdn.com', 'pgdt.gtimg.cn', 'toots-a.akamaihd.net',
     'app-site-association.cdn-apple.com', 'iadsdk.apple.com',
@@ -332,13 +353,14 @@ const CONFIG = {
    * 🚨 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
-    // [V42.06] Removed incorrectly cased Shopee rule (moved to ADVANCED_COMPLEX_RULES)
     ['account.uber.com', new Set(['/_events'])],
     ['api.tongyi.com', new Set(['/app/mobilelog', '/qianwen/event/track'])],
     ['gw.alipayobjects.com', new Set(['/config/loggw/'])],
     ['slack.com', new Set(['/api/profiling.logging.enablement', '/api/telemetry'])],
+    // [V41.15] Yahoo EC
     ['graphql.ec.yahoo.com', new Set(['/app/sas/v1/fullSitePromotions'])],
     ['prism.ec.yahoo.com', new Set(['/api/prism/v2/streamWithAds'])],
+    // [V42.00] 104 rules moved to ADVANCED_COMPLEX_RULES
     ['analytics.google.com', new Set(['/g/collect'])],
     ['region1.analytics.google.com', new Set(['/g/collect'])],
     ['stats.g.doubleclick.net', new Set(['/g/collect', '/j/collect'])],
@@ -628,14 +650,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V42.11)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V42.00)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '42.11';
+const SCRIPT_VERSION = '42.00';
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -645,30 +667,7 @@ const DECISION = Object.freeze({ ALLOW: 1, BLOCK: 2, SOFT_WHITELISTED: 4, NEGATI
 const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 'image/gif', 'Content-Length': '43' }, body: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" } };
 const REJECT_RESPONSE   = { response: { status: 403 } };
 const DROP_RESPONSE     = { response: {} };
-const NO_CONTENT_RESPONSE = { 
-    response: { 
-        status: 204, 
-        headers: { 
-            "Access-Control-Allow-Origin": "*", 
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS", 
-            "Access-Control-Allow-Headers": "*" 
-        } 
-    } 
-};
-// [V42.04/05] JSON_EMPTY response for strict SDKs
-const JSON_EMPTY_RESPONSE = {
-    response: {
-        status: 200,
-        headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*", 
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS", 
-            "Access-Control-Allow-Headers": "*"
-        },
-        body: "{}"
-    }
-};
-
+const NO_CONTENT_RESPONSE = { response: { status: 204 } };
 const IMAGE_EXTENSIONS  = new Set(['.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp']);
 const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs', '.css']);
 
@@ -691,7 +690,7 @@ class OptimizedPerformanceStats {
     this.labels   = [
       'totalRequests','blockedRequests','domainBlocked','pathBlocked','regexPathBlocked',
       'criticalScriptBlocked','paramsCleaned','hardWhitelistHits','softWhitelistHits',
-      'errors','l1CacheHits','l2CacheHits', 'complexRuleHits', 'allowActionHits'
+      'errors','l1CacheHits','l2CacheHits', 'complexRuleHits'
     ];
     for (const l of this.labels) this.counters[l] = 0;
     this.timingBuckets = ['parse','whitelist','l1','domainStage','critical','allowlistEval','pathTrie','pathRegex','params','total', 'complex'];
@@ -740,10 +739,7 @@ class ComplexRuleEngine {
     configArray.forEach(config => {
       try {
         const compiledRules = config.rules.map(rule => {
-          return {
-            regex: new RegExp(rule.pattern, rule.flags || ''),
-            action: rule.action || 'BLOCK' // Default action
-          };
+          return new RegExp(rule.pattern, rule.flags || '');
         });
         this.rulesMap.set(config.target_root, compiledRules);
       } catch (e) {
@@ -752,21 +748,19 @@ class ComplexRuleEngine {
     });
   }
 
-  // Returns { matched: boolean, action: string }
   match(hostname, fullPath) {
-    // [V42.11 Fix] Iterate all rules. If hostname ends with root, check all rules.
-    // This handles overlapping roots (e.g. shopee.tw vs chatbot.shopee.tw) correctly by checking all possibilities.
-    // We prioritize BLOCK/REJECT actions.
-    for (const [rootDomain, rulesList] of this.rulesMap) {
+    // Iterate through registered root domains to see if the current hostname matches
+    // This allows for "endsWith" logic without hardcoding domain lists
+    for (const [rootDomain, regexList] of this.rulesMap) {
       if (hostname.endsWith(rootDomain)) {
-        for (const ruleObj of rulesList) {
-          if (ruleObj.regex.test(fullPath)) {
-             return { matched: true, action: ruleObj.action };
+        for (const regex of regexList) {
+          if (regex.test(fullPath)) {
+            return true;
           }
         }
       }
     }
-    return null;
+    return false;
   }
 }
 const complexRuleEngine = new ComplexRuleEngine();
@@ -1007,104 +1001,376 @@ function isCriticalTrackingScript(hostname, lowerFullPath, fullPath) { // Added 
   const cached = multiLevelCache.getUrlDecision('crit', hostname, lowerFullPath);
   if (cached !== null) return cached;
 
-  // [V42.04] Advanced Complex Rules Engine Check
-  // 優先執行複雜規則引擎，並支援 ALLOW 動作
-  const complexMatch = complexRuleEngine.match(hostname, fullPath);
-  if (complexMatch && complexMatch.matched) {
-      if (complexMatch.action === 'ALLOW') {
-           optimizedStats.increment('allowActionHits');
-           return null; // Let the request pass
-      } else {
-           optimizedStats.increment('complexRuleHits');
-           optimizedStats.increment('blockedRequests');
-           if (complexMatch.action === 'BLOCK') {
-                return getBlockResponse(pathnameLower);
-           } else {
-                return getActionResponse(complexMatch.action);
-           }
-      }
+  // [V42.00] Advanced Complex Rules Engine Check
+  // Uses fullPath (raw) to ensure case sensitivity and query params are handled correctly
+  if (complexRuleEngine.match(hostname, fullPath)) {
+      multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
+      optimizedStats.increment('complexRuleHits');
+      return true;
   }
 
-  const lowerFullPath = fullPath.toLowerCase();
-  const tCrit0 = t0 ? __now__() : 0;
-  if (isCriticalTrackingScript(hostname, lowerFullPath, fullPath)) {
-    optimizedStats.increment('criticalScriptBlocked'); optimizedStats.increment('blockedRequests');
-    if(t0) { optimizedStats.addTiming('critical', __now__() - tCrit0); optimizedStats.addTiming('total', __now__() - t0); }
-    return getBlockResponse(pathnameLower);
+  const qIdx = lowerFullPath.indexOf('?');
+  const pathOnly = qIdx !== -1 ? lowerFullPath.slice(0, qIdx) : lowerFullPath;
+  const slashIndex = pathOnly.lastIndexOf('/');
+   
+  let scriptName = '';
+  if (slashIndex !== -1) {
+    if (pathOnly.endsWith('.js') || pathOnly.endsWith('.mjs')) {
+        scriptName = pathOnly.slice(slashIndex + 1);
+    }
   }
-  if(t0) optimizedStats.addTiming('critical', __now__() - tCrit0);
 
-  let isSoftWhitelisted = false;
-  if (getWhitelistMatchDetails(hostname, CONFIG.SOFT_WHITELIST_EXACT, CONFIG.SOFT_WHITELIST_WILDCARDS).matched) {
-      optimizedStats.increment('softWhitelistHits');
-      isSoftWhitelisted = true;
+  if (scriptName && CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName)) {
+    multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
+    return true;
   }
-  if (t0) optimizedStats.addTiming('whitelist', __now__() - tWl0);
 
-  if (!isSoftWhitelisted) {
-      if (l1Decision !== DECISION.ALLOW && l1Decision !== DECISION.NEGATIVE_CACHE) {
-          const tDom0 = t0 ? __now__() : 0;
-          multiLevelCache.setDomainDecision(hostname, DECISION.ALLOW, 10 * 60 * 1000);
-          if(t0) optimizedStats.addTiming('domainStage', __now__() - tDom0);
+  const hostPrefixes = CONFIG.CRITICAL_TRACKING_MAP.get(hostname);
+  if (hostPrefixes) {
+    if (hostPrefixes.size === 0) {
+      multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
+      return true;
+    }
+    for (const prefix of hostPrefixes) {
+      if (lowerFullPath.startsWith(prefix)) {
+        multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
+        return true;
       }
-      
-      const tAllow0 = t0 ? __now__() : 0;
-      const isAllowed = isPathExplicitlyAllowed(pathnameLower);
-      if(t0) optimizedStats.addTiming('allowlistEval', __now__() - tAllow0);
+    }
+  }
 
-      const tPB0 = t0 ? __now__() : 0;
-      if (isPathBlockedByKeywords(pathnameLower, isAllowed)) {
-        optimizedStats.increment('pathBlocked'); optimizedStats.increment('blockedRequests');
-        if(t0) { optimizedStats.addTiming('pathTrie', __now__() - tPB0); optimizedStats.addTiming('total', __now__() - t0); }
-        return getBlockResponse(pathnameLower);
-      }
-      if(t0) optimizedStats.addTiming('pathTrie', __now__() - tPB0);
+  if (getAcCriticalGeneric().matches(pathOnly, CONFIG.AC_SCAN_MAX_LENGTH)) {
+    multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
+    return true;
+  }
 
-      const tPR0 = t0 ? __now__() : 0;
-      if (isPathBlockedByRegex(pathnameLower, isAllowed)) {
-        optimizedStats.increment('regexPathBlocked'); optimizedStats.increment('blockedRequests');
-        if(t0) { optimizedStats.addTiming('pathRegex', __now__() - tPR0); optimizedStats.addTiming('total', __now__() - t0); }
-        return getBlockResponse(pathnameLower);
-      }
-      if(t0) optimizedStats.addTiming('pathRegex', __now__() - tPR0);
+  multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, false);
+  return false;
+}
+
+// ================================================================================================
+/** 🧯 路徑白名單與阻擋 */
+// ================================================================================================
+function isPathExplicitlyAllowed(lowerPathOnly) {
+  const k = multiLevelCache.getUrlDecision('allow:path', lowerPathOnly, '');
+  if (k !== null) return k;
+
+  const runSecondaryCheck = (pathToCheck) => {
+    for (const trackerKeyword of CONFIG.HIGH_CONFIDENCE_TRACKER_KEYWORDS_IN_PATH) {
+      if (pathToCheck.includes(trackerKeyword)) return false;
+    }
+    return true;
+  };
+
+  for (const substring of CONFIG.PATH_ALLOW_SUBSTRINGS) {
+    if (lowerPathOnly.includes(substring)) {
+      const r = runSecondaryCheck(lowerPathOnly);
+      multiLevelCache.setUrlDecision('allow:path', lowerPathOnly, '', r);
+      return r;
+    }
+  }
+
+  const segments = lowerPathOnly.startsWith('/') ? lowerPathOnly.substring(1).split('/') : lowerPathOnly.split('/');
+  for (const segment of segments) {
+    if (CONFIG.PATH_ALLOW_SEGMENTS.has(segment)) {
+      const r = runSecondaryCheck(lowerPathOnly);
+      multiLevelCache.setUrlDecision('allow:path', lowerPathOnly, '', r);
+      return r;
+    }
+  }
+
+  for (const suffix of CONFIG.PATH_ALLOW_SUFFIXES) {
+    if (lowerPathOnly.endsWith(suffix)) {
+      const parentPath = lowerPathOnly.substring(0, lowerPathOnly.lastIndexOf('/'));
+      const r = runSecondaryCheck(parentPath);
+      multiLevelCache.setUrlDecision('allow:path', lowerPathOnly, '', r);
+      return r;
+    }
+  }
+
+  multiLevelCache.setUrlDecision('allow:path', lowerPathOnly, '', false);
+  return false;
+}
+
+function isPathBlockedByKeywords(lowerPathOnly, isExplicitlyAllowed) {
+  const c = multiLevelCache.getUrlDecision('path:ac', lowerPathOnly, '');
+  if (c !== null) return c;
+  let r = false;
+  if (!isExplicitlyAllowed && getAcPathBlock().matches(lowerPathOnly, CONFIG.AC_SCAN_MAX_LENGTH)) r = true;
+  multiLevelCache.setUrlDecision('path:ac', lowerPathOnly, '', r);
+  return r;
+}
+
+function isPathBlockedByRegex(lowerPathOnly, isExplicitlyAllowed) {
+  const c = multiLevelCache.getUrlDecision('path:rx', lowerPathOnly, '');
+  if (c !== null) return c;
+
+  for (const prefix of CONFIG.PATH_ALLOW_PREFIXES) {
+    if (lowerPathOnly.startsWith(prefix)) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', false); return false; }
+  }
+  if (isExplicitlyAllowed) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', false); return false; }
+   
+  if (lowerPathOnly.endsWith('/collect') || lowerPathOnly.endsWith('/service/collect')) {
+      multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', true);
+      return true;
   }
    
-  if (qIndex !== -1) {
-      let isExemptFromParamCleaning = false;
-      const exemptions = CONFIG.PARAM_CLEANING_EXEMPTIONS.get(hostname);
-      if (exemptions) {
-          for (const prefix of exemptions) {
-              if (fullPath.startsWith(prefix)) {
-                  isExemptFromParamCleaning = true;
-                  break;
-              }
-          }
+  if (lowerPathOnly.includes('sentry') || lowerPathOnly.includes('event') || lowerPathOnly.includes('.js')) {
+      for (const regex of getCompiledPathBlockRegex()) {
+        if (regex.test(lowerPathOnly)) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', true); return true; }
       }
-
-      if (!isExemptFromParamCleaning) {
-          const tP0 = t0 ? __now__() : 0;
-          const cleanedUrl = cleanTrackingParams(rawUrl);
-          if (cleanedUrl) {
-              optimizedStats.increment('paramsCleaned');
-              request.url = cleanedUrl;
-              if (t0) { optimizedStats.addTiming('params', __now__() - tP0); optimizedStats.addTiming('total', __now__() - t0); }
-              return { request };
-          }
-          if(t0) optimizedStats.addTiming('params', __now__() - tP0);
+      for (const regex of getCompiledHeuristicPathBlockRegex()) {
+        const segments = lowerPathOnly.split('/');
+        const filename = segments[segments.length - 1];
+        if (regex.test(filename)) { multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', true); return true; }
       }
   }
-
-  if (l1Decision === null) {
-      multiLevelCache.setDomainDecision(hostname, DECISION.NEGATIVE_CACHE, 60 * 1000);
-  }
-
-  if(t0) optimizedStats.addTiming('total', __now__() - t0);
-  return null;
-} catch (error) {
-  logError(error, { stage: 'processRequest', url: getSanitizedUrlForLogging(request?.url) });
-  if(t0) optimizedStats.addTiming('total', __now__() - t0);
-  return null;
+   
+  multiLevelCache.setUrlDecision('path:rx', lowerPathOnly, '', false);
+  return false;
 }
+
+// ================================================================================================
+/** 🧱 阻擋回應 */
+// ================================================================================================
+function getBlockResponse(pathnameLower) {
+  if (pathnameLower.includes('/sa.gif')) {
+    return TINY_GIF_RESPONSE;
+  }
+
+  for (const keyword of CONFIG.DROP_KEYWORDS) {
+    if (pathnameLower.includes(keyword)) return DROP_RESPONSE;
+  }
+  const dotIndex = pathnameLower.lastIndexOf('.');
+  if (dotIndex > pathnameLower.lastIndexOf('/')) {
+    const ext = pathnameLower.substring(dotIndex);
+    if (IMAGE_EXTENSIONS.has(ext)) return TINY_GIF_RESPONSE;
+    if (SCRIPT_EXTENSIONS.has(ext)) return NO_CONTENT_RESPONSE;
+  }
+  return REJECT_RESPONSE;
+}
+
+// ================================================================================================
+/** 🧼 參數清理 */
+// ================================================================================================
+const REGEX_FIRST_CHAR_BUCKET = new Set(['u','i','a','t','l','_']);
+function cleanTrackingParams(rawUrl) {
+    const urlObj = new URL(rawUrl);
+    let modified = false;
+    const toDelete = [];
+
+    for (const key of urlObj.searchParams.keys()) {
+        if (key.length < 2) continue;
+        const lowerKey = key.toLowerCase();
+        if (CONFIG.PARAMS_TO_KEEP_WHITELIST.has(lowerKey)) continue;
+
+        if (CONFIG.GLOBAL_TRACKING_PARAMS.has(lowerKey) ||
+            CONFIG.COSMETIC_PARAMS.has(lowerKey) ||
+            getPrefixTrieForParam().startsWith(lowerKey)) {
+            toDelete.push(key);
+            modified = true; continue;
+        }
+
+        const first = lowerKey[0];
+        if (REGEX_FIRST_CHAR_BUCKET.has(first)) {
+            let matched = false;
+            for (const rx of getCompiledGlobalTrackingParamsRegex()) {
+                if (rx.test(lowerKey)) { toDelete.push(key); modified = true; matched = true; break; }
+            }
+            if (matched) continue;
+            for (const rx of getCompiledTrackingPrefixesRegex()) {
+                if (rx.test(lowerKey)) { toDelete.push(key); modified = true; break; }
+            }
+        }
+    }
+
+    if (modified) {
+        toDelete.forEach(k => urlObj.searchParams.delete(k));
+        return urlObj.toString();
+    }
+
+    return null;
+}
+
+// ================================================================================================
+/** 🔏 記錄清洗 */
+// ================================================================================================
+const SENSITIVE_PARAMS_CONFIG = {
+    keywords: ['token','password','key','secret','auth','otp','access_token','refresh_token'],
+    firstCharBucket: new Set(['t', 'p', 'k', 's', 'a', 'o', 'r'])
+};
+
+function getSanitizedUrlForLogging(urlStr) {
+  try {
+    const tempUrl = new URL(urlStr);
+    if (!tempUrl.search) return urlStr;
+
+    for (const param of tempUrl.searchParams.keys()) {
+      const lowerParam = param.toLowerCase();
+      if (!SENSITIVE_PARAMS_CONFIG.firstCharBucket.has(lowerParam[0])) continue;
+      for (const sensitive of SENSITIVE_PARAMS_CONFIG.keywords) {
+        if (lowerParam.includes(sensitive)) { tempUrl.searchParams.set(param, 'REDACTED'); break; }
+      }
+    }
+    return tempUrl.toString();
+  } catch (e) {
+    return (typeof urlStr === 'string' ? urlStr.split('?')[0] : '<INVALID_URL_OBJECT>') + '?<URL_PARSE_ERROR>';
+  }
+}
+
+// ================================================================================================
+/** 🛠️ 主流程 */
+// ================================================================================================
+function processRequest(request) {
+  const t0 = CONFIG.DEBUG_MODE ? __now__() : 0;
+  try {
+    optimizedStats.increment('totalRequests');
+    const rawUrl = request.url;
+
+    if (!rawUrl || typeof rawUrl !== 'string' || rawUrl.length < 10) {
+      if (t0) optimizedStats.addTiming('total', __now__() - t0);
+      return null;
+    }
+     
+    const tParse0 = t0 ? __now__() : 0;
+    const protocolEnd = rawUrl.indexOf('//') + 2;
+    let hostname, fullPath, hostEndIndex;
+    if (rawUrl.charCodeAt(protocolEnd) === 91) { // IPv6
+        hostEndIndex = rawUrl.indexOf(']', protocolEnd) + 1;
+        hostname = rawUrl.substring(protocolEnd, hostEndIndex).toLowerCase();
+    } else {
+        hostEndIndex = rawUrl.indexOf('/', protocolEnd);
+        if (hostEndIndex === -1) hostEndIndex = rawUrl.length;
+        let portIndex = rawUrl.indexOf(':', protocolEnd);
+        if (portIndex !== -1 && portIndex < hostEndIndex) {
+            hostname = rawUrl.substring(protocolEnd, portIndex).toLowerCase();
+        } else {
+            hostname = rawUrl.substring(protocolEnd, hostEndIndex).toLowerCase();
+        }
+    }
+    const pathStartIndex = rawUrl.indexOf('/', protocolEnd);
+    fullPath = pathStartIndex === -1 ? '/' : rawUrl.substring(pathStartIndex);
+
+    if(t0) optimizedStats.addTiming('parse', __now__() - tParse0);
+
+    const exemptions = CONFIG.PATH_EXEMPTIONS_FOR_BLOCKED_DOMAINS.get(hostname);
+    if (exemptions) {
+        for (const prefix of exemptions) {
+            if (fullPath.startsWith(prefix)) {
+                if (t0) { optimizedStats.addTiming('whitelist', __now__() - t0); optimizedStats.addTiming('total', __now__() - t0); }
+                return null; // Exempted path on a blocked domain, allow request
+            }
+        }
+    }
+
+    const tWl0 = t0 ? __now__() : 0;
+    if (getWhitelistMatchDetails(hostname, CONFIG.HARD_WHITELIST_EXACT, CONFIG.HARD_WHITELIST_WILDCARDS).matched) {
+      optimizedStats.increment('hardWhitelistHits');
+      if (t0) { optimizedStats.addTiming('whitelist', __now__() - tWl0); optimizedStats.addTiming('total', __now__() - t0); }
+      return null;
+    }
+
+    const tL10 = t0 ? __now__() : 0;
+    const l1Decision = multiLevelCache.getDomainDecision(hostname);
+    const qIndex = fullPath.indexOf('?');
+    const pathname = qIndex === -1 ? fullPath : fullPath.substring(0, qIndex);
+    const pathnameLower = pathname.toLowerCase();
+     
+    if (isDomainBlocked(hostname)) {
+        multiLevelCache.setDomainDecision(hostname, DECISION.BLOCK, 30 * 60 * 1000);
+        optimizedStats.increment('domainBlocked'); optimizedStats.increment('blockedRequests');
+        if (t0) { optimizedStats.addTiming('domainStage', __now__() - tL10); optimizedStats.addTiming('total', __now__() - t0); }
+        return getBlockResponse(pathnameLower);
+    }
+     
+    if (l1Decision === DECISION.BLOCK) {
+      optimizedStats.increment('domainBlocked'); optimizedStats.increment('blockedRequests');
+      if (t0) { optimizedStats.addTiming('l1', __now__() - tL10); optimizedStats.addTiming('total', __now__() - t0); }
+      return getBlockResponse(pathnameLower);
+    }
+    if (t0) optimizedStats.addTiming('l1', __now__() - tL10);
+     
+    const lowerFullPath = fullPath.toLowerCase();
+    const tCrit0 = t0 ? __now__() : 0;
+    // [V42.00] Pass raw fullPath for complex regex matching
+    if (isCriticalTrackingScript(hostname, lowerFullPath, fullPath)) {
+      optimizedStats.increment('criticalScriptBlocked'); optimizedStats.increment('blockedRequests');
+      if(t0) { optimizedStats.addTiming('critical', __now__() - tCrit0); optimizedStats.addTiming('total', __now__() - t0); }
+      return getBlockResponse(pathnameLower);
+    }
+    if(t0) optimizedStats.addTiming('critical', __now__() - tCrit0);
+
+    let isSoftWhitelisted = false;
+    if (getWhitelistMatchDetails(hostname, CONFIG.SOFT_WHITELIST_EXACT, CONFIG.SOFT_WHITELIST_WILDCARDS).matched) {
+        optimizedStats.increment('softWhitelistHits');
+        isSoftWhitelisted = true;
+    }
+    if (t0) optimizedStats.addTiming('whitelist', __now__() - tWl0);
+
+    if (!isSoftWhitelisted) {
+        if (l1Decision !== DECISION.ALLOW && l1Decision !== DECISION.NEGATIVE_CACHE) {
+            const tDom0 = t0 ? __now__() : 0;
+            multiLevelCache.setDomainDecision(hostname, DECISION.ALLOW, 10 * 60 * 1000);
+            if(t0) optimizedStats.addTiming('domainStage', __now__() - tDom0);
+        }
+        
+        const tAllow0 = t0 ? __now__() : 0;
+        const isAllowed = isPathExplicitlyAllowed(pathnameLower);
+        if(t0) optimizedStats.addTiming('allowlistEval', __now__() - tAllow0);
+
+        const tPB0 = t0 ? __now__() : 0;
+        if (isPathBlockedByKeywords(pathnameLower, isAllowed)) {
+          optimizedStats.increment('pathBlocked'); optimizedStats.increment('blockedRequests');
+          if(t0) { optimizedStats.addTiming('pathTrie', __now__() - tPB0); optimizedStats.addTiming('total', __now__() - t0); }
+          return getBlockResponse(pathnameLower);
+        }
+        if(t0) optimizedStats.addTiming('pathTrie', __now__() - tPB0);
+
+        const tPR0 = t0 ? __now__() : 0;
+        if (isPathBlockedByRegex(pathnameLower, isAllowed)) {
+          optimizedStats.increment('regexPathBlocked'); optimizedStats.increment('blockedRequests');
+          if(t0) { optimizedStats.addTiming('pathRegex', __now__() - tPR0); optimizedStats.addTiming('total', __now__() - t0); }
+          return getBlockResponse(pathnameLower);
+        }
+        if(t0) optimizedStats.addTiming('pathRegex', __now__() - tPR0);
+    }
+     
+    if (qIndex !== -1) {
+        let isExemptFromParamCleaning = false;
+        const exemptions = CONFIG.PARAM_CLEANING_EXEMPTIONS.get(hostname);
+        if (exemptions) {
+            for (const prefix of exemptions) {
+                if (fullPath.startsWith(prefix)) {
+                    isExemptFromParamCleaning = true;
+                    break;
+                }
+            }
+        }
+
+        if (!isExemptFromParamCleaning) {
+            const tP0 = t0 ? __now__() : 0;
+            const cleanedUrl = cleanTrackingParams(rawUrl);
+            if (cleanedUrl) {
+                optimizedStats.increment('paramsCleaned');
+                request.url = cleanedUrl;
+                if (t0) { optimizedStats.addTiming('params', __now__() - tP0); optimizedStats.addTiming('total', __now__() - t0); }
+                return { request };
+            }
+            if(t0) optimizedStats.addTiming('params', __now__() - tP0);
+        }
+    }
+
+    if (l1Decision === null) {
+        multiLevelCache.setDomainDecision(hostname, DECISION.NEGATIVE_CACHE, 60 * 1000);
+    }
+
+    if(t0) optimizedStats.addTiming('total', __now__() - t0);
+    return null;
+  } catch (error) {
+    logError(error, { stage: 'processRequest', url: getSanitizedUrlForLogging(request?.url) });
+    if(t0) optimizedStats.addTiming('total', __now__() - t0);
+    return null;
+  }
 }
 
 // ================================================================================================
@@ -1112,57 +1378,52 @@ function isCriticalTrackingScript(hostname, lowerFullPath, fullPath) { // Added 
 // ================================================================================================
 let isInitialized = false;
 function initialize() {
-  if (isInitialized) return;
-  multiLevelCache.seed();
-  
-  // [V42.11 Fix] Try-Catch block to prevent syntax errors from crashing the entire script
-  try {
+    if (isInitialized) return;
+    multiLevelCache.seed();
+    
+    // [V42.00] Compile advanced complex rules
     const tCompile = CONFIG.DEBUG_MODE ? __now__() : 0;
     complexRuleEngine.compile(CONFIG.ADVANCED_COMPLEX_RULES);
     if (CONFIG.DEBUG_MODE) optimizedStats.addTiming('complex', __now__() - tCompile);
-  } catch (e) {
-    logError(e, { stage: 'initialize_complex_rules' });
-    // Even if complex rules fail, do NOT stop initialization. Legacy rules should still work.
-  }
 
-  isInitialized = true;
+    isInitialized = true;
 }
 
 (async function () {
-try {
-  let startTime;
-  if (CONFIG.DEBUG_MODE && typeof $request !== 'undefined') {
-    startTime = __now__();
-  }
-   
-  initialize();
-
-  if (typeof $request === 'undefined') {
-    if (typeof $done !== 'undefined') {
-      $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v42.11 - Critical Syntax Fix', stats: optimizedStats.getStats() });
+  try {
+    let startTime;
+    if (CONFIG.DEBUG_MODE && typeof $request !== 'undefined') {
+      startTime = __now__();
     }
-    return;
-  }
+     
+    initialize();
 
-  const result = processRequest($request);
-
-  if (CONFIG.DEBUG_MODE) {
-    const endTime = __now__();
-    const executionTime = (endTime - startTime).toFixed(3);
-    console.log(`[URL-Filter-v${SCRIPT_VERSION}][Debug] Time: ${executionTime}ms | URL: ${getSanitizedUrlForLogging($request.url)} | ${optimizedStats.getSummary()}`);
-  }
-   
-  if (typeof $done !== 'undefined') {
-      if (result && result.request) {
-          $done(result);
-      } else if (result && result.response) {
-          $done(result);
-      } else {
-          $done({});
+    if (typeof $request === 'undefined') {
+      if (typeof $done !== 'undefined') {
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v42.00 - Architectural Milestone (Hybrid Rule Engine)', stats: optimizedStats.getStats() });
       }
+      return;
+    }
+
+    const result = processRequest($request);
+
+    if (CONFIG.DEBUG_MODE) {
+      const endTime = __now__();
+      const executionTime = (endTime - startTime).toFixed(3);
+      console.log(`[URL-Filter-v${SCRIPT_VERSION}][Debug] Time: ${executionTime}ms | URL: ${getSanitizedUrlForLogging($request.url)} | ${optimizedStats.getSummary()}`);
+    }
+     
+    if (typeof $done !== 'undefined') {
+        if (result && result.request) {
+            $done(result);
+        } else if (result && result.response) {
+            $done(result);
+        } else {
+            $done({});
+        }
+    }
+  } catch (error) {
+    logError(error, { stage: 'globalExecution' });
+    if (typeof $done !== 'undefined') $done({});
   }
-} catch (error) {
-  logError(error, { stage: 'globalExecution' });
-  if (typeof $done !== 'undefined') $done({});
-}
 })();
