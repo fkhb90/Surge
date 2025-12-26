@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.06.js
- * @version   42.06 (Shopee Case-Sensitivity Fix)
- * @description [錯誤修復版] 
- * 1. 修復 Shopee reportPB 追蹤因大小寫問題導致的攔截失效 (遷移至 Regex 引擎)。
- * 2. 完整還原「規則分類哲學」註釋。
- * 3. 繼承 V42.04/05 的所有功能 (JSON_EMPTY, 104, Segment, Yahoo, MOMO)。
+ * @file      URL-Ultimate-Filter-Surge-V42.07.js
+ * @version   42.07 (Shopee Chatbot & Mobile Regex Fix)
+ * @description [蝦皮生態系深度淨化] 
+ * 1. 新增 chatbot.shopee.tw 的日誌回報攔截。
+ * 2. 針對 shopeemobile.com 實作複雜 Regex 攔截 (直播檢測、追蹤配置、遊戲 SDK)。
+ * 3. 繼承 V42.06 所有優化 (104, Segment, Yahoo, MOMO, 文件修復)。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-26
  */
@@ -12,7 +12,7 @@
 // #################################################################################################
 // #                                                                                               #
 // #                               ⚙️ SCRIPT CONFIGURATION                                         #
-// #                               (使用者在此區域安全地新增、修改或移除規則)                          #
+// #                               (使用者在此區域安全地新增、修改或移除規則)                             #
 // #                                                                                               #
 // #################################################################################################
 
@@ -41,13 +41,28 @@ const CONFIG = {
    * 說明：支援 Regex 與自定義攔截動作 (Action)。
    */
   ADVANCED_COMPLEX_RULES: [
-    // --- [V42.06 Fix] Shopee Live Tech Tracking (Case Insensitive) ---
+    // --- Shopee Taiwan (Tracking & Reporting) ---
     {
-      target_root: "shopee.tw", // 涵蓋 data-rep.livetech.shopee.tw
-      description: "Shopee Live Tech - Data Reporting (reportPB)",
+      target_root: "shopee.tw", // 涵蓋 data-rep, chatbot 等子網域
+      description: "Shopee TW - Tracking, Reporting & Chatbot Logs",
       rules: [
-        // 使用 Regex "i" flag 忽略大小寫，確保 reportPB 與 reportpb 都能被攔截
-        { pattern: "/dataapi/dataweb/event/reportpb", flags: "i", action: "REJECT" }
+        // [V42.06] reportPB 二進制回報
+        { pattern: "/dataapi/dataweb/event/reportpb", flags: "i", action: "REJECT" },
+        // [V42.07] Chatbot Log
+        { pattern: "/report/v1/log", flags: "i", action: "REJECT" }
+      ]
+    },
+    // --- [V42.07 New] Shopee Mobile (Assets & Live Streaming) ---
+    {
+      target_root: "shopeemobile.com",
+      description: "Shopee Mobile - Live, Game & Debug Tracking",
+      rules: [
+        // 直播健康檢查與除錯資訊
+        { pattern: "/shopee/shopee-fe-live-sg/ccms/(health_check|debug)\\.json", flags: "i", action: "REJECT" },
+        // 直播追蹤事件配置檔
+        { pattern: "/shopee/shopee-toclivestream/download/live/ssz_tracking_event_config\\.json", flags: "i", action: "REJECT" },
+        // 遊戲平台 SDK (WLS SDK)
+        { pattern: "/shopee/shopee-gameplatform-live-cn/wlssdk/.*\\.js", flags: "i", action: "REJECT" }
       ]
     },
     // --- 104 Job Bank (Mixed Case/Params/Wildcards) ---
