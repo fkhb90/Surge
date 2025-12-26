@@ -1,8 +1,8 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.00.js
- * @version   42.00 (Architectural Milestone - Hybrid Rule Engine)
- * @description [架構里程碑] 正式引入「混合式規則引擎」。將 104 人力銀行遷移至 Advanced Complex Rules (Regex) 進行試點，以精準處理參數與大小寫；其餘規則維持高效能 Trie/Map 架構。
- * @note      此版本包含完整的 MOMO/Yahoo 優化與 104 修正。
+ * @file      URL-Ultimate-Filter-Surge-V42.01.js
+ * @version   42.01 (Action-Based Complex Rules)
+ * @description [架構升級版] 在複雜規則引擎中引入 "action" 欄位，支援針對不同路徑定義 REJECT, TINY_GIF, NO_CONTENT 等精確攔截行為。優化 104 API 攔截體驗，防止 App 報錯。
+ * @note      此版本基於 V42.00 架構進行功能擴充。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-26
  */
@@ -30,28 +30,41 @@ const CONFIG = {
   AC_SCAN_MAX_LENGTH: 512,
 
   /**
-   * 🏗️ [V42.00 新增] 進階複雜規則配置區 (Advanced Complex Rules)
-   * 說明：專門處理需要 Regex、查詢參數匹配、或區分大小寫的複雜攔截規則。
-   * 此區域為 V42 架構核心，目前僅 104 人力銀行採用此結構。
+   * 🏗️ [V42.01 擴充] 進階複雜規則配置區 (Advanced Complex Rules)
+   * 說明：支援 Regex 與自定義攔截動作 (Action)。
+   * 結構：
+   * {
+   * "target_root": "主網域後綴",
+   * "rules": [
+   * { 
+   * "pattern": "Regex字串", 
+   * "flags": "Regex旗標", 
+   * "action": "BLOCK | REJECT | TINY_GIF | NO_CONTENT | DROP" // [V42.01 新增]
+   * }
+   * ]
+   * }
    */
   ADVANCED_COMPLEX_RULES: [
     {
       target_root: "104.com.tw",
-      description: "104 Job Bank - Ads, Analytics & Telemetry (Mixed Case/Params/Wildcards)",
+      description: "104 Job Bank - Fine-grained Control",
       rules: [
-        // [源自使用者提供的 Regex 拆解與優化]
-        // 1. 廣告相關 (含查詢參數 ? 匹配)
-        { pattern: "/ad/(general|premium|recommend)\\?", flags: "i" },
-        { pattern: "/jb/service/ad/.*\\?", flags: "i" },
-        // 2. 廣告配置檔 (Text 結尾)
-        { pattern: "/publish/.*\\.txt", flags: "i" },
-        // 3. 網站分析與排名
-        { pattern: "/web/alexa\\.html", flags: "i" },
-        // 4. App 遙測 (CamelCase 大小寫敏感支援)
-        { pattern: "/api/apps/createapploginlog", flags: "i" }
+        // 1. App 遙測日誌：使用 NO_CONTENT (204) 避免 App 出現「網路錯誤」提示
+        { pattern: "/api/apps/createapploginlog", flags: "i", action: "NO_CONTENT" },
+        
+        // 2. 廣告 API 服務：使用 REJECT (403) 強制阻擋
+        { pattern: "/jb/service/ad/.*\\?", flags: "i", action: "REJECT" },
+        
+        // 3. 廣告圖片/連結：使用 BLOCK (智慧判斷，若是圖片則回傳 GIF)
+        { pattern: "/ad/(general|premium|recommend)\\?", flags: "i", action: "BLOCK" },
+        
+        // 4. 廣告配置檔：REJECT
+        { pattern: "/publish/.*\\.txt", flags: "i", action: "REJECT" },
+        
+        // 5. 網站分析：REJECT
+        { pattern: "/web/alexa\\.html", flags: "i", action: "REJECT" }
       ]
     }
-    // 未來若有其他無法用簡單字串匹配的規則，請依此格式新增
   ],
    
   /**
@@ -111,7 +124,7 @@ const CONFIG = {
     'secureapi.midomi.com',
     // --- Services & App APIs ---
     'ap02.in.treasuredata.com', 
-    // 'appapi.104.com.tw', // [V41.18] 已移至軟白名單，確保 V42 複雜規則能生效
+    // 'appapi.104.com.tw', // [V41.18] Moved to Soft Whitelist
     'eco-push-api-client.meiqia.com', 'exp.acsnets.com.tw', 'mpaystore.pcstore.com.tw',
     'mushroomtrack.com', 'phtracker.com', 
     'prodapp.babytrackers.com', 'sensordata.open.cn', 'static.stepfun.com', 'track.fstry.me',
@@ -357,10 +370,8 @@ const CONFIG = {
     ['api.tongyi.com', new Set(['/app/mobilelog', '/qianwen/event/track'])],
     ['gw.alipayobjects.com', new Set(['/config/loggw/'])],
     ['slack.com', new Set(['/api/profiling.logging.enablement', '/api/telemetry'])],
-    // [V41.15] Yahoo EC
     ['graphql.ec.yahoo.com', new Set(['/app/sas/v1/fullSitePromotions'])],
     ['prism.ec.yahoo.com', new Set(['/api/prism/v2/streamWithAds'])],
-    // [V42.00] 104 rules moved to ADVANCED_COMPLEX_RULES
     ['analytics.google.com', new Set(['/g/collect'])],
     ['region1.analytics.google.com', new Set(['/g/collect'])],
     ['stats.g.doubleclick.net', new Set(['/g/collect', '/j/collect'])],
@@ -650,14 +661,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V42.00)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V42.01)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '42.00';
+const SCRIPT_VERSION = '42.01';
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -739,7 +750,10 @@ class ComplexRuleEngine {
     configArray.forEach(config => {
       try {
         const compiledRules = config.rules.map(rule => {
-          return new RegExp(rule.pattern, rule.flags || '');
+          return {
+            regex: new RegExp(rule.pattern, rule.flags || ''),
+            action: rule.action || 'BLOCK' // Default action
+          };
         });
         this.rulesMap.set(config.target_root, compiledRules);
       } catch (e) {
@@ -748,19 +762,18 @@ class ComplexRuleEngine {
     });
   }
 
+  // Returns { matched: boolean, action: string }
   match(hostname, fullPath) {
-    // Iterate through registered root domains to see if the current hostname matches
-    // This allows for "endsWith" logic without hardcoding domain lists
-    for (const [rootDomain, regexList] of this.rulesMap) {
+    for (const [rootDomain, rulesList] of this.rulesMap) {
       if (hostname.endsWith(rootDomain)) {
-        for (const regex of regexList) {
-          if (regex.test(fullPath)) {
-            return true;
+        for (const ruleObj of rulesList) {
+          if (ruleObj.regex.test(fullPath)) {
+            return { matched: true, action: ruleObj.action };
           }
         }
       }
     }
-    return false;
+    return null;
   }
 }
 const complexRuleEngine = new ComplexRuleEngine();
@@ -997,17 +1010,9 @@ function isDomainBlocked(hostname) {
 // ================================================================================================
 /** 🚨 關鍵追蹤偵測 */
 // ================================================================================================
-function isCriticalTrackingScript(hostname, lowerFullPath, fullPath) { // Added fullPath arg
+function isCriticalTrackingScript(hostname, lowerFullPath) {
   const cached = multiLevelCache.getUrlDecision('crit', hostname, lowerFullPath);
   if (cached !== null) return cached;
-
-  // [V42.00] Advanced Complex Rules Engine Check
-  // Uses fullPath (raw) to ensure case sensitivity and query params are handled correctly
-  if (complexRuleEngine.match(hostname, fullPath)) {
-      multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
-      optimizedStats.increment('complexRuleHits');
-      return true;
-  }
 
   const qIdx = lowerFullPath.indexOf('?');
   const pathOnly = qIdx !== -1 ? lowerFullPath.slice(0, qIdx) : lowerFullPath;
@@ -1150,6 +1155,22 @@ function getBlockResponse(pathnameLower) {
   return REJECT_RESPONSE;
 }
 
+// [V42.01] Helper to get response object from action string
+function getActionResponse(action) {
+  switch (action) {
+    case 'TINY_GIF': return TINY_GIF_RESPONSE;
+    case 'NO_CONTENT': return NO_CONTENT_RESPONSE;
+    case 'REJECT': return REJECT_RESPONSE;
+    case 'DROP': return DROP_RESPONSE;
+    case 'BLOCK': 
+    default: 
+      // Fallback to auto-detection, but we need pathname for that.
+      // Since complex rules match full paths, we can usually default to REJECT or reuse getBlockResponse logic
+      // if we had the pathname. Here we default to REJECT for strictness.
+      return REJECT_RESPONSE;
+  }
+}
+
 // ================================================================================================
 /** 🧼 參數清理 */
 // ================================================================================================
@@ -1258,7 +1279,7 @@ function processRequest(request) {
         for (const prefix of exemptions) {
             if (fullPath.startsWith(prefix)) {
                 if (t0) { optimizedStats.addTiming('whitelist', __now__() - t0); optimizedStats.addTiming('total', __now__() - t0); }
-                return null; // Exempted path on a blocked domain, allow request
+                return null;
             }
         }
     }
@@ -1290,10 +1311,21 @@ function processRequest(request) {
     }
     if (t0) optimizedStats.addTiming('l1', __now__() - tL10);
      
+    // [V42.01] Complex Rule Engine (High Priority, Action Aware)
+    const complexMatch = complexRuleEngine.match(hostname, fullPath);
+    if (complexMatch && complexMatch.matched) {
+        optimizedStats.increment('complexRuleHits');
+        optimizedStats.increment('blockedRequests');
+        if (complexMatch.action === 'BLOCK') {
+             return getBlockResponse(pathnameLower);
+        } else {
+             return getActionResponse(complexMatch.action);
+        }
+    }
+
     const lowerFullPath = fullPath.toLowerCase();
     const tCrit0 = t0 ? __now__() : 0;
-    // [V42.00] Pass raw fullPath for complex regex matching
-    if (isCriticalTrackingScript(hostname, lowerFullPath, fullPath)) {
+    if (isCriticalTrackingScript(hostname, lowerFullPath)) {
       optimizedStats.increment('criticalScriptBlocked'); optimizedStats.increment('blockedRequests');
       if(t0) { optimizedStats.addTiming('critical', __now__() - tCrit0); optimizedStats.addTiming('total', __now__() - t0); }
       return getBlockResponse(pathnameLower);
@@ -1381,7 +1413,7 @@ function initialize() {
     if (isInitialized) return;
     multiLevelCache.seed();
     
-    // [V42.00] Compile advanced complex rules
+    // [V42.01] Compile advanced complex rules
     const tCompile = CONFIG.DEBUG_MODE ? __now__() : 0;
     complexRuleEngine.compile(CONFIG.ADVANCED_COMPLEX_RULES);
     if (CONFIG.DEBUG_MODE) optimizedStats.addTiming('complex', __now__() - tCompile);
@@ -1400,7 +1432,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v42.00 - Architectural Milestone (Hybrid Rule Engine)', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v42.01 - Action-Based Complex Rules', stats: optimizedStats.getStats() });
       }
       return;
     }
