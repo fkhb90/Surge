@@ -1,8 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.03.js
- * @version   42.03 (Documentation Restoration)
- * @description [文件修復版] 補回「規則分類哲學」完整說明，確保設計理念的傳承；功能上完全繼承 V42.02 (104/Segment/Yahoo/MOMO 優化)。
- * @note      此版本為當前最穩定的架構版本。
+ * @file      URL-Ultimate-Filter-Surge-V42.05.js
+ * @version   42.05 (Docs Restoration & Shopee Tracking Fix)
+ * @description [文件修復與規則補強]
+ * 1. 完整補回「規則分類哲學」註釋，確保設計理念透明。
+ * 2. 新增針對 Shopee Live Tech (data-rep) 的精確攔截規則，解決 reportPB 追蹤漏網問題。
+ * 3. 繼承 V42.04 的所有架構優化 (JSON_EMPTY/ALLOW Action)。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-26
  */
@@ -10,7 +12,7 @@
 // #################################################################################################
 // #                                                                                               #
 // #                               ⚙️ SCRIPT CONFIGURATION                                         #
-// #                               (使用者在此區域安全地新增、修改或移除規則)                          #
+// #                               (使用者在此區域安全地新增、修改或移除規則)                             #
 // #                                                                                               #
 // #################################################################################################
 
@@ -35,19 +37,8 @@ const CONFIG = {
   AC_SCAN_MAX_LENGTH: 512,
 
   /**
-   * 🏗️ [V42.02 擴充] 進階複雜規則配置區 (Advanced Complex Rules)
+   * 🏗️ 進階複雜規則配置區 (Advanced Complex Rules)
    * 說明：支援 Regex 與自定義攔截動作 (Action)。
-   * 結構：
-   * {
-   * "target_root": "主網域後綴",
-   * "rules": [
-   * { 
-   * "pattern": "Regex字串", 
-   * "flags": "Regex旗標", 
-   * "action": "BLOCK | REJECT | TINY_GIF | NO_CONTENT | DROP"
-   * }
-   * ]
-   * }
    */
   ADVANCED_COMPLEX_RULES: [
     // --- 104 Job Bank (Mixed Case/Params/Wildcards) ---
@@ -55,21 +46,19 @@ const CONFIG = {
       target_root: "104.com.tw",
       description: "104 Job Bank - Fine-grained Control",
       rules: [
-        { pattern: "/api/apps/createapploginlog", flags: "i", action: "NO_CONTENT" }, // App Telemetry (Stealth)
+        { pattern: "/api/apps/createapploginlog", flags: "i", action: "JSON_EMPTY" }, // App Telemetry
         { pattern: "/jb/service/ad/.*\\?", flags: "i", action: "REJECT" }, // Ad Service
         { pattern: "/ad/(general|premium|recommend)\\?", flags: "i", action: "BLOCK" }, // Ad Images
         { pattern: "/publish/.*\\.txt", flags: "i", action: "REJECT" }, // Configs
         { pattern: "/web/alexa\\.html", flags: "i", action: "REJECT" } // Analytics
       ]
     },
-    // --- [V42.02 新增] Segment.io (Retry Storm Prevention) ---
+    // --- Segment.io (Retry Storm Prevention) ---
     {
       target_root: "segment.io",
       description: "Segment Analytics - Stealth Blocking to prevent retries",
       rules: [
-        // 攔截所有 API 版本 (v1, v2...) 的 track, identify, page 等請求
-        // 使用 NO_CONTENT (204) 欺騙 SDK 認為傳送成功
-        { pattern: "/v\\d+/(track|identify|page|screen|group|alias|batch)", flags: "i", action: "NO_CONTENT" }
+        { pattern: "/v\\d+/(track|identify|page|screen|group|alias|batch)", flags: "i", action: "JSON_EMPTY" }
       ]
     }
   ],
@@ -115,132 +104,81 @@ const CONFIG = {
    * ✳️ 硬白名單 - 精確匹配 (Hard Whitelist - Exact)
    */
   HARD_WHITELIST_EXACT: new Set([
-    // --- AI & Search Services ---
     'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
-    'pplx-next-static-public.perplexity.ai',
-    'private-us-east-1.monica.im', 'api.felo.ai',
-    // --- Business & Developer Tools ---
+    'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
     'adsbypasser.github.io', 'code.createjs.com', 'oa.ledabangong.com', 'oa.qianyibangong.com', 'qianwen.aliyun.com',
     'raw.githubusercontent.com', 'reportaproblem.apple.com', 'ss.ledabangong.com', 'userscripts.adtidy.org',
-    // --- Meta / Facebook ---
     'ar-genai.graph.meta.com', 'ar.graph.meta.com', 'gateway.facebook.com', 'meta-ai-realtime.facebook.com', 'meta.graph.meta.com', 'wearable-ai-realtime.facebook.com',
-    // --- Media & CDNs ---
     'cdn.ghostery.com', 'cdn.shortpixel.ai', 'cdn.syndication.twimg.com', 'd.ghostery.com', 'data-cloud.flightradar24.com', 'ssl.p.jwpcdn.com',
     'staticcdn.duckduckgo.com',
-    // --- Music & Content Recognition ---
     'secureapi.midomi.com',
-    // --- Services & App APIs ---
     'ap02.in.treasuredata.com', 
-    // 'appapi.104.com.tw', // [V41.18] Moved to Soft Whitelist
     'eco-push-api-client.meiqia.com', 'exp.acsnets.com.tw', 'mpaystore.pcstore.com.tw',
     'mushroomtrack.com', 'phtracker.com', 
     'prodapp.babytrackers.com', 'sensordata.open.cn', 'static.stepfun.com', 'track.fstry.me',
-    // --- 核心登入 & 認證 ---
     'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com', 'sso.godaddy.com',
-    'idmsa.apple.com',
-    'api.login.yahoo.com',
-    // --- 台灣地區服務 ---
-    'api.etmall.com.tw', 'tw.fd-api.com',
-    // --- [V40.42] 台灣關鍵基礎設施 ---
-    'api.map.ecpay.com.tw',
-    // --- 支付 & 金流 API ---
+    'idmsa.apple.com', 'api.login.yahoo.com',
+    'api.etmall.com.tw', 'tw.fd-api.com', 'api.map.ecpay.com.tw',
     'api.adyen.com', 'api.braintreegateway.com', 'api.ecpay.com.tw', 'api.jkos.com', 'payment.ecpay.com.tw',
-    // --- 票務 & 關鍵 API ---
     'api.line.me', 'kktix.com', 'tixcraft.com',
-    // --- 高互動性服務 API ---
     'api.discord.com', 'api.twitch.tv', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com',
-    'iappapi.investing.com',
-    'today.line.me',
-    // --- 品牌短網址 & 重定向 ---
-    't.uber.com',
+    'iappapi.investing.com', 'today.line.me', 't.uber.com',
   ]),
 
   /**
    * ✳️ 硬白名單 - 萬用字元 (Hard Whitelist - Wildcards)
    */
   HARD_WHITELIST_WILDCARDS: new Set([
-    // --- Financial, Banking & Payments ---
     'bot.com.tw', 'cathaybk.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw', 'ctbcbank.com', 'dawho.tw', 'dbs.com.tw',
     'esunbank.com.tw', 'firstbank.com.tw', 'fubon.com', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw',
     'megabank.com.tw', 'megatime.com.tw', 'mitake.com.tw', 'money-link.com.tw', 'momopay.com.tw', 'mymobibank.com.tw', 'paypal.com', 'richart.tw',
     'scsb.com.tw', 'sinopac.com', 'sinotrade.com.tw', 'standardchartered.com.tw', 'stripe.com', 'taipeifubon.com.tw', 'taishinbank.com.tw',
     'taiwanpay.com.tw', 'tcb-bank.com.tw',
-    // --- Government & Utilities ---
     'gov.tw', 'org.tw', 'pay.taipei', 'tdcc.com.tw', 'twca.com.tw', 'twmp.com.tw',
-    // --- [V40.82 新增] 核心重定向 & App 連結服務 ---
     'app.goo.gl', 'goo.gl',
-    // --- 核心登入 & 協作平台 ---
     'atlassian.net', 'auth0.com', 'okta.com',
-    // --- [V40.85 新增] DNS & 隱私工具 ---
     'nextdns.io',
-    // --- 系統 & 平台核心服務 ---
-    'googleapis.com',
-    'icloud.com',
+    'googleapis.com', 'icloud.com',
     'linksyssmartwifi.com', 'update.microsoft.com', 'windowsupdate.com',
-    // --- 網頁存檔服務 (對參數極度敏感) ---
     'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com', 'perma.cc',
     'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'webcache.googleusercontent.com', 'www.webarchive.org.uk',
-    // --- YouTube 核心服務 (僅保留基礎建設) ---
-    'googlevideo.com',
-    // --- Uber 核心基礎設施 ---
-    'cfe.uber.com',
+    'googlevideo.com', 'cfe.uber.com',
   ]),
 
   /**
    * ✅ 軟白名單 - 精確匹配 (Soft Whitelist - Exact)
    */
   SOFT_WHITELIST_EXACT: new Set([
-    // --- Common APIs ---
     'a-api.anthropic.com', 'api.anthropic.com', 'api.cohere.ai', 'api.digitalocean.com', 'api.fastly.com', 
     'api.feedly.com', 'api.github.com', 'api.heroku.com', 'api.hubapi.com', 'api.mailgun.com', 'api.netlify.com', 
     'api.openai.com', 'api.pagerduty.com', 'api.sendgrid.com', 'api.telegram.org', 'api.vercel.com', 
     'api.zendesk.com', 'duckduckgo.com', 'legy.line-apps.com', 'obs.line-scdn.net', 'secure.gravatar.com',
-    // --- 生產力 & 協作工具 ---
     'api.asana.com', 'api.dropboxapi.com', 'api.figma.com', 'api.notion.com', 'api.trello.com',
-    // --- 開發 & 部署平台 ---
     'api.cloudflare.com', 'auth.docker.io', 'database.windows.net', 'login.docker.com',
-    // --- 台灣地區服務 ---
     'api.irentcar.com.tw', 'gateway.shopback.com.tw', 'usiot.roborock.com',
-    'www.momoshop.com.tw', // [V41.05] 優化 crossBridge.jsp
-    'm.momoshop.com.tw', // [V41.14] 優化行動版 UI
-    'bsp.momoshop.com.tw', // [V41.16] MOMO 供應商商品詳情
-    // --- 104 Job Bank Services [V41.18] (降級至軟白名單以支援 Regex 攔截) ---
-    'appapi.104.com.tw',
-    'pro.104.com.tw',
-    // --- Yahoo EC Services [V41.15] ---
-    'prism.ec.yahoo.com',
-    'graphql.ec.yahoo.com',
-    // --- 其他 ---
+    'www.momoshop.com.tw', 'm.momoshop.com.tw', 'bsp.momoshop.com.tw',
+    'appapi.104.com.tw', 'pro.104.com.tw',
+    'prism.ec.yahoo.com', 'graphql.ec.yahoo.com',
     'visuals.feedly.com',
-    'api.revenuecat.com', 
-    'api-paywalls.revenuecat.com',
-    'account.uber.com',
-    'xlb.uber.com',
+    'api.revenuecat.com', 'api-paywalls.revenuecat.com',
+    'account.uber.com', 'xlb.uber.com',
   ]),
 
   /**
    * ✅ 軟白名單 - 萬用字元 (Soft Whitelist - Wildcards)
    */
   SOFT_WHITELIST_WILDCARDS: new Set([
-    // --- 電商與內容平台 ---
     'book.com.tw', 'citiesocial.com', 'coupang.com', 'iherb.biz', 'iherb.com',
     'm.youtube.com', 'momo.dm', 'momoshop.com.tw', 'pxmart.com.tw', 'pxpayplus.com',
     'shopee.com', 'shopeemobile.com', 'shopee.tw', 'shopback.com.tw', 'spotify.com', 'youtube.com',
-    // --- 核心 CDN ---
     'akamaihd.net', 'amazonaws.com', 'cloudflare.com', 'cloudfront.net', 'fastly.net', 'fbcdn.net', 
     'gstatic.com', 'jsdelivr.net', 'cdnjs.cloudflare.com', 'twimg.com', 'unpkg.com', 'ytimg.com',
-    // --- Publishing & CMS ---
     'new-reporter.com', 'wp.com',
-    // --- 閱讀器 & 新聞 ---
     'flipboard.com', 'inoreader.com', 'itofoo.com', 'newsblur.com', 'theoldreader.com',
-    // --- 開發 & 部署平台 ---
     'azurewebsites.net', 'cloudfunctions.net', 'digitaloceanspaces.com', 'github.io', 'gitlab.io', 'netlify.app',
     'oraclecloud.com', 'pages.dev', 'vercel.app', 'windows.net',
-    // --- 社群平台相容性 ---
     'instagram.com', 'threads.net',
-    // --- 協作平台 ---
     'slack.com',
-    // --- AdsBypasser ---
     'ak.sv', 'bayimg.com', 'beeimg.com', 'binbox.io', 'casimages.com', 'cocoleech.com', 'cubeupload.com', 
     'dlupload.com', 'fastpic.org', 'fotosik.pl', 'gofile.download', 'ibb.co', 'imagebam.com', 
     'imageban.ru', 'imageshack.com', 'imagetwist.com', 'imagevenue.com', 'imgbb.com', 'imgbox.com', 
@@ -254,8 +192,7 @@ const CONFIG = {
    * 🚫 域名攔截黑名單
    */
   BLOCK_DOMAINS: new Set([
-    'guce.oath.com', // [V41.15] Yahoo Privacy
-    'mdap.alipay.com', 'loggw-ex.alipay.com',
+    'guce.oath.com', 'mdap.alipay.com', 'loggw-ex.alipay.com',
     'adnext-a.akamaihd.net', 'appnext.hs.llnwd.net', 'cache.ltn.com.tw',
     'fusioncdn.com', 'pgdt.gtimg.cn', 'toots-a.akamaihd.net',
     'app-site-association.cdn-apple.com', 'iadsdk.apple.com',
@@ -373,6 +310,8 @@ const CONFIG = {
    * 🚨 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
+    // [V42.05] Shopee Live Tech Tracking Fix
+    ['data-rep.livetech.shopee.tw', new Set(['/dataapi/dataweb/event/reportPB'])],
     ['account.uber.com', new Set(['/_events'])],
     ['api.tongyi.com', new Set(['/app/mobilelog', '/qianwen/event/track'])],
     ['gw.alipayobjects.com', new Set(['/config/loggw/'])],
@@ -668,14 +607,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V42.02)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V42.05)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '42.02';
+const SCRIPT_VERSION = '42.05';
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -685,7 +624,6 @@ const DECISION = Object.freeze({ ALLOW: 1, BLOCK: 2, SOFT_WHITELISTED: 4, NEGATI
 const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 'image/gif', 'Content-Length': '43' }, body: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" } };
 const REJECT_RESPONSE   = { response: { status: 403 } };
 const DROP_RESPONSE     = { response: {} };
-// [V42.02] Enhanced NO_CONTENT response with CORS headers to prevent browser console errors
 const NO_CONTENT_RESPONSE = { 
     response: { 
         status: 204, 
@@ -696,6 +634,20 @@ const NO_CONTENT_RESPONSE = {
         } 
     } 
 };
+// [V42.04/05] JSON_EMPTY response for strict SDKs
+const JSON_EMPTY_RESPONSE = {
+    response: {
+        status: 200,
+        headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*", 
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS", 
+            "Access-Control-Allow-Headers": "*"
+        },
+        body: "{}"
+    }
+};
+
 const IMAGE_EXTENSIONS  = new Set(['.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp']);
 const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs', '.css']);
 
@@ -718,7 +670,7 @@ class OptimizedPerformanceStats {
     this.labels   = [
       'totalRequests','blockedRequests','domainBlocked','pathBlocked','regexPathBlocked',
       'criticalScriptBlocked','paramsCleaned','hardWhitelistHits','softWhitelistHits',
-      'errors','l1CacheHits','l2CacheHits', 'complexRuleHits'
+      'errors','l1CacheHits','l2CacheHits', 'complexRuleHits', 'allowActionHits'
     ];
     for (const l of this.labels) this.counters[l] = 0;
     this.timingBuckets = ['parse','whitelist','l1','domainStage','critical','allowlistEval','pathTrie','pathRegex','params','total', 'complex'];
@@ -1031,23 +983,12 @@ function isCriticalTrackingScript(hostname, lowerFullPath, fullPath) { // Added 
   const cached = multiLevelCache.getUrlDecision('crit', hostname, lowerFullPath);
   if (cached !== null) return cached;
 
-  // [V42.02] Advanced Complex Rules Engine Check
-  // Uses fullPath (raw) to ensure case sensitivity and query params are handled correctly
+  // [V42.04] Advanced Complex Rules Engine Check
   const complexMatch = complexRuleEngine.match(hostname, fullPath);
-  if (complexMatch) {
-      // If matched, don't return boolean yet, return object to caller or handle action?
-      // In this refactor, we return a special object or handle it in processRequest.
-      // But wait, isCriticalTrackingScript is traditionally boolean.
-      // Let's keep it boolean for now, but cache the result specially if needed.
-      // Actually, processRequest handles the complexMatch check *before* calling this function.
-      // So we don't need to do anything here if processRequest takes priority.
-      // BUT, to be safe and consistent with previous logic flow:
-      // In V42.02, complexRuleEngine.match is called inside processRequest *before* this function.
-      // This block is actually redundant if processRequest is updated correctly.
-      // Let's remove it to avoid double checking, OR keep it as a fallback?
-      // Better: Remove it from here and rely on processRequest's high-priority check.
-      // HOWEVER, for safety against regression, let's leave it as a "true" signal if called directly.
-      return true;
+  if (complexMatch && complexMatch.matched) {
+      if (complexMatch.action !== 'ALLOW') {
+          return true;
+      }
   }
 
   const qIdx = lowerFullPath.indexOf('?');
@@ -1191,11 +1132,12 @@ function getBlockResponse(pathnameLower) {
   return REJECT_RESPONSE;
 }
 
-// [V42.02] Helper to get response object from action string with safe defaults
+// [V42.04] Helper to get response object from action string with safe defaults
 function getActionResponse(action) {
   switch (action) {
     case 'TINY_GIF': return TINY_GIF_RESPONSE;
     case 'NO_CONTENT': return NO_CONTENT_RESPONSE;
+    case 'JSON_EMPTY': return JSON_EMPTY_RESPONSE;
     case 'REJECT': return REJECT_RESPONSE;
     case 'DROP': return DROP_RESPONSE;
     case 'BLOCK': 
@@ -1312,7 +1254,7 @@ function processRequest(request) {
         for (const prefix of exemptions) {
             if (fullPath.startsWith(prefix)) {
                 if (t0) { optimizedStats.addTiming('whitelist', __now__() - t0); optimizedStats.addTiming('total', __now__() - t0); }
-                return null; // Exempted path on a blocked domain, allow request
+                return null;
             }
         }
     }
@@ -1344,16 +1286,21 @@ function processRequest(request) {
     }
     if (t0) optimizedStats.addTiming('l1', __now__() - tL10);
      
-    // [V42.02] Complex Rule Engine (High Priority, Action Aware)
-    // Runs before generic script/path checks to handle cases like 104 or Segment specifically
+    // [V42.04] Complex Rule Engine (High Priority, Action Aware)
+    // 優先執行複雜規則引擎，並支援 ALLOW 動作
     const complexMatch = complexRuleEngine.match(hostname, fullPath);
     if (complexMatch && complexMatch.matched) {
-        optimizedStats.increment('complexRuleHits');
-        optimizedStats.increment('blockedRequests');
-        if (complexMatch.action === 'BLOCK') {
-             return getBlockResponse(pathnameLower);
+        if (complexMatch.action === 'ALLOW') {
+             optimizedStats.increment('allowActionHits');
+             return null; // Let the request pass
         } else {
-             return getActionResponse(complexMatch.action);
+             optimizedStats.increment('complexRuleHits');
+             optimizedStats.increment('blockedRequests');
+             if (complexMatch.action === 'BLOCK') {
+                  return getBlockResponse(pathnameLower);
+             } else {
+                  return getActionResponse(complexMatch.action);
+             }
         }
     }
 
@@ -1446,6 +1393,12 @@ let isInitialized = false;
 function initialize() {
     if (isInitialized) return;
     multiLevelCache.seed();
+    
+    // [V42.05] Compile advanced complex rules
+    const tCompile = CONFIG.DEBUG_MODE ? __now__() : 0;
+    complexRuleEngine.compile(CONFIG.ADVANCED_COMPLEX_RULES);
+    if (CONFIG.DEBUG_MODE) optimizedStats.addTiming('complex', __now__() - tCompile);
+
     isInitialized = true;
 }
 
@@ -1460,7 +1413,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.16 - 104 Job Bank Clean Up & MOMO Vendor Fix', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v42.05 - Docs Restoration & Shopee Tracking Fix', stats: optimizedStats.getStats() });
       }
       return;
     }
