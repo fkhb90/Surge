@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.18.js
- * @version   41.18 (104 Whitelist Priority Fix)
- * @description 基於 V41.17，修復 104 人力銀行封鎖失效問題。將 104 相關 API 網域從硬白名單降級至軟白名單，確保路徑攔截規則 (createAppLoginLog 等) 能優先執行。
+ * @file      URL-Ultimate-Filter-Surge-V41.19.js
+ * @version   41.19 (104 Regex Force Fix)
+ * @description 基於 V41.18，針對 104 人力銀行導入「原生正則表達式」攔截機制。解決大小寫敏感度與查詢參數匹配問題，強制封鎖 Apps/createAppLoginLog 及各類廣告路徑。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-26
@@ -95,10 +95,10 @@ const CONFIG = {
     'secureapi.midomi.com',
     // --- Services & App APIs ---
     'ap02.in.treasuredata.com', 
-    // 'appapi.104.com.tw', // [V41.18] Moved to Soft Whitelist to allow tracking block
+    // 'appapi.104.com.tw', // [V41.18] Moved to Soft Whitelist
     'eco-push-api-client.meiqia.com', 'exp.acsnets.com.tw', 'mpaystore.pcstore.com.tw',
     'mushroomtrack.com', 'phtracker.com', 
-    // 'pro.104.com.tw', // [V41.18] Moved to Soft Whitelist to allow tracking block
+    // 'pro.104.com.tw', // [V41.18] Moved to Soft Whitelist
     'prodapp.babytrackers.com', 'sensordata.open.cn', 'static.stepfun.com', 'track.fstry.me',
     // --- 核心登入 & 認證 ---
     'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com', 'sso.godaddy.com',
@@ -171,7 +171,7 @@ const CONFIG = {
     'www.momoshop.com.tw', // [V41.05] 優化 crossBridge.jsp 跨域橋接效能，避免掃描
     'm.momoshop.com.tw', // [V41.14] 優化行動版 UI 載入腳本 (momocoLoadingEnd.js)，避免卡死
     'bsp.momoshop.com.tw', // [V41.16] MOMO 供應商商品詳情圖文資源 (避免商品介紹區塊空白)
-    // --- 104 Job Bank Services [V41.18] (Moved from Hard Whitelist to support tracking block) ---
+    // --- 104 Job Bank Services [V41.18] (Stay in Soft Whitelist for Tracking Block) ---
     'appapi.104.com.tw',
     'pro.104.com.tw',
     // --- Yahoo EC Services [V41.15] ---
@@ -408,7 +408,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
+   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
     // [V41.00] Uber 登入頁面遙測阻擋
@@ -422,7 +422,7 @@ const CONFIG = {
     // [V41.15] Yahoo Shopping UI Clean Up
     ['graphql.ec.yahoo.com', new Set(['/app/sas/v1/fullSitePromotions'])], // 全站行銷蓋板廣告
     ['prism.ec.yahoo.com', new Set(['/api/prism/v2/streamWithAds'])],     // 混合廣告串流 (經實測封鎖不影響瀏覽)
-    // [V41.17] 104 Job Bank Rules - 現在移至 isCriticalTrackingScript 進行萬用字元處理，此處保留空白佔位以作紀錄
+    // [V41.19] 104 Job Bank Rules - Logic moved to native regex block inside isCriticalTrackingScript for max precision
     // Common Trackers
     ['analytics.google.com', new Set(['/g/collect'])],
     ['region1.analytics.google.com', new Set(['/g/collect'])],
@@ -733,14 +733,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.16)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.19)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.16'; // [V41.16] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.19'; // [V41.19] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1050,6 +1050,35 @@ function isDomainBlocked(hostname) {
 function isCriticalTrackingScript(hostname, lowerFullPath) {
   const cached = multiLevelCache.getUrlDecision('crit', hostname, lowerFullPath);
   if (cached !== null) return cached;
+
+  // [V41.19] 104 Job Bank: Native Regex Block (Case Insensitive, Query Param Friendly)
+  // This block runs explicitly for any 104.com.tw subdomain to ensure no tracking escapes.
+  if (hostname.endsWith('104.com.tw')) {
+      // Logic: Use fullPath (to catch query params) and case-insensitive regex
+      // Note: We access the lowerFullPath variable passed to this function, but the regex needs to be robust.
+      // Actually, since we need to match cases like "Apps" but lowerFullPath is already lowercase,
+      // we can rely on lowerFullPath BUT the regex must match the lowercase version.
+      // HOWEVER, the user asked to be careful about case sensitivity.
+      // The safest way is to check if strict patterns match.
+      // Given lowerFullPath IS lowercase, checking for "apps" matches "Apps".
+      // The risk is if the logic relies on "Apps" specifically.
+      // But standardizing on lowercase comparison with lowercase regex is the industry standard for robust blocking.
+      
+      const targetPaths = [
+          /\/ad\/(general|premium|recommend)\?/, // Matches /ad/general?foo=bar
+          /\/web\/alexa\.html$/,
+          /\/jb\/service\/ad\/.*\?/,
+          /\/publish\/.*\.txt$/,
+          /\/api\/apps\/createapploginlog$/ // Matches .../createAppLoginLog (lowercase conversion handles case)
+      ];
+
+      for (const regex of targetPaths) {
+          if (regex.test(lowerFullPath)) {
+              multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
+              return true;
+          }
+      }
+  }
 
   const qIdx = lowerFullPath.indexOf('?');
   const pathOnly = qIdx !== -1 ? lowerFullPath.slice(0, qIdx) : lowerFullPath;
@@ -1439,7 +1468,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.16 - 104 Job Bank Clean Up & MOMO Vendor Fix', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.19 - 104 Regex Force Fix', stats: optimizedStats.getStats() });
       }
       return;
     }
