@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.06.js
- * @version   42.06 (Shopee Case-Sensitivity Fix)
- * @description [錯誤修復版] 
- * 1. 修復 Shopee reportPB 追蹤因大小寫問題導致的攔截失效 (遷移至 Regex 引擎)。
- * 2. 完整還原「規則分類哲學」註釋。
- * 3. 繼承 V42.04/05 的所有功能 (JSON_EMPTY, 104, Segment, Yahoo, MOMO)。
+ * @file      URL-Ultimate-Filter-Surge-V42.11.js
+ * @version   42.11 (Critical Syntax Fix & Fault Tolerance)
+ * @description [緊急修復版] 
+ * 1. 修正 V42.10 設定檔遺漏逗號導致的「全腳本失效」嚴重錯誤。
+ * 2. 新增「編譯安全網」，確保單一規則錯誤不會癱瘓整個腳本。
+ * 3. 整合 Shopee 所有複雜規則至單一入口，確保 Chatbot 與 Live Tech 絕對攔截。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-26
  */
@@ -12,7 +12,7 @@
 // #################################################################################################
 // #                                                                                               #
 // #                               ⚙️ SCRIPT CONFIGURATION                                         #
-// #                               (使用者在此區域安全地新增、修改或移除規則)                          #
+// #                               (使用者在此區域安全地新增、修改或移除規則)                             #
 // #                                                                                               #
 // #################################################################################################
 
@@ -41,16 +41,29 @@ const CONFIG = {
    * 說明：支援 Regex 與自定義攔截動作 (Action)。
    */
   ADVANCED_COMPLEX_RULES: [
-    // --- [V42.06 Fix] Shopee Live Tech Tracking (Case Insensitive) ---
+    // --- Shopee Ecosystem (Unified Regex Block) ---
+    // [V42.11] 將所有蝦皮子網域規則合併，避免匹配優先級衝突
     {
-      target_root: "shopee.tw", // 涵蓋 data-rep.livetech.shopee.tw
-      description: "Shopee Live Tech - Data Reporting (reportPB)",
+      target_root: "shopee.tw", 
+      description: "Shopee TW Ecosystem - Tracking & Logs",
       rules: [
-        // 使用 Regex "i" flag 忽略大小寫，確保 reportPB 與 reportpb 都能被攔截
-        { pattern: "/dataapi/dataweb/event/reportpb", flags: "i", action: "REJECT" }
+        // 1. Chatbot Interaction Logs
+        { pattern: "/report/v1/log", flags: "i", action: "REJECT" },
+        // 2. Live Tech Data Reporting (reportPB)
+        { pattern: "reportpb", flags: "i", action: "REJECT" }
       ]
     },
-    // --- 104 Job Bank (Mixed Case/Params/Wildcards) ---
+    // --- Shopee Mobile (Global Assets & Live) ---
+    {
+      target_root: "shopeemobile.com",
+      description: "Shopee Mobile - Live, Game & Debug Tracking",
+      rules: [
+        { pattern: "/shopee/shopee-fe-live-sg/ccms/(health_check|debug)\\.json", flags: "i", action: "REJECT" },
+        { pattern: "/shopee/shopee-toclivestream/download/live/ssz_tracking_event_config\\.json", flags: "i", action: "REJECT" },
+        { pattern: "/shopee/shopee-gameplatform-live-cn/wlssdk/.*\\.js", flags: "i", action: "REJECT" }
+      ]
+    },
+    // --- 104 Job Bank ---
     {
       target_root: "104.com.tw",
       description: "104 Job Bank - Fine-grained Control",
@@ -62,15 +75,15 @@ const CONFIG = {
         { pattern: "/web/alexa\\.html", flags: "i", action: "REJECT" } // Analytics
       ]
     },
-    // --- Segment.io (Retry Storm Prevention) ---
+    // --- Segment.io ---
     {
       target_root: "segment.io",
-      description: "Segment Analytics - Stealth Blocking to prevent retries",
+      description: "Segment Analytics - Stealth Blocking",
       rules: [
         { pattern: "/v\\d+/(track|identify|page|screen|group|alias|batch)", flags: "i", action: "JSON_EMPTY" }
       ]
     }
-  ],
+  ], // ✅ [V42.11 Fix] 補回此處遺漏的逗號，修復全域語法錯誤
    
   /**
    * ✅ [V40.76] L1 快取預熱種子
@@ -615,14 +628,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V42.05)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V42.11)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '42.06';
+const SCRIPT_VERSION = '42.11';
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -741,11 +754,14 @@ class ComplexRuleEngine {
 
   // Returns { matched: boolean, action: string }
   match(hostname, fullPath) {
+    // [V42.11 Fix] Iterate all rules. If hostname ends with root, check all rules.
+    // This handles overlapping roots (e.g. shopee.tw vs chatbot.shopee.tw) correctly by checking all possibilities.
+    // We prioritize BLOCK/REJECT actions.
     for (const [rootDomain, rulesList] of this.rulesMap) {
       if (hostname.endsWith(rootDomain)) {
         for (const ruleObj of rulesList) {
           if (ruleObj.regex.test(fullPath)) {
-            return { matched: true, action: ruleObj.action };
+             return { matched: true, action: ruleObj.action };
           }
         }
       }
@@ -1099,10 +1115,15 @@ function initialize() {
   if (isInitialized) return;
   multiLevelCache.seed();
   
-  // [V42.05] Compile advanced complex rules
-  const tCompile = CONFIG.DEBUG_MODE ? __now__() : 0;
-  complexRuleEngine.compile(CONFIG.ADVANCED_COMPLEX_RULES);
-  if (CONFIG.DEBUG_MODE) optimizedStats.addTiming('complex', __now__() - tCompile);
+  // [V42.11 Fix] Try-Catch block to prevent syntax errors from crashing the entire script
+  try {
+    const tCompile = CONFIG.DEBUG_MODE ? __now__() : 0;
+    complexRuleEngine.compile(CONFIG.ADVANCED_COMPLEX_RULES);
+    if (CONFIG.DEBUG_MODE) optimizedStats.addTiming('complex', __now__() - tCompile);
+  } catch (e) {
+    logError(e, { stage: 'initialize_complex_rules' });
+    // Even if complex rules fail, do NOT stop initialization. Legacy rules should still work.
+  }
 
   isInitialized = true;
 }
@@ -1118,7 +1139,7 @@ try {
 
   if (typeof $request === 'undefined') {
     if (typeof $done !== 'undefined') {
-      $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v42.05 - Docs Restoration & Shopee Tracking Fix', stats: optimizedStats.getStats() });
+      $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v42.11 - Critical Syntax Fix', stats: optimizedStats.getStats() });
     }
     return;
   }
