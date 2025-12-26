@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.15.js
- * @version   41.15 (Yahoo EC Shopping Optimization)
- * @description 基於 V41.14，針對 Yahoo 奇摩購物中心 App 進行深度淨化。阻擋混合廣告流 (streamWithAds) 與全站推廣 (fullSitePromotions)，同時封鎖 Oath 隱私追蹤，並保護核心登入流程。
+ * @file      URL-Ultimate-Filter-Surge-V41.16.js
+ * @version   41.16 (104 Job Bank Clean Up & MOMO Vendor Fix)
+ * @description 基於 V41.15，新增 104 人力銀行廣告與遙測攔截 (源自使用者 Regex 優化)；修復 MOMO 供應商圖文詳情破圖問題 (bsp)。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-12-24
+ * @lastUpdated 2025-12-26
  */
 
 // #################################################################################################
@@ -166,6 +166,7 @@ const CONFIG = {
     'api.irentcar.com.tw', 'gateway.shopback.com.tw', 'usiot.roborock.com',
     'www.momoshop.com.tw', // [V41.05] 優化 crossBridge.jsp 跨域橋接效能，避免掃描
     'm.momoshop.com.tw', // [V41.14] 優化行動版 UI 載入腳本 (momocoLoadingEnd.js)，避免卡死
+    'bsp.momoshop.com.tw', // [V41.16] MOMO 供應商商品詳情圖文資源 (避免商品介紹區塊空白)
     // --- Yahoo EC Services [V41.15] ---
     'prism.ec.yahoo.com', // Yahoo Shopping Discovery Stream (網域放行，但路徑 /streamWithAds 會被 Critical Map 攔截)
     'graphql.ec.yahoo.com', // Yahoo Shopping GraphQL (網域放行，但路徑 /fullSitePromotions 會被 Critical Map 攔截)
@@ -356,7 +357,7 @@ const CONFIG = {
   ],
    
   /**
-   * 🚨 [V40.61 擴充, V40.93 修訂, V41.04 擴充, V41.08 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充] 關鍵追蹤腳本攔截清單
+   * 🚨 [V40.61 擴充, V40.93 修訂, V41.04 擴充, V41.08 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充] 關鍵追蹤腳本攔截清單
    */
   CRITICAL_TRACKING_SCRIPTS: new Set([
     // --- Google ---
@@ -400,7 +401,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
+   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.16 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
     // [V41.00] Uber 登入頁面遙測阻擋
@@ -414,6 +415,19 @@ const CONFIG = {
     // [V41.15] Yahoo Shopping UI Clean Up
     ['graphql.ec.yahoo.com', new Set(['/app/sas/v1/fullSitePromotions'])], // 全站行銷蓋板廣告
     ['prism.ec.yahoo.com', new Set(['/api/prism/v2/streamWithAds'])],     // 混合廣告串流 (經實測封鎖不影響瀏覽)
+    // [V41.16] 104 Corp (Job Bank) Ad & Telemetry Block (Based on User Regex)
+    ['www.104.com.tw', new Set([
+        '/ad/general', '/ad/premium', '/ad/recommend', // Ads
+        '/web/alexa.html', // Analytics
+        '/jb/service/ad/', // Ad Service
+        '/publish/', // Ad Configs (Targeting .txt)
+        '/api/apps/createapploginlog' // App Telemetry
+    ])],
+    ['m.104.com.tw', new Set([
+        '/ad/', 
+        '/web/alexa.html', 
+        '/api/apps/createapploginlog'
+    ])],
     // Common Trackers
     ['analytics.google.com', new Set(['/g/collect'])],
     ['region1.analytics.google.com', new Set(['/g/collect'])],
@@ -724,14 +738,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.15)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.16)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.15'; // [V41.15] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.16'; // [V41.16] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1430,7 +1444,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.15 - Yahoo EC Shopping Optimization', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.16 - 104 Job Bank Clean Up & MOMO Vendor Fix', stats: optimizedStats.getStats() });
       }
       return;
     }
