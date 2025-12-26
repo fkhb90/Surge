@@ -1,8 +1,8 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.19.js
- * @version   41.19 (104 Regex Force Fix)
- * @description 基於 V41.18，針對 104 人力銀行導入「原生正則表達式」攔截機制。解決大小寫敏感度與查詢參數匹配問題，強制封鎖 Apps/createAppLoginLog 及各類廣告路徑。
- * @note      此為完整腳本，可直接替換舊有版本。
+ * @file      URL-Ultimate-Filter-Surge-V41.20.js
+ * @version   41.20 (Stability Release - 104/MOMO/Yahoo Optimization)
+ * @description 累積 V41.14 至 V41.19 的所有修正。針對 104 人力銀行採用原生 Regex 攔截引擎；完整保留 MOMO 供應商破圖修復與 Yahoo 購物中心去廣告優化。
+ * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-26
  */
@@ -733,14 +733,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.19)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.20)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.19'; // [V41.19] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.20'; // [V41.20] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1051,19 +1051,10 @@ function isCriticalTrackingScript(hostname, lowerFullPath) {
   const cached = multiLevelCache.getUrlDecision('crit', hostname, lowerFullPath);
   if (cached !== null) return cached;
 
-  // [V41.19] 104 Job Bank: Native Regex Block (Case Insensitive, Query Param Friendly)
+  // [V41.19/20] 104 Job Bank: Native Regex Block (Case Insensitive, Query Param Friendly)
   // This block runs explicitly for any 104.com.tw subdomain to ensure no tracking escapes.
   if (hostname.endsWith('104.com.tw')) {
       // Logic: Use fullPath (to catch query params) and case-insensitive regex
-      // Note: We access the lowerFullPath variable passed to this function, but the regex needs to be robust.
-      // Actually, since we need to match cases like "Apps" but lowerFullPath is already lowercase,
-      // we can rely on lowerFullPath BUT the regex must match the lowercase version.
-      // HOWEVER, the user asked to be careful about case sensitivity.
-      // The safest way is to check if strict patterns match.
-      // Given lowerFullPath IS lowercase, checking for "apps" matches "Apps".
-      // The risk is if the logic relies on "Apps" specifically.
-      // But standardizing on lowercase comparison with lowercase regex is the industry standard for robust blocking.
-      
       const targetPaths = [
           /\/ad\/(general|premium|recommend)\?/, // Matches /ad/general?foo=bar
           /\/web\/alexa\.html$/,
@@ -1468,7 +1459,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.19 - 104 Regex Force Fix', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.20 - Stability Release', stats: optimizedStats.getStats() });
       }
       return;
     }
