@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.17.js
- * @version   41.17 (104 Regex Logic Restoration)
- * @description 基於 V41.16，針對 104 人力銀行實作「萬用字元子網域」攔截邏輯，解決因 API 子網域變動導致的過濾失效問題；完整保留 MOMO 與 Yahoo 優化。
+ * @file      URL-Ultimate-Filter-Surge-V41.18.js
+ * @version   41.18 (104 Whitelist Priority Fix)
+ * @description 基於 V41.17，修復 104 人力銀行封鎖失效問題。將 104 相關 API 網域從硬白名單降級至軟白名單，確保路徑攔截規則 (createAppLoginLog 等) 能優先執行。
  * @note      此為完整腳本，可直接替換舊有版本。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-26
@@ -94,8 +94,12 @@ const CONFIG = {
     // --- Music & Content Recognition ---
     'secureapi.midomi.com',
     // --- Services & App APIs ---
-    'ap02.in.treasuredata.com', 'appapi.104.com.tw', 'eco-push-api-client.meiqia.com', 'exp.acsnets.com.tw', 'mpaystore.pcstore.com.tw',
-    'mushroomtrack.com', 'phtracker.com', 'pro.104.com.tw', 'prodapp.babytrackers.com', 'sensordata.open.cn', 'static.stepfun.com', 'track.fstry.me',
+    'ap02.in.treasuredata.com', 
+    // 'appapi.104.com.tw', // [V41.18] Moved to Soft Whitelist to allow tracking block
+    'eco-push-api-client.meiqia.com', 'exp.acsnets.com.tw', 'mpaystore.pcstore.com.tw',
+    'mushroomtrack.com', 'phtracker.com', 
+    // 'pro.104.com.tw', // [V41.18] Moved to Soft Whitelist to allow tracking block
+    'prodapp.babytrackers.com', 'sensordata.open.cn', 'static.stepfun.com', 'track.fstry.me',
     // --- 核心登入 & 認證 ---
     'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com', 'sso.godaddy.com',
     'idmsa.apple.com', // [V40.99] Apple ID 身分驗證核心 (建議直連，此處作為雙重保險)
@@ -167,6 +171,9 @@ const CONFIG = {
     'www.momoshop.com.tw', // [V41.05] 優化 crossBridge.jsp 跨域橋接效能，避免掃描
     'm.momoshop.com.tw', // [V41.14] 優化行動版 UI 載入腳本 (momocoLoadingEnd.js)，避免卡死
     'bsp.momoshop.com.tw', // [V41.16] MOMO 供應商商品詳情圖文資源 (避免商品介紹區塊空白)
+    // --- 104 Job Bank Services [V41.18] (Moved from Hard Whitelist to support tracking block) ---
+    'appapi.104.com.tw',
+    'pro.104.com.tw',
     // --- Yahoo EC Services [V41.15] ---
     'prism.ec.yahoo.com', // Yahoo Shopping Discovery Stream (網域放行，但路徑 /streamWithAds 會被 Critical Map 攔截)
     'graphql.ec.yahoo.com', // Yahoo Shopping GraphQL (網域放行，但路徑 /fullSitePromotions 會被 Critical Map 攔截)
@@ -357,7 +364,7 @@ const CONFIG = {
   ],
    
   /**
-   * 🚨 [V40.61 擴充, V40.93 修訂, V41.04 擴充, V41.08 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充] 關鍵追蹤腳本攔截清單
+   * 🚨 [V40.61 擴充, V40.93 修訂, V41.04 擴充, V41.08 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充] 關鍵追蹤腳本攔截清單
    */
   CRITICAL_TRACKING_SCRIPTS: new Set([
     // --- Google ---
@@ -726,14 +733,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.17)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.16)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.17'; // [V41.17] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.16'; // [V41.16] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1058,21 +1065,6 @@ function isCriticalTrackingScript(hostname, lowerFullPath) {
   if (scriptName && CONFIG.CRITICAL_TRACKING_SCRIPTS.has(scriptName)) {
     multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
     return true;
-  }
-
-  // [V41.17] 104 Job Bank (Regex-based Logic with Wildcard Subdomain)
-  if (hostname.endsWith('104.com.tw') || hostname === '104.com.tw') {
-      if (lowerFullPath.includes('/ad/general') || 
-          lowerFullPath.includes('/ad/premium') || 
-          lowerFullPath.includes('/ad/recommend') ||
-          lowerFullPath.includes('/web/alexa.html') ||
-          lowerFullPath.includes('/jb/service/ad/') ||
-          (lowerFullPath.includes('/publish/') && lowerFullPath.endsWith('.txt')) ||
-          lowerFullPath.includes('/api/apps/createapploginlog')) {
-          
-          multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
-          return true;
-      }
   }
 
   const hostPrefixes = CONFIG.CRITICAL_TRACKING_MAP.get(hostname);
@@ -1447,7 +1439,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.17 - 104 Regex Logic Restoration', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.16 - 104 Job Bank Clean Up & MOMO Vendor Fix', stats: optimizedStats.getStats() });
       }
       return;
     }
