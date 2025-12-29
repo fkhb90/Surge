@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.22.js
- * @version   41.22 (Roborock Mock Logic Fix)
- * @description 修正 V41.21 的邏輯衝突。將 Roborock 移出硬白名單以確保 Mocking 機制生效；保留 Shopee Chatbot 阻擋。
+ * @file      URL-Ultimate-Filter-Surge-V41.23.js
+ * @version   41.23 (Roborock Mock Header Fix)
+ * @description 修正 V41.22 的模擬回應格式。補上 'Content-Type: application/json' 與標準 API 回應結構，解決 Roborock App 解析失敗的問題。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-29
@@ -738,14 +738,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.22)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.23)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.22'; // [V41.22] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.23'; // [V41.23] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -756,7 +756,14 @@ const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 
 const REJECT_RESPONSE   = { response: { status: 403 } };
 const DROP_RESPONSE     = { response: {} };
 const NO_CONTENT_RESPONSE = { response: { status: 204 } };
-const MOCK_OK_RESPONSE    = { response: { status: 200, body: "{}" } }; // [V41.21] 偽裝 200 OK
+// [V41.23] 強化偽裝回應：補上 Content-Type 與標準 JSON 結構
+const MOCK_OK_RESPONSE    = { 
+    response: { 
+        status: 200, 
+        headers: { 'Content-Type': 'application/json' },
+        body: '{"code":0,"message":"ok","result":{}}'
+    } 
+};
 const IMAGE_EXTENSIONS  = new Set(['.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp']);
 const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs', '.css']);
 
@@ -1472,7 +1479,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.22 - Mock Logic Fix', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.23 - Mock Header Fix', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -1499,3 +1506,4 @@ function initialize() {
     if (typeof $done !== 'undefined') $done({});
   }
 })();
+
