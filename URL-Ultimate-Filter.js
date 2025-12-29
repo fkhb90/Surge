@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.23.js
- * @version   41.23 (Roborock Mock Header Fix)
- * @description 修正 V41.22 的模擬回應格式。補上 'Content-Type: application/json' 與標準 API 回應結構，解決 Roborock App 解析失敗的問題。
+ * @file      URL-Ultimate-Filter-Surge-V41.24.js
+ * @version   41.24 (Roborock Mock 204 Strategy)
+ * @description 針對 Roborock 協議檢查改採 HTTP 204 No Content 策略。此策略不返回任何 Body，從而繞過 App 的 JSON 結構驗證與解析錯誤，強制視為請求成功。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-29
@@ -738,14 +738,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.23)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.24)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.23'; // [V41.23] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.24'; // [V41.24] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -756,12 +756,11 @@ const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 
 const REJECT_RESPONSE   = { response: { status: 403 } };
 const DROP_RESPONSE     = { response: {} };
 const NO_CONTENT_RESPONSE = { response: { status: 204 } };
-// [V41.23] 強化偽裝回應：補上 Content-Type 與標準 JSON 結構
-const MOCK_OK_RESPONSE    = { 
+// [V41.24] 204 偽裝策略：不返回任何內容，強制告知 App 請求成功，繞過 JSON 解析錯誤
+const MOCK_NO_CONTENT_RESPONSE = { 
     response: { 
-        status: 200, 
-        headers: { 'Content-Type': 'application/json' },
-        body: '{"code":0,"message":"ok","result":{}}'
+        status: 204, 
+        headers: { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' }
     } 
 };
 const IMAGE_EXTENSIONS  = new Set(['.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp']);
@@ -1214,11 +1213,11 @@ function getBlockResponse(pathnameLower) {
     return TINY_GIF_RESPONSE;
   }
 
-  // [V41.22] Roborock App Agreement Protocol Mock
-  // 由於 App 會檢查此 API 的返回狀態，若直接 REJECT (403) 會導致 App 認為網路異常。
-  // 因此返回 200 OK 與空 JSON，模擬「無協議需簽署」或「檢查通過」的狀態。
+  // [V41.24] Roborock App Agreement Protocol Mock (204 No Content Strategy)
+  // 改用 204 No Content，徹底繞過 App 的 JSON Body 解析錯誤。
+  // 大多數 App 會將 204 視為操作成功。
   if (pathnameLower.includes('/api/v1/checkappagreement')) {
-      return MOCK_OK_RESPONSE;
+      return MOCK_NO_CONTENT_RESPONSE;
   }
 
   for (const keyword of CONFIG.DROP_KEYWORDS) {
@@ -1479,7 +1478,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.23 - Mock Header Fix', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.24 - Mock 204 Strategy', stats: optimizedStats.getStats() });
       }
       return;
     }
