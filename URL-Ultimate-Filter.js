@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.30.js
- * @version   41.30 (Roborock Allowlist Fallback)
- * @description [重要修正] 鑑於 Roborock 協議檢查涉及核心用戶認證，Mocking 會導致 App 狀態異常。此版本移除針對 Roborock 的攔截，改採直接放行 (Allowlist) 策略以確保 App 可用性；保留 Shopee Chatbot 阻擋。
+ * @file      URL-Ultimate-Filter-Surge-V41.31.js
+ * @version   41.31 (Shopee LiveTech Tracking Fix)
+ * @description [V41.31 更新] 針對 Shopee LiveTech 新增精準攔截規則，解決 reportPB 無法被通則封鎖的問題；維持 Roborock Allowlist 策略。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-29
@@ -409,12 +409,14 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充, V41.21 擴充, V41.26 修復, V41.27 修復, V41.28 修復, V41.30 修正] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
+   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充, V41.21 擴充, V41.26 修復, V41.27 修復, V41.28 修復, V41.30 修正, V41.31 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
     // [V41.30] Roborock Protocol: 移除所有 Mock 設定，改採 Allowlist 策略
     // [V41.21] Shopee Chatbot 日誌阻擋
     ['chatbot.shopee.tw', new Set(['/report/v1/log'])],
+    // [V41.31] Shopee LiveTech 行為追蹤 (ReportPB)
+    ['data-rep.livetech.shopee.tw', new Set(['/dataapi/dataweb/event/'])],
     // [V41.00] Uber 登入頁面遙測阻擋
     ['account.uber.com', new Set(['/_events'])],
     // [V41.08 & V41.09] 通義千問 (Tongyi AI) 行為日誌與業務埋點
@@ -737,14 +739,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.30)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.31)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.30'; // [V41.30] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.31'; // [V41.31] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1468,7 +1470,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.30 - Roborock Allowlist Fallback', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.31 - Shopee LiveTech Fix', stats: optimizedStats.getStats() });
       }
       return;
     }
