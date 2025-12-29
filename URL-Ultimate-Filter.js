@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.27.js
- * @version   41.27 (Roborock Null Data Strategy)
- * @description 針對 Roborock 協議檢查，改採 data: null 搭配 code: 0 的策略。模擬「檢查成功且無新協議需簽署」的標準 API 行為，以解決 App 解析錯誤。
+ * @file      URL-Ultimate-Filter-Surge-V41.28.js
+ * @version   41.28 (Roborock Version Agnostic)
+ * @description 針對 Roborock 協議檢查導入「版本無關」匹配邏輯 (Regex v\d+)。自動支援 v1, v2, v3... 等後端 API 版本更迭，確保 Mocking 不因重定向失效。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-29
@@ -409,11 +409,10 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充, V41.21 擴充, V41.26 修復, V41.27 修復] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
+   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充, V41.21 擴充, V41.26 修復, V41.27 修復, V41.28 修復] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
-    // [V41.26] Roborock Protocol Fix: Lowercase standardization for 'checkappagreement'
-    ['usiot.roborock.com', new Set(['/api/v1/checkappagreement'])],
+    // [V41.28] Roborock Protocol Logic: Moved to native Regex block inside isCriticalTrackingScript
     // [V41.21] Shopee Chatbot 日誌阻擋
     ['chatbot.shopee.tw', new Set(['/report/v1/log'])],
     // [V41.00] Uber 登入頁面遙測阻擋
@@ -738,14 +737,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.27)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.28)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.27'; // [V41.27] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.28'; // [V41.28] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1090,6 +1089,15 @@ function isCriticalTrackingScript(hostname, lowerFullPath) {
       }
   }
 
+  // [V41.28] Roborock: Version Agnostic Regex Block
+  // Handles /api/v1/..., /api/v2/..., /api/v99/...
+  if (hostname === 'usiot.roborock.com') {
+      if (/\/api\/v\d+\/checkappagreement/.test(lowerFullPath)) {
+          multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
+          return true;
+      }
+  }
+
   const qIdx = lowerFullPath.indexOf('?');
   const pathOnly = qIdx !== -1 ? lowerFullPath.slice(0, qIdx) : lowerFullPath;
   const slashIndex = pathOnly.lastIndexOf('/');
@@ -1220,10 +1228,10 @@ function getBlockResponse(pathnameLower) {
     return TINY_GIF_RESPONSE;
   }
 
-  // [V41.27] Roborock App Agreement Protocol Mock (Null Data Strategy)
-  // 修正邏輯：模擬伺服器成功 (code: 0) 且無新協議需簽署 (data: null) 的狀態。
-  // 這是解決 App 因未預期的 JSON 欄位而解析失敗的最安全解法。
-  if (pathnameLower.includes('/api/v1/checkappagreement')) {
+  // [V41.28] Roborock App Agreement Protocol Mock (Version Agnostic)
+  // 改為僅檢查關鍵字 'checkappagreement'，忽略版本號 (v1, v2, v3...)
+  // 使用 MOCK_OK_RESPONSE (200 OK + code:0 + data:null) 作為最安全的偽裝
+  if (pathnameLower.includes('checkappagreement')) {
       return MOCK_OK_RESPONSE;
   }
 
@@ -1485,7 +1493,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.27 - Null Data Strategy', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.28 - Roborock Agnostic Fix', stats: optimizedStats.getStats() });
       }
       return;
     }
