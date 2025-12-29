@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.24.js
- * @version   41.24 (Roborock Mock 204 Strategy)
- * @description 針對 Roborock 協議檢查改採 HTTP 204 No Content 策略。此策略不返回任何 Body，從而繞過 App 的 JSON 結構驗證與解析錯誤，強制視為請求成功。
+ * @file      URL-Ultimate-Filter-Surge-V41.25.js
+ * @version   41.25 (Roborock Schema Alignment & MitM Required)
+ * @description 針對 Roborock 協議檢查，根據伺服器回傳結構 (code/msg/data) 實施精準的 JSON 偽裝 (code: 0)。注意：必須啟用 MitM 才能生效。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-29
@@ -738,14 +738,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.24)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.25)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.24'; // [V41.24] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.25'; // [V41.25] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -756,11 +756,15 @@ const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 
 const REJECT_RESPONSE   = { response: { status: 403 } };
 const DROP_RESPONSE     = { response: {} };
 const NO_CONTENT_RESPONSE = { response: { status: 204 } };
-// [V41.24] 204 偽裝策略：不返回任何內容，強制告知 App 請求成功，繞過 JSON 解析錯誤
-const MOCK_NO_CONTENT_RESPONSE = { 
+// [V41.25] 結構化偽裝回應：根據伺服器錯誤 (code: 2013) 反推的成功結構 (code: 0)
+const MOCK_OK_RESPONSE    = { 
     response: { 
-        status: 204, 
-        headers: { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' }
+        status: 200, 
+        headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*' 
+        },
+        body: '{"code":0,"msg":"ok","data":{"agreement":true,"version":1}}'
     } 
 };
 const IMAGE_EXTENSIONS  = new Set(['.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp']);
@@ -1213,11 +1217,10 @@ function getBlockResponse(pathnameLower) {
     return TINY_GIF_RESPONSE;
   }
 
-  // [V41.24] Roborock App Agreement Protocol Mock (204 No Content Strategy)
-  // 改用 204 No Content，徹底繞過 App 的 JSON Body 解析錯誤。
-  // 大多數 App 會將 204 視為操作成功。
+  // [V41.25] Roborock App Agreement Protocol Mock (JSON Schema Alignment)
+  // 模擬伺服器成功狀態：code: 0, msg: "ok", data: { agreement: true }
   if (pathnameLower.includes('/api/v1/checkappagreement')) {
-      return MOCK_NO_CONTENT_RESPONSE;
+      return MOCK_OK_RESPONSE;
   }
 
   for (const keyword of CONFIG.DROP_KEYWORDS) {
@@ -1478,7 +1481,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.24 - Mock 204 Strategy', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.25 - Schema Aligned', stats: optimizedStats.getStats() });
       }
       return;
     }
