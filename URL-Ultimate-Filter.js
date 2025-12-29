@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.21.js
- * @version   41.21 (Roborock Protocol Mock & Shopee Chatbot Block)
- * @description 累積 V41.20 的所有修正。針對 Roborock 協議檢查實施 200 OK 偽裝，修復 App 無法進入問題；新增 Shopee Chatbot 日誌攔截。
+ * @file      URL-Ultimate-Filter-Surge-V41.22.js
+ * @version   41.22 (Roborock Mock Logic Fix)
+ * @description 修正 V41.21 的邏輯衝突。將 Roborock 移出硬白名單以確保 Mocking 機制生效；保留 Shopee Chatbot 阻擋。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-29
@@ -109,6 +109,7 @@ const CONFIG = {
     'api.etmall.com.tw', 'tw.fd-api.com',
     // --- [V40.42] 台灣關鍵基礎設施 ---
     'api.map.ecpay.com.tw', // ECPay Logistics Map API
+    // [V41.22] 移除 usiot.roborock.com (修復 Mock 失效問題，使其落入 Critical Tracking 邏輯)
     // --- 支付 & 金流 API ---
     'api.adyen.com', 'api.braintreegateway.com', 'api.ecpay.com.tw', 'api.jkos.com', 'payment.ecpay.com.tw',
     // --- 票務 & 關鍵 API ---
@@ -737,14 +738,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.21)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.22)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.21'; // [V41.21] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.22'; // [V41.22] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1206,7 +1207,7 @@ function getBlockResponse(pathnameLower) {
     return TINY_GIF_RESPONSE;
   }
 
-  // [V41.21] Roborock App Agreement Protocol Mock
+  // [V41.22] Roborock App Agreement Protocol Mock
   // 由於 App 會檢查此 API 的返回狀態，若直接 REJECT (403) 會導致 App 認為網路異常。
   // 因此返回 200 OK 與空 JSON，模擬「無協議需簽署」或「檢查通過」的狀態。
   if (pathnameLower.includes('/api/v1/checkappagreement')) {
@@ -1471,7 +1472,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.21 - Protocol Fix', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.22 - Mock Logic Fix', stats: optimizedStats.getStats() });
       }
       return;
     }
