@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.28.js
- * @version   41.28 (Roborock Version Agnostic)
- * @description 針對 Roborock 協議檢查導入「版本無關」匹配邏輯 (Regex v\d+)。自動支援 v1, v2, v3... 等後端 API 版本更迭，確保 Mocking 不因重定向失效。
+ * @file      URL-Ultimate-Filter-Surge-V41.29.js
+ * @version   41.29 (Roborock Empty Object Payload)
+ * @description 針對 Roborock App 協議檢查，將 Mock Payload 的 data 欄位由 null 改為空物件 {}。此修正旨在防止 App 端因讀取 null 屬性而發生崩潰，確保能順利略過檢查。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-29
@@ -488,24 +488,6 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 新增, V41.13 擴充] 關鍵追蹤路徑模式 (通用)
-   */
-  CRITICAL_TRACKING_GENERIC_PATHS: new Set([
-    '/ads/ga-audiences', '/doubleclick/', '/google-analytics/', '/googleadservices/', '/googlesyndication/',
-    '/googletagmanager/', '/pagead/gen_204', '/tiktok/pixel/events', '/tiktok/track/', '/linkedin/insight/track',
-    '/__utm.gif', '/j/collect', '/r/collect', '/api/batch', '/api/collect', '/api/event', '/api/events',
-    '/api/log/', '/api/logs/', '/api/track/', '/api/v1/event', '/api/v1/events', '/api/v1/track',
-    '/api/v2/event', '/api/v2/events', '/beacon/', '/collect?', '/data/collect', '/events/track', '/ingest/',
-    '/intake', '/p.gif', '/pixel/', '/rec/bundle', '/t.gif', '/telemetry/', '/track/', '/v1/pixel',
-    '/v2/track', '/v3/track', '/2/client/addlog_batch', '/plugins/easy-social-share-buttons/', '/event_report',
-    '/log/aplus', '/v.gif', '/ad-sw.js', '/ads-sw.js', '/ad-call', '/adx/', '/adsales/', '/adserver/',
-    '/adsync/', '/adtech/', '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc',
-    '/user-profile/', 'cacafly/track',
-    '/api/v1/t', // [V41.13] 通用極簡追蹤路徑 (MOMO DMP 等)
-    '/sa.gif', // [V40.97] Sensors Analytics (神策數據) 通用追蹤端點
-  ]),
-
-  /**
    * 🚫 [V40.17 擴充, V40.96 擴充, V41.03 擴充] 路徑關鍵字黑名單
    * [V40.99] 移除 'rtb' 以避免誤殺 CloudFront 隨機子網域
    * [V41.03] 新增 '/ads-self-serve/' 以攔截 Uber 自助廣告平台素材
@@ -737,14 +719,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.28)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.29)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.28'; // [V41.28] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.29'; // [V41.29] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -755,8 +737,8 @@ const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 
 const REJECT_RESPONSE   = { response: { status: 403 } };
 const DROP_RESPONSE     = { response: {} };
 const NO_CONTENT_RESPONSE = { response: { status: 204 } };
-// [V41.27] Null Data 策略：code: 0, data: null, msg: "ok"
-// 增加 Date 與 Server 標頭以提升真實性
+// [V41.29] Empty Object Payload 策略：code: 0, data: {}, msg: "ok"
+// 增加 Date 與 Server 標頭以提升真實性，並將 data 改為空物件以避免 Null Pointer Exception
 const MOCK_OK_RESPONSE    = { 
     response: { 
         status: 200, 
@@ -766,7 +748,7 @@ const MOCK_OK_RESPONSE    = {
             'Server': 'nginx',
             'Date': new Date().toUTCString()
         },
-        body: '{"code":0,"msg":"ok","data":null}'
+        body: '{"code":0,"msg":"ok","data":{}}'
     } 
 };
 const IMAGE_EXTENSIONS  = new Set(['.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp']);
@@ -1228,9 +1210,9 @@ function getBlockResponse(pathnameLower) {
     return TINY_GIF_RESPONSE;
   }
 
-  // [V41.28] Roborock App Agreement Protocol Mock (Version Agnostic)
+  // [V41.29] Roborock App Agreement Protocol Mock (Empty Object Strategy)
   // 改為僅檢查關鍵字 'checkappagreement'，忽略版本號 (v1, v2, v3...)
-  // 使用 MOCK_OK_RESPONSE (200 OK + code:0 + data:null) 作為最安全的偽裝
+  // 使用 MOCK_OK_RESPONSE (200 OK + code:0 + data:{}) 作為最安全的偽裝
   if (pathnameLower.includes('checkappagreement')) {
       return MOCK_OK_RESPONSE;
   }
@@ -1493,7 +1475,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.28 - Roborock Agnostic Fix', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.29 - Empty Object Payload', stats: optimizedStats.getStats() });
       }
       return;
     }
