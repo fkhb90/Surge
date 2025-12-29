@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.29.js
- * @version   41.29 (Roborock Empty Object Payload)
- * @description 針對 Roborock App 協議檢查，將 Mock Payload 的 data 欄位由 null 改為空物件 {}。此修正旨在防止 App 端因讀取 null 屬性而發生崩潰，確保能順利略過檢查。
+ * @file      URL-Ultimate-Filter-Surge-V41.30.js
+ * @version   41.30 (Roborock Allowlist Fallback)
+ * @description [重要修正] 鑑於 Roborock 協議檢查涉及核心用戶認證，Mocking 會導致 App 狀態異常。此版本移除針對 Roborock 的攔截，改採直接放行 (Allowlist) 策略以確保 App 可用性；保留 Shopee Chatbot 阻擋。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-29
@@ -109,7 +109,6 @@ const CONFIG = {
     'api.etmall.com.tw', 'tw.fd-api.com',
     // --- [V40.42] 台灣關鍵基礎設施 ---
     'api.map.ecpay.com.tw', // ECPay Logistics Map API
-    // [V41.22] 移除 usiot.roborock.com (修復 Mock 失效問題，使其落入 Critical Tracking 邏輯)
     // --- 支付 & 金流 API ---
     'api.adyen.com', 'api.braintreegateway.com', 'api.ecpay.com.tw', 'api.jkos.com', 'payment.ecpay.com.tw',
     // --- 票務 & 關鍵 API ---
@@ -168,7 +167,8 @@ const CONFIG = {
     // --- 開發 & 部署平台 ---
     'api.cloudflare.com', 'auth.docker.io', 'database.windows.net', 'login.docker.com',
     // --- 台灣地區服務 ---
-    'api.irentcar.com.tw', 'gateway.shopback.com.tw', 'usiot.roborock.com',
+    'api.irentcar.com.tw', 'gateway.shopback.com.tw', 
+    'usiot.roborock.com', // [V41.30] 核心認證服務，必須放行以確保 App 可用
     'www.momoshop.com.tw', // [V41.05] 優化 crossBridge.jsp 跨域橋接效能，避免掃描
     'm.momoshop.com.tw', // [V41.14] 優化行動版 UI 載入腳本 (momocoLoadingEnd.js)，避免卡死
     'bsp.momoshop.com.tw', // [V41.16] MOMO 供應商商品詳情圖文資源 (避免商品介紹區塊空白)
@@ -409,10 +409,10 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充, V41.21 擴充, V41.26 修復, V41.27 修復, V41.28 修復] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
+   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充, V41.21 擴充, V41.26 修復, V41.27 修復, V41.28 修復, V41.30 修正] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
-    // [V41.28] Roborock Protocol Logic: Moved to native Regex block inside isCriticalTrackingScript
+    // [V41.30] Roborock Protocol: 移除所有 Mock 設定，改採 Allowlist 策略
     // [V41.21] Shopee Chatbot 日誌阻擋
     ['chatbot.shopee.tw', new Set(['/report/v1/log'])],
     // [V41.00] Uber 登入頁面遙測阻擋
@@ -485,6 +485,24 @@ const CONFIG = {
     ['www.redditstatic.com', new Set(['/ads/pixel.js'])],
     ['discord.com', new Set(['/api/v10/science', '/api/v9/science'])],
     ['vk.com', new Set(['/rtrg'])],
+  ]),
+
+  /**
+   * 🚨 [V40.71 新增, V41.13 擴充] 關鍵追蹤路徑模式 (通用)
+   */
+  CRITICAL_TRACKING_GENERIC_PATHS: new Set([
+    '/ads/ga-audiences', '/doubleclick/', '/google-analytics/', '/googleadservices/', '/googlesyndication/',
+    '/googletagmanager/', '/pagead/gen_204', '/tiktok/pixel/events', '/tiktok/track/', '/linkedin/insight/track',
+    '/__utm.gif', '/j/collect', '/r/collect', '/api/batch', '/api/collect', '/api/event', '/api/events',
+    '/api/log/', '/api/logs/', '/api/track/', '/api/v1/event', '/api/v1/events', '/api/v1/track',
+    '/api/v2/event', '/api/v2/events', '/beacon/', '/collect?', '/data/collect', '/events/track', '/ingest/',
+    '/intake', '/p.gif', '/pixel/', '/rec/bundle', '/t.gif', '/telemetry/', '/track/', '/v1/pixel',
+    '/v2/track', '/v3/track', '/2/client/addlog_batch', '/plugins/easy-social-share-buttons/', '/event_report',
+    '/log/aplus', '/v.gif', '/ad-sw.js', '/ads-sw.js', '/ad-call', '/adx/', '/adsales/', '/adserver/',
+    '/adsync/', '/adtech/', '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc',
+    '/user-profile/', 'cacafly/track',
+    '/api/v1/t', // [V41.13] 通用極簡追蹤路徑 (MOMO DMP 等)
+    '/sa.gif', // [V40.97] Sensors Analytics (神策數據) 通用追蹤端點
   ]),
 
   /**
@@ -719,14 +737,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.29)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.30)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.29'; // [V41.29] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.30'; // [V41.30] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -737,20 +755,7 @@ const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 
 const REJECT_RESPONSE   = { response: { status: 403 } };
 const DROP_RESPONSE     = { response: {} };
 const NO_CONTENT_RESPONSE = { response: { status: 204 } };
-// [V41.29] Empty Object Payload 策略：code: 0, data: {}, msg: "ok"
-// 增加 Date 與 Server 標頭以提升真實性，並將 data 改為空物件以避免 Null Pointer Exception
-const MOCK_OK_RESPONSE    = { 
-    response: { 
-        status: 200, 
-        headers: { 
-            'Content-Type': 'application/json; charset=utf-8',
-            'Access-Control-Allow-Origin': '*',
-            'Server': 'nginx',
-            'Date': new Date().toUTCString()
-        },
-        body: '{"code":0,"msg":"ok","data":{}}'
-    } 
-};
+// [V41.27] Mock Response Removed - Fallback to Allowlist
 const IMAGE_EXTENSIONS  = new Set(['.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp']);
 const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs', '.css']);
 
@@ -1071,14 +1076,7 @@ function isCriticalTrackingScript(hostname, lowerFullPath) {
       }
   }
 
-  // [V41.28] Roborock: Version Agnostic Regex Block
-  // Handles /api/v1/..., /api/v2/..., /api/v99/...
-  if (hostname === 'usiot.roborock.com') {
-      if (/\/api\/v\d+\/checkappagreement/.test(lowerFullPath)) {
-          multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
-          return true;
-      }
-  }
+  // [V41.30] Roborock Mocking Removed: Fallback to Allowlist strategy
 
   const qIdx = lowerFullPath.indexOf('?');
   const pathOnly = qIdx !== -1 ? lowerFullPath.slice(0, qIdx) : lowerFullPath;
@@ -1210,12 +1208,7 @@ function getBlockResponse(pathnameLower) {
     return TINY_GIF_RESPONSE;
   }
 
-  // [V41.29] Roborock App Agreement Protocol Mock (Empty Object Strategy)
-  // 改為僅檢查關鍵字 'checkappagreement'，忽略版本號 (v1, v2, v3...)
-  // 使用 MOCK_OK_RESPONSE (200 OK + code:0 + data:{}) 作為最安全的偽裝
-  if (pathnameLower.includes('checkappagreement')) {
-      return MOCK_OK_RESPONSE;
-  }
+  // [V41.30] Roborock Mocking Removed: Fallback to Allowlist strategy
 
   for (const keyword of CONFIG.DROP_KEYWORDS) {
     if (pathnameLower.includes(keyword)) return DROP_RESPONSE;
@@ -1475,7 +1468,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.29 - Empty Object Payload', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.30 - Roborock Allowlist Fallback', stats: optimizedStats.getStats() });
       }
       return;
     }
