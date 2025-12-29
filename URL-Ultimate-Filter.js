@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.25.js
- * @version   41.25 (Roborock Schema Alignment & MitM Required)
- * @description 針對 Roborock 協議檢查，根據伺服器回傳結構 (code/msg/data) 實施精準的 JSON 偽裝 (code: 0)。注意：必須啟用 MitM 才能生效。
+ * @file      URL-Ultimate-Filter-Surge-V41.26.js
+ * @version   41.26 (Case Sensitivity Fix & Roborock Mock)
+ * @description 修正關鍵路徑比對的大小寫敏感度 Bug。將所有 Critical Tracking Map 路徑標準化為小寫，確保 Roborock 模擬回應能被正確觸發。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-29
@@ -409,11 +409,11 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充, V41.21 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
+   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充, V41.21 擴充, V41.26 修復] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
-    // [V41.21] Roborock App 協議檢查 (使用 200 OK 偽裝回應，避免卡死)
-    ['usiot.roborock.com', new Set(['/api/v1/checkAppAgreement'])],
+    // [V41.26] Roborock Protocol Fix: Lowercase standardization for 'checkappagreement'
+    ['usiot.roborock.com', new Set(['/api/v1/checkappagreement'])],
     // [V41.21] Shopee Chatbot 日誌阻擋
     ['chatbot.shopee.tw', new Set(['/report/v1/log'])],
     // [V41.00] Uber 登入頁面遙測阻擋
@@ -425,8 +425,8 @@ const CONFIG = {
     // [V41.11 & V41.12] Slack 效能剖析、日誌啟用與遙測上傳
     ['slack.com', new Set(['/api/profiling.logging.enablement', '/api/telemetry'])],
     // [V41.15] Yahoo Shopping UI Clean Up
-    ['graphql.ec.yahoo.com', new Set(['/app/sas/v1/fullSitePromotions'])], // 全站行銷蓋板廣告
-    ['prism.ec.yahoo.com', new Set(['/api/prism/v2/streamWithAds'])],     // 混合廣告串流 (經實測封鎖不影響瀏覽)
+    ['graphql.ec.yahoo.com', new Set(['/app/sas/v1/fullsitepromotions'])], // [V41.26] Fix lowercase
+    ['prism.ec.yahoo.com', new Set(['/api/prism/v2/streamwithads'])],     // [V41.26] Fix lowercase
     // [V41.19] 104 Job Bank Rules - Logic moved to native regex block inside isCriticalTrackingScript for max precision
     // Common Trackers
     ['analytics.google.com', new Set(['/g/collect'])],
@@ -738,14 +738,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.25)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.26)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.25'; // [V41.25] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.26'; // [V41.26] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1481,7 +1481,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.25 - Schema Aligned', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.26 - Case Sensitivity Fix', stats: optimizedStats.getStats() });
       }
       return;
     }
