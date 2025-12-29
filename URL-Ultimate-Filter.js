@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.26.js
- * @version   41.26 (Case Sensitivity Fix & Roborock Mock)
- * @description 修正關鍵路徑比對的大小寫敏感度 Bug。將所有 Critical Tracking Map 路徑標準化為小寫，確保 Roborock 模擬回應能被正確觸發。
+ * @file      URL-Ultimate-Filter-Surge-V41.27.js
+ * @version   41.27 (Roborock Null Data Strategy)
+ * @description 針對 Roborock 協議檢查，改採 data: null 搭配 code: 0 的策略。模擬「檢查成功且無新協議需簽署」的標準 API 行為，以解決 App 解析錯誤。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-29
@@ -409,7 +409,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充, V41.21 擴充, V41.26 修復] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
+   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充, V41.21 擴充, V41.26 修復, V41.27 修復] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
     // [V41.26] Roborock Protocol Fix: Lowercase standardization for 'checkappagreement'
@@ -738,14 +738,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.26)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.27)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.26'; // [V41.26] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.27'; // [V41.27] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -756,15 +756,18 @@ const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 
 const REJECT_RESPONSE   = { response: { status: 403 } };
 const DROP_RESPONSE     = { response: {} };
 const NO_CONTENT_RESPONSE = { response: { status: 204 } };
-// [V41.25] 結構化偽裝回應：根據伺服器錯誤 (code: 2013) 反推的成功結構 (code: 0)
+// [V41.27] Null Data 策略：code: 0, data: null, msg: "ok"
+// 增加 Date 與 Server 標頭以提升真實性
 const MOCK_OK_RESPONSE    = { 
     response: { 
         status: 200, 
         headers: { 
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*' 
+            'Content-Type': 'application/json; charset=utf-8',
+            'Access-Control-Allow-Origin': '*',
+            'Server': 'nginx',
+            'Date': new Date().toUTCString()
         },
-        body: '{"code":0,"msg":"ok","data":{"agreement":true,"version":1}}'
+        body: '{"code":0,"msg":"ok","data":null}'
     } 
 };
 const IMAGE_EXTENSIONS  = new Set(['.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp']);
@@ -1217,8 +1220,9 @@ function getBlockResponse(pathnameLower) {
     return TINY_GIF_RESPONSE;
   }
 
-  // [V41.25] Roborock App Agreement Protocol Mock (JSON Schema Alignment)
-  // 模擬伺服器成功狀態：code: 0, msg: "ok", data: { agreement: true }
+  // [V41.27] Roborock App Agreement Protocol Mock (Null Data Strategy)
+  // 修正邏輯：模擬伺服器成功 (code: 0) 且無新協議需簽署 (data: null) 的狀態。
+  // 這是解決 App 因未預期的 JSON 欄位而解析失敗的最安全解法。
   if (pathnameLower.includes('/api/v1/checkappagreement')) {
       return MOCK_OK_RESPONSE;
   }
@@ -1481,7 +1485,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.26 - Case Sensitivity Fix', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.27 - Null Data Strategy', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -1508,4 +1512,3 @@ function initialize() {
     if (typeof $done !== 'undefined') $done({});
   }
 })();
-
