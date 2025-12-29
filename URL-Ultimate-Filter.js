@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.20.js
- * @version   41.20 (Stability Release - 104/MOMO/Yahoo Optimization)
- * @description 累積 V41.14 至 V41.19 的所有修正。針對 104 人力銀行採用原生 Regex 攔截引擎；完整保留 MOMO 供應商破圖修復與 Yahoo 購物中心去廣告優化。
+ * @file      URL-Ultimate-Filter-Surge-V41.21.js
+ * @version   41.21 (Roborock Protocol Mock & Shopee Chatbot Block)
+ * @description 累積 V41.20 的所有修正。針對 Roborock 協議檢查實施 200 OK 偽裝，修復 App 無法進入問題；新增 Shopee Chatbot 日誌攔截。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-12-26
+ * @lastUpdated 2025-12-29
  */
 
 // #################################################################################################
@@ -408,9 +408,13 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
+   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充, V41.21 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
+    // [V41.21] Roborock App 協議檢查 (使用 200 OK 偽裝回應，避免卡死)
+    ['usiot.roborock.com', new Set(['/api/v1/checkAppAgreement'])],
+    // [V41.21] Shopee Chatbot 日誌阻擋
+    ['chatbot.shopee.tw', new Set(['/report/v1/log'])],
     // [V41.00] Uber 登入頁面遙測阻擋
     ['account.uber.com', new Set(['/_events'])],
     // [V41.08 & V41.09] 通義千問 (Tongyi AI) 行為日誌與業務埋點
@@ -733,14 +737,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.20)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.21)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.20'; // [V41.20] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.21'; // [V41.21] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -751,6 +755,7 @@ const TINY_GIF_RESPONSE = { response: { status: 200, headers: { 'Content-Type': 
 const REJECT_RESPONSE   = { response: { status: 403 } };
 const DROP_RESPONSE     = { response: {} };
 const NO_CONTENT_RESPONSE = { response: { status: 204 } };
+const MOCK_OK_RESPONSE    = { response: { status: 200, body: "{}" } }; // [V41.21] 偽裝 200 OK
 const IMAGE_EXTENSIONS  = new Set(['.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp']);
 const SCRIPT_EXTENSIONS = new Set(['.js', '.mjs', '.css']);
 
@@ -1201,6 +1206,13 @@ function getBlockResponse(pathnameLower) {
     return TINY_GIF_RESPONSE;
   }
 
+  // [V41.21] Roborock App Agreement Protocol Mock
+  // 由於 App 會檢查此 API 的返回狀態，若直接 REJECT (403) 會導致 App 認為網路異常。
+  // 因此返回 200 OK 與空 JSON，模擬「無協議需簽署」或「檢查通過」的狀態。
+  if (pathnameLower.includes('/api/v1/checkappagreement')) {
+      return MOCK_OK_RESPONSE;
+  }
+
   for (const keyword of CONFIG.DROP_KEYWORDS) {
     if (pathnameLower.includes(keyword)) return DROP_RESPONSE;
   }
@@ -1459,7 +1471,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.20 - Stability Release', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.21 - Protocol Fix', stats: optimizedStats.getStats() });
       }
       return;
     }
