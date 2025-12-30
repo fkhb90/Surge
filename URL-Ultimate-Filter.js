@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.31.js
- * @version   41.31 (Shopee LiveTech Tracking Fix)
- * @description [V41.31 更新] 針對 Shopee LiveTech 新增精準攔截規則，解決 reportPB 無法被通則封鎖的問題；維持 Roborock Allowlist 策略。
+ * @file      URL-Ultimate-Filter-Surge-V41.32.js
+ * @version   41.32 (Anti-AdBlock Proxy Fix)
+ * @description [V41.32 更新] 新增針對 Cloudflare Workers 反廣告攔截代理 (adunblock1) 的阻擋規則；包含 V41.31 Shopee 修正與 V41.30 Roborock 策略。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-12-29
+ * @lastUpdated 2025-12-30
  */
 
 // #################################################################################################
@@ -222,9 +222,12 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 [V40.51 強化, V40.90 修訂, V41.07 擴充] 域名攔截黑名單
+   * 🚫 [V40.51 強化, V40.90 修訂, V41.07 擴充, V41.32 擴充] 域名攔截黑名單
    */
   BLOCK_DOMAINS: new Set([
+    // --- [V41.32] Anti-AdBlock Proxies (Cloudflare Workers / Google Funding Choices Evasion) ---
+    'adunblock1.static-cloudflare.workers.dev', // 反廣告攔截代理
+    'fundingchoicesmessages.google.com', // Google 反攔截/同意聲明核心網域
     // --- [V41.15] Yahoo / Oath Privacy Tracking ---
     'guce.oath.com', // Verizon Media 隱私權同意追蹤 (GDPR Consent Check)
     // --- [V41.07] Alibaba / Alipay Telemetry ---
@@ -739,14 +742,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.31)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.32)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.31'; // [V41.31] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.32'; // [V41.32] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1470,7 +1473,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.31 - Shopee LiveTech Fix', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.32 - Anti-AdBlock Proxy Fix', stats: optimizedStats.getStats() });
       }
       return;
     }
