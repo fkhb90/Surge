@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.46.js
- * @version   41.46 (EPrice Ad API Blocking)
- * @description [V41.46] 新增 EPrice 廣告 API 攔截 (/api/web/ad/)。繼承 V41.38 所有穩定修正 (Shopee, Roborock, Anti-AdBlock)。
+ * @file      URL-Ultimate-Filter-Surge-V41.47.js
+ * @version   41.47 (Path-Centric Re-audit)
+ * @description [V41.47] 執行路徑通用化審核。將 Shopee Log (/report/v1/log) 與 Tongyi Log (/app/mobilelog) 升級為全域攔截規則，適用於所有子網域與跨國站點；保留 EPrice 全域規則。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-31
@@ -420,7 +420,8 @@ const CONFIG = {
    */
   CRITICAL_TRACKING_MAP: new Map([
     // [V41.46] EPrice Ad API Blocking
-    ['www.eprice.com.hk', new Set(['/api/web/ad/'])],
+    // Removed specific domain mapping for '/api/web/ad/' as it's now covered by CRITICAL_TRACKING_GENERIC_PATHS below for broader coverage.
+    
     // [V41.30] Roborock Protocol: 移除所有 Mock 設定，改採 Allowlist 策略
     // [V41.21] Shopee Chatbot 日誌阻擋
     ['chatbot.shopee.tw', new Set(['/report/v1/log'])],
@@ -499,9 +500,11 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 新增, V41.13 擴充, V41.37 擴充] 關鍵追蹤路徑模式 (通用)
+   * 🚨 [V40.71 新增, V41.13 擴充, V41.37 擴充, V41.46 擴充] 關鍵追蹤路徑模式 (通用)
    */
   CRITICAL_TRACKING_GENERIC_PATHS: new Set([
+    // [V41.46] Generic Ad API (Covers EPrice & others)
+    '/api/web/ad/', 
     // [V41.37] Explicit Fingerprint API Endpoints
     '/api/fingerprint', '/v1/fingerprint', '/cdn/fp/', '/cdn/fingerprint/',
     '/api/device-id', '/api/visitor-id',
