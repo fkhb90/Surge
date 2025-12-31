@@ -1,8 +1,8 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.38.js
- * @version   41.38 (Behavioral Fingerprint Poisoning)
- * @description [V41.38 更新] 引入行為式防禦架構。維持網路層阻擋規則，並建議搭配 'Universal-Fingerprint-Poisoning.js' 進行 API 層級的指紋混淆；繼承 V41.37 所有修正。
- * @note      此為長期維護穩定版，建議搭配注入腳本使用以獲得最大防護。
+ * @file      URL-Ultimate-Filter-Surge-V41.46.js
+ * @version   41.46 (EPrice Ad API Blocking)
+ * @description [V41.46] 新增 EPrice 廣告 API 攔截 (/api/web/ad/)。繼承 V41.38 所有穩定修正 (Shopee, Roborock, Anti-AdBlock)。
+ * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-31
  */
@@ -416,9 +416,11 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充, V41.21 擴充, V41.26 修復, V41.27 修復, V41.28 修復, V41.30 修正, V41.31 擴充, V41.37 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
+   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充, V41.21 擴充, V41.26 修復, V41.27 修復, V41.28 修復, V41.30 修正, V41.31 擴充, V41.37 擴充, V41.46 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
+    // [V41.46] EPrice Ad API Blocking
+    ['www.eprice.com.hk', new Set(['/api/web/ad/'])],
     // [V41.30] Roborock Protocol: 移除所有 Mock 設定，改採 Allowlist 策略
     // [V41.21] Shopee Chatbot 日誌阻擋
     ['chatbot.shopee.tw', new Set(['/report/v1/log'])],
@@ -765,14 +767,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.38)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.46)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.38'; // [V41.38] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.46'; // [V41.46] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1496,7 +1498,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.38 - Behavioral Fingerprint Poisoning', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.46 - EPrice Ad API Block', stats: optimizedStats.getStats() });
       }
       return;
     }
