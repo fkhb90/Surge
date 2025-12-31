@@ -1,12 +1,12 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   1.3 (Stability & Performance Fix)
- * @description 針對 Canvas, WebGL, AudioContext, Hardware, Memory 進行 API 層級的指紋混淆。採用「讀取時毒化」策略，避免視覺與聽覺破壞。
+ * @version   1.4 (CSP Bypass & Robust Injection)
+ * @description 針對 Canvas, WebGL, Audio 等指紋進行混淆。V41.39 新增移除 CSP (Content-Security-Policy) 標頭的功能，防止瀏覽器阻擋注入的腳本執行。
  * @note      [Surge Configuration]
  * Type: http-response
  * Pattern: ^https?://
  * Requires-Body: true
- * Max-Size: 524288 (建議設定 512KB，防止緩衝大檔案導致卡頓)
+ * Max-Size: 524288
  * Timeout: 10
  * @author    Claude & Gemini
  */
@@ -14,45 +14,51 @@
 const injection = `
 <script>
 (function() {
-    const DEBUG = false;
-    function log(msg) { if(DEBUG) console.log("[FP-Defender] " + msg); }
+    // 啟用控制台日誌以驗證注入是否成功
+    console.log("%c[FP-Defender] V41.39 Active - Fingerprint Spoofing Started", "color: #00ff00; font-weight: bold; background: #000; padding: 4px;");
 
     try {
-        // --- 1. Canvas Fingerprinting (Smart Noise) ---
+        // --- 1. Canvas Fingerprinting (Smart RGB Noise) ---
         const originalGetImageData = CanvasRenderingContext2D.prototype.getImageData;
         const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
         
-        // 隨機噪音生成器 (-1, 0, 1)
-        const noise = () => Math.floor(Math.random() * 3) - 1;
+        // 隨機噪音生成器 (-2 ~ 2)
+        const noise = () => Math.floor(Math.random() * 5) - 2;
 
         CanvasRenderingContext2D.prototype.getImageData = function(x, y, w, h) {
+            // 呼叫原始方法獲取數據
             const imageData = originalGetImageData.apply(this, arguments);
-            // 忽略小圖示，避免 UI 損壞
+            
+            // 忽略過小的畫布 (例如 UI 圖示)，避免破壞網頁外觀
             if (w < 50 && h < 50) return imageData; 
             
+            // 注入隨機噪音
+            let modified = false;
             for (let i = 0; i < imageData.data.length; i += 4) {
-                // 稀疏採樣干擾 (每 100 像素干擾一點)，降低 CPU 消耗與視覺影響
-                if (i % 400 === 0) {
+                // 稀疏採樣干擾 (每 200 像素干擾一點)
+                if (i % 800 === 0) {
                     imageData.data[i] = Math.min(255, Math.max(0, imageData.data[i] + noise()));     // R
                     imageData.data[i+1] = Math.min(255, Math.max(0, imageData.data[i+1] + noise())); // G
                     imageData.data[i+2] = Math.min(255, Math.max(0, imageData.data[i+2] + noise())); // B
+                    modified = true;
                 }
             }
-            log("Canvas data poisoned");
+            if (modified) console.debug("[FP-Defender] Canvas data poisoned");
             return imageData;
         };
 
-        // 針對 toDataURL 進行微小擾動
+        // 針對 toDataURL 進行微小擾動 (繪製隱形像素)
         HTMLCanvasElement.prototype.toDataURL = function() {
             if (!this._defended) {
                 this._defended = true;
                 const ctx = this.getContext('2d');
                 if (ctx) {
-                    // 繪製一個幾乎透明的像素，足以改變 Hash 但人眼不可見
                     const oldStyle = ctx.fillStyle;
-                    ctx.fillStyle = 'rgba(255,255,255,0.01)';
+                    // 畫一個極度透明的點，足以改變 Hash 但人眼不可見
+                    ctx.fillStyle = 'rgba(255,255,255,0.02)';
                     ctx.fillRect(0, 0, 1, 1);
                     ctx.fillStyle = oldStyle;
+                    console.debug("[FP-Defender] Canvas URL poisoned");
                 }
             }
             return originalToDataURL.apply(this, arguments);
@@ -73,11 +79,10 @@ const injection = `
             const getChannelData = window.AudioBuffer.prototype.getChannelData;
             window.AudioBuffer.prototype.getChannelData = function() {
                 const results = getChannelData.apply(this, arguments);
-                // 僅對前 100 個樣本注入極微量噪音，破壞指紋雜湊
+                // 對前 100 個樣本注入微量噪音
                 for (let i = 0; i < 100 && i < results.length; i += 10) {
                     results[i] += (Math.random() * 0.00001); 
                 }
-                log("Audio buffer poisoned");
                 return results;
             };
         }
@@ -91,28 +96,39 @@ const injection = `
         }
 
     } catch (e) {
-        console.error("[FP-Defender] Error:", e);
+        console.error("[FP-Defender] Injection Error:", e);
     }
 })();
 </script>
 `;
 
-// 安全檢查：確認回應存在且為 HTML 類型
-const headers = $response.headers;
-const contentType = headers['Content-Type'] || headers['content-type'];
+// 獲取回應標頭
+let headers = $response.headers;
+let contentType = headers['Content-Type'] || headers['content-type'];
 
-// 若非 HTML 內容 (如 JSON, 圖片, 純文字) 則直接跳過，節省資源並防止誤傷
+// 1. 檢查是否為 HTML
 if (!contentType || !contentType.toLowerCase().includes('text/html')) {
     $done({});
 } else {
+    // 2. 移除 CSP 限制 (關鍵步驟：這允許我們的 inline script 執行)
+    const cspKeys = ['Content-Security-Policy', 'content-security-policy', 'Content-Security-Policy-Report-Only', 'content-security-policy-report-only'];
+    for (const key of cspKeys) {
+        if (headers[key]) {
+            delete headers[key];
+            // console.log(`[FP-Defender] Removed CSP header: ${key}`); // Debug use
+        }
+    }
+
+    // 3. 注入腳本
     let body = $response.body;
-    const headRegex = /<head>/i; // 不區分大小寫
+    const headRegex = /<head>/i;
     
     if (body && headRegex.test(body)) {
-        // 確保注入在 <head> 最前端，搶在指紋腳本執行前生效
+        // 將腳本插入 <head> 之後
         body = body.replace(headRegex, (match) => match + injection);
-        $done({ body });
+        // 回傳修改後的 Body 與 Headers (移除了 CSP)
+        $done({ body: body, headers: headers });
     } else {
-        $done({});
+        $done({}); // 若找不到 <head> 則不修改 Body，但可能已修改 Headers
     }
 }
