@@ -1,7 +1,7 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   1.38 (Local Default & Clean UI)
- * @description [v1.38] 策略切換為 Local (長期固定) 模式，適配 VPN 使用環境。包含 Iframe 穿透與深度指紋防護。
+ * @version   1.39 (Integrated Whitelist & Session Mode)
+ * @description [v1.39] 預設策略改回 Session (平衡模式)；整合 URL-Ultimate-Filter V41.47 的銀行、支付與核心服務白名單，大幅提升網銀與關鍵應用的相容性。
  * @note      [CRITICAL] 請務必配合 Surge 設定檔中的正則排除規則使用，以確保 0 延遲體驗。
  * @author    Claude & Gemini
  */
@@ -38,6 +38,7 @@
     const uaRaw = $request.headers['User-Agent'] || $request.headers['user-agent'];
     const ua = (uaRaw || '').toLowerCase();
     
+    // 排除 App API 與非瀏覽器流量
     if (!ua || !ua.includes('mozilla') || 
         ua.includes('line/') || ua.includes('fb_iab') || ua.includes('micromessenger') || 
         ua.includes('worksmobile') || ua.includes('naver') || 
@@ -48,20 +49,52 @@
     }
 
     // ----------------------------------------------------------------
-    // 3. 網域白名單
+    // 3. 網域白名單 (Integrated from URL-Ultimate-Filter V41.47)
     // ----------------------------------------------------------------
     const url = $request.url;
     const match = url.match(/^https?:\/\/([^/:]+)/i);
     const hostname = match ? match[1].toLowerCase() : '';
     
     const excludedDomains = [
+        // --- AI & Search Services ---
+        "chatgpt.com", "claude.ai", "gemini.google.com", "perplexity.ai", "felo.ai", "monica.im",
+        
+        // --- Financial, Banking & Payments (Taiwan & Global) ---
+        "paypal.com", "stripe.com", "adyen.com", "braintreegateway.com", 
+        "ecpay.com.tw", "jkos.com", "taiwanpay.com.tw", "pay.taipei",
+        "bot.com.tw", "cathaybk.com.tw", "cathaysec.com.tw", "chb.com.tw", "citibank.com.tw", 
+        "ctbcbank.com", "dawho.tw", "dbs.com.tw", "esunbank.com.tw", "firstbank.com.tw", 
+        "fubon.com", "hncb.com.tw", "hsbc.co.uk", "hsbc.com.tw", "landbank.com.tw", 
+        "megabank.com.tw", "mitake.com.tw", "momopay.com.tw", "richart.tw", "scsb.com.tw", 
+        "sinopac.com", "standardchartered.com.tw", "taipeifubon.com.tw", "taishinbank.com.tw", 
+        "tcb-bank.com.tw", "tdcc.com.tw", "twca.com.tw", "twmp.com.tw",
+
+        // --- E-Commerce & Shopping ---
         "shopee.tw", "shopee.com", "shopeemobile.com", "susercontent.com", "shopee.ph",
+        "momoshop.com.tw", "etmall.com.tw", "book.com.tw", "pchome.com.tw",
+        "uber.com", "foodpanda.com.tw",
+
+        // --- Social & Communication ---
         "line-apps.com", "line.me", "naver.jp", "line-scdn.net",
-        "whatsapp.net", "whatsapp.com", "telegram.org",
-        "googleapis.com", "gstatic.com", "google.com", "apple.com", "icloud.com", 
-        "microsoft.com", "windowsupdate.com",
-        "github.com", "githubusercontent.com", "githubassets.com", "git.io", 
-        "youtube.com", "googlevideo.com", "netflix.com", "nflxvideo.net", "spotify.com"
+        "whatsapp.net", "whatsapp.com", "telegram.org", "discord.com", "twitch.tv",
+        "facebook.com", "instagram.com", "threads.net", "linkedin.com", "slack.com",
+
+        // --- System, Cloud & Login ---
+        "googleapis.com", "gstatic.com", "google.com", "accounts.google.com",
+        "apple.com", "appleid.apple.com", "icloud.com", 
+        "microsoft.com", "microsoftonline.com", "windowsupdate.com", "azure.com",
+        "aws.amazon.com", "cloudflare.com", "okta.com", "auth0.com", "atlassian.net",
+
+        // --- Developer & Tools ---
+        "github.com", "githubusercontent.com", "githubassets.com", "git.io", "github.io",
+        "gitlab.com", "vercel.app", "netlify.app",
+
+        // --- Streaming & Media ---
+        "youtube.com", "googlevideo.com", "netflix.com", "nflxvideo.net", "spotify.com", 
+        "flightradar24.com", "twimg.com",
+
+        // --- Government ---
+        "gov.tw", "org.tw"
     ];
 
     if (hostname) {
@@ -88,11 +121,11 @@
     const injection = `
 <script>
 (function() {
-    // [v1.38] 預設 storageType 改為 'local'
-    const CONFIG = { spoofNative: true, debug: false, storageType: 'local' }; 
+    // [v1.39] 預設 storageType 改回 'session' (單次會話固定)
+    const CONFIG = { spoofNative: true, debug: false, storageType: 'session' }; 
     const STORAGE_KEY = 'FP_SHIELD_SEED';
 
-    // 1. Local Persistence Seed
+    // 1. Seed Management
     let storageImpl;
     try {
         storageImpl = (CONFIG.storageType === 'local') ? localStorage : sessionStorage;
@@ -292,11 +325,11 @@
 
     injectFingerprintProtection(window);
 
-    // --- Floating Badge (Clean UI + Click Reset) ---
+    // --- Floating Badge (Clean UI) ---
     setTimeout(() => {
         const debugBadge = document.createElement('div');
         debugBadge.style.cssText = "position:fixed; bottom:10px; left:10px; z-index:2147483647; background:rgba(0,100,0,0.9); color:white; padding:5px 10px; border-radius:4px; font-size:12px; font-family:sans-serif; pointer-events:none; box-shadow:0 2px 5px rgba(0,0,0,0.3); transition: opacity 0.5s; cursor:pointer; pointer-events:auto;";
-        debugBadge.textContent = "🛡️ FP-Shield v1.38 Active";
+        debugBadge.textContent = "🛡️ FP-Shield v1.39 Active";
         debugBadge.title = "Seed: " + SESSION_SEED + "\\nMode: " + CONFIG.storageType.toUpperCase() + "\\n(Click to Reset)";
         
         debugBadge.onclick = function() {
@@ -314,7 +347,7 @@
         }, 3000);
     }, 500);
 
-    console.log("%c[FP-Defender] v1.38 (" + CONFIG.storageType + ") Active", "color: #00ff00; background: #000; padding: 4px;");
+    console.log("%c[FP-Defender] v1.39 (" + CONFIG.storageType + ") Active", "color: #00ff00; background: #000; padding: 4px;");
 })();
 </script>
 `;
