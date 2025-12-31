@@ -423,14 +423,15 @@ const CONFIG = {
     // Removed specific domain mapping for '/api/web/ad/' as it's now covered by CRITICAL_TRACKING_GENERIC_PATHS below for broader coverage.
     
     // [V41.30] Roborock Protocol: 移除所有 Mock 設定，改採 Allowlist 策略
-    // [V41.21] Shopee Chatbot 日誌阻擋
-    ['chatbot.shopee.tw', new Set(['/report/v1/log'])],
+    // [V41.21] Shopee Chatbot 日誌阻擋 (Removed in V41.47 for Generic Path)
+    // ['chatbot.shopee.tw', new Set(['/report/v1/log'])], // [V41.47] 已移至通用路徑
+    
     // [V41.31] Shopee LiveTech 行為追蹤 (ReportPB)
     ['data-rep.livetech.shopee.tw', new Set(['/dataapi/dataweb/event/'])],
     // [V41.00] Uber 登入頁面遙測阻擋
     ['account.uber.com', new Set(['/_events'])],
     // [V41.08 & V41.09] 通義千問 (Tongyi AI) 行為日誌與業務埋點
-    ['api.tongyi.com', new Set(['/app/mobilelog', '/qianwen/event/track'])],
+    ['api.tongyi.com', new Set(['/qianwen/event/track'])], // [V41.47] /app/mobilelog 已移至通用路徑
     // [V41.10] 支付寶 (Alipay) 日誌配置檔源頭攔截 (防止 App 獲取上傳策略)
     ['gw.alipayobjects.com', new Set(['/config/loggw/'])],
     // [V41.11 & V41.12] Slack 效能剖析、日誌啟用與遙測上傳
@@ -503,8 +504,10 @@ const CONFIG = {
    * 🚨 [V40.71 新增, V41.13 擴充, V41.37 擴充, V41.46 擴充] 關鍵追蹤路徑模式 (通用)
    */
   CRITICAL_TRACKING_GENERIC_PATHS: new Set([
-    // [V41.46] Generic Ad API (Covers EPrice & others)
+    // [V41.47] Generic Ad & Log API (Global Coverage)
     '/api/web/ad/', 
+    '/report/v1/log', // Shopee Global Log
+    '/app/mobilelog', // Tongyi/Alibaba Global Log
     // [V41.37] Explicit Fingerprint API Endpoints
     '/api/fingerprint', '/v1/fingerprint', '/cdn/fp/', '/cdn/fingerprint/',
     '/api/device-id', '/api/visitor-id',
@@ -770,14 +773,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.46)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.47)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.46'; // [V41.46] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.47'; // [V41.47] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1501,7 +1504,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.46 - EPrice Ad API Block', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.47 - Path-Centric Re-audit', stats: optimizedStats.getStats() });
       }
       return;
     }
