@@ -1,7 +1,7 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   1.10 (Standalone Versioning Fix)
- * @description [v1.10] 修正命名規則，脫離 URL Filter 版號體系獨立運作。包含：高強度 Canvas 噪聲、CSP 移除、Line/WhatsApp/Google API 自動避讓。
+ * @version   1.11 (Naming & Exclusion Update)
+ * @description [v1.11] 修正檔名版本號錯誤。包含：高強度 Canvas 噪聲、CSP 移除、擴充版 App 自動避讓清單 (Line, WhatsApp, Google, Apple 等)。
  * @note      [Surge Configuration]
  * Type: http-response
  * Pattern: ^https?://
@@ -12,15 +12,34 @@
  */
 
 // 0. 快速避讓機制 (Fail-fast): 針對已知的不相容 App API 直接退出
-// 這能節省效能並防止 App 崩潰，即使 MitM 誤開也能保護
 const url = $request.url;
 const excludedDomains = [
-    "line-apps.com",
-    "line.me",
-    "whatsapp.net",
-    "googleapis.com",
-    "push.apple.com",
-    "icloud.com",
+    // --- 通訊軟體 (Communication) ---
+    "line-apps.com", "line.me", "naver.jp",
+    "whatsapp.net", "whatsapp.com",
+    "telegram.org",
+    "messenger.com",
+    
+    // --- 系統與雲端服務 (System & Cloud) ---
+    "googleapis.com", "gstatic.com", "google.com",
+    "push.apple.com", "icloud.com", "itunes.com", "mzstatic.com",
+    "microsoft.com", "windowsupdate.com",
+    
+    // --- 社群平台 (Social Media - API Traffic) ---
+    "facebook.com", "fbcdn.net", "instagram.com", "cdninstagram.com",
+    "twitter.com", "twimg.com",
+    
+    // --- 串流媒體 (Streaming - DRM) ---
+    "netflix.com", "nflxvideo.net", "nflximg.net",
+    "spotify.com", "spotifycdn.com",
+    "disney.com", "bamgrid.com",
+    "youtube.com", "googlevideo.com",
+    
+    // --- 金融與支付 (Finance & Payment - Pinning) ---
+    "paypal.com", "paypalobjects.com",
+    
+    // --- 遊戲平台 (Gaming) ---
+    "nintendo.net", "playstation.net", "xboxlive.com"
 ];
 
 // 使用 some() 檢查是否命中排除清單
@@ -39,11 +58,11 @@ const injection = `
     // 顯示浮標 (3秒後消失，避免擋住視線)
     const debugBadge = document.createElement('div');
     debugBadge.style.cssText = "position:fixed; bottom:10px; left:10px; z-index:99999; background:rgba(0,100,0,0.9); color:white; padding:5px 10px; border-radius:4px; font-size:12px; font-family:sans-serif; pointer-events:none; box-shadow:0 2px 5px rgba(0,0,0,0.3); transition: opacity 0.5s;";
-    debugBadge.textContent = "🛡️ FP-Shield v1.10 Active";
+    debugBadge.textContent = "🛡️ FP-Shield v1.11 Active";
     document.documentElement.appendChild(debugBadge);
     setTimeout(() => { debugBadge.style.opacity = '0'; setTimeout(() => debugBadge.remove(), 500); }, 3000);
 
-    console.log("%c[FP-Defender] v1.10 Protection Active", "color: #00ff00; background: #000; padding: 4px;");
+    console.log("%c[FP-Defender] v1.11 Protection Active", "color: #00ff00; background: #000; padding: 4px;");
 
     try {
         // --- Canvas Fingerprinting (Smart Noise) ---
