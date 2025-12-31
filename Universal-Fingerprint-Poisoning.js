@@ -1,14 +1,14 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   1.17 (Stream-Guard & Strict Bypass)
- * @description [v1.17] 針對即時通訊優化的終極版。新增 HTTP 206 (串流) 與 WebSocket 協議檢測，強制避讓所有非靜態網頁內容；擴充 LINE 相關網域黑名單。
+ * @version   1.18 (GitHub Whitelist Added)
+ * @description [v1.18] 新增 GitHub 開發者生態系白名單，解決代碼瀏覽與 Raw 內容讀取問題；保留 v1.17 的串流防護機制。
  * @note      [CRITICAL] 請務必配合 Surge 設定檔中的正則排除規則使用，以確保 0 延遲體驗。
  * @author    Claude & Gemini
  */
 
 (function() {
     // ----------------------------------------------------------------
-    // 0. 串流與協議級避讓 (Stream & Protocol Guard) - v1.17 新增
+    // 0. 串流與協議級避讓 (Stream & Protocol Guard)
     // ----------------------------------------------------------------
     // 檢查 HTTP 狀態碼：206 代表 Partial Content (影片/音訊串流)，絕對不能讀取 Body
     if ($response.status === 206) {
@@ -58,20 +58,21 @@
     // 條件 C: 包含特定 App 關鍵字 -> 放行
     if (!ua || !ua.includes('mozilla') || 
         ua.includes('line/') || ua.includes('fb_iab') || ua.includes('micromessenger') || 
-        ua.includes('worksmobile') || ua.includes('naver')) {
+        ua.includes('worksmobile') || ua.includes('naver') || 
+        ua.includes('github') || ua.includes('git/')) { // 新增 git 相關 UA 排除
         $done({});
         return;
     }
 
     // ----------------------------------------------------------------
-    // 3. 網域白名單 (Domain Allowlist) - v1.17 擴充
+    // 3. 網域白名單 (Domain Allowlist) - v1.18 更新
     // ----------------------------------------------------------------
     const url = $request.url;
     const match = url.match(/^https?:\/\/([^/:]+)/i);
     const hostname = match ? match[1].toLowerCase() : '';
     
     const excludedDomains = [
-        // LINE Ecosystem (Expanded)
+        // LINE Ecosystem
         "line-apps.com", "line.me", "naver.jp", "line-scdn.net", "nhncorp.jp", "line-cdn.net",
         "obs.line-scdn.net", "profile.line-scdn.net", "lcs.naver.com", "worksmobile.com",
         "line-apps-beta.com", "linetv.tw",
@@ -82,6 +83,9 @@
         // System & Cloud
         "googleapis.com", "gstatic.com", "google.com", "apple.com", "icloud.com", 
         "microsoft.com", "windowsupdate.com", "azure.com", "crashlytics.com",
+        
+        // Developer Tools (GitHub) - [v1.18 New]
+        "github.com", "githubusercontent.com", "githubassets.com", "git.io", "github.io",
         
         // Streaming
         "youtube.com", "googlevideo.com", "netflix.com", "nflxvideo.net", "spotify.com"
@@ -118,10 +122,10 @@
 (function() {
     const debugBadge = document.createElement('div');
     debugBadge.style.cssText = "position:fixed; bottom:10px; left:10px; z-index:99999; background:rgba(0,100,0,0.9); color:white; padding:5px 10px; border-radius:4px; font-size:12px; font-family:sans-serif; pointer-events:none; box-shadow:0 2px 5px rgba(0,0,0,0.3); transition: opacity 0.5s;";
-    debugBadge.textContent = "🛡️ FP-Shield v1.17";
+    debugBadge.textContent = "🛡️ FP-Shield v1.18";
     document.documentElement.appendChild(debugBadge);
     setTimeout(() => { debugBadge.style.opacity = '0'; setTimeout(() => debugBadge.remove(), 500); }, 3000);
-    console.log("%c[FP-Defender] v1.17 Active", "color: #00ff00; background: #000; padding: 4px;");
+    console.log("%c[FP-Defender] v1.18 Active", "color: #00ff00; background: #000; padding: 4px;");
 
     try {
         const originalGetImageData = CanvasRenderingContext2D.prototype.getImageData;
