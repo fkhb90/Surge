@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.34.js
- * @version   41.34 (KaiOS Parameter Hygiene)
- * @description [V41.34 更新] 針對 KaiOS Facebook 流量實施參數淨化 (移除 lid) 而非封鎖，以平衡隱私與連線功能；繼承 V41.32 所有穩定修正。
+ * @file      URL-Ultimate-Filter-Surge-V41.35.js
+ * @version   41.35 (Browser Fingerprinting Block)
+ * @description [V41.35 更新] 新增針對 fp*.js (如 fp2.js) 指紋追蹤腳本的精準 Regex 攔截；避開 lodash/fp 等合法庫；繼承 V41.34 所有修正。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-31
@@ -638,6 +638,8 @@ const CONFIG = {
    * 🗑️ [V40.69 擴充] 追蹤參數黑名單 (全域)
    */
   GLOBAL_TRACKING_PARAMS: new Set([
+      // [V41.34] KaiOS Log ID Removal
+      'lid',
       '_branch_match_id', '_ga', '_gl', '_gid', '_openstat', 'admitad_uid', 'aiad_clid', 'awc', 'btag',
       'cjevent', 'cmpid', 'cuid', 'dclid', 'external_click_id', 'fbclid', 'gad_source', 'gclid', 
       'gclsrc', 'gbraid', 'gps_adid', 'iclid', 'igshid', 'irclickid', 'is_retargeting', 
@@ -710,7 +712,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 [V40.76 修訂] 基於正規表示式的路徑黑名單
+   * 🚫 [V40.76 修訂, V41.35 擴充] 基於正規表示式的路徑黑名單
    * 說明：移除了可被原生字串方法取代的簡單規則，以提升效能。
    */
   PATH_BLOCK_REGEX: [
@@ -718,6 +720,9 @@ const CONFIG = {
     /[^\/]*sentry[^\/]*\.js/i,
     /\/v\d+\/event/i,
     /\/api\/v\d+\/collect$/i,
+    // [V41.35] Browser Fingerprinting Scripts (e.g., fp2.js, fp2.hash.js)
+    // Matches /fp[digits].js or /fp[digits].[hash].js - avoiding generic fp.js (lodash)
+    /\/fp\d+(\.[a-z0-9]+)?\.js$/i,
   ],
 
   /**
@@ -742,14 +747,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.32)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.35)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.32'; // [V41.32] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.35'; // [V41.35] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1473,7 +1478,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.32 - Anti-AdBlock Proxy Fix', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.35 - Browser Fingerprinting Block', stats: optimizedStats.getStats() });
       }
       return;
     }
