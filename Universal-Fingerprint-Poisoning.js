@@ -21,8 +21,6 @@ const excludedDomains = [
     "googleapis.com",
     "push.apple.com",
     "icloud.com",
-    "facebook.com", // 若您決定在 MitM 中排除 FB，這裡也要同步
-    "fbcdn.net"
 ];
 
 // 使用 some() 檢查是否命中排除清單
