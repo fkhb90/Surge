@@ -1,7 +1,7 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.35.js
- * @version   41.35 (Browser Fingerprinting Block)
- * @description [V41.35 更新] 新增針對 fp*.js (如 fp2.js) 指紋追蹤腳本的精準 Regex 攔截；避開 lodash/fp 等合法庫；繼承 V41.34 所有修正。
+ * @file      URL-Ultimate-Filter-Surge-V41.37.js
+ * @version   41.37 (Academic Fingerprint Defense)
+ * @description [V41.37 更新] 基於學術研究擴充指紋防禦；新增 openfpcdn.io 與高信度檔名 (fp-*, device-id, visitor-id) 攔截；排除高誤殺風險的通用詞彙。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-31
@@ -222,9 +222,13 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 [V40.51 強化, V40.90 修訂, V41.07 擴充, V41.32 擴充] 域名攔截黑名單
+   * 🚫 [V40.51 強化, V40.90 修訂, V41.07 擴充, V41.32 擴充, V41.37 擴充] 域名攔截黑名單
    */
   BLOCK_DOMAINS: new Set([
+    // --- [V41.37] FingerprintJS Vendors & CDNs (Academic Heuristics) ---
+    'openfpcdn.io', // FingerprintJS CDN
+    'fingerprintjs.com', // Fingerprint Vendor
+    'fpjs.io', // Fingerprint Vendor Alias
     // --- [V41.32] Anti-AdBlock Proxies (Cloudflare Workers / Google Funding Choices Evasion) ---
     'adunblock1.static-cloudflare.workers.dev', // 反廣告攔截代理
     'fundingchoicesmessages.google.com', // Google 反攔截/同意聲明核心網域
@@ -412,7 +416,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充, V41.21 擴充, V41.26 修復, V41.27 修復, V41.28 修復, V41.30 修正, V41.31 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
+   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充, V41.21 擴充, V41.26 修復, V41.27 修復, V41.28 修復, V41.30 修正, V41.31 擴充, V41.37 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
     // [V41.30] Roborock Protocol: 移除所有 Mock 設定，改採 Allowlist 策略
@@ -493,9 +497,13 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V40.71 新增, V41.13 擴充] 關鍵追蹤路徑模式 (通用)
+   * 🚨 [V40.71 新增, V41.13 擴充, V41.37 擴充] 關鍵追蹤路徑模式 (通用)
    */
   CRITICAL_TRACKING_GENERIC_PATHS: new Set([
+    // [V41.37] Explicit Fingerprint API Endpoints
+    '/api/fingerprint', '/v1/fingerprint', '/cdn/fp/', '/cdn/fingerprint/',
+    '/api/device-id', '/api/visitor-id',
+    // General
     '/ads/ga-audiences', '/doubleclick/', '/google-analytics/', '/googleadservices/', '/googlesyndication/',
     '/googletagmanager/', '/pagead/gen_204', '/tiktok/pixel/events', '/tiktok/track/', '/linkedin/insight/track',
     '/__utm.gif', '/j/collect', '/r/collect', '/api/batch', '/api/collect', '/api/event', '/api/events',
@@ -635,7 +643,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🗑️ [V40.69 擴充] 追蹤參數黑名單 (全域)
+   * 🗑️ [V40.69 擴充, V41.34 擴充] 追蹤參數黑名單 (全域)
    */
   GLOBAL_TRACKING_PARAMS: new Set([
       // [V41.34] KaiOS Log ID Removal
@@ -712,7 +720,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 [V40.76 修訂, V41.35 擴充] 基於正規表示式的路徑黑名單
+   * 🚫 [V40.76 修訂, V41.35 擴充, V41.36 擴充, V41.37 擴充] 基於正規表示式的路徑黑名單
    * 說明：移除了可被原生字串方法取代的簡單規則，以提升效能。
    */
   PATH_BLOCK_REGEX: [
@@ -721,8 +729,19 @@ const CONFIG = {
     /\/v\d+\/event/i,
     /\/api\/v\d+\/collect$/i,
     // [V41.35] Browser Fingerprinting Scripts (e.g., fp2.js, fp2.hash.js)
-    // Matches /fp[digits].js or /fp[digits].[hash].js - avoiding generic fp.js (lodash)
     /\/fp\d+(\.[a-z0-9]+)?\.js$/i,
+    // [V41.36] High Confidence Fingerprinting Patterns
+    /\/fingerprint(2|js|js2)?(\.min)?\.js$/i,
+    /\/imprint\.js$/i,
+    /\/device-?uuid\.js$/i,
+    /\/machine-?id\.js$/i,
+    // [V41.37] Expanded Academic Fingerprint Heuristics (Safe Subset)
+    // Avoids generic terms like 'canvas.js' or 'audio.js' to prevent breakage
+    /\/fp-?[a-z0-9-]*\.js$/i,
+    /\/device-?(id|uuid|fingerprint)\.js$/i,
+    /\/client-?id\.js$/i,
+    /\/visitor-?id\.js$/i,
+    /\/canvas-?fp\.js$/i,
   ],
 
   /**
@@ -747,14 +766,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.35)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.37)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.35'; // [V41.35] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.37'; // [V41.37] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1478,7 +1497,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.35 - Browser Fingerprinting Block', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.37 - Academic Fingerprint Defense', stats: optimizedStats.getStats() });
       }
       return;
     }
