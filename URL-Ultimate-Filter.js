@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.32.js
- * @version   41.32 (Anti-AdBlock Proxy Fix)
- * @description [V41.32 更新] 新增針對 Cloudflare Workers 反廣告攔截代理 (adunblock1) 的阻擋規則；包含 V41.31 Shopee 修正與 V41.30 Roborock 策略。
- * @note      此為長期維護穩定版，建議所有使用者更新。
+ * @file      URL-Ultimate-Filter-Surge-V41.33.js
+ * @version   41.33 (Extreme Privacy / Experimental)
+ * @description [極致隱私版] 應使用者要求，強制封鎖 Facebook 核心 CDN (static, scontent, video) 與 KaiOS 遙測網域。警告：此版本將導致 Facebook 介面崩壞與媒體無法載入。
+ * @note      此為實驗性版本，專為極致隱私需求打造。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-12-30
+ * @lastUpdated 2025-12-31
  */
 
 // #################################################################################################
@@ -222,12 +222,15 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 [V40.51 強化, V40.90 修訂, V41.07 擴充, V41.32 擴充] 域名攔截黑名單
+   * 🚫 [V40.51 強化, V40.90 修訂, V41.07 擴充, V41.32 擴充, V41.33 擴充] 域名攔截黑名單
    */
   BLOCK_DOMAINS: new Set([
-    // --- [V41.32] Anti-AdBlock Proxies (Cloudflare Workers / Google Funding Choices Evasion) ---
-    'adunblock1.static-cloudflare.workers.dev', // 反廣告攔截代理
-    'fundingchoicesmessages.google.com', // Google 反攔截/同意聲明核心網域
+    // --- [V41.33] Facebook Extreme Privacy Block (User Requested) ---
+    'kaios-d.facebook.com', // KaiOS 遙測與通訊閘道
+    'static.xx.fbcdn.net',  // Facebook 核心靜態資源 (UI樣式/腳本) - 封鎖將導致跑版
+    // --- [V41.32] Anti-AdBlock Proxies ---
+    'adunblock1.static-cloudflare.workers.dev',
+    'fundingchoicesmessages.google.com',
     // --- [V41.15] Yahoo / Oath Privacy Tracking ---
     'guce.oath.com', // Verizon Media 隱私權同意追蹤 (GDPR Consent Check)
     // --- [V41.07] Alibaba / Alipay Telemetry ---
@@ -360,9 +363,12 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 [V40.35 新增] Regex 域名攔截黑名單
+   * 🚫 [V40.35 新增, V41.33 擴充] Regex 域名攔截黑名單
    */
   BLOCK_DOMAINS_REGEX: [
+    // --- [V41.33] Facebook Media CDN Block (Extreme Privacy) ---
+    // 攔截所有圖片、影片與使用者內容伺服器 (scontent-*, video-*)
+    /^(scontent|video)-.*\.fbcdn\.net$/i,
     // --- 台灣新聞媒體廣告 (動態子域名) ---
     /^ad[s]?\d*\.(ettoday\.net|ltn\.com\.tw)$/,
   ],
@@ -742,14 +748,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.32)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.33)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.32'; // [V41.32] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.33'; // [V41.33] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1473,7 +1479,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.32 - Anti-AdBlock Proxy Fix', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.33 - Extreme Privacy Edition', stats: optimizedStats.getStats() });
       }
       return;
     }
