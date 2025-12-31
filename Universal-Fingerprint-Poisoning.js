@@ -1,14 +1,14 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   1.37 (Local Default & Optimized Whitelist)
- * @description [v1.37] 預設為 Local (長期固定) 模式，提升帳號存活率；拒絕導入大型白名單，保持核心輕量與高效。
+ * @version   1.36 (Clean UI & Session Default)
+ * @description [v1.36] UI 回歸極簡版，自動淡出；同步 Tampermonkey 核心 (Iframe/Offscreen/Session)。
  * @note      [CRITICAL] 請務必配合 Surge 設定檔中的正則排除規則使用，以確保 0 延遲體驗。
  * @author    Claude & Gemini
  */
 
 (function() {
     // ----------------------------------------------------------------
-    // 0. 串流與協議級避讓
+    // 0. 串流與協議級避讓 (Stream & Protocol Guard)
     // ----------------------------------------------------------------
     if ($response.status === 206) { $done({}); return; }
 
@@ -24,7 +24,7 @@
     if (contentLength > 2000000) { $done({}); return; }
 
     // ----------------------------------------------------------------
-    // 1. 原子級標頭防護
+    // 1. 原子級標頭防護 (Atomic Header Guard)
     // ----------------------------------------------------------------
     const contentType = normalizedHeaders['content-type'] || '';
     if (contentType && !contentType.includes('text/html')) {
@@ -33,11 +33,12 @@
     }
 
     // ----------------------------------------------------------------
-    // 2. User-Agent 深度檢測
+    // 2. User-Agent 深度檢測 (邏輯避讓)
     // ----------------------------------------------------------------
     const uaRaw = $request.headers['User-Agent'] || $request.headers['user-agent'];
     const ua = (uaRaw || '').toLowerCase();
     
+    // 排除 App API 與非瀏覽器流量
     if (!ua || !ua.includes('mozilla') || 
         ua.includes('line/') || ua.includes('fb_iab') || ua.includes('micromessenger') || 
         ua.includes('worksmobile') || ua.includes('naver') || 
@@ -48,13 +49,12 @@
     }
 
     // ----------------------------------------------------------------
-    // 3. 網域白名單 (精簡版)
+    // 3. 網域白名單 (Domain Allowlist) - 邏輯避讓
     // ----------------------------------------------------------------
     const url = $request.url;
     const match = url.match(/^https?:\/\/([^/:]+)/i);
     const hostname = match ? match[1].toLowerCase() : '';
     
-    // [v1.37] 僅保留核心相容性名單，不進行無意義的廣告過濾白名單
     const excludedDomains = [
         "shopee.tw", "shopee.com", "shopeemobile.com", "susercontent.com", "shopee.ph",
         "line-apps.com", "line.me", "naver.jp", "line-scdn.net",
@@ -75,7 +75,7 @@
     }
 
     // ----------------------------------------------------------------
-    // 4. 安全注入邏輯
+    // 4. 安全注入邏輯 (Universal Injection)
     // ----------------------------------------------------------------
     let body = $response.body;
     if (!body) { $done({}); return; }
@@ -89,8 +89,7 @@
     const injection = `
 <script>
 (function() {
-    // [v1.37] 預設 storageType 改為 'local'
-    const CONFIG = { spoofNative: true, debug: false, storageType: 'local' }; 
+    const CONFIG = { spoofNative: true, debug: false, storageType: 'session' }; // Default to Session
     const STORAGE_KEY = 'FP_SHIELD_SEED';
 
     // 1. Session Persistence Seed
@@ -297,7 +296,7 @@
     setTimeout(() => {
         const debugBadge = document.createElement('div');
         debugBadge.style.cssText = "position:fixed; bottom:10px; left:10px; z-index:2147483647; background:rgba(0,100,0,0.9); color:white; padding:5px 10px; border-radius:4px; font-size:12px; font-family:sans-serif; pointer-events:none; box-shadow:0 2px 5px rgba(0,0,0,0.3); transition: opacity 0.5s;";
-        debugBadge.textContent = "🛡️ FP-Shield v1.37 Active";
+        debugBadge.textContent = "🛡️ FP-Shield v1.36 Active";
         document.documentElement.appendChild(debugBadge);
         
         // Auto fade out
@@ -307,7 +306,7 @@
         }, 3000);
     }, 500);
 
-    console.log("%c[FP-Defender] v1.37 (Local) Active", "color: #00ff00; background: #000; padding: 4px;");
+    console.log("%c[FP-Defender] v1.36 Active", "color: #00ff00; background: #000; padding: 4px;");
 })();
 </script>
 `;
