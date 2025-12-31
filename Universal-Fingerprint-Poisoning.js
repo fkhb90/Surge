@@ -1,8 +1,13 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   1.2 (Optimized for Surge MitM)
+ * @version   1.3 (Stability & Performance Fix)
  * @description 針對 Canvas, WebGL, AudioContext, Hardware, Memory 進行 API 層級的指紋混淆。採用「讀取時毒化」策略，避免視覺與聽覺破壞。
- * @note      請在 Surge [Script] 區段配置為 http-response，並確保 MitM 開啟。
+ * @note      [Surge Configuration]
+ * Type: http-response
+ * Pattern: ^https?://
+ * Requires-Body: true
+ * Max-Size: 524288 (建議設定 512KB，防止緩衝大檔案導致卡頓)
+ * Timeout: 10
  * @author    Claude & Gemini
  */
 
@@ -92,11 +97,22 @@ const injection = `
 </script>
 `;
 
-let body = $response.body;
-// 確保注入在 <head> 最前端，搶在指紋腳本執行前生效
-if (body && body.indexOf("<head>") !== -1) {
-    body = body.replace("<head>", "<head>" + injection);
-    $done({ body });
-} else {
+// 安全檢查：確認回應存在且為 HTML 類型
+const headers = $response.headers;
+const contentType = headers['Content-Type'] || headers['content-type'];
+
+// 若非 HTML 內容 (如 JSON, 圖片, 純文字) 則直接跳過，節省資源並防止誤傷
+if (!contentType || !contentType.toLowerCase().includes('text/html')) {
     $done({});
+} else {
+    let body = $response.body;
+    const headRegex = /<head>/i; // 不區分大小寫
+    
+    if (body && headRegex.test(body)) {
+        // 確保注入在 <head> 最前端，搶在指紋腳本執行前生效
+        body = body.replace(headRegex, (match) => match + injection);
+        $done({ body });
+    } else {
+        $done({});
+    }
 }
