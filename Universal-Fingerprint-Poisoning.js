@@ -1,8 +1,8 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   1.18 (GitHub Whitelist Added)
- * @description [v1.18] 新增 GitHub 開發者生態系白名單，解決代碼瀏覽與 Raw 內容讀取問題；保留 v1.17 的串流防護機制。
- * @note      [CRITICAL] 請務必配合 Surge 設定檔中的正則排除規則使用，以確保 0 延遲體驗。
+ * @version   1.19 (Shopee Whitelist Added)
+ * @description [v1.19] 新增蝦皮 (Shopee) 生態系白名單，解決登入驗證無限迴圈與驗證頁面 (CAPTCHA) 載入失敗問題；保留 GitHub 與串流防護機制。
+ * @note      [CRITICAL] 若 App 瀏覽仍有卡頓，建議配合 Surge 設定檔中的正則排除規則使用。
  * @author    Claude & Gemini
  */
 
@@ -59,19 +59,24 @@
     if (!ua || !ua.includes('mozilla') || 
         ua.includes('line/') || ua.includes('fb_iab') || ua.includes('micromessenger') || 
         ua.includes('worksmobile') || ua.includes('naver') || 
-        ua.includes('github') || ua.includes('git/')) { // 新增 git 相關 UA 排除
+        ua.includes('github') || ua.includes('git/') ||
+        ua.includes('shopee') || ua.includes('seamoney')) { // [v1.19] 新增 Shopee App 排除
         $done({});
         return;
     }
 
     // ----------------------------------------------------------------
-    // 3. 網域白名單 (Domain Allowlist) - v1.18 更新
+    // 3. 網域白名單 (Domain Allowlist) - v1.19 更新
     // ----------------------------------------------------------------
     const url = $request.url;
     const match = url.match(/^https?:\/\/([^/:]+)/i);
     const hostname = match ? match[1].toLowerCase() : '';
     
     const excludedDomains = [
+        // E-Commerce (Shopee) - [v1.19 New]
+        "shopee.tw", "shopee.com", "shopeemobile.com", "susercontent.com", 
+        "shopee.ph", "shopee.my", "shopee.sg", "shopee.th", "shopee.co.id", "shopee.vn",
+        
         // LINE Ecosystem
         "line-apps.com", "line.me", "naver.jp", "line-scdn.net", "nhncorp.jp", "line-cdn.net",
         "obs.line-scdn.net", "profile.line-scdn.net", "lcs.naver.com", "worksmobile.com",
@@ -84,7 +89,7 @@
         "googleapis.com", "gstatic.com", "google.com", "apple.com", "icloud.com", 
         "microsoft.com", "windowsupdate.com", "azure.com", "crashlytics.com",
         
-        // Developer Tools (GitHub) - [v1.18 New]
+        // Developer Tools (GitHub)
         "github.com", "githubusercontent.com", "githubassets.com", "git.io", "github.io",
         
         // Streaming
@@ -122,10 +127,10 @@
 (function() {
     const debugBadge = document.createElement('div');
     debugBadge.style.cssText = "position:fixed; bottom:10px; left:10px; z-index:99999; background:rgba(0,100,0,0.9); color:white; padding:5px 10px; border-radius:4px; font-size:12px; font-family:sans-serif; pointer-events:none; box-shadow:0 2px 5px rgba(0,0,0,0.3); transition: opacity 0.5s;";
-    debugBadge.textContent = "🛡️ FP-Shield v1.18";
+    debugBadge.textContent = "🛡️ FP-Shield v1.19";
     document.documentElement.appendChild(debugBadge);
     setTimeout(() => { debugBadge.style.opacity = '0'; setTimeout(() => debugBadge.remove(), 500); }, 3000);
-    console.log("%c[FP-Defender] v1.18 Active", "color: #00ff00; background: #000; padding: 4px;");
+    console.log("%c[FP-Defender] v1.19 Active", "color: #00ff00; background: #000; padding: 4px;");
 
     try {
         const originalGetImageData = CanvasRenderingContext2D.prototype.getImageData;
