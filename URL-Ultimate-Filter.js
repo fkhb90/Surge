@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.32.js
- * @version   41.32 (Anti-AdBlock Proxy Fix)
- * @description [V41.32 更新] 新增針對 Cloudflare Workers 反廣告攔截代理 (adunblock1) 的阻擋規則；包含 V41.31 Shopee 修正與 V41.30 Roborock 策略。
+ * @file      URL-Ultimate-Filter-Surge-V41.34.js
+ * @version   41.34 (KaiOS Parameter Hygiene)
+ * @description [V41.34 更新] 針對 KaiOS Facebook 流量實施參數淨化 (移除 lid) 而非封鎖，以平衡隱私與連線功能；繼承 V41.32 所有穩定修正。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-12-30
+ * @lastUpdated 2025-12-31
  */
 
 // #################################################################################################
