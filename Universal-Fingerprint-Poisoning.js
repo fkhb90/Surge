@@ -1,36 +1,48 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   1.16 (Atomic Header Guard)
- * @description [v1.16] 引入「原子級標頭防護」，優先檢查 Content-Type 與 UA 大小寫歸一化，解決 Header 判讀失效問題；並針對 Surge 緩衝機制進行了邏輯最佳化。
- * @note      [IMPORTANT] 若 LINE 通話仍有問題，請務必在 Surge 設定檔的 [Script] 區域排除 LINE 網域 (詳見腳本內說明)。
- * Type: http-response
- * Pattern: ^https?://
- * Requires-Body: true
- * Max-Size: 524288
- * Timeout: 10
+ * @version   1.17 (Stream-Guard & Strict Bypass)
+ * @description [v1.17] 針對即時通訊優化的終極版。新增 HTTP 206 (串流) 與 WebSocket 協議檢測，強制避讓所有非靜態網頁內容；擴充 LINE 相關網域黑名單。
+ * @note      [CRITICAL] 請務必配合 Surge 設定檔中的正則排除規則使用，以確保 0 延遲體驗。
  * @author    Claude & Gemini
  */
 
 (function() {
     // ----------------------------------------------------------------
-    // 1. 原子級標頭防護 (Atomic Header Guard) - 最優先執行
+    // 0. 串流與協議級避讓 (Stream & Protocol Guard) - v1.17 新增
     // ----------------------------------------------------------------
-    // 說明：為了避免 Surge 等待 Body 下載，我們先檢查標頭。
-    // 只要標頭顯示這不是網頁 (HTML)，直接退出，這能大幅減少對圖片/API/串流的干擾。
-    
+    // 檢查 HTTP 狀態碼：206 代表 Partial Content (影片/音訊串流)，絕對不能讀取 Body
+    if ($response.status === 206) {
+        $done({});
+        return;
+    }
+
     const headers = $response.headers;
-    // 將所有 header key 轉為小寫以確保兼容性 (解決 Content-Type vs content-type 問題)
     const normalizedHeaders = {};
     for (const key in headers) {
         normalizedHeaders[key.toLowerCase()] = headers[key];
     }
 
+    // 檢查 WebSocket 升級請求 (常見於即時通訊)
+    if (normalizedHeaders['upgrade'] === 'websocket') {
+        $done({});
+        return;
+    }
+
+    // 檢查內容長度：如果 Body 超過 1MB 但 max-size 未攔截，主動放棄 (避免記憶體溢出)
+    const contentLength = parseInt(normalizedHeaders['content-length'] || '0');
+    if (contentLength > 2000000) { // 2MB 閾值
+        $done({});
+        return;
+    }
+
+    // ----------------------------------------------------------------
+    // 1. 原子級標頭防護 (Atomic Header Guard)
+    // ----------------------------------------------------------------
     const contentType = normalizedHeaders['content-type'] || '';
     
-    // [嚴格判定] 如果內容類型存在且不包含 text/html，立即放行
-    // 這能秒殺 99% 的圖片、JSON API、影片串流請求
+    // [嚴格判定] 僅允許純 HTML 內容。
+    // 排除 application/json, text/xml, image/*, application/octet-stream 等
     if (contentType && !contentType.includes('text/html')) {
-        // console.log(`[FP-Defender] Skipped Non-HTML: ${contentType}`);
         $done({});
         return;
     }
@@ -39,37 +51,39 @@
     // 2. User-Agent 深度檢測 (歸一化處理)
     // ----------------------------------------------------------------
     const uaRaw = $request.headers['User-Agent'] || $request.headers['user-agent'];
-    const ua = (uaRaw || '').toLowerCase(); // 轉為小寫，避免 Line/ vs LINE/ 差異
+    const ua = (uaRaw || '').toLowerCase();
     
     // 條件 A: 沒有 UA (App 背景連線) -> 放行
     // 條件 B: 不包含 mozilla (非瀏覽器標準請求) -> 放行
-    // 條件 C: 包含特定 App 關鍵字 (Line, FB In-App, WeChat) -> 放行
-    if (!ua || !ua.includes('mozilla') || ua.includes('line/') || ua.includes('fb_iab') || ua.includes('micromessenger')) {
+    // 條件 C: 包含特定 App 關鍵字 -> 放行
+    if (!ua || !ua.includes('mozilla') || 
+        ua.includes('line/') || ua.includes('fb_iab') || ua.includes('micromessenger') || 
+        ua.includes('worksmobile') || ua.includes('naver')) {
         $done({});
         return;
     }
 
     // ----------------------------------------------------------------
-    // 3. 網域白名單 (Domain Allowlist) - 針對瀏覽器網頁版 LINE/Google
+    // 3. 網域白名單 (Domain Allowlist) - v1.17 擴充
     // ----------------------------------------------------------------
     const url = $request.url;
-    // 提取主機名
     const match = url.match(/^https?:\/\/([^/:]+)/i);
     const hostname = match ? match[1].toLowerCase() : '';
     
     const excludedDomains = [
-        // LINE & Connectivity
+        // LINE Ecosystem (Expanded)
         "line-apps.com", "line.me", "naver.jp", "line-scdn.net", "nhncorp.jp", "line-cdn.net",
-        "obs.line-scdn.net", "profile.line-scdn.net", // 特指 LINE 圖片/頭像伺服器
+        "obs.line-scdn.net", "profile.line-scdn.net", "lcs.naver.com", "worksmobile.com",
+        "line-apps-beta.com", "linetv.tw",
         
-        // Messaging
-        "whatsapp.net", "whatsapp.com", "telegram.org", "messenger.com",
+        // Messaging & VoIP
+        "whatsapp.net", "whatsapp.com", "telegram.org", "messenger.com", "skype.com",
         
-        // System
+        // System & Cloud
         "googleapis.com", "gstatic.com", "google.com", "apple.com", "icloud.com", 
-        "microsoft.com", "windowsupdate.com",
+        "microsoft.com", "windowsupdate.com", "azure.com", "crashlytics.com",
         
-        // Streaming (Avoid buffering delay)
+        // Streaming
         "youtube.com", "googlevideo.com", "netflix.com", "nflxvideo.net", "spotify.com"
     ];
 
@@ -91,8 +105,9 @@
         return;
     }
 
-    // [雙重保險] 檢查 Body 開頭，防止伺服器標示錯誤 (如標示 HTML 卻給 JSON)
-    const startChars = body.substring(0, 15).trim();
+    // [雙重保險] 檢查 Body 開頭，防止伺服器標示錯誤
+    const startChars = body.substring(0, 20).trim();
+    // 如果開頭是 { (JSON) 或 [ (Array) 或不包含 < (HTML tag)，則退出
     if (startChars.startsWith('{') || startChars.startsWith('[') || !startChars.includes('<')) {
         $done({});
         return;
@@ -103,10 +118,10 @@
 (function() {
     const debugBadge = document.createElement('div');
     debugBadge.style.cssText = "position:fixed; bottom:10px; left:10px; z-index:99999; background:rgba(0,100,0,0.9); color:white; padding:5px 10px; border-radius:4px; font-size:12px; font-family:sans-serif; pointer-events:none; box-shadow:0 2px 5px rgba(0,0,0,0.3); transition: opacity 0.5s;";
-    debugBadge.textContent = "🛡️ FP-Shield v1.16";
+    debugBadge.textContent = "🛡️ FP-Shield v1.17";
     document.documentElement.appendChild(debugBadge);
     setTimeout(() => { debugBadge.style.opacity = '0'; setTimeout(() => debugBadge.remove(), 500); }, 3000);
-    console.log("%c[FP-Defender] v1.16 Active", "color: #00ff00; background: #000; padding: 4px;");
+    console.log("%c[FP-Defender] v1.17 Active", "color: #00ff00; background: #000; padding: 4px;");
 
     try {
         const originalGetImageData = CanvasRenderingContext2D.prototype.getImageData;
@@ -140,7 +155,6 @@
             return originalToDataURL.apply(this, arguments);
         };
         
-        // WebGL & Audio Logic... (Simulated for brevity, functionality remains)
         const getParameter = WebGLRenderingContext.prototype.getParameter;
         WebGLRenderingContext.prototype.getParameter = function(parameter) {
             if (parameter === 37445) return 'Intel Inc.'; 
