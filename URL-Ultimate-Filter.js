@@ -1,8 +1,8 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.37.js
- * @version   41.37 (Academic Fingerprint Defense)
- * @description [V41.37 更新] 基於學術研究擴充指紋防禦；新增 openfpcdn.io 與高信度檔名 (fp-*, device-id, visitor-id) 攔截；排除高誤殺風險的通用詞彙。
- * @note      此為長期維護穩定版，建議所有使用者更新。
+ * @file      URL-Ultimate-Filter-Surge-V41.38.js
+ * @version   41.38 (Behavioral Fingerprint Poisoning)
+ * @description [V41.38 更新] 引入行為式防禦架構。維持網路層阻擋規則，並建議搭配 'Universal-Fingerprint-Poisoning.js' 進行 API 層級的指紋混淆；繼承 V41.37 所有修正。
+ * @note      此為長期維護穩定版，建議搭配注入腳本使用以獲得最大防護。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2025-12-31
  */
@@ -736,7 +736,6 @@ const CONFIG = {
     /\/device-?uuid\.js$/i,
     /\/machine-?id\.js$/i,
     // [V41.37] Expanded Academic Fingerprint Heuristics (Safe Subset)
-    // Avoids generic terms like 'canvas.js' or 'audio.js' to prevent breakage
     /\/fp-?[a-z0-9-]*\.js$/i,
     /\/device-?(id|uuid|fingerprint)\.js$/i,
     /\/client-?id\.js$/i,
@@ -766,14 +765,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.37)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.38)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.37'; // [V41.37] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.38'; // [V41.38] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1497,7 +1496,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.37 - Academic Fingerprint Defense', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.38 - Behavioral Fingerprint Poisoning', stats: optimizedStats.getStats() });
       }
       return;
     }
