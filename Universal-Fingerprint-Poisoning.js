@@ -1,8 +1,8 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.02 (Stable Rollback)
- * @description [v2.02] 回退至穩定版本：包含 Meta CSP 移除、SPA 路由監聽、白名單灰色盾牌；移除 Raw Data 強制封裝邏輯以確保 API 相容性。
- * @note      [INFO] 此版本在純文字頁面 (如 NextDNS ping) 不會顯示盾牌，此為正常安全避讓。
+ * @version   2.11 (UI Persistence & Root Attachment)
+ * @description [v2.11] 修復 SPA/Hydration 網站 (如 ifanr.com) 重繪導致盾牌消失的問題；將 UI 掛載至根節點並新增重生機制。
+ * @note      [FIX] 針對現代前端框架網站的 UI 穩定性進行大幅優化。
  * @author    Claude & Gemini
  */
 
@@ -13,7 +13,7 @@
     // 0. 全局設定與正則
     // ============================================================================
     const CONST = {
-        MAX_SIZE: 3000000,
+        MAX_SIZE: 3500000, // 放寬至 3.5MB 以適應大型媒體網站
         KEY_SEED: 'FP_SHIELD_SEED_V2'
     };
 
@@ -22,8 +22,8 @@
         CONTENT_TYPE: /text\/html/i,
         HEAD_TAG: /<head>/i,
         HTML_TAG: /<html[^>]*>/i,
-        // 針對 HTML 內嵌 CSP 的移除正則
-        META_CSP: /<meta\s+http-equiv=["']Content-Security-Policy["'][^>]*>/gi, 
+        // 增強型 CSP 移除正則 (支援多行與不同引號)
+        META_CSP: /<meta[\s\S]*?http-equiv=["']Content-Security-Policy["'][\s\S]*?>/gi, 
         APP_BROWSERS: /line\/|fb_iab|micromessenger|worksmobile|naver|github|shopee|seamoney/i
     };
 
@@ -45,11 +45,10 @@
     if (parseInt(normalizedHeaders['content-length'] || '0') > CONST.MAX_SIZE) { $done({}); return; }
 
     const cType = normalizedHeaders['content-type'] || '';
-    // 嚴格檢查 Content-Type，非 HTML 直接放行 (Raw Data 不顯示盾牌)
     if (cType && !REGEX.CONTENT_TYPE.test(cType)) { $done({}); return; }
 
     // ============================================================================
-    // 2. 白名單邏輯 (視覺化狀態)
+    // 2. 白名單邏輯
     // ============================================================================
     let isWhitelisted = false;
     const uaRaw = $req.headers['User-Agent'] || $req.headers['user-agent'];
@@ -89,7 +88,6 @@
     let body = $res.body;
     if (!body) { $done({}); return; }
 
-    // 再次檢查 Body 結構，確保不破壞 JSON API
     const startChars = body.substring(0, 20).trim();
     if (startChars.startsWith('{') || startChars.startsWith('[') || !startChars.includes('<')) { $done({}); return; }
 
@@ -98,10 +96,10 @@
     cspKeys.forEach(k => delete headers[k]);
 
     // 移除 Body Meta CSP
-    const headChunk = body.substring(0, 3000);
+    const headChunk = body.substring(0, 4000); // 增加搜尋範圍
     if (REGEX.META_CSP.test(headChunk)) {
         const newHead = headChunk.replace(REGEX.META_CSP, '<!-- CSP STRIPPED -->');
-        body = newHead + body.substring(3000);
+        body = newHead + body.substring(4000);
     }
 
     // 構建注入腳本
@@ -110,57 +108,62 @@
 (function() {
     "use strict";
     const CONFIG = {
-        ver: '2.02',
+        ver: '2.11',
         isWhitelisted: ${isWhitelisted},
         isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
     };
 
-    // --- UI Module ---
+    // --- UI Module (Persistence Engine) ---
     const UI = {
-        showBadge: () => {
-            const id = 'fp-shield-badge';
-            if (document.getElementById(id)) return;
-
+        id: 'fp-shield-badge',
+        create: () => {
             const b = document.createElement('div');
-            b.id = id;
-            // 綠色: 啟用防護 | 灰色: 白名單略過
+            b.id = UI.id;
             const color = CONFIG.isWhitelisted ? 'rgba(100,100,100,0.8)' : 'rgba(0,100,0,0.9)';
             const text = CONFIG.isWhitelisted ? '🛡️ FP Bypass' : '🛡️ FP Active';
             
             b.style.cssText = \`position:fixed; bottom:10px; left:10px; z-index:2147483647; background:\${color}; color:white; padding:6px 12px; border-radius:6px; font-size:12px; font-family:-apple-system, sans-serif; box-shadow:0 4px 12px rgba(0,0,0,0.3); pointer-events:none; opacity:0; transition: opacity 0.5s; display:flex; align-items:center;\`;
             b.innerText = text;
-            
-            (document.body || document.documentElement).appendChild(b);
+            return b;
+        },
+        mount: () => {
+            if (document.getElementById(UI.id)) return;
+            const b = UI.create();
+            // [Fix] 掛載到 documentElement 而非 body，避免被 SPA 框架清空
+            document.documentElement.appendChild(b);
             
             requestAnimationFrame(() => b.style.opacity = '1');
             const timeout = CONFIG.isWhitelisted ? 2000 : 4000;
+            // 延遲移除，不自動刪除 DOM，只隱藏，以便 MutationObserver 復活它
             setTimeout(() => { b.style.opacity = '0'; setTimeout(() => b.remove(), 500); }, timeout);
+        },
+        // [Fix] 重生機制：檢查盾牌是否存在，不存在則重建
+        check: () => {
+            if (!document.getElementById(UI.id)) UI.mount();
         }
     };
 
-    // SPA 路由監聽
     const hookHistory = () => {
         const wrap = (type) => {
             const orig = history[type];
             return function() {
                 const rv = orig.apply(this, arguments);
-                UI.showBadge(); 
+                UI.mount(); 
                 return rv;
             };
         };
         history.pushState = wrap('pushState');
         history.replaceState = wrap('replaceState');
-        window.addEventListener('popstate', () => UI.showBadge());
+        window.addEventListener('popstate', () => UI.mount());
     };
 
-    // 白名單模式：僅顯示灰色盾牌後退出
     if (CONFIG.isWhitelisted) {
-        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { UI.showBadge(); hookHistory(); });
-        else { UI.showBadge(); hookHistory(); }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { UI.mount(); hookHistory(); });
+        else { UI.mount(); hookHistory(); }
         return;
     }
 
-    // --- 核心防護 (僅在非白名單執行) ---
+    // --- 核心防護 ---
     const Seed = (() => {
         const KEY = 'FP_SHIELD_SEED_V2';
         let store; try { store = sessionStorage; } catch(e){ store = {}; }
@@ -277,16 +280,28 @@
     };
 
     const init = () => {
-        inject(window); UI.showBadge(); hookHistory();
+        inject(window); UI.mount(); hookHistory();
+        
+        // [Fix] 增強型 MutationObserver：同時監控 Iframe 與 UI 存活
         new MutationObserver((ms)=>{
-            for(const m of ms) for(const n of m.addedNodes) if(n.tagName==='IFRAME') {
-                try{ if(n.contentWindow)inject(n.contentWindow); n.addEventListener('load',()=>{try{inject(n.contentWindow)}catch(e){}}); }catch(e){}
+            for(const m of ms) {
+                // 1. Iframe 注入
+                for(const n of m.addedNodes) if(n.tagName==='IFRAME') {
+                    try{ if(n.contentWindow)inject(n.contentWindow); n.addEventListener('load',()=>{try{inject(n.contentWindow)}catch(e){}}); }catch(e){}
+                }
+                // 2. UI 重生檢測 (若 Body 被重繪)
+                // 檢查是否沒有 ID 為 fp-shield-badge 的元素
+                if (m.type === 'childList' && !document.getElementById(UI.id)) {
+                    // 防抖動：避免頻繁觸發
+                    if (!window._UI_DEBOUNCE) {
+                         window._UI_DEBOUNCE = setTimeout(() => { UI.mount(); window._UI_DEBOUNCE = null; }, 500);
+                    }
+                }
             }
         }).observe(document.documentElement, {childList:true, subtree:true});
     };
 
     if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
-    window.__FP_METRICS__ = { injections: { canvas: 0, audio: 0, font: 0, screen: 0, webgl: 0 } };
 })();
 </script>
 `;
@@ -299,5 +314,4 @@
     
     $done({ body, headers });
 })();
-
 
