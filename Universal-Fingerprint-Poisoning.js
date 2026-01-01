@@ -1,8 +1,8 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.08 (Visual Monitor Mode)
- * @description [v2.08] Raw Data 模式僅保留「橘色盾牌」視覺回饋，移除所有指紋混淆邏輯（保持數據純淨）。
- * @note      [WARN] 顯示盾牌仍需封裝 HTML，若遇 API 報錯請將 rawMonitorMode 改為 false。
+ * @version   2.09 (Cache Killer & Robust Wrapper)
+ * @description [v2.09] 新增強制禁用快取 (Cache-Control Rewrite) 以解決盾牌不顯示問題；增強對無 Header 純文字頁面的支援。
+ * @note      [FIX] 若更新後仍未見盾牌，請務必「清除瀏覽器快取」或嘗試無痕模式。
  * @author    Claude & Gemini
  */
 
@@ -10,23 +10,23 @@
     "use strict";
 
     const CONFIG = {
-        ver: '2.08',
-        debug: false,
-        // [控制開關] true: 封裝 Raw Data 並顯示盾牌 (無雜訊) | false: 完全忽略 (安全模式)
+        ver: '2.09',
+        debug: false, // 開啟可查看詳細 Skip 原因
+        // [控制開關] true: 監控 Raw Data (顯示橘色盾牌) | false: 忽略
         rawMonitorMode: true, 
         isWhitelisted: false,
         isRawMode: false,
         isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
     };
 
-    const LOG = CONFIG.debug ? (msg) => console.log(`[FP-Shield] ${msg}`) : () => {};
+    const LOG = (msg) => { if(CONFIG.debug) console.log(`[FP-Shield] ${msg}`); };
     const CONST = { MAX_SIZE: 3000000, KEY_SEED: 'FP_SHIELD_SEED_V2' };
     
     // Regex Definitions
     const R = {
         PROTO: /^https?:\/\/([^/:]+)/i,
         HTML: /text\/html/i,
-        // 擴展支援顯示盾牌的類型
+        // 寬鬆匹配：包含 text/plain, json, xml, 或是無 content-type 但內容像文字
         RAW: /text\/plain|application\/json|text\/xml|application\/xml/i,
         BIN: /gzip|br|deflate|compress/i,
         APPS: /line\/|fb_iab|micromessenger|worksmobile|naver|github|shopee|seamoney/i,
@@ -37,9 +37,13 @@
     const $req = $request;
 
     // --- Phase 1: Pre-flight ---
-    if ($res.status === 206 || $res.status === 204) { $done({}); return; }
+    // 304 Not Modified: 瀏覽器使用快取，腳本無法介入，只能放行
+    if ($res.status === 206 || $res.status === 204 || $res.status === 304) { 
+        LOG(`Skip Status ${$res.status}`); $done({}); return; 
+    }
 
     const headers = $res.headers;
+    // Helper to get header case-insensitively
     const getH = (k) => headers[k] || headers[k.toLowerCase()];
     
     // Gzip Guard
@@ -51,8 +55,15 @@
     if (getH('upgrade') === 'websocket') { $done({}); return; }
 
     // Content-Type Logic
-    const cType = getH('content-type') || '';
+    let cType = getH('content-type') || '';
     let doWrap = false;
+
+    // [Fix] 針對 ping.nextdns.io 可能不回傳 Content-Type 的情況
+    // 若無 Type 但長度極短，預設視為 text/plain
+    if (!cType && cLen > 0 && cLen < 1024) {
+        cType = 'text/plain';
+        LOG('Infer Type: text/plain');
+    }
 
     if (cType) {
         if (R.HTML.test(cType)) {
@@ -64,6 +75,9 @@
         } else {
             LOG(`Skip Type: ${cType}`); $done({}); return;
         }
+    } else {
+        // 仍無 Type 且不符合推斷條件 -> 跳過
+        LOG(`Skip No Type`); $done({}); return; 
     }
 
     // UA Check
@@ -100,12 +114,23 @@
     let body = $res.body;
     if (!body) { $done({}); return; }
 
+    // [Fix] Cache Killer
+    // 強制移除瀏覽器快取標頭，確保下次訪問仍能觸發腳本
+    // 尤其是 Raw Data 頁面，必須強制不快取才能穩定顯示盾牌
+    if (CONFIG.isRawMode) {
+        headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0';
+        headers['Pragma'] = 'no-cache';
+        headers['Expires'] = '0';
+        delete headers['ETag'];
+        delete headers['Last-Modified'];
+    }
+
     const injectionScript = `
 <script>
 (function() {
     "use strict";
     const C = {
-        v: '2.08',
+        v: '2.09',
         wl: ${CONFIG.isWhitelisted},
         raw: ${CONFIG.isRawMode},
         ios: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
@@ -120,7 +145,6 @@
             
             if(C.wl) { bg='rgba(100,100,100,0.8)'; txt='🛡️ FP Bypass'; }
             else if(C.raw) { 
-                // [Visual Update] Orange indicates Monitor Mode (No Injection)
                 bg='rgba(204,85,0,0.95)'; txt='🛡️ Raw Monitor'; 
             } 
             
@@ -140,13 +164,12 @@
         window.addEventListener('popstate', ()=>UI.badge());
     };
 
-    // [Mode Check]
-    // 1. Whitelist: Show Badge -> Exit
-    // 2. Raw Mode: Show Badge -> Exit (REVERTED FORCED INJECTION)
+    // [Main Logic Switch]
     if(C.wl || C.raw) {
+        // Raw Mode: Only Visual Badge, NO Noise Injection (Safe Mode)
         const run = ()=>{UI.badge(); if(!C.raw) Hist();};
         if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run); else run();
-        return; // Stop here, do not load noise modules
+        return; 
     }
 
     // --- Core Protection (Only for Standard HTML) ---
@@ -164,7 +187,7 @@
             p: (d)=>{
                 const l=d.length; if(l<4)return;
                 const off=Math.floor(r(100)*500); const den=Math.floor((Math.floor(r(200)*150)+50)*m);
-                for(let i=0;i<l;i+=4) { const p=i>>2; if((p+off)%den===0) d[i]=Math.max(0,Math.min(255,d[i]+(r(p)>0.5?1:-1))); }
+                for(let i=0;i<l;i+=4) { const p=i>>2; if((p+off)%den===0) d[i]=Math.max(0,Math.min(255,d[i]+(rand(p)>0.5?1:-1))); }
             },
             a: (d)=>{ for(let i=0;i<d.length;i+=100)d[i]+=(r(i)*1e-5); },
             f: (w)=>w+(r(w)*0.04-0.02)
@@ -235,7 +258,7 @@
 `;
 
     if (doWrap) {
-        // Raw Data Monitor Mode: Wrap HTML but NO Noise Injection in script above
+        // [Raw Data Mode] Wrap content to enable JS execution
         const esc = (s) => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
         body = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#fff;color:#000;"><pre style="word-wrap:break-word;white-space:pre-wrap;">${esc(body)}</pre>${injectionScript}</body></html>`;
         
@@ -244,15 +267,14 @@
         delete headers['Content-Length'];
         delete headers['content-length'];
     } else {
-        // Standard Mode: Full Protection
+        // [Standard Mode]
         const headChunk = body.substring(0, 3000);
         if (R.CSP.test(headChunk)) {
             body = headChunk.replace(R.CSP, '<!-- CSP STRIPPED -->') + body.substring(3000);
         }
         
-        if (R.PROTO.test(body)) { /* skip logic for very raw non-html */ }
+        if (R.PROTO.test(body)) { /* simplistic check */ }
         
-        // Simple Injection
         const hasHead = body.indexOf('</head>');
         const hasBody = body.indexOf('</body>');
         if(hasHead > -1) body = body.substring(0, hasHead) + injectionScript + body.substring(hasHead);
