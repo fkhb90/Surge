@@ -80,8 +80,8 @@
 
         // --- 2. HARD_WHITELIST_EXACT (AI, 登入, API) ---
         // AI Services
-        "chatgpt.com", "claude.ai", "gemini.google.com", "perplexity.ai", "www.perplexity.ai",
-        "pplx-next-static-public.perplexity.ai", "private-us-east-1.monica.im", "api.felo.ai",
+        "chatgpt.com", "claude.ai", "anthropic.com", "gemini.google.com", "perplexity.ai", 
+        "www.perplexity.ai","pplx-next-static-public.perplexity.ai", "private-us-east-1.monica.im", "api.felo.ai",
         // Business Tools
         "adsbypasser.github.io", "code.createjs.com", "oa.ledabangong.com", "oa.qianyibangong.com", "qianwen.aliyun.com",
         "raw.githubusercontent.com", "reportaproblem.apple.com", "ss.ledabangong.com", "userscripts.adtidy.org",
