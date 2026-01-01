@@ -1,64 +1,79 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.02 (CSP Stripper & Visual States)
- * @description [v2.02] 新增 Meta CSP 強制移除、白名單灰色盾牌狀態、SPA 路由監聽；解決盾牌不顯示的技術痛點。
- * @note      [CRITICAL] 若網站內容過大 (超過 3MB)，Surge 會自動放棄處理，此為系統限制無法繞過。
+ * @version   2.06 (Forced Raw Injection)
+ * @description [v2.06] 解除 Raw Data 的防護限制，強制對純文字/JSON 頁面執行指紋混淆；UI 更新為 "Raw Active"。
+ * @note      [SECURITY] 此模式會對封裝後的 Raw Data 注入 JS，若需下載原始數據請暫時關閉腳本。
  * @author    Claude & Gemini
  */
 
 (function() {
     "use strict";
 
-    // ============================================================================
-    // 0. 全局設定與正則
-    // ============================================================================
-    const CONST = {
-        MAX_SIZE: 3000000,
-        KEY_SEED: 'FP_SHIELD_SEED_V2'
+    const CONFIG = {
+        ver: '2.06',
+        debug: false,
+        isWhitelisted: false,
+        isRawData: false, 
+        showBadge: true,
+        spoofNative: true,
+        isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream,
+        telemetry: true
     };
 
+    // Zero-Overhead Logging
+    const LOG = CONFIG.debug ? (msg) => console.log(`[FP-Shield] ${msg}`) : () => {};
+
+    const CONST = { MAX_SIZE: 3000000, KEY_SEED: 'FP_SHIELD_SEED_V2' };
     const REGEX = {
         URL_PROTO: /^https?:\/\/([^/:]+)/i,
-        CONTENT_TYPE: /text\/html/i,
-        HEAD_TAG: /<head>/i,
-        HTML_TAG: /<html[^>]*>/i,
-        // [New] 針對 HTML 內嵌 CSP 的移除正則
-        META_CSP: /<meta\s+http-equiv=["']Content-Security-Policy["'][^>]*>/gi, 
-        APP_BROWSERS: /line\/|fb_iab|micromessenger|worksmobile|naver|github|shopee|seamoney/i
+        CONTENT_TYPE_HTML: /text\/html/i,
+        CONTENT_TYPE_TEXT: /text\/plain|application\/json|text\/xml/i,
+        BINARY_ENCODING: /gzip|br|deflate|compress/i,
+        APP_BROWSERS: /line\/|fb_iab|micromessenger|worksmobile|naver|github|shopee|seamoney/i,
+        META_CSP: /<meta\s+http-equiv=["']Content-Security-Policy["'][^>]*>/gi
     };
 
     const $res = $response;
     const $req = $request;
 
-    // ============================================================================
-    // 1. 基礎過濾
-    // ============================================================================
+    // --- Phase 1: Pre-flight Filter ---
     if ($res.status === 206 || $res.status === 204) { $done({}); return; }
-    
+
     const headers = $res.headers;
-    const normalizedHeaders = Object.keys(headers).reduce((acc, key) => {
-        acc[key.toLowerCase()] = headers[key];
-        return acc;
-    }, {});
+    const getHeader = (key) => headers[key] || headers[key.toLowerCase()];
+    
+    // Gzip/Binary Guard
+    const cEncoding = getHeader('content-encoding');
+    if (cEncoding && REGEX.BINARY_ENCODING.test(cEncoding)) { LOG(`Skip Encoded: ${cEncoding}`); $done({}); return; }
 
-    if (normalizedHeaders['upgrade'] === 'websocket') { $done({}); return; }
-    if (parseInt(normalizedHeaders['content-length'] || '0') > CONST.MAX_SIZE) { $done({}); return; }
+    const cLength = parseInt(getHeader('content-length') || '0');
+    if (cLength > CONST.MAX_SIZE) { LOG('Skip Large File'); $done({}); return; }
+    if (getHeader('upgrade') === 'websocket') { $done({}); return; }
 
-    const cType = normalizedHeaders['content-type'] || '';
-    if (cType && !REGEX.CONTENT_TYPE.test(cType)) { $done({}); return; }
+    // Content-Type Analysis
+    const cType = getHeader('content-type') || '';
+    
+    let shouldWrap = false;
+    if (cType) {
+        if (REGEX.CONTENT_TYPE_HTML.test(cType)) {
+            // Standard HTML
+        } else if (REGEX.CONTENT_TYPE_TEXT.test(cType)) {
+            // Enable Wrapper for Raw Data
+            shouldWrap = true;
+            CONFIG.isRawData = true;
+        } else {
+            LOG(`Skip Type: ${cType}`); $done({}); return;
+        }
+    }
 
-    // ============================================================================
-    // 2. 白名單邏輯 (升級為視覺化狀態)
-    // ============================================================================
-    let isWhitelisted = false;
+    // User-Agent Check
     const uaRaw = $req.headers['User-Agent'] || $req.headers['user-agent'];
     const currentUA = (uaRaw || '').toLowerCase();
-
     if (!currentUA || REGEX.APP_BROWSERS.test(currentUA)) { $done({}); return; }
 
+    // Whitelist Logic
     const match = $req.url.match(REGEX.URL_PROTO);
     const hostname = match ? match[1].toLowerCase() : '';
-
     const WHITELIST_EXACT = new Set([
         "chatgpt.com", "claude.ai", "gemini.google.com", "perplexity.ai", "www.perplexity.ai",
         "accounts.google.com", "appleid.apple.com", "login.microsoftonline.com", "github.com",
@@ -66,7 +81,6 @@
         "google.com", "youtube.com", "facebook.com", "instagram.com", "netflix.com", "spotify.com",
         "cdn.ghostery.com"
     ]);
-
     const WHITELIST_SUFFIX = [
         "gov.tw", "org.tw", "edu.tw", "bank", "pay.taipei", "bot.com.tw", "cathaybk.com.tw", "ctbcbank.com", 
         "esunbank.com.tw", "fubon.com", "richart.tw", "taishinbank.com.tw", "apple.com", "microsoft.com", 
@@ -74,229 +88,199 @@
     ];
 
     if (hostname) {
-        if (WHITELIST_EXACT.has(hostname)) isWhitelisted = true;
+        if (WHITELIST_EXACT.has(hostname)) CONFIG.isWhitelisted = true;
         else {
             for (let i = 0; i < WHITELIST_SUFFIX.length; i++) {
-                if (hostname.endsWith(WHITELIST_SUFFIX[i])) { isWhitelisted = true; break; }
+                if (hostname.endsWith(WHITELIST_SUFFIX[i])) { CONFIG.isWhitelisted = true; break; }
             }
         }
     }
 
-    // ============================================================================
-    // 3. 注入邏輯
-    // ============================================================================
+    // --- Phase 2: Body Handling ---
     let body = $res.body;
     if (!body) { $done({}); return; }
 
-    const startChars = body.substring(0, 20).trim();
-    if (startChars.startsWith('{') || startChars.startsWith('[') || !startChars.includes('<')) { $done({}); return; }
+    if (shouldWrap) {
+        // Wrapper Logic
+        const escapedBody = body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        body = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:8px;font-family:monospace;word-wrap:break-word;white-space:pre-wrap;background-color:#fff;color:#000;"><pre>${escapedBody}</pre></body></html>`;
+        
+        headers['Content-Type'] = 'text/html; charset=utf-8';
+        if (headers['content-type']) headers['content-type'] = 'text/html; charset=utf-8';
+        delete headers['Content-Length'];
+        delete headers['content-length'];
+    } else {
+        const startChars = body.substring(0, 20).trim();
+        if (startChars.startsWith('{') || startChars.startsWith('[') || !startChars.includes('<')) { 
+            if (!shouldWrap) { LOG('Skip Non-HTML Structure'); $done({}); return; }
+        }
+    }
 
-    // [Fix 1] 移除 Header CSP
+    // --- Phase 3: Injection ---
     const cspKeys = ['Content-Security-Policy', 'content-security-policy', 'X-Content-Security-Policy', 'X-WebKit-CSP', 'Content-Security-Policy-Report-Only'];
     cspKeys.forEach(k => delete headers[k]);
 
-    // [Fix 2] 移除 Body Meta CSP (解決技術原因 1)
-    // 僅掃描前 2000 個字元以提升效能，避免正則 ReDoS 攻擊
-    const headChunk = body.substring(0, 3000);
-    if (REGEX.META_CSP.test(headChunk)) {
-        const newHead = headChunk.replace(REGEX.META_CSP, '<!-- CSP STRIPPED -->');
-        body = newHead + body.substring(3000);
+    if (!CONFIG.isRawData) {
+        const headChunk = body.substring(0, 3000);
+        if (REGEX.META_CSP.test(headChunk)) {
+            body = headChunk.replace(REGEX.META_CSP, '<!-- CSP STRIPPED -->') + body.substring(3000);
+        }
     }
 
-    // 構建注入腳本
     const injection = `
 <script>
 (function() {
     "use strict";
     const CONFIG = {
-        ver: '2.02',
-        isWhitelisted: ${isWhitelisted}, // 傳遞狀態
+        ver: '2.06',
+        isWhitelisted: ${CONFIG.isWhitelisted},
+        isRawData: ${CONFIG.isRawData},
         isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
     };
 
-    // --- UI Module (Enhanced) ---
+    // --- UI Module ---
     const UI = {
         showBadge: () => {
             const id = 'fp-shield-badge';
             if (document.getElementById(id)) return;
-
             const b = document.createElement('div');
             b.id = id;
-            // 綠色: 啟用防護 | 灰色: 白名單略過
-            const color = CONFIG.isWhitelisted ? 'rgba(100,100,100,0.8)' : 'rgba(0,100,0,0.9)';
-            const text = CONFIG.isWhitelisted ? '🛡️ FP Bypass' : '🛡️ FP Active';
+            
+            let color = 'rgba(0,100,0,0.9)'; // Default Green
+            let text = '🛡️ FP Active';
+
+            if (CONFIG.isWhitelisted) {
+                color = 'rgba(100,100,100,0.8)'; // Grey
+                text = '🛡️ FP Bypass';
+            } else if (CONFIG.isRawData) {
+                // [Modified] Change color to Deep Orange/Red to signify Active Protection on Raw Data
+                color = 'rgba(204, 85, 0, 0.95)'; 
+                text = '🛡️ Raw Active'; 
+            }
             
             b.style.cssText = \`position:fixed; bottom:10px; left:10px; z-index:2147483647; background:\${color}; color:white; padding:6px 12px; border-radius:6px; font-size:12px; font-family:-apple-system, sans-serif; box-shadow:0 4px 12px rgba(0,0,0,0.3); pointer-events:none; opacity:0; transition: opacity 0.5s; display:flex; align-items:center;\`;
             b.innerText = text;
             
             (document.body || document.documentElement).appendChild(b);
             
-            requestAnimationFrame(() => b.style.opacity = '1');
-            // 白名單顯示時間較短，減少干擾
             const timeout = CONFIG.isWhitelisted ? 2000 : 4000;
+            requestAnimationFrame(() => b.style.opacity = '1');
             setTimeout(() => { b.style.opacity = '0'; setTimeout(() => b.remove(), 500); }, timeout);
         }
     };
 
-    // [Fix 3] SPA 路由監聽 (解決技術原因 2)
-    // 當 History API 變動時，重新顯示 Badge 以確認腳本仍存活
     const hookHistory = () => {
-        const wrap = (type) => {
-            const orig = history[type];
-            return function() {
-                const rv = orig.apply(this, arguments);
-                UI.showBadge(); // 路由變動時重現盾牌
-                return rv;
-            };
-        };
-        history.pushState = wrap('pushState');
-        history.replaceState = wrap('replaceState');
+        const wrap = (t) => { const o=history[t]; return function(){ const r=o.apply(this,arguments); UI.showBadge(); return r; }; };
+        history.pushState = wrap('pushState'); history.replaceState = wrap('replaceState');
         window.addEventListener('popstate', () => UI.showBadge());
     };
 
-    // 若為白名單，僅顯示灰色盾牌並退出，不執行注入
+    // [Modified] Only return early if Whitelisted. Raw Data now PROCEEDS to protection.
     if (CONFIG.isWhitelisted) {
-        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { UI.showBadge(); hookHistory(); });
-        else { UI.showBadge(); hookHistory(); }
-        return;
+        const run = () => { UI.showBadge(); hookHistory(); };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+        else run();
+        return; 
     }
 
-    // --- 以下為核心防護 (僅在非白名單執行) ---
-    
+    // --- Core Protection (Runs for HTML & Raw Data) ---
     const Seed = (() => {
         const KEY = 'FP_SHIELD_SEED_V2';
-        let store; try { store = sessionStorage; } catch(e){ store = {}; }
-        let val = store.getItem ? store.getItem(KEY) : store[KEY];
-        if(!val) { val = (Math.floor(Math.random()*1e9)+Date.now()).toString(); try{ store.setItem(KEY,val); }catch(e){} }
-        return parseInt(val, 10);
+        let s; try{s=sessionStorage}catch(e){s={}}
+        let v = s.getItem?s.getItem(KEY):s[KEY];
+        if(!v){v=(Math.floor(Math.random()*1e9)+Date.now()).toString();try{s.setItem(KEY,v)}catch(e){}}
+        return parseInt(v,10);
     })();
 
     const Noise = (() => {
-        const seed = Seed;
-        const densityMod = CONFIG.isIOS ? 3.0 : 1.0;
-        const rand = (i) => { const x = Math.sin(i + seed) * 10000; return x - Math.floor(x); };
+        const s = Seed;
+        const dMod = CONFIG.isIOS ? 3.0 : 1.0;
+        const rand = (i) => { const x=Math.sin(i+s)*10000; return x-Math.floor(x); };
         return {
-            pixel: (data, w, h) => {
-                const len = data.length;
-                if(len < 4) return;
-                const offset = Math.floor(rand(100) * 500);
-                const density = Math.floor((Math.floor(rand(200) * 150) + 50) * densityMod);
-                for(let i=0; i<len; i+=4) {
-                    const pIdx = i>>2;
-                    if((pIdx + offset) % density === 0) data[i] = Math.max(0, Math.min(255, data[i] + (rand(pIdx)>0.5?1:-1)));
-                }
+            pixel: (d,w,h) => {
+                const len=d.length; if(len<4)return;
+                const off=Math.floor(rand(100)*500);
+                const den=Math.floor((Math.floor(rand(200)*150)+50)*dMod);
+                for(let i=0;i<len;i+=4) { const p=i>>2; if((p+off)%den===0) d[i]=Math.max(0,Math.min(255,d[i]+(rand(p)>0.5?1:-1))); }
             },
-            audio: (data) => { for(let i=0; i<data.length; i+=100) data[i] += (rand(i) * 1e-5); },
-            font: (w) => w + (rand(w) * 0.04 - 0.02)
+            audio: (d) => { for(let i=0;i<d.length;i+=100)d[i]+=(rand(i)*1e-5); },
+            font: (w) => w+(rand(w)*0.04-0.02)
         };
     })();
 
     const CanvasPool = (() => {
-        let _c = null, _ctx = null;
-        return { get: (w,h) => {
-            if(!_c) { _c = document.createElement('canvas'); _ctx = _c.getContext('2d', {willReadFrequently:true}); }
-            if(_c.width<w)_c.width=w; if(_c.height<h)_c.height=h;
-            return {canvas:_c, ctx:_ctx};
+        let _c=null,_x=null;
+        return { get:(w,h)=>{
+            if(!_c){_c=document.createElement('canvas');_x=_c.getContext('2d',{willReadFrequently:true});}
+            if(_c.width<w)_c.width=w;if(_c.height<h)_c.height=h;
+            return {canvas:_c,ctx:_x};
         }};
     })();
 
     const ProxyGuard = {
-        protect: (native, custom) => {
-            const HOOK_MARK = Symbol.for('FP_HOOKED');
-            if(native[HOOK_MARK]) return native;
-            const nativeStr = Function.prototype.toString.call(native);
-            const p = new Proxy(custom, {
-                apply: (t,th,a) => Reflect.apply(t,th,a),
-                get: (t,k) => { if(k==='toString') return ()=>nativeStr; if(k===HOOK_MARK) return true; return Reflect.get(t,k); }
-            });
+        protect: (n,c) => {
+            const H=Symbol.for('FP_HOOKED'); if(n[H])return n;
+            const ns=Function.prototype.toString.call(n);
+            const p=new Proxy(c,{apply:(t,th,a)=>Reflect.apply(t,th,a),get:(t,k)=>{if(k==='toString')return ()=>ns;if(k===H)return true;return Reflect.get(t,k);}});
             return p;
         },
         override: (o,p,f) => {
-            if(!o||!o[p]) return;
-            const orig = o[p];
-            const safe = f(orig);
-            const prot = ProxyGuard.protect(orig, safe);
-            prot.prototype = orig.prototype;
-            try { Object.defineProperty(o,p,{value:prot,writable:true}); } catch(e){ try{o[p]=prot;}catch(e2){} }
+            if(!o||!o[p])return; const orig=o[p]; const safe=f(orig); const prot=ProxyGuard.protect(orig,safe); prot.prototype=orig.prototype;
+            try{Object.defineProperty(o,p,{value:prot,writable:true});}catch(e){try{o[p]=prot;}catch(e2){}}
         }
     };
 
     const Modules = {
         canvas: (win) => {
-            const contexts = [win.CanvasRenderingContext2D, win.OffscreenCanvasRenderingContext2D];
-            contexts.forEach(ctx => {
-                if(ctx && ctx.prototype) {
-                    ProxyGuard.override(ctx.prototype, 'getImageData', (orig) => function(x,y,w,h) {
-                        const res = orig.apply(this, arguments);
-                        if(w<16||h<16) return res;
-                        Noise.pixel(res.data, w, h);
-                        return res;
-                    });
-                    ProxyGuard.override(ctx.prototype, 'measureText', (orig) => function() {
-                        const m = orig.apply(this, arguments);
-                        try { const w = m.width; Object.defineProperty(m,'width',{get:()=>Noise.font(w)}); } catch(e){}
-                        return m;
-                    });
+            [win.CanvasRenderingContext2D, win.OffscreenCanvasRenderingContext2D].forEach(ctx=>{
+                if(ctx&&ctx.prototype){
+                    ProxyGuard.override(ctx.prototype,'getImageData',(o)=>function(x,y,w,h){const r=o.apply(this,arguments);if(w<16||h<16)return r;Noise.pixel(r.data,w,h);return r;});
+                    ProxyGuard.override(ctx.prototype,'measureText',(o)=>function(){const m=o.apply(this,arguments);try{const w=m.width;Object.defineProperty(m,'width',{get:()=>Noise.font(w)});}catch(e){}return m;});
                 }
             });
-            if(win.HTMLCanvasElement) {
-                ProxyGuard.override(win.HTMLCanvasElement.prototype, 'toDataURL', (orig) => function() {
-                    const w=this.width, h=this.height;
-                    if(w<16||h<16) return orig.apply(this, arguments);
-                    try {
-                        const {canvas, ctx} = CanvasPool.get(w,h);
-                        ctx.clearRect(0,0,w,h); ctx.drawImage(this,0,0);
-                        const id = ctx.getImageData(0,0,w,h); Noise.pixel(id.data,w,h); ctx.putImageData(id,0,0);
-                        return canvas.toDataURL.apply(canvas, arguments);
-                    } catch(e) { return orig.apply(this, arguments); }
-                });
-            }
+            if(win.HTMLCanvasElement) ProxyGuard.override(win.HTMLCanvasElement.prototype,'toDataURL',(o)=>function(){
+                const w=this.width,h=this.height; if(w<16||h<16)return o.apply(this,arguments);
+                try{const{canvas,ctx}=CanvasPool.get(w,h);ctx.clearRect(0,0,w,h);ctx.drawImage(this,0,0);const d=ctx.getImageData(0,0,w,h);Noise.pixel(d.data,w,h);ctx.putImageData(d,0,0);return canvas.toDataURL.apply(canvas,arguments);}catch(e){return o.apply(this,arguments);}
+            });
         },
         audio: (win) => {
-            const AC = win.AudioContext || win.webkitAudioContext;
-            const AB = win.AudioBuffer;
-            if(AC && AC.prototype) ProxyGuard.override(win.AnalyserNode.prototype, 'getFloatFrequencyData', (orig)=>function(a){
-                const r=orig.apply(this,arguments); for(let i=0;i<a.length;i+=10)a[i]+=((Math.random()*0.1)-0.05); return r;
-            });
-            if(AB && AB.prototype) ProxyGuard.override(AB.prototype, 'getChannelData', (orig)=>function(){
-                const d=orig.apply(this,arguments); Noise.audio(d); return d;
-            });
+            const AC=win.AudioContext||win.webkitAudioContext; const AB=win.AudioBuffer;
+            if(AC&&AC.prototype)ProxyGuard.override(win.AnalyserNode.prototype,'getFloatFrequencyData',(o)=>function(a){const r=o.apply(this,arguments);for(let i=0;i<a.length;i+=10)a[i]+=((Math.random()*0.1)-0.05);return r;});
+            if(AB&&AB.prototype)ProxyGuard.override(AB.prototype,'getChannelData',(o)=>function(){const d=o.apply(this,arguments);Noise.audio(d);return d;});
         },
         hardware: (win) => {
-            if(win.navigator && 'getBattery' in win.navigator) win.navigator.getBattery = () => Promise.resolve({charging:true,level:1,addEventListener:()=>{}});
-            if(win.document && 'browsingTopics' in win.document) win.document.browsingTopics = () => Promise.resolve([]);
+            if(win.navigator&&'getBattery'in win.navigator)win.navigator.getBattery=()=>Promise.resolve({charging:true,level:1,addEventListener:()=>{}});
+            if(win.document&&'browsingTopics'in win.document)win.document.browsingTopics=()=>Promise.resolve([]);
         }
     };
 
     const inject = (win) => {
         try {
-            if(win._FP_V2_DONE) return;
-            Object.defineProperty(win,'_FP_V2_DONE',{value:true,enumerable:false});
+            if(win._FP_V2_DONE)return; Object.defineProperty(win,'_FP_V2_DONE',{value:true,enumerable:false});
             Modules.canvas(win);
-            const lazy = () => { Modules.audio(win); Modules.hardware(win); };
-            if(win.requestIdleCallback) win.requestIdleCallback(lazy); else setTimeout(lazy,0);
+            const lazy=()=>{Modules.audio(win);Modules.hardware(win);};
+            if(win.requestIdleCallback)win.requestIdleCallback(lazy);else setTimeout(lazy,0);
         } catch(e){}
     };
 
     const init = () => {
         inject(window); UI.showBadge(); hookHistory();
-        new MutationObserver((ms)=>{
-            for(const m of ms) for(const n of m.addedNodes) if(n.tagName==='IFRAME') {
-                try{ if(n.contentWindow)inject(n.contentWindow); n.addEventListener('load',()=>{try{inject(n.contentWindow)}catch(e){}}); }catch(e){}
-            }
-        }).observe(document.documentElement, {childList:true, subtree:true});
+        new MutationObserver((ms)=>{for(const m of ms)for(const n of m.addedNodes)if(n.tagName==='IFRAME')try{if(n.contentWindow)inject(n.contentWindow);n.addEventListener('load',()=>{try{inject(n.contentWindow)}catch(e){}});}catch(e){}})
+        .observe(document.documentElement,{childList:true,subtree:true});
     };
 
-    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
-
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+    window.__FP_METRICS__ = { injections: { canvas: 0, audio: 0, font: 0, screen: 0, webgl: 0 } };
 })();
 </script>
 `;
 
-    if (REGEX.HEAD_TAG.test(body)) {
-        body = body.replace(REGEX.HEAD_TAG, match => match + injection);
-    } else if (REGEX.HTML_TAG.test(body)) {
-        body = body.replace(REGEX.HTML_TAG, match => match + injection);
+    if (CONFIG.isRawData) {
+        // [Modified] Ensure injection runs at the end of the constructed body
+        body = body.replace('</body>', injection + '</body>');
+    } else {
+        if (REGEX.HEAD_TAG.test(body)) body = body.replace(REGEX.HEAD_TAG, match => match + injection);
+        else if (REGEX.HTML_TAG.test(body)) body = body.replace(REGEX.HTML_TAG, match => match + injection);
     }
     
     $done({ body, headers });
