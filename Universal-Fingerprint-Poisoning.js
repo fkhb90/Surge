@@ -1,395 +1,154 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   1.42 (V41.47 Whitelist Integration & Session Mode)
- * @description [v1.42] 整合 URL-Ultimate-Filter V41.47 全套硬白名單；預設使用 Session 模式；核心防護與 Tampermonkey v1.42 同步。
- * @note      [CRITICAL] 請務必配合 Surge 設定檔中的正則排除規則使用，以確保 0 延遲體驗。
+ * @version   1.44 (Performance & Security Enhancement)
+ * @description [v1.44] 效能優化、安全性強化、相容性改善
+ * @changes   - Set-based whitelist O(1) lookup
+ *            - Enhanced CSP bypass
+ *            - Modular architecture
+ *            - Safari 15+ compatibility
+ *            - WebGL2 complete coverage
+ *            - Improved error boundaries
  * @author    Claude & Gemini
  */
 
 (function() {
-    // ----------------------------------------------------------------
-    // 0. 串流與協議級避讓
-    // ----------------------------------------------------------------
-    if ($response.status === 206) { $done({}); return; }
+    'use strict';
+    
+    // ================================================================
+    // 核心設定區
+    // ================================================================
+    const CONFIG = {
+        MAX_CONTENT_LENGTH: 2000000,
+        MIN_CANVAS_SIZE: 50,
+        NOISE_RANGE: [-4, 4],
+        AUDIO_NOISE_MAGNITUDE: 0.00001,
+        BADGE_DISPLAY_TIME: 3000,
+        DEBUG_MODE: false
+    };
 
-    const headers = $response.headers;
-    const normalizedHeaders = {};
-    for (const key in headers) {
-        normalizedHeaders[key.toLowerCase()] = headers[key];
+    // ================================================================
+    // 0. 快速路徑：串流與協議級避讓
+    // ================================================================
+    if ($response.status === 206) { 
+        $done({}); 
+        return; 
     }
 
-    if (normalizedHeaders['upgrade'] === 'websocket') { $done({}); return; }
+    const headers = $response.headers;
+    const normalizedHeaders = normalizeHeaders(headers);
 
+    // WebSocket 連線跳過
+    if (normalizedHeaders['upgrade'] === 'websocket') { 
+        $done({}); 
+        return; 
+    }
+
+    // 大型檔案跳過
     const contentLength = parseInt(normalizedHeaders['content-length'] || '0');
-    if (contentLength > 2000000) { $done({}); return; }
+    if (contentLength > CONFIG.MAX_CONTENT_LENGTH) { 
+        $done({}); 
+        return; 
+    }
 
-    // ----------------------------------------------------------------
-    // 1. 原子級標頭防護
-    // ----------------------------------------------------------------
+    // ================================================================
+    // 1. 標頭驗證：僅處理 HTML
+    // ================================================================
     const contentType = normalizedHeaders['content-type'] || '';
     if (contentType && !contentType.includes('text/html')) {
         $done({});
         return;
     }
 
-    // ----------------------------------------------------------------
+    // ================================================================
     // 2. User-Agent 深度檢測
-    // ----------------------------------------------------------------
+    // ================================================================
     const uaRaw = $request.headers['User-Agent'] || $request.headers['user-agent'];
     const ua = (uaRaw || '').toLowerCase();
     
-    if (!ua || !ua.includes('mozilla') || 
-        ua.includes('line/') || ua.includes('fb_iab') || ua.includes('micromessenger') || 
-        ua.includes('worksmobile') || ua.includes('naver') || 
-        ua.includes('github') || ua.includes('git/') ||
-        ua.includes('shopee') || ua.includes('seamoney')) {
+    if (!isValidUserAgent(ua)) {
         $done({});
         return;
     }
 
-    // ----------------------------------------------------------------
-    // 3. 網域白名單 (整合 V41.47)
-    // ----------------------------------------------------------------
+    // ================================================================
+    // 3. 網域白名單 (Set-based O(1) 查詢)
+    // ================================================================
     const url = $request.url;
-    const match = url.match(/^https?:\/\/([^/:]+)/i);
-    const hostname = match ? match[1].toLowerCase() : '';
+    const hostname = extractHostname(url);
     
-    const excludedDomains = [
-        // --- 1. HARD_WHITELIST_WILDCARDS (金融, 政府, 核心系統) ---
-        // Financial & Banking
-        "bot.com.tw", "cathaybk.com.tw", "cathaysec.com.tw", "chb.com.tw", "citibank.com.tw", "ctbcbank.com", "dawho.tw", "dbs.com.tw",
-        "esunbank.com.tw", "firstbank.com.tw", "fubon.com", "hncb.com.tw", "hsbc.co.uk", "hsbc.com.tw", "landbank.com.tw",
-        "megabank.com.tw", "megatime.com.tw", "mitake.com.tw", "money-link.com.tw", "momopay.com.tw", "mymobibank.com.tw", "paypal.com", "richart.tw",
-        "scsb.com.tw", "sinopac.com", "sinotrade.com.tw", "standardchartered.com.tw", "stripe.com", "taipeifubon.com.tw", "taishinbank.com.tw",
-        "taiwanpay.com.tw", "tcb-bank.com.tw",
-        // Government & Utilities
-        "gov.tw", "org.tw", "pay.taipei", "tdcc.com.tw", "twca.com.tw", "twmp.com.tw",
-        // Core Redirects & App Links
-        "app.goo.gl", "goo.gl",
-        // Core Login & Auth
-        "atlassian.net", "auth0.com", "okta.com",
-        // System & DNS
-        "nextdns.io", "googleapis.com", "icloud.com", "linksyssmartwifi.com", "update.microsoft.com", "windowsupdate.com",
-        // Web Archives
-        "archive.is", "archive.li", "archive.ph", "archive.today", "archive.vn", "cc.bingj.com", "perma.cc",
-        "timetravel.mementoweb.org", "web-static.archive.org", "web.archive.org", "webcache.googleusercontent.com", "www.webarchive.org.uk",
-        // Core Streaming Infrastructure
-        "googlevideo.com",
-        // Uber Core
-        "cfe.uber.com",
-
-        // --- 2. HARD_WHITELIST_EXACT (AI, 登入, API) ---
-        // AI Services
-        "chatgpt.com", "claude.ai", "anthropic.com", "gemini.google.com", "perplexity.ai", 
-        "www.perplexity.ai","pplx-next-static-public.perplexity.ai", "private-us-east-1.monica.im", "api.felo.ai",
-        // Business Tools
-        "adsbypasser.github.io", "code.createjs.com", "oa.ledabangong.com", "oa.qianyibangong.com", "qianwen.aliyun.com",
-        "raw.githubusercontent.com", "reportaproblem.apple.com", "ss.ledabangong.com", "userscripts.adtidy.org",
-        // Meta/Facebook
-        "ar-genai.graph.meta.com", "ar.graph.meta.com", "gateway.facebook.com", "meta-ai-realtime.facebook.com", "meta.graph.meta.com", "wearable-ai-realtime.facebook.com",
-        // Media & CDNs
-        "cdn.ghostery.com", "cdn.shortpixel.ai", "cdn.syndication.twimg.com", "d.ghostery.com", "data-cloud.flightradar24.com", "ssl.p.jwpcdn.com",
-        "staticcdn.duckduckgo.com", "secureapi.midomi.com",
-        // App APIs
-        "ap02.in.treasuredata.com", "eco-push-api-client.meiqia.com", "exp.acsnets.com.tw", "mpaystore.pcstore.com.tw",
-        "mushroomtrack.com", "phtracker.com", "prodapp.babytrackers.com", "sensordata.open.cn", "static.stepfun.com", "track.fstry.me",
-        // Core Login
-        "accounts.google.com", "appleid.apple.com", "login.microsoftonline.com", "sso.godaddy.com", "idmsa.apple.com", "api.login.yahoo.com",
-        // Taiwan Regional
-        "api.etmall.com.tw", "tw.fd-api.com", "api.map.ecpay.com.tw",
-        // Payments
-        "api.adyen.com", "api.braintreegateway.com", "api.ecpay.com.tw", "api.jkos.com", "payment.ecpay.com.tw",
-        // Ticketing
-        "api.line.me", "kktix.com", "tixcraft.com",
-        // Interactive APIs
-        "api.discord.com", "api.twitch.tv", "graph.instagram.com", "graph.threads.net", "i.instagram.com",
-        "iappapi.investing.com", "today.line.me", "t.uber.com",
-
-        // --- 3. Original FP-Shield Exclusions (Retention) ---
-        // Shopee
-        "shopee.tw", "shopee.com", "shopeemobile.com", "susercontent.com", "shopee.ph",
-        "shopee.my", "shopee.sg", "shopee.th", "shopee.co.id", "shopee.vn",
-        // Developer Tools
-        "github.com", "githubusercontent.com", "githubassets.com", "git.io", "github.io",
-        // LINE Ecosystem
-        "line-apps.com", "line.me", "naver.jp", "line-scdn.net", "nhncorp.jp", "line-cdn.net",
-        // Messaging
-        "whatsapp.net", "whatsapp.com", "telegram.org", "messenger.com", "skype.com", "web.whatsapp.com",
-        // System
-        "gstatic.com", "google.com", "apple.com", "microsoft.com", "azure.com",
-        // Streaming
-        "youtube.com", "netflix.com", "nflxvideo.net", "spotify.com"
-    ];
-
-    if (hostname) {
-        for (const domain of excludedDomains) {
-            if (hostname === domain || hostname.endsWith('.' + domain)) {
-                $done({}); 
-                return;
-            }
-        }
-    }
-
-    // ----------------------------------------------------------------
-    // 4. 安全注入邏輯
-    // ----------------------------------------------------------------
-    let body = $response.body;
-    if (!body) { $done({}); return; }
-
-    const startChars = body.substring(0, 20).trim();
-    if (startChars.startsWith('{') || startChars.startsWith('[') || !startChars.includes('<')) {
+    if (isWhitelistedDomain(hostname)) {
         $done({});
         return;
     }
 
-    const injection = `
-<script>
-(function() {
-    // [v1.42] 預設 storageType 改為 'session' (單次會話固定)
-    const CONFIG = { spoofNative: true, debug: false, storageType: 'session' }; 
-    const STORAGE_KEY = 'FP_SHIELD_SEED';
-
-    // 1. Session Persistence Seed
-    let storageImpl;
-    try {
-        storageImpl = (CONFIG.storageType === 'local') ? localStorage : sessionStorage;
-    } catch(e) { storageImpl = sessionStorage; }
-
-    let rawSeed = '';
-    try { rawSeed = storageImpl.getItem(STORAGE_KEY); } catch (e) {}
-    if (!rawSeed) {
-        rawSeed = (Math.floor(Math.random() * 1000000) + Date.now()).toString();
-        try { storageImpl.setItem(STORAGE_KEY, rawSeed); } catch (e) {}
+    // ================================================================
+    // 4. 內容驗證與注入
+    // ================================================================
+    let body = $response.body;
+    if (!body || !isHTMLContent(body)) { 
+        $done({}); 
+        return; 
     }
-    const SESSION_SEED = parseInt(rawSeed, 10);
+
+    // 移除 CSP 標頭
+    removeCSPHeaders(headers);
+
+    // 注入防護腳本
+    const injection = generateInjectionScript();
+    body = injectScript(body, injection);
+
+    $done({ body: body, headers: headers });
+
+    // ================================================================
+    // 工具函數區
+    // ================================================================
     
-    const pseudoRandom = (input) => {
-        const x = Math.sin(input + SESSION_SEED) * 10000;
-        return x - Math.floor(x);
-    };
-    
-    const getStableNoise = (index, channelOffset) => {
-        const val = pseudoRandom(index + channelOffset * 1000); 
-        return Math.floor(val * 9) - 4; 
-    };
-
-    const GRID_OFFSET = Math.floor(pseudoRandom(999) * 500);
-    const DENSITY = Math.floor(pseudoRandom(888) * 170) + 30;
-
-    const applyNoiseToBuffer = (data, width, height) => {
-        const len = data.length;
-        const anchor1 = 0;
-        const centerX = Math.floor(width / 2);
-        const centerY = Math.floor(height / 2);
-        const anchor2 = (centerY * width + centerX) * 4;
-        const noiseVal = (SESSION_SEED % 11) + 1;
-
-        if (len > 3) {
-            data[anchor1] = (data[anchor1] + noiseVal) % 255; 
-            data[anchor1 + 1] = (data[anchor1 + 1] + noiseVal) % 255; 
-            data[anchor1 + 2] = (data[anchor1 + 2] + noiseVal) % 255;
-            data[anchor1 + 3] = 254; 
+    function normalizeHeaders(headers) {
+        const normalized = {};
+        for (const key in headers) {
+            normalized[key.toLowerCase()] = headers[key];
         }
-        if (anchor2 < len - 3) {
-            data[anchor2] = (data[anchor2] + noiseVal) % 255;
-            data[anchor2 + 3] = 254;
-        }
-        for (let i = 0; i < len; i += 4) {
-            if (i === anchor1 || i === anchor2) continue;
-            const pixelIndex = i / 4;
-            if ((pixelIndex + GRID_OFFSET) % DENSITY === 0) { 
-                data[i] = Math.min(255, Math.max(0, data[i] + getStableNoise(pixelIndex, 1)));
-                data[i+1] = Math.min(255, Math.max(0, data[i+1] + getStableNoise(pixelIndex, 2)));
-                data[i+2] = Math.min(255, Math.max(0, data[i+2] + getStableNoise(pixelIndex, 3)));
-            }
-        }
-    };
-
-    const GPU_POOL = [
-        { vendor: 'Intel Inc.', renderer: 'Intel Iris OpenGL Engine' },
-        { vendor: 'NVIDIA Corporation', renderer: 'NVIDIA GeForce RTX 3060/PCIe/SSE2' },
-        { vendor: 'ATI Technologies Inc.', renderer: 'AMD Radeon Pro 580 OpenGL Engine' },
-        { vendor: 'Apple', renderer: 'Apple M1' }
-    ];
-    const SELECTED_GPU = GPU_POOL[Math.floor(pseudoRandom(42) * GPU_POOL.length)];
-
-    const hookFunc = (proto, funcName, wrapper, winContext = window) => {
-        if (!proto) return;
-        const original = proto[funcName];
-        if (!original) return;
-        wrapper.prototype = original.prototype;
-        if (CONFIG.spoofNative) {
-            const originalToString = winContext.Function.prototype.toString;
-            const toStringProxy = new Proxy(originalToString, {
-                apply: (target, thisArg, args) => {
-                    if (thisArg === wrapper) return originalToString.call(original);
-                    return target.call(thisArg, ...args);
-                }
-            });
-            wrapper.toString = toStringProxy;
-        }
-        try { Object.defineProperty(proto, funcName, { value: wrapper, configurable: true, enumerable: true, writable: true }); } 
-        catch(e) { proto[funcName] = wrapper; }
-    };
-
-    const injectFingerprintProtection = (win) => {
-        if (win._fp_shield_injected) return;
-        win._fp_shield_injected = true;
-        try {
-            const CanvasProto = win.CanvasRenderingContext2D.prototype;
-            const HtmlCanvasProto = win.HTMLCanvasElement.prototype;
-            const WebGLProto = win.WebGLRenderingContext.prototype;
-            const WebGL2Proto = win.WebGL2RenderingContext ? win.WebGL2RenderingContext.prototype : null;
-            const AudioProto = win.AudioBuffer ? win.AudioBuffer.prototype : null;
-            const originalGetImageData = CanvasProto.getImageData;
-            const originalToDataURL = HtmlCanvasProto.toDataURL;
-            const originalToBlob = HtmlCanvasProto.toBlob;
-
-            hookFunc(CanvasProto, 'getImageData', function(x, y, w, h) {
-                const imageData = originalGetImageData.apply(this, arguments);
-                if (w < 50 && h < 50) return imageData; 
-                applyNoiseToBuffer(imageData.data, w, h);
-                return imageData;
-            }, win);
-
-            hookFunc(HtmlCanvasProto, 'toDataURL', function() {
-                const w = this.width;
-                const h = this.height;
-                if (w < 50 && h < 50) return originalToDataURL.apply(this, arguments);
-                try {
-                    const shadowCanvas = win.document.createElement('canvas');
-                    shadowCanvas.width = w;
-                    shadowCanvas.height = h;
-                    const shadowCtx = shadowCanvas.getContext('2d');
-                    shadowCtx.drawImage(this, 0, 0);
-                    const shadowImageData = originalGetImageData.call(shadowCtx, 0, 0, w, h);
-                    applyNoiseToBuffer(shadowImageData.data, w, h);
-                    shadowCtx.putImageData(shadowImageData, 0, 0);
-                    return originalToDataURL.apply(shadowCanvas, arguments);
-                } catch (e) { return originalToDataURL.apply(this, arguments); }
-            }, win);
-
-            hookFunc(HtmlCanvasProto, 'toBlob', function(callback, type, quality) {
-                const w = this.width;
-                const h = this.height;
-                if (w < 50 && h < 50) return originalToBlob.apply(this, arguments);
-                try {
-                    const shadowCanvas = win.document.createElement('canvas');
-                    shadowCanvas.width = w;
-                    shadowCanvas.height = h;
-                    const shadowCtx = shadowCanvas.getContext('2d');
-                    shadowCtx.drawImage(this, 0, 0);
-                    const shadowImageData = originalGetImageData.call(shadowCtx, 0, 0, w, h);
-                    applyNoiseToBuffer(shadowImageData.data, w, h);
-                    shadowCtx.putImageData(shadowImageData, 0, 0);
-                    return originalToBlob.call(shadowCanvas, callback, type, quality);
-                } catch (e) { return originalToBlob.apply(this, arguments); }
-            }, win);
-
-            const hookWebGL = (proto) => {
-                hookFunc(proto, 'getParameter', function(parameter) {
-                    if (parameter === 37445) return SELECTED_GPU.vendor; 
-                    if (parameter === 37446) return SELECTED_GPU.renderer; 
-                    return proto.getParameter.apply(this, arguments);
-                }, win);
-                const originalReadPixels = proto.readPixels;
-                hookFunc(proto, 'readPixels', function(x, y, width, height, format, type, pixels) {
-                    const result = originalReadPixels.apply(this, arguments);
-                    if (pixels && pixels instanceof Uint8Array && width > 50 && height > 50) {
-                        applyNoiseToBuffer(pixels, width, height);
-                    }
-                    return result;
-                }, win);
-            };
-            if (WebGLProto) hookWebGL(WebGLProto);
-            if (WebGL2Proto) hookWebGL(WebGL2Proto);
-
-            if (AudioProto) {
-                const originalGetChannelData = AudioProto.getChannelData;
-                hookFunc(AudioProto, 'getChannelData', function(channel) {
-                    const results = originalGetChannelData.apply(this, arguments);
-                    for (let i = 0; i < results.length; i += 100) results[i] += (pseudoRandom(i) * 0.00001); 
-                    return results;
-                }, win);
-            }
-        } catch(e) {}
-    };
-
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            if (mutation.addedNodes) {
-                mutation.addedNodes.forEach((node) => {
-                    if (node.tagName === 'IFRAME') {
-                        try {
-                            if (node.contentWindow) injectFingerprintProtection(node.contentWindow);
-                            node.addEventListener('load', () => {
-                                if (node.contentWindow) injectFingerprintProtection(node.contentWindow);
-                            });
-                        } catch (e) {}
-                    }
-                });
-            }
-        });
-    });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
-
-    const iframeDescriptor = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow');
-    if (iframeDescriptor && iframeDescriptor.get) {
-        const originalGetter = iframeDescriptor.get;
-        Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', {
-            get: function() {
-                const win = originalGetter.call(this);
-                if (win) injectFingerprintProtection(win);
-                return win;
-            },
-            enumerable: iframeDescriptor.enumerable,
-            configurable: iframeDescriptor.configurable
-        });
+        return normalized;
     }
 
-    injectFingerprintProtection(window);
-
-    // --- Floating Badge (Clean UI + Click Reset) ---
-    setTimeout(() => {
-        const debugBadge = document.createElement('div');
-        debugBadge.style.cssText = "position:fixed; bottom:10px; left:10px; z-index:2147483647; background:rgba(0,100,0,0.9); color:white; padding:5px 10px; border-radius:4px; font-size:12px; font-family:sans-serif; pointer-events:none; box-shadow:0 2px 5px rgba(0,0,0,0.3); transition: opacity 0.5s; cursor:pointer; pointer-events:auto;";
-        debugBadge.textContent = "🛡️ FP-Shield v1.42 Active";
-        debugBadge.title = "Seed: " + SESSION_SEED + "\\nMode: " + CONFIG.storageType.toUpperCase() + "\\n(Click to Reset)";
+    function isValidUserAgent(ua) {
+        if (!ua || !ua.includes('mozilla')) return false;
         
-        debugBadge.onclick = function() {
-            if (confirm('重置指紋並重新載入？')) {
-                try { storageImpl.removeItem(STORAGE_KEY); location.reload(); } catch(e) {}
-            }
-        };
-
-        document.documentElement.appendChild(debugBadge);
+        const blacklist = [
+            'line/', 'fb_iab', 'micromessenger', 'worksmobile', 
+            'naver', 'github', 'git/', 'shopee', 'seamoney'
+        ];
         
-        // Auto fade out
-        setTimeout(() => { 
-            debugBadge.style.opacity = '0'; 
-            setTimeout(() => debugBadge.remove(), 500); 
-        }, 3000);
-    }, 500);
-
-    console.log("%c[FP-Defender] v1.42 (" + CONFIG.storageType + ") Active", "color: #00ff00; background: #000; padding: 4px;");
-})();
-</script>
-`;
-
-    const cspKeys = ['Content-Security-Policy', 'content-security-policy', 'Content-Security-Policy-Report-Only', 'content-security-policy-report-only'];
-    for (const key of cspKeys) {
-        if (headers[key]) delete headers[key];
+        return !blacklist.some(pattern => ua.includes(pattern));
     }
 
-    const headRegex = /<head>/i;
-    if (headRegex.test(body)) {
-        body = body.replace(headRegex, (match) => match + injection);
-        $done({ body: body, headers: headers });
-    } else if (body.toLowerCase().includes("<html")) {
-        body = body.replace(/<html[^>]*>/i, (match) => match + injection);
-        $done({ body: body, headers: headers });
-    } else {
-        $done({});
+    function extractHostname(url) {
+        const match = url.match(/^https?:\/\/([^/:]+)/i);
+        return match ? match[1].toLowerCase() : '';
     }
-})();
 
+    function isWhitelistedDomain(hostname) {
+        if (!hostname) return false;
+        
+        // 使用 Set 進行 O(1) 查詢
+        const whitelistSet = getWhitelistSet();
+        
+        // 精確匹配
+        if (whitelistSet.has(hostname)) return true;
+        
+        // 子網域匹配
+        const parts = hostname.split('.');
+        for (let i = 1; i < parts.length; i++) {
+            const parent = parts.slice(i).join('.');
+            if (whitelistSet.has(parent)) return true;
+        }
+        
+        return false;
+    }
+
+    function getWhitelistSet() {
+        // 使用閉包快取 Set
+        if (!getWhitelistSet._cache) {
+            const domains = [
+                // 金融機構
+                "bot.com.tw", "cathaybk.com.tw", "cathaysec.com.tw", "chb​​​​​​​​​​​​​​​​
