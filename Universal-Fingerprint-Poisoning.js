@@ -1,8 +1,8 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.13 (Head-First Injection & Hyper Watchdog)
- * @description [v2.13] 採用「頭部瞬時注入」策略，解決因 Body 截斷導致大型網站 (ifanr) 腳本未執行的問題；升級高頻 UI 看門狗。
- * @note      [CRITICAL] 優先搶佔執行權，無視頁面大小限制。
+ * @version   2.14 (Prefix Brute-Force)
+ * @description [v2.14] 終極手段：採用「前綴暴力注入」策略，將腳本強制置於回應最頂端，無視 HTML 結構與截斷問題。
+ * @note      [CRITICAL] 若此版本仍無效，請務必檢查 Surge 的 MITM Host 列表是否包含目標網域。
  * @author    Claude & Gemini
  */
 
@@ -10,41 +10,36 @@
     "use strict";
 
     const CONFIG = {
-        ver: '2.13',
-        debug: false,
+        ver: '2.14',
+        debug: false, // 若需診斷請開啟
         isWhitelisted: false,
         isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
     };
 
-    // 雖然設定很大，但若 Surge 核心截斷，我們依賴 Head 注入來繞過
-    const CONST = { MAX_SIZE: 5242880, KEY_SEED: 'FP_SHIELD_SEED_V2' }; // 5MB
+    // [Config] 嘗試推至系統極限
+    const CONST = { MAX_SIZE: 10485760, KEY_SEED: 'FP_SHIELD_SEED_V2' }; // 10MB
     
     const R = {
         PROTO: /^https?:\/\/([^/:]+)/i,
         HTML: /text\/html/i,
-        // 擴大 CSP 移除範圍，包含單引號、雙引號、無引號
-        CSP: /<meta[^>]*http-equiv=["']?Content-Security-Policy["']?[^>]*>/gi,
         APPS: /line\/|fb_iab|micromessenger|worksmobile|naver|github|shopee|seamoney/i,
-        // 優先級注入點
-        HEAD_OPEN: /<head(\s[^>]*)?>/i,
-        HTML_OPEN: /<html(\s[^>]*)?>/i,
-        DOCTYPE: /<!DOCTYPE html>/i
+        CSP: /<meta[\s\S]*?http-equiv=["']Content-Security-Policy["'][\s\S]*?>/gi
     };
 
     const $res = $response;
     const $req = $request;
 
-    // --- Phase 1: Pre-flight ---
+    // --- Phase 1: Minimal Pre-flight ---
+    // 僅保留絕對必要的跳過條件，其餘全部嘗試注入
     if ($res.status === 206 || $res.status === 204) { $done({}); return; }
 
     const headers = $res.headers;
     const getH = (k) => headers[k] || headers[k.toLowerCase()];
     
-    // 檢查 Content-Length (若過大仍嘗試處理，因為我們只改 Head)
-    const cLen = parseInt(getH('content-length') || '0');
-    // 如果大於 5MB，通常 Surge 會自動 Skip，這裡做最後一道防線
-    if (cLen > CONST.MAX_SIZE) { $done({}); return; } 
+    // 如果內容長度超過 10MB，系統記憶體會爆，必須跳過
+    if (parseInt(getH('content-length') || '0') > CONST.MAX_SIZE) { $done({}); return; }
     
+    // 嚴格檢查：必須是 HTML，避免破壞圖片或二進位檔
     const cType = getH('content-type') || '';
     if (cType && !R.HTML.test(cType)) { $done({}); return; }
 
@@ -52,6 +47,7 @@
     const ua = (uaRaw || '').toLowerCase();
     if (!ua || R.APPS.test(ua)) { $done({}); return; }
 
+    // Whitelist Logic
     const match = $req.url.match(R.PROTO);
     const host = match ? match[1].toLowerCase() : '';
     const WL_EXACT = new Set([
@@ -80,14 +76,15 @@
     let body = $res.body;
     if (!body) { $done({}); return; }
 
-    // CSP Removal (僅掃描前 5KB，提高效能)
+    // CSP Removal
     const cspKeys = ['Content-Security-Policy', 'content-security-policy', 'X-Content-Security-Policy', 'X-WebKit-CSP', 'Content-Security-Policy-Report-Only'];
     cspKeys.forEach(k => delete headers[k]);
 
-    const headChunk = body.substring(0, 5000);
+    // 嘗試移除 Meta CSP (僅掃描前 10KB)
+    const headChunk = body.substring(0, 10240);
     if (R.CSP.test(headChunk)) {
         const newHead = headChunk.replace(R.CSP, '<!-- CSP REMOVED -->');
-        body = newHead + body.substring(5000);
+        body = newHead + body.substring(10240);
     }
 
     const injection = `
@@ -95,26 +92,25 @@
 (function() {
     "use strict";
     const C = {
-        v: '2.13',
+        v: '2.14',
         wl: ${CONFIG.isWhitelisted},
         ios: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
     };
 
-    // --- UI Module (Shadow DOM & Hyper Watchdog) ---
+    // --- UI Module (Resilient Shadow DOM) ---
     const UI = {
-        hostId: 'fp-shield-host-v213',
+        hostId: 'fp-root-' + Math.random().toString(36).substr(2, 5), // 隨機 ID 避免被特定 CSS 鎖定
         mount: () => {
-            if (document.getElementById(UI.hostId)) return;
+            // 防止重複掛載
+            if (document.querySelector('[id^="fp-root-"]')) return;
 
-            // 1. Host Element (Reset all styles)
             const host = document.createElement('div');
             host.id = UI.hostId;
-            // [Fix] all: initial 防止全域樣式汙染
-            host.style.cssText = "all: initial; position: fixed; bottom: 10px; left: 10px; z-index: 2147483647; width: 0; height: 0; contain: strict;";
+            // 使用最高權重的樣式重置
+            host.style.cssText = "all: initial; position: fixed; bottom: 10px; left: 10px; z-index: 2147483647; width: 0; height: 0; contain: strict; display: block !important; visibility: visible !important;";
             
-            // 2. Shadow DOM
             let root;
-            try { root = host.attachShadow({mode: 'open'}); } catch(e) { root = host; } // Fallback if shadow blocked
+            try { root = host.attachShadow({mode: 'closed'}); } catch(e) { root = host; } 
             
             const b = document.createElement('div');
             const color = C.wl ? 'rgba(100,100,100,0.8)' : 'rgba(0,100,0,0.9)';
@@ -136,27 +132,29 @@
                 align-items: center;
                 user-select: none;
                 -webkit-user-select: none;
+                margin: 0;
             \`;
             b.innerText = text;
             
             root.appendChild(b);
-            (document.documentElement || document.body).appendChild(host);
+            
+            // 嘗試掛載到 HTML 根節點，若失敗則掛載到 Body，再失敗則掛載到 Head (極限)
+            const parent = document.documentElement || document.body || document.head;
+            if(parent) parent.appendChild(host);
 
             requestAnimationFrame(() => b.style.opacity = '1');
             const timeout = C.wl ? 2000 : 4000;
             setTimeout(() => { b.style.opacity = '0'; setTimeout(() => host.remove(), 500); }, timeout);
         },
-        // [New] Hyper Watchdog: 針對 Hydration 階段的高頻檢查
-        hyperWatch: () => {
-            let ticks = 0;
-            const scan = () => {
-                if (!document.getElementById(UI.hostId)) UI.mount();
-                ticks++;
-                // 前 5 秒 (約 300 幀) 高頻檢查，之後轉為低頻
-                if (ticks < 300) requestAnimationFrame(scan);
-                else setInterval(() => { if (!document.getElementById(UI.hostId)) UI.mount(); }, 2000);
-            };
-            scan();
+        watchdog: () => {
+            // 極限看門狗：頁面載入後持續檢查 10 秒
+            let c = 0;
+            const t = setInterval(() => {
+                c++;
+                const el = document.querySelector('[id^="fp-root-"]');
+                if (!el && (document.body || document.documentElement)) UI.mount();
+                if (c > 20) clearInterval(t); // 10秒後停止 (500ms * 20)
+            }, 500);
         }
     };
 
@@ -248,30 +246,25 @@
     };
 
     const init = () => {
-        inject(window); UI.hyperWatch(); hookHistory();
+        inject(window); UI.mount(); UI.watchdog(); hookHistory();
         new MutationObserver((ms)=>{
             for(const m of ms) {
                 for(const n of m.addedNodes) if(n.tagName==='IFRAME') try{if(n.contentWindow)inject(n.contentWindow);n.addEventListener('load',()=>{try{inject(n.contentWindow)}catch(e){}});}catch(e){}
+                if(m.type==='childList' && !document.querySelector('[id^="fp-root-"]')) UI.mount();
             }
         }).observe(document.documentElement,{childList:true,subtree:true});
     };
 
-    // [Fix] Immediate execution, don't wait for DOMContentLoaded
-    init(); 
+    // 暴力執行：不等 DOMContentLoaded，直接跑
+    init();
 })();
 </script>
 `;
 
-    // [Strategy] Head-First Injection
-    // 優先尋找 <head> 標籤並在其 *後* 立即插入，這樣即使 body 被截斷，腳本也已在頭部
-    if (R.HEAD_OPEN.test(body)) {
-        body = body.replace(R.HEAD_OPEN, (match) => match + injection);
-    } else if (R.HTML_OPEN.test(body)) {
-        body = body.replace(R.HTML_OPEN, (match) => match + injection);
-    } else {
-        // Fallback: 如果連 <html> 都沒抓到 (極罕見)，直接加在最前面
-        body = injection + body;
-    }
+    // [Nuclear Option] Prefix Brute-Force Injection
+    // 直接將腳本串接到 Body 最前面，不管原本內容是什麼
+    // 瀏覽器會先執行腳本，再渲染原本的 DOCTYPE 和 HTML
+    body = injection + body;
     
     $done({ body, headers });
 })();
