@@ -1,7 +1,7 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   1.39 (Integrated Whitelist & Session Mode)
- * @description [v1.39] 預設策略改回 Session (平衡模式)；整合 URL-Ultimate-Filter V41.47 的銀行、支付與核心服務白名單，大幅提升網銀與關鍵應用的相容性。
+ * @version   1.42 (V41.47 Whitelist Integration & Session Mode)
+ * @description [v1.42] 整合 URL-Ultimate-Filter V41.47 全套硬白名單；預設使用 Session 模式；核心防護與 Tampermonkey v1.42 同步。
  * @note      [CRITICAL] 請務必配合 Surge 設定檔中的正則排除規則使用，以確保 0 延遲體驗。
  * @author    Claude & Gemini
  */
@@ -38,7 +38,6 @@
     const uaRaw = $request.headers['User-Agent'] || $request.headers['user-agent'];
     const ua = (uaRaw || '').toLowerCase();
     
-    // 排除 App API 與非瀏覽器流量
     if (!ua || !ua.includes('mozilla') || 
         ua.includes('line/') || ua.includes('fb_iab') || ua.includes('micromessenger') || 
         ua.includes('worksmobile') || ua.includes('naver') || 
@@ -49,52 +48,77 @@
     }
 
     // ----------------------------------------------------------------
-    // 3. 網域白名單 (Integrated from URL-Ultimate-Filter V41.47)
+    // 3. 網域白名單 (整合 V41.47)
     // ----------------------------------------------------------------
     const url = $request.url;
     const match = url.match(/^https?:\/\/([^/:]+)/i);
     const hostname = match ? match[1].toLowerCase() : '';
     
     const excludedDomains = [
-        // --- AI & Search Services ---
-        "chatgpt.com", "claude.ai", "gemini.google.com", "perplexity.ai", "felo.ai", "monica.im",
-        
-        // --- Financial, Banking & Payments (Taiwan & Global) ---
-        "paypal.com", "stripe.com", "adyen.com", "braintreegateway.com", 
-        "ecpay.com.tw", "jkos.com", "taiwanpay.com.tw", "pay.taipei",
-        "bot.com.tw", "cathaybk.com.tw", "cathaysec.com.tw", "chb.com.tw", "citibank.com.tw", 
-        "ctbcbank.com", "dawho.tw", "dbs.com.tw", "esunbank.com.tw", "firstbank.com.tw", 
-        "fubon.com", "hncb.com.tw", "hsbc.co.uk", "hsbc.com.tw", "landbank.com.tw", 
-        "megabank.com.tw", "mitake.com.tw", "momopay.com.tw", "richart.tw", "scsb.com.tw", 
-        "sinopac.com", "standardchartered.com.tw", "taipeifubon.com.tw", "taishinbank.com.tw", 
-        "tcb-bank.com.tw", "tdcc.com.tw", "twca.com.tw", "twmp.com.tw",
+        // --- 1. HARD_WHITELIST_WILDCARDS (金融, 政府, 核心系統) ---
+        // Financial & Banking
+        "bot.com.tw", "cathaybk.com.tw", "cathaysec.com.tw", "chb.com.tw", "citibank.com.tw", "ctbcbank.com", "dawho.tw", "dbs.com.tw",
+        "esunbank.com.tw", "firstbank.com.tw", "fubon.com", "hncb.com.tw", "hsbc.co.uk", "hsbc.com.tw", "landbank.com.tw",
+        "megabank.com.tw", "megatime.com.tw", "mitake.com.tw", "money-link.com.tw", "momopay.com.tw", "mymobibank.com.tw", "paypal.com", "richart.tw",
+        "scsb.com.tw", "sinopac.com", "sinotrade.com.tw", "standardchartered.com.tw", "stripe.com", "taipeifubon.com.tw", "taishinbank.com.tw",
+        "taiwanpay.com.tw", "tcb-bank.com.tw",
+        // Government & Utilities
+        "gov.tw", "org.tw", "pay.taipei", "tdcc.com.tw", "twca.com.tw", "twmp.com.tw",
+        // Core Redirects & App Links
+        "app.goo.gl", "goo.gl",
+        // Core Login & Auth
+        "atlassian.net", "auth0.com", "okta.com",
+        // System & DNS
+        "nextdns.io", "googleapis.com", "icloud.com", "linksyssmartwifi.com", "update.microsoft.com", "windowsupdate.com",
+        // Web Archives
+        "archive.is", "archive.li", "archive.ph", "archive.today", "archive.vn", "cc.bingj.com", "perma.cc",
+        "timetravel.mementoweb.org", "web-static.archive.org", "web.archive.org", "webcache.googleusercontent.com", "www.webarchive.org.uk",
+        // Core Streaming Infrastructure
+        "googlevideo.com",
+        // Uber Core
+        "cfe.uber.com",
 
-        // --- E-Commerce & Shopping ---
+        // --- 2. HARD_WHITELIST_EXACT (AI, 登入, API) ---
+        // AI Services
+        "chatgpt.com", "claude.ai", "gemini.google.com", "perplexity.ai", "www.perplexity.ai",
+        "pplx-next-static-public.perplexity.ai", "private-us-east-1.monica.im", "api.felo.ai",
+        // Business Tools
+        "adsbypasser.github.io", "code.createjs.com", "oa.ledabangong.com", "oa.qianyibangong.com", "qianwen.aliyun.com",
+        "raw.githubusercontent.com", "reportaproblem.apple.com", "ss.ledabangong.com", "userscripts.adtidy.org",
+        // Meta/Facebook
+        "ar-genai.graph.meta.com", "ar.graph.meta.com", "gateway.facebook.com", "meta-ai-realtime.facebook.com", "meta.graph.meta.com", "wearable-ai-realtime.facebook.com",
+        // Media & CDNs
+        "cdn.ghostery.com", "cdn.shortpixel.ai", "cdn.syndication.twimg.com", "d.ghostery.com", "data-cloud.flightradar24.com", "ssl.p.jwpcdn.com",
+        "staticcdn.duckduckgo.com", "secureapi.midomi.com",
+        // App APIs
+        "ap02.in.treasuredata.com", "eco-push-api-client.meiqia.com", "exp.acsnets.com.tw", "mpaystore.pcstore.com.tw",
+        "mushroomtrack.com", "phtracker.com", "prodapp.babytrackers.com", "sensordata.open.cn", "static.stepfun.com", "track.fstry.me",
+        // Core Login
+        "accounts.google.com", "appleid.apple.com", "login.microsoftonline.com", "sso.godaddy.com", "idmsa.apple.com", "api.login.yahoo.com",
+        // Taiwan Regional
+        "api.etmall.com.tw", "tw.fd-api.com", "api.map.ecpay.com.tw",
+        // Payments
+        "api.adyen.com", "api.braintreegateway.com", "api.ecpay.com.tw", "api.jkos.com", "payment.ecpay.com.tw",
+        // Ticketing
+        "api.line.me", "kktix.com", "tixcraft.com",
+        // Interactive APIs
+        "api.discord.com", "api.twitch.tv", "graph.instagram.com", "graph.threads.net", "i.instagram.com",
+        "iappapi.investing.com", "today.line.me", "t.uber.com",
+
+        // --- 3. Original FP-Shield Exclusions (Retention) ---
+        // Shopee
         "shopee.tw", "shopee.com", "shopeemobile.com", "susercontent.com", "shopee.ph",
-        "momoshop.com.tw", "etmall.com.tw", "book.com.tw", "pchome.com.tw",
-        "uber.com", "foodpanda.com.tw",
-
-        // --- Social & Communication ---
-        "line-apps.com", "line.me", "naver.jp", "line-scdn.net",
-        "whatsapp.net", "whatsapp.com", "telegram.org", "discord.com", "twitch.tv",
-        "facebook.com", "instagram.com", "threads.net", "linkedin.com", "slack.com",
-
-        // --- System, Cloud & Login ---
-        "googleapis.com", "gstatic.com", "google.com", "accounts.google.com",
-        "apple.com", "appleid.apple.com", "icloud.com", 
-        "microsoft.com", "microsoftonline.com", "windowsupdate.com", "azure.com",
-        "aws.amazon.com", "cloudflare.com", "okta.com", "auth0.com", "atlassian.net",
-
-        // --- Developer & Tools ---
+        "shopee.my", "shopee.sg", "shopee.th", "shopee.co.id", "shopee.vn",
+        // Developer Tools
         "github.com", "githubusercontent.com", "githubassets.com", "git.io", "github.io",
-        "gitlab.com", "vercel.app", "netlify.app",
-
-        // --- Streaming & Media ---
-        "youtube.com", "googlevideo.com", "netflix.com", "nflxvideo.net", "spotify.com", 
-        "flightradar24.com", "twimg.com",
-
-        // --- Government ---
-        "gov.tw", "org.tw"
+        // LINE Ecosystem
+        "line-apps.com", "line.me", "naver.jp", "line-scdn.net", "nhncorp.jp", "line-cdn.net",
+        // Messaging
+        "whatsapp.net", "whatsapp.com", "telegram.org", "messenger.com", "skype.com", "web.whatsapp.com",
+        // System
+        "gstatic.com", "google.com", "apple.com", "microsoft.com", "azure.com",
+        // Streaming
+        "youtube.com", "netflix.com", "nflxvideo.net", "spotify.com"
     ];
 
     if (hostname) {
@@ -121,11 +145,11 @@
     const injection = `
 <script>
 (function() {
-    // [v1.39] 預設 storageType 改回 'session' (單次會話固定)
+    // [v1.42] 預設 storageType 改為 'session' (單次會話固定)
     const CONFIG = { spoofNative: true, debug: false, storageType: 'session' }; 
     const STORAGE_KEY = 'FP_SHIELD_SEED';
 
-    // 1. Seed Management
+    // 1. Session Persistence Seed
     let storageImpl;
     try {
         storageImpl = (CONFIG.storageType === 'local') ? localStorage : sessionStorage;
@@ -325,11 +349,11 @@
 
     injectFingerprintProtection(window);
 
-    // --- Floating Badge (Clean UI) ---
+    // --- Floating Badge (Clean UI + Click Reset) ---
     setTimeout(() => {
         const debugBadge = document.createElement('div');
         debugBadge.style.cssText = "position:fixed; bottom:10px; left:10px; z-index:2147483647; background:rgba(0,100,0,0.9); color:white; padding:5px 10px; border-radius:4px; font-size:12px; font-family:sans-serif; pointer-events:none; box-shadow:0 2px 5px rgba(0,0,0,0.3); transition: opacity 0.5s; cursor:pointer; pointer-events:auto;";
-        debugBadge.textContent = "🛡️ FP-Shield v1.39 Active";
+        debugBadge.textContent = "🛡️ FP-Shield v1.42 Active";
         debugBadge.title = "Seed: " + SESSION_SEED + "\\nMode: " + CONFIG.storageType.toUpperCase() + "\\n(Click to Reset)";
         
         debugBadge.onclick = function() {
@@ -347,7 +371,7 @@
         }, 3000);
     }, 500);
 
-    console.log("%c[FP-Defender] v1.39 (" + CONFIG.storageType + ") Active", "color: #00ff00; background: #000; padding: 4px;");
+    console.log("%c[FP-Defender] v1.42 (" + CONFIG.storageType + ") Active", "color: #00ff00; background: #000; padding: 4px;");
 })();
 </script>
 `;
@@ -368,3 +392,4 @@
         $done({});
     }
 })();
+
