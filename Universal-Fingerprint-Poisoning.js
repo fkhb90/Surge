@@ -1,28 +1,27 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.96-Header-Sync (Dual Mode: Request + Response)
- * @description [雙重擬態版] 同步修改 HTTP Header 與 JS Navigator，解決前後端指紋不一致問題。
+ * @version   2.97-Diagnostic (Console Log & Force Override)
+ * @description [診斷修復版] 加入強制 Console Log 以驗證腳本觸發狀態，並修復 Win10 幽靈腳本干擾。
  * ----------------------------------------------------------------------------
- * 1. [Request] 修改 User-Agent Header，偽裝成 MacIntel/Chrome，與 JS 保持一致。
- * 2. [Response] 執行 V2.95 的注入邏輯 (Canvas 噪點、儀表板控制、OTA 狙擊)。
- * 3. [Sync] 確保「購物模式」在 Header 與 JS 層面行為同步。
+ * 1. [Debug] Request 階段強制輸出 Log，請在 Surge 儀表板查看。
+ * 2. [Force] 強制覆寫 User-Agent，對抗殘留的 Win10 設定。
+ * 3. [Core] 保持 V2.96 的雙重擬態與白名單邏輯。
  * ----------------------------------------------------------------------------
- * @note 需在 Surge 中同時配置 type=http-request 與 type=http-response。
+ * @note 必須同時配置 http-request 與 http-response。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 0. 全域配置與模式偵測 (適用於 Request & Response)
+  // 0. 全域配置
   // ============================================================================
-  // 定義目標偽裝字串 (Golden Master User-Agent)
-  // 這是一個標準的 macOS Chrome 120 UA，將用於 Header 與 JS
   const TARGET_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+  const DEBUG_LOG = true; // 開啟調試日誌
 
   let IS_SHOPPING_MODE = false;
 
-  // 嘗試讀取模式 (相容 Request 與 Response 環境)
+  // 模式偵測
   try {
     if (typeof $surge !== 'undefined' && $surge.selectGroupDetails) {
       const decisions = $surge.selectGroupDetails().decisions;
@@ -35,46 +34,57 @@
     }
   } catch (e) {}
 
-  // Fallback to Argument
   if (!IS_SHOPPING_MODE && typeof $argument === "string" && $argument.includes("mode=shopping")) {
       IS_SHOPPING_MODE = true;
   }
 
   // ============================================================================
-  // Phase A: HTTP Request Header Rewrite (網路層偽裝)
+  // Phase A: HTTP Request Header Rewrite (網路層)
   // ============================================================================
   if (typeof $response === 'undefined' && typeof $request !== 'undefined') {
       const headers = $request.headers;
+      
+      // [DEBUG] 輸出當前 Header 狀態，協助判斷是否有其他腳本干擾
+      if (DEBUG_LOG) {
+          console.log(`🔥 FP-Header [Start]: URL=${$request.url.substring(0, 50)}...`);
+          console.log(`🔥 FP-Header [Before]: ${headers['User-Agent'] || headers['user-agent']}`);
+      }
+
       // 尋找 Key (處理大小寫問題)
       const uaKey = Object.keys(headers).find(k => k.toLowerCase() === 'user-agent');
       
       if (uaKey) {
-          // 強制覆蓋為 macOS UA
-          headers[uaKey] = TARGET_UA;
+          headers[uaKey] = TARGET_UA; // 強制設定為 macOS
+      } else {
+          headers['User-Agent'] = TARGET_UA; // 若無則新增
       }
 
-      // 移除移動端特徵 Header
+      // 移除移動端特徵
       const mobileKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-mobile');
-      if (mobileKey) headers[mobileKey] = "?0"; // 告訴伺服器我們不是手機
+      if (mobileKey) headers[mobileKey] = "?0";
 
       const platformKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-platform');
       if (platformKey) headers[platformKey] = '"macOS"';
+
+      if (DEBUG_LOG) {
+          console.log(`🔥 FP-Header [After]: ${headers[uaKey] || headers['User-Agent']}`);
+          console.log(`🔥 FP-Header [Done]: Injection Complete.`);
+      }
 
       $done({ headers });
       return; 
   }
 
   // ============================================================================
-  // Phase B: HTTP Response Body Injection (JS 層偽裝)
+  // Phase B: HTTP Response Body Injection (瀏覽器層)
   // ============================================================================
-  // 以下邏輯僅在 Response 階段執行
   
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_MAC_V296", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V296",
-    INJECT_MARKER: "__FP_SHIELD_V296__",
-    
+    KEY_SEED: "FP_SHIELD_MAC_V297", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V297",
+    INJECT_MARKER: "__FP_SHIELD_V297__",
+    // Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
     JITTER_RANGE_MS: 4 * 60 * 60 * 1000,
     CANVAS_MIN_SIZE: 16,
@@ -99,7 +109,7 @@
   const headers = $res.headers || {};
   const normalizedHeaders = Object.keys(headers).reduce((acc, key) => { acc[String(key).toLowerCase()] = headers[key]; return acc; }, {});
 
-  // 1. 硬白名單 (Hard Exclusions)
+  // 1. 硬白名單
   const HardExclusions = (() => {
     const list = [
       "apple.com", "icloud.com", "mzstatic.com", "itunes.apple.com", "cdn-apple.com",
@@ -128,7 +138,7 @@
   const cType = normalizedHeaders["content-type"] || "";
   if (cType && (REGEX.CONTENT_TYPE_JSONLIKE.test(cType) || !REGEX.CONTENT_TYPE_HTML.test(cType))) { $done({}); return; }
 
-  // 3. 軟白名單 (Soft Whitelist)
+  // 3. 軟白名單
   const SoftWhitelist = (() => {
     const domains = new Set([
       "google.com", "www.google.com", "accounts.google.com", "docs.google.com", "drive.google.com", 
@@ -160,7 +170,7 @@
   if (!body || REGEX.JSON_START.test(body.substring(0, 80).trim())) { $done({}); return; }
   if (body.includes(CONST.INJECT_MARKER)) { $done({ body, headers }); return; }
 
-  // 4. CSP Header 移除
+  // 4. CSP
   const headerKeys = Object.keys(headers);
   headerKeys.forEach(key => {
       const lowerKey = key.toLowerCase();
@@ -169,11 +179,11 @@
       }
   });
 
-  // 5. HTML 淨化
+  // 5. HTML Purge
   body = body.replace(REGEX.META_CSP_STRICT, "<!-- CSP REMOVED -->");
   body = body.replace(/integrity=["'][^"']*["']/gi, "");
 
-  // 6. 靜態 HTML UI
+  // 6. UI
   const badgeColor = IS_SHOPPING_MODE ? "#AF52DE" : "#007AFF"; 
   const badgeText = IS_SHOPPING_MODE ? "FP: Shopping" : "FP: macOS";
 
@@ -198,7 +208,7 @@
   ">${badgeText}</div>
   `;
 
-  // 7. 核心邏輯 (Inject Script)
+  // 7. Core
   const injectionScript = `
 <script>
 (function() {
@@ -253,7 +263,6 @@
           } catch(e) { return false; }
       };
 
-      // Seed & RNG
       const Seed = (function() {
         const safeGet = (k) => { try { return localStorage.getItem(k); } catch(e) { return null; } };
         const safeSet = (k, v) => { try { localStorage.setItem(k, v); } catch(e) {} };
@@ -287,30 +296,11 @@
       };
       if (RNG.s === 0) RNG.s = 1;
 
-      // Persona (Mac-Only)
       const Persona = (function() {
-        // We use the same UA logic, but sync with Header
         const headerUA = "${TARGET_UA}"; 
         const MAC_HW = {
-            SILICON: {
-                cpuPool: [8, 10, 12],
-                ramPool: [8, 16, 24, 32],
-                gpuPool: [
-                    {v: 'Apple', r: 'Apple M1', w: 40},
-                    {v: 'Apple', r: 'Apple M2', w: 30},
-                    {v: 'Apple', r: 'Apple M3', w: 20},
-                    {v: 'Apple', r: 'Apple GPU', w: 10}
-                ]
-            },
-            INTEL: {
-                cpuPool: [4, 6, 8, 12],
-                ramPool: [8, 16, 32, 64],
-                gpuPool: [
-                    {v: 'Intel Inc.', r: 'Intel(R) Iris(TM) Plus Graphics 640', w: 40},
-                    {v: 'ATI Technologies Inc.', r: 'AMD Radeon Pro 5300M', w: 30},
-                    {v: 'ATI Technologies Inc.', r: 'AMD Radeon Pro 5500M', w: 30}
-                ]
-            }
+            SILICON: { cpuPool: [8, 10, 12], ramPool: [8, 16, 24, 32], gpuPool: [{v: 'Apple', r: 'Apple M1', w: 40}, {v: 'Apple', r: 'Apple M2', w: 30}, {v: 'Apple', r: 'Apple M3', w: 20}, {v: 'Apple', r: 'Apple GPU', w: 10}] },
+            INTEL: { cpuPool: [4, 6, 8, 12], ramPool: [8, 16, 32, 64], gpuPool: [{v: 'Intel Inc.', r: 'Intel(R) Iris(TM) Plus Graphics 640', w: 40}, {v: 'ATI Technologies Inc.', r: 'AMD Radeon Pro 5300M', w: 30}, {v: 'ATI Technologies Inc.', r: 'AMD Radeon Pro 5500M', w: 30}] }
         };
         const r = RNG.next();
         let tier = (r > 0.3) ? MAC_HW.SILICON : MAC_HW.INTEL;
@@ -318,8 +308,6 @@
         const ram = RNG.pick(tier.ramPool);
         let gpu = RNG.pickWeighted(tier.gpuPool);
         gpu.topo = 'unified'; gpu.tex = 16384; 
-        
-        // Consistent with Header
         let chromeVer = "120";
 
         return { 
@@ -335,7 +323,6 @@
         };
       })();
 
-      // ProxyGuard
       const ProxyGuard = {
         proxyMap: new WeakMap(), nativeStrings: new WeakMap(), toStringMap: new WeakMap(),
         _makeFakeToString: function(t, ns) {
@@ -387,7 +374,6 @@
         }
       };
 
-      // CanvasPool
       const CanvasPool = (function() {
         const pool = [];
         const shrink = (item) => { try { item.c.width = 1; item.c.height = 1; } catch(e) {} };
@@ -414,7 +400,6 @@
         };
       })();
 
-      // Noise Helpers
       const Noise = {
         spatial01: function(x, y, salt) {
           let h = (x | 0) * 374761393 + (y | 0) * 668265263 + (salt | 0) * 1442695041 + (RNG.s | 0);
@@ -453,7 +438,6 @@
         font: function(w) { return w + (Noise.rand(Math.floor(w * 100)) * 0.04 - 0.02); }
       };
 
-      // Modules
       const Modules = {
         hardware: function(win) {
           const N = win.navigator;
@@ -466,7 +450,6 @@
           spoofProp(N, 'hardwareConcurrency', Persona.hw.cpu);
           spoofProp(N, 'deviceMemory', Persona.hw.ram);
           spoofProp(N, 'platform', Persona.ua.platform); 
-          // Inject Request-Synced UA
           spoofProp(N, 'userAgent', Persona.ua.raw);
           spoofProp(N, 'appVersion', Persona.ua.raw.replace('Mozilla/', ''));
 
