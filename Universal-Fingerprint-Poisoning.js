@@ -1,13 +1,13 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.97-Diagnostic (Console Log & Force Override)
- * @description [診斷修復版] 加入強制 Console Log 以驗證腳本觸發狀態，並修復 Win10 幽靈腳本干擾。
+ * @version   3.00-Production (Silent & Stable)
+ * @description [V3.00 最終穩定版] 移除診斷日誌，保持最高效能與隱蔽性。
  * ----------------------------------------------------------------------------
- * 1. [Debug] Request 階段強制輸出 Log，請在 Surge 儀表板查看。
- * 2. [Force] 強制覆寫 User-Agent，對抗殘留的 Win10 設定。
- * 3. [Core] 保持 V2.96 的雙重擬態與白名單邏輯。
+ * 1. [Silent] 關閉所有 Console Log，靜默執行偽裝。
+ * 2. [Force] 保留 Header 強制覆寫邏輯，確保 macOS 特徵穩定。
+ * 3. [Dual] 支援 Request (Header) 與 Response (JS) 雙重掛載。
  * ----------------------------------------------------------------------------
- * @note 必須同時配置 http-request 與 http-response。
+ * @note 必須配合 Surge Module 或正確的雙重配置使用。
  */
 
 (function () {
@@ -16,12 +16,15 @@
   // ============================================================================
   // 0. 全域配置
   // ============================================================================
+  // Golden Master macOS Chrome UA
   const TARGET_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-  const DEBUG_LOG = true; // 開啟調試日誌
+  
+  // [V3.00] 關閉除錯日誌，提升效能
+  const DEBUG_LOG = false; 
 
   let IS_SHOPPING_MODE = false;
 
-  // 模式偵測
+  // 模式偵測 (策略組連動)
   try {
     if (typeof $surge !== 'undefined' && $surge.selectGroupDetails) {
       const decisions = $surge.selectGroupDetails().decisions;
@@ -34,6 +37,7 @@
     }
   } catch (e) {}
 
+  // 參數容錯
   if (!IS_SHOPPING_MODE && typeof $argument === "string" && $argument.includes("mode=shopping")) {
       IS_SHOPPING_MODE = true;
   }
@@ -44,32 +48,21 @@
   if (typeof $response === 'undefined' && typeof $request !== 'undefined') {
       const headers = $request.headers;
       
-      // [DEBUG] 輸出當前 Header 狀態，協助判斷是否有其他腳本干擾
-      if (DEBUG_LOG) {
-          console.log(`🔥 FP-Header [Start]: URL=${$request.url.substring(0, 50)}...`);
-          console.log(`🔥 FP-Header [Before]: ${headers['User-Agent'] || headers['user-agent']}`);
-      }
-
       // 尋找 Key (處理大小寫問題)
       const uaKey = Object.keys(headers).find(k => k.toLowerCase() === 'user-agent');
       
       if (uaKey) {
-          headers[uaKey] = TARGET_UA; // 強制設定為 macOS
+          headers[uaKey] = TARGET_UA; // 強制覆寫
       } else {
-          headers['User-Agent'] = TARGET_UA; // 若無則新增
+          headers['User-Agent'] = TARGET_UA; // 新增
       }
 
-      // 移除移動端特徵
+      // 移除移動端特徵 Header
       const mobileKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-mobile');
       if (mobileKey) headers[mobileKey] = "?0";
 
       const platformKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-platform');
       if (platformKey) headers[platformKey] = '"macOS"';
-
-      if (DEBUG_LOG) {
-          console.log(`🔥 FP-Header [After]: ${headers[uaKey] || headers['User-Agent']}`);
-          console.log(`🔥 FP-Header [Done]: Injection Complete.`);
-      }
 
       $done({ headers });
       return; 
@@ -81,10 +74,10 @@
   
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_MAC_V297", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V297",
-    INJECT_MARKER: "__FP_SHIELD_V297__",
-    // Configs
+    KEY_SEED: "FP_SHIELD_MAC_V300", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V300",
+    INJECT_MARKER: "__FP_SHIELD_V300__",
+    
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
     JITTER_RANGE_MS: 4 * 60 * 60 * 1000,
     CANVAS_MIN_SIZE: 16,
@@ -109,7 +102,7 @@
   const headers = $res.headers || {};
   const normalizedHeaders = Object.keys(headers).reduce((acc, key) => { acc[String(key).toLowerCase()] = headers[key]; return acc; }, {});
 
-  // 1. 硬白名單
+  // 1. 硬白名單 (Hard Exclusions)
   const HardExclusions = (() => {
     const list = [
       "apple.com", "icloud.com", "mzstatic.com", "itunes.apple.com", "cdn-apple.com",
@@ -138,7 +131,7 @@
   const cType = normalizedHeaders["content-type"] || "";
   if (cType && (REGEX.CONTENT_TYPE_JSONLIKE.test(cType) || !REGEX.CONTENT_TYPE_HTML.test(cType))) { $done({}); return; }
 
-  // 3. 軟白名單
+  // 3. 軟白名單 (Soft Whitelist)
   const SoftWhitelist = (() => {
     const domains = new Set([
       "google.com", "www.google.com", "accounts.google.com", "docs.google.com", "drive.google.com", 
@@ -208,7 +201,7 @@
   ">${badgeText}</div>
   `;
 
-  // 7. Core
+  // 7. Core Injection
   const injectionScript = `
 <script>
 (function() {
@@ -735,14 +728,5 @@
   } catch(e) { panic(e); }
 })();
 </script>
-`;
-
-  const combinedInjection = staticBadgeHTML + injectionScript;
-  if (REGEX.HEAD_TAG.test(body)) body = body.replace(REGEX.HEAD_TAG, (m) => m + combinedInjection);
-  else if (REGEX.HTML_TAG.test(body)) body = body.replace(REGEX.HTML_TAG, (m) => m + combinedInjection);
-  else body = combinedInjection + body;
-
-  $done({ body: body, headers: headers });
-})();
 
 
