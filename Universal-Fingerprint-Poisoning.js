@@ -1,12 +1,12 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.40-Omni-Mask (Final Complete Edition)
- * @description 集大成之作：平衡了隱匿性、穩定性與內容多樣性。
+ * @version   2.42-Sovereign-Glider (Geometry Invariants & Semantic Whitelist)
+ * @description 針對幾何邏輯、白名單覆蓋率與插件標準化進行的最終修正。
  * ----------------------------------------------------------------------------
- * 1. [Locale] Standardization: 恢復並強化 en-US 標準化策略，全棧覆蓋 Intl/Navigator，最大化 Crowd Anonymity。
- * 2. [Plugins] Omni-Pool: 引入多樣化插件庫 (Widevine, Native Client, Edge PDF)，基於 Seed 動態組合，打破內容聚類。
- * 3. [Security] Invariant Core: 堅持 v2.39 的 Object-Proxy 架構，確保描述符行為 (non-configurable length) 通過高階檢測。
- * 4. [System] 繼承所有穩定性修復 (BFCache, WebGL Jitter, Symbol-Safe)。
+ * 1. [Math] Geometry Logic: 確保 getBoundingClientRect 回傳值符合 Right = Left + Width 公理，修復幾何矛盾。
+ * 2. [Strategy] Semantic Whitelist: 放寬白名單判定，包含 'bank'/'pay' 等關鍵字即放行，確保金融網站相容性。
+ * 3. [Plugins] Standard Set: 鎖定 Chrome 標準 5 件套插件列表，消除隨機長度造成的非主流特徵。
+ * 4. [Core] Stability: 繼承 v2.41 的 Smart CSP、ProxyGuard (Symbol-Safe) 與 WebGL Jitter。
  * ----------------------------------------------------------------------------
  * @note Surge/Quantumult X 類 rewrite。
  */
@@ -19,7 +19,7 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_SEED_V240_OMNI",
+    KEY_SEED: "FP_SHIELD_SEED_V242_GLIDER",
     INTERFERENCE_LEVEL: 1, // 0:Min, 1:Bal, 2:Agg
     
     // System Configs
@@ -40,7 +40,7 @@
     WORKER_REVOKE_DELAY_MS: 4000,
     CANVAS_MAX_PIXELS_NOISE: 1920 * 1080,
     WEBGL_TA_CACHE_SIZE: 16,
-    INJECT_MARKER: "__FP_SHIELD_V240__"
+    INJECT_MARKER: "__FP_SHIELD_V242__"
   };
 
   const GET_NOISE_CONFIG = (level) => {
@@ -75,19 +75,21 @@
   const cType = normalizedHeaders["content-type"] || "";
   if (cType && (REGEX.CONTENT_TYPE_JSONLIKE.test(cType) || !REGEX.CONTENT_TYPE_HTML.test(cType))) { $done({}); return; }
 
-  // 2. 白名單
+  // 2. 白名單 (Semantic Strategy)
   const WhitelistManager = (() => {
-    const list = {
-      exact: new Set(["chatgpt.com", "claude.ai", "gemini.google.com", "perplexity.ai", "www.perplexity.ai", "accounts.google.com", "appleid.apple.com", "login.microsoftonline.com", "github.com", "api.line.me", "webglreport.com", "browserleaks.com", "amiunique.org", "coveryourtracks.eff.org"]),
-      patterns: ["gov.tw", "org.tw", "edu.tw", "bank", "pay.taipei", "shopee.tw", "shopee.com", "apple.com", "microsoft.com", "aws.amazon.com"]
-    };
+    // 關鍵字列表：只要網域包含這些字串，即視為敏感目標 (銀行/支付/政府/驗證)
+    const keywords = [
+      "bank", "pay", "gov", "edu", "sec", "auth", "login", "sso", 
+      "google.com", "youtube.com", "microsoft.com", "apple.com", "amazon.com",
+      "shopee", "line", "discord", "skype", "whatsapp", "telegram"
+    ];
     const normalize = h => String(h || "").toLowerCase().trim();
     return {
       check: (hostname) => {
         const h = normalize(hostname);
         if (!h) return false;
-        if (list.exact.has(h)) return true;
-        return list.patterns.some(p => h === p || h.endsWith('.' + p));
+        // [Strategy Fix] Semantic Check: Includes keyword
+        return keywords.some(k => h.includes(k));
       }
     };
   })();
@@ -104,17 +106,20 @@
   if (!body || REGEX.JSON_START.test(body.substring(0, 80).trim())) { $done({}); return; }
   if (body.includes(CONST.INJECT_MARKER)) { $done({ body, headers }); return; }
 
-  // 3. CSP 移除
-  const blockingCspKeys = ["content-security-policy", "x-content-security-policy", "x-webkit-csp"];
-  Object.keys(headers).forEach(k => { if (blockingCspKeys.includes(k.toLowerCase())) delete headers[k]; });
-  const headChunk = body.substring(0, CONST.CSP_CHECK_LENGTH);
-  if (REGEX.META_CSP_BLOCKING.test(headChunk)) {
-    REGEX.META_CSP_BLOCKING.lastIndex = 0;
-    body = headChunk.replace(REGEX.META_CSP_BLOCKING, "") + body.substring(CONST.CSP_CHECK_LENGTH);
+  // 3. CSP 移除 (Smart Strategy)
+  if (!isWhitelisted) {
+      const blockingCspKeys = ["content-security-policy", "x-content-security-policy", "x-webkit-csp"];
+      Object.keys(headers).forEach(k => { if (blockingCspKeys.includes(k.toLowerCase())) delete headers[k]; });
+      
+      const headChunk = body.substring(0, CONST.CSP_CHECK_LENGTH);
+      if (REGEX.META_CSP_BLOCKING.test(headChunk)) {
+        REGEX.META_CSP_BLOCKING.lastIndex = 0;
+        body = headChunk.replace(REGEX.META_CSP_BLOCKING, "") + body.substring(CONST.CSP_CHECK_LENGTH);
+      }
   }
 
   // ============================================================================
-  // 4. 注入腳本 (v2.40-Omni-Mask)
+  // 4. 注入腳本 (v2.42-Sovereign-Glider)
   // ============================================================================
   const injection = `
 <script>
@@ -127,7 +132,7 @@
   } catch(e) {}
 
   const CONFIG = {
-    ver: '2.40-Omni-Mask',
+    ver: '2.42-Sovereign-Glider',
     isWhitelisted: ${isWhitelisted},
     isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream,
     maxErrorLogs: ${CONST.MAX_ERROR_LOGS},
@@ -144,16 +149,30 @@
     toBlobReleaseFallbackMs: ${CONST.TOBLOB_RELEASE_FALLBACK_MS}
   };
 
-  const SAFE_FONTS = new Map([
-    ['arial', true], ['helvetica', true], ['times new roman', true], ['times', true],
-    ['courier new', true], ['courier', true], ['verdana', true], ['georgia', true],
-    ['palatino', true], ['garamond', true], ['bookman', true], ['comic sans ms', true],
-    ['trebuchet ms', true], ['arial black', true], ['impact', true], ['roboto', true],
-    ['open sans', true], ['lato', true], ['montserrat', true], ['noto sans', true],
-    ['source sans pro', true], ['pingfang tc', true], ['microsoft jhenghei', true],
-    ['segoe ui', true], ['san francisco', true], ['system-ui', true], ['-apple-system', true],
-    ['sans-serif', true], ['serif', true], ['monospace', true]
-  ]);
+  const UI = {
+    showBadge: function() {
+      try {
+        if (document.getElementById('fp-shield-badge')) return;
+        const b = document.createElement('div');
+        b.id = 'fp-shield-badge';
+        const color = CONFIG.isWhitelisted ? 'rgba(100,100,100,0.85)' : 'rgba(0,120,0,0.9)';
+        const text = CONFIG.isWhitelisted ? 'FP Bypass' : 'FP Active';
+        b.style.cssText = 'position:fixed;bottom:10px;left:10px;z-index:2147483647;background:'+color+';color:#fff;padding:6px;border-radius:4px;font-size:10px;pointer-events:none;opacity:0;transition:opacity 0.5s;';
+        b.textContent = text;
+        (document.body||document.documentElement).appendChild(b);
+        requestAnimationFrame(()=>b.style.opacity='1');
+        setTimeout(()=> { b.style.opacity='0'; setTimeout(()=>b.remove(),500); }, 3000);
+      } catch(e){}
+    },
+    cleanup: function() { const b=document.getElementById('fp-shield-badge'); if(b) b.remove(); }
+  };
+
+  // [Strategy] True Whitelist Exit
+  if (CONFIG.isWhitelisted) {
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', UI.showBadge);
+      else UI.showBadge();
+      return; 
+  }
 
   // ---------------- Seed & RNG ----------------
   const Seed = (function() {
@@ -274,38 +293,17 @@
     };
     const gpuProfile = GPU_PROFILES[gpuKey] || GPU_PROFILES["intel_desktop"];
 
-    // [Plugins Fix] Omni-Pool
+    // [Plugins Fix] Standard Set
     let plugins = [];
     if (!CONFIG.isIOS && !isMobile) { 
-        const enterprise = (RNG.next() > 0.95);
-        if (!enterprise) {
-            // Base items
-            const pool = [
-                { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-                { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-                { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-                { name: 'Microsoft Edge PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-                { name: 'WebKit built-in PDF', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }
-            ];
-            // Rare items
-            const rarePool = [
-                { name: 'Google Docs Offline', filename: 'ghbmnnjooekpmoecnnnilnnbdlolhkhi', description: 'Offline Google Docs' },
-                { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
-                { name: 'Widevine Content Decryption Module', filename: 'widevinecdmadapter.dll', description: 'Enables Widevine licenses for playback of HTML audio/video content.' }
-            ];
-            
-            // Pick 2-3 from Base
-            const baseCount = 2 + (RNG.next() > 0.5 ? 1 : 0);
-            for(let i=0; i<baseCount; i++) {
-                if(pool[i]) plugins.push(pool[i]);
-            }
-            
-            // Pick 0-1 from Rare
-            if (RNG.next() > 0.7) {
-                const rare = rarePool[Math.floor(RNG.next() * rarePool.length)];
-                plugins.push(rare);
-            }
-        }
+        // Always 5 standard plugins for consistency with modern Chrome behavior
+        plugins = [
+            { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+            { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+            { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+            { name: 'Microsoft Edge PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+            { name: 'WebKit built-in PDF', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }
+        ];
     }
 
     return { 
@@ -313,31 +311,14 @@
       ch: { brands, platform: chPlatform, mobile: (profile==='mobile'), arch, bitness, platformVersion, model }, 
       hw: { cpu, ram }, 
       gpu: gpuProfile, 
-      locale: 'en-US', // [Locale] Standardized
       plugins: plugins 
     };
   })();
 
-  // ---------------- ErrorHandler & UI ----------------
+  // ---------------- ErrorHandler ----------------
   const ErrorHandler = { logs: [], clear: function(){this.logs=[];} };
-  const UI = {
-    showBadge: function() {
-      try {
-        if (document.getElementById('fp-shield-badge')) return;
-        const b = document.createElement('div');
-        b.id = 'fp-shield-badge';
-        const color = CONFIG.isWhitelisted ? 'rgba(100,100,100,0.85)' : 'rgba(0,120,0,0.9)';
-        b.style.cssText = 'position:fixed;bottom:10px;left:10px;z-index:2147483647;background:'+color+';color:#fff;padding:6px;border-radius:4px;font-size:10px;pointer-events:none;opacity:0;transition:opacity 0.5s;';
-        b.textContent = 'FP Shield';
-        (document.body||document.documentElement).appendChild(b);
-        requestAnimationFrame(()=>b.style.opacity='1');
-        setTimeout(()=> { b.style.opacity='0'; setTimeout(()=>b.remove(),500); }, 3000);
-      } catch(e){}
-    },
-    cleanup: function() { const b=document.getElementById('fp-shield-badge'); if(b) b.remove(); }
-  };
 
-  // ---------------- ProxyGuard ----------------
+  // ---------------- ProxyGuard (Symbol-Safe) ----------------
   const ProxyGuard = {
     proxyMap: new WeakMap(), nativeStrings: new WeakMap(), toStringMap: new WeakMap(),
     _makeFakeToString: function(t, ns) {
@@ -497,7 +478,6 @@
         
         if (!CONFIG.isIOS && !Persona.ch.mobile) {
            const pList = Persona.plugins;
-           // [Stealth Fix] Reconstruct PluginArray Target (Plain Object)
            const targetObj = {};
            
            pList.forEach((p, i) => {
@@ -613,23 +593,8 @@
       } catch(e) {}
     },
 
-    // [Locale] Standardization
-    timezone: function(win) {
-      try {
-        const loc = Persona.locale;
-        if (win.Intl && win.Intl.DateTimeFormat) {
-          const OrigDTF = win.Intl.DateTimeFormat;
-          const WrappedDTF = function(l, o) {
-             return new OrigDTF(loc, o);
-          };
-          win.Intl.DateTimeFormat = ProxyGuard.protect(OrigDTF, WrappedDTF);
-          win.Intl.DateTimeFormat.prototype = OrigDTF.prototype;
-          win.Intl.DateTimeFormat.supportedLocalesOf = OrigDTF.supportedLocalesOf;
-        }
-        try { Object.defineProperty(win.navigator, 'language', { get: () => loc, configurable: true }); } catch(e){}
-        try { Object.defineProperty(win.navigator, 'languages', { get: () => [loc, 'en'], configurable: true }); } catch(e){}
-      } catch(e) {}
-    },
+    // [Passthrough] Locale/Timezone
+    timezone: function(win) {}, 
 
     audio: function(win) {
       if (CONFIG.audioNoiseLevel < 1e-8) return; 
@@ -660,7 +625,15 @@
               return (x - Math.floor(x)) * CONFIG.rectNoiseRate;
            };
            const f = 1 + n(r.width, r.height);
-           return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, x: r.x, y: r.y, width: r.width*f, height: r.height*f, toJSON: function(){return this;} };
+           // [Math Fix] Invariant: Right = Left + Width
+           const nw = r.width * f;
+           const nh = r.height * f;
+           return { 
+               top: r.top, left: r.left, x: r.x, y: r.y, 
+               width: nw, height: nh, 
+               right: r.left + nw, bottom: r.top + nh, 
+               toJSON: function(){return this;} 
+           };
          };
          ProxyGuard.override(Element.prototype, 'getBoundingClientRect', (orig) => function() { return wrap(orig.apply(this, arguments)); });
          ProxyGuard.override(Element.prototype, 'getClientRects', (orig) => function() {
@@ -707,7 +680,6 @@
     Modules.hardware(win);
     Modules.clientHints(win);
     Modules.webgl(win);
-    Modules.timezone(win);
     Modules.audio(win);
     Modules.rects(win);
     Modules.canvas(win);
