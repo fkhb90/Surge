@@ -1,11 +1,11 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   3.04-Pure-Native (Total Revert in Shopping Mode)
- * @description [純淨原生版] 確保購物模式下，不僅 Header 復原，JS 層面的 Canvas/WebGL/Audio 混淆也全數停止。
+ * @version   3.05-Ultimate-Revert (Force Write iOS Header)
+ * @description [終極復原版] 解決購物模式下 User-Agent 無法變回 iPhone 的問題。
  * ----------------------------------------------------------------------------
- * 1. [Total Revert] 購物模式 = 真實 iPhone Header + 真實瀏覽器指紋 (無雜訊)。
- * 2. [Safety] 通過銀行「設備一致性」檢測，防止因指紋矛盾導致鎖卡。
- * 3. [Core] 防護模式下維持 macOS 強力偽裝。
+ * 1. [Fix] Shopping Mode 不再被動放行，而是「強制寫入」標準 iPhone UA。
+ * 2. [Force] 無論 Surge 原生設定為何，腳本都會強行覆蓋 Header。
+ * 3. [Core] 保持 V3.00 的核心防護與雙重掛載架構。
  * ----------------------------------------------------------------------------
  * @note 僅需更新 JS 檔案，模組設定無需更動。
  */
@@ -14,9 +14,13 @@
   "use strict";
 
   // ============================================================================
-  // 0. 全域配置 (定義身份)
+  // 0. 全域配置 (定義雙重身份)
   // ============================================================================
+  // 防護模式: macOS Chrome 120
   const UA_MAC = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+  
+  // 購物模式: 標準 iPhone Safari (iOS 17.4) - 用於強制復原
+  // 注意：這是目前銀行風控接受度最高的 UA
   const UA_IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
 
   // [DEBUG] 關閉日誌以提升效能
@@ -37,32 +41,33 @@
     }
   } catch (e) {}
 
-  // 參數容錯
+  // 參數容錯 (Argument Override)
   if (!IS_SHOPPING_MODE && typeof $argument === "string" && $argument.includes("mode=shopping")) {
       IS_SHOPPING_MODE = true;
   }
 
   // ============================================================================
-  // Phase A: HTTP Request Header Rewrite (網路層)
+  // Phase A: HTTP Request Header Rewrite (網路層 - 核心修正)
   // ============================================================================
   if (typeof $response === 'undefined' && typeof $request !== 'undefined') {
       
       const headers = $request.headers;
       
-      // 尋找 Key (處理大小寫問題)
+      // 尋找 Key (處理大小寫問題，有些 Server 對大小寫敏感)
       const uaKey = Object.keys(headers).find(k => k.toLowerCase() === 'user-agent');
       const targetKey = uaKey || 'User-Agent';
 
       if (IS_SHOPPING_MODE) {
-          // [購物模式] 強制寫入 iPhone UA (驅魔)
+          // [V3.05 修正] 購物模式：主動攻擊，強制寫回 iPhone UA
+          // 我們不再信任 Surge 的預設行為，直接覆寫。
           headers[targetKey] = UA_IPHONE;
           
-          // 移除任何可能導致矛盾的 Client Hints
+          // 清理：移除可能導致矛盾的 "電腦版" Client Hints
           const mobileKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-mobile');
-          if (mobileKey) delete headers[mobileKey];
+          if (mobileKey) delete headers[mobileKey]; // 手機不需要宣告這個，或者設為 ?1
 
           const platformKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-platform');
-          if (platformKey) delete headers[platformKey];
+          if (platformKey) delete headers[platformKey]; // 移除 macOS 宣告
 
       } else {
           // [防護模式] 強制寫入 macOS UA
@@ -86,9 +91,10 @@
   
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_MAC_V304", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V304",
-    INJECT_MARKER: "__FP_SHIELD_V304__",
+    KEY_SEED: "FP_SHIELD_MAC_V305", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V305",
+    INJECT_MARKER: "__FP_SHIELD_V305__",
+    
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
     JITTER_RANGE_MS: 4 * 60 * 60 * 1000,
     CANVAS_MIN_SIZE: 16,
@@ -168,7 +174,7 @@
   let hostname = "";
   try { hostname = new URL($request.url).hostname.toLowerCase(); } catch (e) { $done({}); return; }
   
-  // [邏輯] 若為購物模式，強制視為白名單 -> 觸發腳本內的 "return" 機制
+  // 邏輯: 購物模式 = 強制白名單 (JS 不注入)
   const isSoftWhitelisted = IS_SHOPPING_MODE || SoftWhitelist.check(hostname);
   
   let body = $res.body;
@@ -221,7 +227,7 @@
   const b = document.getElementById('fp-nuclear-badge');
   try {
       const CONFIG = {
-        isWhitelisted: ${isSoftWhitelisted}, // 這裡會接收到 true (如果是購物模式)
+        isWhitelisted: ${isSoftWhitelisted},
         rectNoiseRate: 0.0001,
         canvasNoiseStep: 2,
         audioNoiseLevel: 1e-6,
@@ -248,10 +254,7 @@
           setTimeout(() => { if(b) { b.style.opacity='0'; setTimeout(()=>b.remove(), 1000); } }, 4000);
       }
 
-      // [CRITICAL] 這是雙重保險
-      // 如果 CONFIG.isWhitelisted 為真 (購物模式或白名單)，直接 return。
-      // 下方的 Modules.hardware, Modules.canvas 等代碼完全不會被執行。
-      // 這保證了瀏覽器環境絕對純淨。
+      // [核心] 購物模式下直接終止 JS 注入，保持瀏覽器純淨
       if (CONFIG.isWhitelisted) return;
 
       const safeDefine = (obj, prop, descriptor) => {
