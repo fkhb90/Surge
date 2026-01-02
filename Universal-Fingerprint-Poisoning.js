@@ -1,30 +1,25 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   3.00-Production (Silent & Stable)
- * @description [V3.00 最終穩定版] 移除診斷日誌，保持最高效能與隱蔽性。
+ * @version   3.01-Payment-Safe (True iOS Revert)
+ * @description [支付安全版] 修正購物模式邏輯。當切換至購物模式時，徹底停止 Header 偽裝，恢復真實 iOS 身份以通過銀行風控。
  * ----------------------------------------------------------------------------
- * 1. [Silent] 關閉所有 Console Log，靜默執行偽裝。
- * 2. [Force] 保留 Header 強制覆寫邏輯，確保 macOS 特徵穩定。
- * 3. [Dual] 支援 Request (Header) 與 Response (JS) 雙重掛載。
+ * 1. [Fix] Shopping Mode 現在會繞過 Header 修改，回傳原始 iPhone User-Agent。
+ * 2. [Core] 保持 V3.00 的雙重掛載架構與穩定性。
  * ----------------------------------------------------------------------------
- * @note 必須配合 Surge Module 或正確的雙重配置使用。
+ * @note 僅需更新 JS 檔案，模組 (Module) 設定無需更動。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 0. 全域配置
+  // 0. 全域配置與模式偵測
   // ============================================================================
-  // Golden Master macOS Chrome UA
   const TARGET_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
   
-  // [V3.00] 關閉除錯日誌，提升效能
-  const DEBUG_LOG = false; 
-
   let IS_SHOPPING_MODE = false;
 
-  // 模式偵測 (策略組連動)
+  // 策略組連動偵測
   try {
     if (typeof $surge !== 'undefined' && $surge.selectGroupDetails) {
       const decisions = $surge.selectGroupDetails().decisions;
@@ -46,18 +41,23 @@
   // Phase A: HTTP Request Header Rewrite (網路層)
   // ============================================================================
   if (typeof $response === 'undefined' && typeof $request !== 'undefined') {
-      const headers = $request.headers;
       
-      // 尋找 Key (處理大小寫問題)
+      // [V3.01 關鍵修正] 若為購物模式，直接放行，不修改 Header
+      // 這會讓伺服器看到真實的 iPhone User-Agent，確保支付風控通過
+      if (IS_SHOPPING_MODE) {
+          $done({});
+          return;
+      }
+
+      const headers = $request.headers;
       const uaKey = Object.keys(headers).find(k => k.toLowerCase() === 'user-agent');
       
       if (uaKey) {
-          headers[uaKey] = TARGET_UA; // 強制覆寫
+          headers[uaKey] = TARGET_UA;
       } else {
-          headers['User-Agent'] = TARGET_UA; // 新增
+          headers['User-Agent'] = TARGET_UA;
       }
 
-      // 移除移動端特徵 Header
       const mobileKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-mobile');
       if (mobileKey) headers[mobileKey] = "?0";
 
@@ -74,9 +74,9 @@
   
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_MAC_V300", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V300",
-    INJECT_MARKER: "__FP_SHIELD_V300__",
+    KEY_SEED: "FP_SHIELD_MAC_V301", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V301",
+    INJECT_MARKER: "__FP_SHIELD_V301__",
     
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
     JITTER_RANGE_MS: 4 * 60 * 60 * 1000,
@@ -102,7 +102,7 @@
   const headers = $res.headers || {};
   const normalizedHeaders = Object.keys(headers).reduce((acc, key) => { acc[String(key).toLowerCase()] = headers[key]; return acc; }, {});
 
-  // 1. 硬白名單 (Hard Exclusions)
+  // 1. 硬白名單
   const HardExclusions = (() => {
     const list = [
       "apple.com", "icloud.com", "mzstatic.com", "itunes.apple.com", "cdn-apple.com",
@@ -131,7 +131,7 @@
   const cType = normalizedHeaders["content-type"] || "";
   if (cType && (REGEX.CONTENT_TYPE_JSONLIKE.test(cType) || !REGEX.CONTENT_TYPE_HTML.test(cType))) { $done({}); return; }
 
-  // 3. 軟白名單 (Soft Whitelist)
+  // 3. 軟白名單
   const SoftWhitelist = (() => {
     const domains = new Set([
       "google.com", "www.google.com", "accounts.google.com", "docs.google.com", "drive.google.com", 
@@ -201,7 +201,7 @@
   ">${badgeText}</div>
   `;
 
-  // 7. Core Injection
+  // 7. Core
   const injectionScript = `
 <script>
 (function() {
