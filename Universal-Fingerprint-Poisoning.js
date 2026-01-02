@@ -1,11 +1,11 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.81-Heavy-Armor (Full Logic Restoration)
- * @description [重裝鎧甲版] 恢復 v2.60 的 800+ 行完整邏輯，搭載於 v2.70 的破防外殼上。
+ * @version   2.85-Mac-OS (Default macOS Persona)
+ * @description [macOS 特化版] 基於 v2.81 重裝鎧甲，強制鎖定身分為 macOS 環境，並修正硬體邏輯。
  * ----------------------------------------------------------------------------
- * 1. [Shell] v2.70: 採用靜態 HTML 注入與 CSP 核彈移除，確保 100% 注入成功。
- * 2. [Core] v2.60: 完整恢復 Persona(硬體分級)、ProxyGuard(原生偽裝)、CanvasPool。
- * 3. [Fix] iOS Patch: 在重型邏輯中植入 safeDefine，防止 iOS 唯讀屬性崩潰。
+ * 1. [Persona] Force macOS: 強制所有連線偽裝為 MacIntel / macOS。
+ * 2. [Hardware] Mac GPU Only: 剔除 NVIDIA 顯卡，僅保留 Apple Silicon/Intel Iris/AMD Radeon。
+ * 3. [Core] v2.81 Base: 包含 CSP 核彈移除、靜態注入、safeDefine iOS 防崩潰機制。
  * ----------------------------------------------------------------------------
  * @note Surge/Quantumult X 類 rewrite。
  */
@@ -18,12 +18,11 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // 使用新 Key 確保環境乾淨
-    KEY_SEED: "FP_SHIELD_SEED_V281", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V281",
-    INJECT_MARKER: "__FP_SHIELD_V281__",
+    // 更新 Key Seed 以隔離舊版指紋
+    KEY_SEED: "FP_SHIELD_MAC_V285", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V285",
+    INJECT_MARKER: "__FP_SHIELD_V285__",
     
-    // v2.60 Original Configs restored
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
     JITTER_RANGE_MS: 4 * 60 * 60 * 1000,
     INTERFERENCE_LEVEL: 1,
@@ -60,7 +59,7 @@
   const cType = normalizedHeaders["content-type"] || "";
   if (cType && (REGEX.CONTENT_TYPE_JSONLIKE.test(cType) || !REGEX.CONTENT_TYPE_HTML.test(cType))) { $done({}); return; }
 
-  // 2. 白名單 (v2.71 Full List)
+  // 2. 白名單
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
       "google.com", "www.google.com", "accounts.google.com", "docs.google.com", "drive.google.com", "youtube.com", "www.youtube.com",
@@ -109,7 +108,7 @@
   body = body.replace(/integrity=["'][^"']*["']/gi, "");
 
   // ============================================================================
-  // 5. 靜態 HTML UI (v2.70)
+  // 5. 靜態 HTML UI (v2.85 Mac Badge)
   // ============================================================================
   const staticBadgeHTML = `
   <div id="fp-nuclear-badge" style="
@@ -118,7 +117,7 @@
       left: 10px !important;
       top: auto !important;
       z-index: 2147483647 !important;
-      background-color: #D8000C !important; 
+      background-color: #007AFF !important; 
       color: #FFFFFF !important;
       padding: 6px 10px !important;
       border-radius: 6px !important;
@@ -129,13 +128,12 @@
       pointer-events: none !important;
       opacity: 1 !important;
       transition: opacity 0.5s, background-color 0.3s !important;
-  ">FP Init...</div>
+  ">FP: macOS</div>
   `;
 
   // ============================================================================
-  // 6. 核心邏輯 (v2.60 Full Logic Restored + v2.66 SafeDefine)
+  // 6. 核心邏輯 (v2.85 Mac-Only)
   // ============================================================================
-  // 我們將 v2.60 的完整代碼邏輯封裝在字串中注入
   const injectionScript = `
 <script>
 (function() {
@@ -165,20 +163,19 @@
         toBlobReleaseFallbackMs: ${CONST.TOBLOB_RELEASE_FALLBACK_MS}
       };
 
-      // --- UI Update (Green) ---
       if(b) {
           if(CONFIG.isWhitelisted) { 
               b.style.backgroundColor = '#666666'; b.textContent = 'FP Bypass'; 
           } else { 
-              b.style.backgroundColor = '#00AA00'; b.textContent = 'FP Active'; 
+              // Blue for macOS
+              b.style.backgroundColor = '#007AFF'; b.textContent = 'FP: macOS'; 
           }
           setTimeout(() => { if(b) { b.style.opacity='0'; setTimeout(()=>b.remove(), 1000); } }, 4000);
       }
 
       if (CONFIG.isWhitelisted) return;
 
-      // ---------------- Helper: SafeDefine (v2.66 Fix) ----------------
-      // 這是整合的關鍵：在重型邏輯中使用此函數來避免 iOS 崩潰
+      // ---------------- Helper: SafeDefine (iOS Patch) ----------------
       const safeDefine = (obj, prop, descriptor) => {
           if (!obj) return false;
           try {
@@ -189,7 +186,7 @@
           } catch(e) { return false; }
       };
 
-      // ---------------- Seed & RNG (v2.60) ----------------
+      // ---------------- Seed & RNG ----------------
       const Seed = (function() {
         const safeGet = (k) => { try { return localStorage.getItem(k); } catch(e) { return null; } };
         const safeSet = (k, v) => { try { localStorage.setItem(k, v); } catch(e) {} };
@@ -223,45 +220,43 @@
       };
       if (RNG.s === 0) RNG.s = 1;
 
-      // ---------------- Persona (v2.60 Full Logic) ----------------
+      // ---------------- Persona (v2.85 Mac Logic) ----------------
       const Persona = (function() {
         const currentUA = navigator.userAgent || '';
         
-        // 完整的硬體層級定義 (Hardware Tiers)
-        const HW_TIERS = {
-            ENTRY: { 
-                cpu: 4, 
-                ramPool: [4, 8],
-                gpuPool: [{v: 'Google Inc. (Intel)', r: 'ANGLE (Intel, Intel(R) UHD Graphics 630)', w: 100}]
-            },
-            MID: { 
-                cpuPool: [6, 8],
-                ramPool: [8, 16],
+        // Mac Hardware Tiers (No Windows/Android HW)
+        const MAC_HW = {
+            SILICON: {
+                cpuPool: [8, 10, 12],
+                ramPool: [8, 16, 24, 32],
+                // Modern Macs often hide renderer details, but mimicking M-series or generic Apple GPU is safe
                 gpuPool: [
-                    {v: 'Google Inc. (NVIDIA)', r: 'ANGLE (NVIDIA, NVIDIA GeForce GTX 1650)', w: 50},
-                    {v: 'Google Inc. (Intel)', r: 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics)', w: 50}
+                    {v: 'Apple', r: 'Apple M1', w: 40},
+                    {v: 'Apple', r: 'Apple M2', w: 30},
+                    {v: 'Apple', r: 'Apple M3', w: 20},
+                    {v: 'Apple', r: 'Apple GPU', w: 10}
                 ]
             },
-            HIGH: { 
-                cpuPool: [12, 16, 24],
-                ramPool: [16, 32, 64],
+            INTEL: {
+                cpuPool: [4, 6, 8, 12],
+                ramPool: [8, 16, 32, 64],
+                // Intel/AMD GPUs found in 2018-2020 Macs
                 gpuPool: [
-                    {v: 'Google Inc. (NVIDIA)', r: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060)', w: 60},
-                    {v: 'Google Inc. (NVIDIA)', r: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070)', w: 40}
+                    {v: 'Intel Inc.', r: 'Intel(R) Iris(TM) Plus Graphics 640', w: 40},
+                    {v: 'ATI Technologies Inc.', r: 'AMD Radeon Pro 5300M', w: 30},
+                    {v: 'ATI Technologies Inc.', r: 'AMD Radeon Pro 5500M', w: 30}
                 ]
             }
         };
 
         const r = RNG.next();
-        let tier = HW_TIERS.MID;
-        if (r < 0.2) tier = HW_TIERS.ENTRY;
-        else if (r > 0.8) tier = HW_TIERS.HIGH;
+        let tier = (r > 0.3) ? MAC_HW.SILICON : MAC_HW.INTEL; // 70% chance Apple Silicon
 
-        const cpu = tier.cpu || RNG.pick(tier.cpuPool);
+        const cpu = RNG.pick(tier.cpuPool);
         const ram = RNG.pick(tier.ramPool);
         let gpu = RNG.pickWeighted(tier.gpuPool);
-        gpu.topo = 'unified'; gpu.tex = 16384; 
-        if (tier === HW_TIERS.ENTRY) { gpu.tex = 8192; }
+        gpu.topo = 'unified'; 
+        gpu.tex = 16384; 
 
         const PLUGINS_STD = [
             { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
@@ -269,35 +264,11 @@
             { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }
         ];
 
-        let platform = 'Win32';
-        let ch_plat = 'Windows';
-        let arch = 'x86';
-        let plugins = [];
-
-        // 完整的 OS 判斷邏輯
-        if (/Mac/i.test(currentUA)) {
-            platform = 'MacIntel'; ch_plat = 'macOS'; arch = 'x86'; 
-            // Mac Specific GPUs
-            const MAC_GPUS = [
-                { v: 'Intel Inc.', r: 'Intel(R) Iris(TM) Plus Graphics 640', w: 50 },
-                { v: 'ATI Technologies Inc.', r: 'AMD Radeon Pro 5300M', w: 50 }
-            ];
-            gpu = RNG.pickWeighted(MAC_GPUS);
-            gpu.topo = 'unified'; gpu.tex = 16384;
-            plugins = [...PLUGINS_STD];
-        } else if (/Android/i.test(currentUA)) {
-            platform = 'Linux armv8l'; ch_plat = 'Android'; arch = 'arm';
-            gpu = { v: 'Qualcomm', r: 'Adreno (TM) 740', topo: 'tiered', tex: 8192 };
-            plugins = [];
-        } else if (/Linux/i.test(currentUA)) {
-            platform = 'Linux x86_64'; ch_plat = 'Linux';
-            plugins = [...PLUGINS_STD];
-            if (RNG.next() > 0.5) plugins.pop();
-        } else {
-            // Windows
-            plugins = [...PLUGINS_STD];
-            if (RNG.next() > 0.8) plugins.push({ name: 'Microsoft Edge PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' });
-        }
+        // FORCE MAC IDENTITY
+        const platform = 'MacIntel';
+        const ch_plat = 'macOS';
+        const arch = (tier === MAC_HW.SILICON) ? 'arm' : 'x86'; // M1 is arm, Intel is x86
+        const plugins = [...PLUGINS_STD];
 
         let chromeVer = "120";
         const match = currentUA.match(/Chrome\\/(\\d+)/);
@@ -311,7 +282,7 @@
 
         return { 
             ua: { raw: currentUA, ver: chromeVer, platform: platform },
-            ch: { brands, platform: ch_plat, mobile: (/Android/i.test(currentUA)), arch, bitness: '64', model: '', platVer: '15.0.0' },
+            ch: { brands, platform: ch_plat, mobile: false, arch, bitness: '64', model: '', platVer: '14.0.0' },
             hw: { cpu, ram },
             gpu: gpu,
             plugins: plugins
@@ -366,7 +337,6 @@
           const safe = f(orig);
           const prot = this.protect(orig, safe);
           const newDesc = { value: prot, configurable: desc?desc.configurable:true, writable: desc?desc.writable:true, enumerable: desc?desc.enumerable:true };
-          // 使用 safeDefine 確保 iOS 相容
           safeDefine(o, p, newDesc);
         }
       };
@@ -437,24 +407,24 @@
         font: function(w) { return w + (Noise.rand(Math.floor(w * 100)) * 0.04 - 0.02); }
       };
 
-      // ---------------- Modules (v2.60 + SafeDefine Integration) ----------------
+      // ---------------- Modules (v2.85 Mac Integ) ----------------
       const Modules = {
         hardware: function(win) {
           const N = win.navigator;
           const spoofProp = (target, prop, getterVal) => {
               const desc = { get: () => getterVal, configurable: true };
               if (!safeDefine(target, prop, desc)) {
-                  // Fallback to prototype
                   try { if (win.Navigator && win.Navigator.prototype) { safeDefine(win.Navigator.prototype, prop, desc); } } catch(e) {}
               }
           };
           spoofProp(N, 'hardwareConcurrency', Persona.hw.cpu);
           spoofProp(N, 'deviceMemory', Persona.hw.ram);
-          spoofProp(N, 'platform', Persona.ua.platform);
+          spoofProp(N, 'platform', Persona.ua.platform); // Always MacIntel
           try { if ('webdriver' in N) delete N.webdriver; } catch(e) {}
 
           if ('getBattery' in N) {
               try {
+                  // Mac Laptops have batteries, so we keep this but ensure it looks realistic
                   let cached = null;
                   const makeBattery = () => {
                      const ET = win.EventTarget || Object;
@@ -485,7 +455,7 @@
               } catch(e) {}
           }
           
-          // Plugins Spoofing
+          // Plugins Spoofing (Mac has standard plugins)
           if (!CONFIG.isIOS && !Persona.ch.mobile) {
              try {
                const pList = Persona.plugins;
@@ -515,9 +485,9 @@
                  uaFullVersion: Persona.ua.ver + '.0.0.0', model: Persona.ch.model, wow64: false
             };
             const fake = {
-              brands: Persona.ch.brands, mobile: Persona.ch.mobile, platform: Persona.ch.platform,
+              brands: Persona.ch.brands, mobile: false, platform: Persona.ch.platform, // Force macOS props
               getHighEntropyValues: (hints) => {
-                 const result = { brands: Persona.ch.brands, mobile: Persona.ch.mobile, platform: Persona.ch.platform };
+                 const result = { brands: Persona.ch.brands, mobile: false, platform: Persona.ch.platform };
                  if (hints && Array.isArray(hints)) { hints.forEach(h => { if (highEntropyData.hasOwnProperty(h)) result[h] = highEntropyData[h]; }); }
                  return Promise.resolve(result);
               },
@@ -745,3 +715,4 @@
 
   $done({ body: body, headers: headers });
 })();
+
