@@ -1,29 +1,31 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.95-Dashboard-Control (Policy Group Integration)
- * @description [儀表板控制版] 支援透過 Surge 首頁「策略組」直接切換購物模式。
+ * @version   2.96-Header-Sync (Dual Mode: Request + Response)
+ * @description [雙重擬態版] 同步修改 HTTP Header 與 JS Navigator，解決前後端指紋不一致問題。
  * ----------------------------------------------------------------------------
- * 1. [Control] 連動策略組 'FP-Mode'，選項包含 'Shopping' 時自動進入購物模式。
- * 2. [Fallback] 若未設定策略組，則預設為最高防護 (macOS 偽裝)。
- * 3. [Core] 繼承 V2.90 的 OTA 狙擊與電商獵手邏輯。
+ * 1. [Request] 修改 User-Agent Header，偽裝成 MacIntel/Chrome，與 JS 保持一致。
+ * 2. [Response] 執行 V2.95 的注入邏輯 (Canvas 噪點、儀表板控制、OTA 狙擊)。
+ * 3. [Sync] 確保「購物模式」在 Header 與 JS 層面行為同步。
  * ----------------------------------------------------------------------------
- * @note 需配合 Surge [Proxy] 與 [Proxy Group] 設定使用。
+ * @note 需在 Surge 中同時配置 type=http-request 與 type=http-response。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 0. 模式偵測 (策略組連動邏輯)
+  // 0. 全域配置與模式偵測 (適用於 Request & Response)
   // ============================================================================
-  // 優先權：Surge 策略組 > $argument 參數 > 預設值 (False)
+  // 定義目標偽裝字串 (Golden Master User-Agent)
+  // 這是一個標準的 macOS Chrome 120 UA，將用於 Header 與 JS
+  const TARGET_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
   let IS_SHOPPING_MODE = false;
 
+  // 嘗試讀取模式 (相容 Request 與 Response 環境)
   try {
-    // 方法 A: 嘗試讀取 Surge 策略組決策
     if (typeof $surge !== 'undefined' && $surge.selectGroupDetails) {
       const decisions = $surge.selectGroupDetails().decisions;
-      // 偵測名為 'FP-Mode' 的策略組，若選中項目包含 'Shopping' 字眼，則啟動模式
       if (decisions && decisions['FP-Mode']) {
         const selection = decisions['FP-Mode'];
         if (selection.includes('Shopping') || selection.includes('購物')) {
@@ -31,22 +33,47 @@
         }
       }
     }
-  } catch (e) {
-    // API 不支援或讀取失敗，回退至 Argument 檢查
-    const ARGS = (typeof $argument === "string") ? $argument : "";
-    if (ARGS.includes("mode=shopping")) IS_SHOPPING_MODE = true;
-  }
+  } catch (e) {}
 
-  // 若上述皆未觸發，檢查是否純 Argument 模式 (舊容錯)
+  // Fallback to Argument
   if (!IS_SHOPPING_MODE && typeof $argument === "string" && $argument.includes("mode=shopping")) {
       IS_SHOPPING_MODE = true;
   }
 
+  // ============================================================================
+  // Phase A: HTTP Request Header Rewrite (網路層偽裝)
+  // ============================================================================
+  if (typeof $response === 'undefined' && typeof $request !== 'undefined') {
+      const headers = $request.headers;
+      // 尋找 Key (處理大小寫問題)
+      const uaKey = Object.keys(headers).find(k => k.toLowerCase() === 'user-agent');
+      
+      if (uaKey) {
+          // 強制覆蓋為 macOS UA
+          headers[uaKey] = TARGET_UA;
+      }
+
+      // 移除移動端特徵 Header
+      const mobileKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-mobile');
+      if (mobileKey) headers[mobileKey] = "?0"; // 告訴伺服器我們不是手機
+
+      const platformKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-platform');
+      if (platformKey) headers[platformKey] = '"macOS"';
+
+      $done({ headers });
+      return; 
+  }
+
+  // ============================================================================
+  // Phase B: HTTP Response Body Injection (JS 層偽裝)
+  // ============================================================================
+  // 以下邏輯僅在 Response 階段執行
+  
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_MAC_V295", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V295",
-    INJECT_MARKER: "__FP_SHIELD_V295__",
+    KEY_SEED: "FP_SHIELD_MAC_V296", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V296",
+    INJECT_MARKER: "__FP_SHIELD_V296__",
     
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
     JITTER_RANGE_MS: 4 * 60 * 60 * 1000,
@@ -72,18 +99,14 @@
   const headers = $res.headers || {};
   const normalizedHeaders = Object.keys(headers).reduce((acc, key) => { acc[String(key).toLowerCase()] = headers[key]; return acc; }, {});
 
-  // ============================================================================
   // 1. 硬白名單 (Hard Exclusions)
-  // ============================================================================
   const HardExclusions = (() => {
     const list = [
       "apple.com", "icloud.com", "mzstatic.com", "itunes.apple.com", "cdn-apple.com",
       "mesu.apple.com", "updates.cdn-apple.com", "xp.apple.com",
       "crashlytics.com", "firebaseio.com", "app-measurement.com",
-      // Payment Gateways
       "paypal.com", "stripe.com", "braintreegateway.com", "visa.com", "mastercard.com",
       "americanexpress.com", "ecpay.com.tw", "newebpay.com", "jkopay.com", "line-pay",
-      // Banks
       "esunbank.com.tw", "ctbcbank.com", "cathaybk.com.tw", "taishinbank.com.tw", 
       "fubon.com", "megabank.com.tw", "sinopac.com",
       "captive.apple.com", "connectivitycheck.gstatic.com"
@@ -98,18 +121,14 @@
 
   if (HardExclusions.check($request.url)) { $done({}); return; }
 
-  // ============================================================================
   // 2. 基礎過濾
-  // ============================================================================
   if ([204, 206, 301, 302, 304].includes($res.status)) { $done({}); return; }
   if (normalizedHeaders["upgrade"] === "websocket" || (normalizedHeaders["connection"] && String(normalizedHeaders["connection"]).toLowerCase().includes("upgrade"))) { $done({}); return; }
   if (parseInt(normalizedHeaders["content-length"] || "0", 10) > CONST.MAX_SIZE) { $done({}); return; }
   const cType = normalizedHeaders["content-type"] || "";
   if (cType && (REGEX.CONTENT_TYPE_JSONLIKE.test(cType) || !REGEX.CONTENT_TYPE_HTML.test(cType))) { $done({}); return; }
 
-  // ============================================================================
   // 3. 軟白名單 (Soft Whitelist)
-  // ============================================================================
   const SoftWhitelist = (() => {
     const domains = new Set([
       "google.com", "www.google.com", "accounts.google.com", "docs.google.com", "drive.google.com", 
@@ -135,7 +154,6 @@
   let hostname = "";
   try { hostname = new URL($request.url).hostname.toLowerCase(); } catch (e) { $done({}); return; }
   
-  // Logic: 若開啟購物模式，強制放行
   const isSoftWhitelisted = IS_SHOPPING_MODE || SoftWhitelist.check(hostname);
   
   let body = $res.body;
@@ -155,10 +173,7 @@
   body = body.replace(REGEX.META_CSP_STRICT, "<!-- CSP REMOVED -->");
   body = body.replace(/integrity=["'][^"']*["']/gi, "");
 
-  // ============================================================================
   // 6. 靜態 HTML UI
-  // ============================================================================
-  // 根據偵測到的模式顯示顏色
   const badgeColor = IS_SHOPPING_MODE ? "#AF52DE" : "#007AFF"; 
   const badgeText = IS_SHOPPING_MODE ? "FP: Shopping" : "FP: macOS";
 
@@ -183,9 +198,7 @@
   ">${badgeText}</div>
   `;
 
-  // ============================================================================
-  // 7. 核心邏輯
-  // ============================================================================
+  // 7. 核心邏輯 (Inject Script)
   const injectionScript = `
 <script>
 (function() {
@@ -230,7 +243,6 @@
 
       if (CONFIG.isWhitelisted) return;
 
-      // ---------------- Helper: SafeDefine (iOS Patch) ----------------
       const safeDefine = (obj, prop, descriptor) => {
           if (!obj) return false;
           try {
@@ -241,7 +253,7 @@
           } catch(e) { return false; }
       };
 
-      // ---------------- Seed & RNG ----------------
+      // Seed & RNG
       const Seed = (function() {
         const safeGet = (k) => { try { return localStorage.getItem(k); } catch(e) { return null; } };
         const safeSet = (k, v) => { try { localStorage.setItem(k, v); } catch(e) {} };
@@ -275,9 +287,10 @@
       };
       if (RNG.s === 0) RNG.s = 1;
 
-      // ---------------- Persona (Mac-Only) ----------------
+      // Persona (Mac-Only)
       const Persona = (function() {
-        const currentUA = navigator.userAgent || '';
+        // We use the same UA logic, but sync with Header
+        const headerUA = "${TARGET_UA}"; 
         const MAC_HW = {
             SILICON: {
                 cpuPool: [8, 10, 12],
@@ -306,12 +319,11 @@
         let gpu = RNG.pickWeighted(tier.gpuPool);
         gpu.topo = 'unified'; gpu.tex = 16384; 
         
+        // Consistent with Header
         let chromeVer = "120";
-        const match = currentUA.match(/Chrome\\/(\\d+)/);
-        if (match && match[1]) chromeVer = match[1];
 
         return { 
-            ua: { raw: currentUA, ver: chromeVer, platform: 'MacIntel' },
+            ua: { raw: headerUA, ver: chromeVer, platform: 'MacIntel' },
             ch: { brands: [{brand:"Chromium",version:chromeVer}], platform: 'macOS', mobile: false, arch: (tier===MAC_HW.SILICON?'arm':'x86') },
             hw: { cpu, ram },
             gpu: gpu,
@@ -323,7 +335,7 @@
         };
       })();
 
-      // ---------------- ProxyGuard ----------------
+      // ProxyGuard
       const ProxyGuard = {
         proxyMap: new WeakMap(), nativeStrings: new WeakMap(), toStringMap: new WeakMap(),
         _makeFakeToString: function(t, ns) {
@@ -375,7 +387,7 @@
         }
       };
 
-      // ---------------- CanvasPool ----------------
+      // CanvasPool
       const CanvasPool = (function() {
         const pool = [];
         const shrink = (item) => { try { item.c.width = 1; item.c.height = 1; } catch(e) {} };
@@ -402,7 +414,7 @@
         };
       })();
 
-      // ---------------- Noise Helpers ----------------
+      // Noise Helpers
       const Noise = {
         spatial01: function(x, y, salt) {
           let h = (x | 0) * 374761393 + (y | 0) * 668265263 + (salt | 0) * 1442695041 + (RNG.s | 0);
@@ -441,7 +453,7 @@
         font: function(w) { return w + (Noise.rand(Math.floor(w * 100)) * 0.04 - 0.02); }
       };
 
-      // ---------------- Modules ----------------
+      // Modules
       const Modules = {
         hardware: function(win) {
           const N = win.navigator;
@@ -454,6 +466,10 @@
           spoofProp(N, 'hardwareConcurrency', Persona.hw.cpu);
           spoofProp(N, 'deviceMemory', Persona.hw.ram);
           spoofProp(N, 'platform', Persona.ua.platform); 
+          // Inject Request-Synced UA
+          spoofProp(N, 'userAgent', Persona.ua.raw);
+          spoofProp(N, 'appVersion', Persona.ua.raw.replace('Mozilla/', ''));
+
           try { if ('webdriver' in N) delete N.webdriver; } catch(e) {}
 
           if ('getBattery' in N) {
