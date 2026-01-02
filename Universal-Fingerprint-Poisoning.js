@@ -1,12 +1,12 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.50-Singularity (Precision Logic & Platform Harmony)
- * @description 最終里程碑：修復 UA-CH 空值邏輯漏洞，並完成插件與品牌的嚴格對齊。
+ * @version   2.51-Final-Protocol (Full-Stack Convergence)
+ * @description [最終版] 整合網路層 Header Rewrite 與 JS 注入，達成全棧一致性。
  * ----------------------------------------------------------------------------
- * 1. [UA-CH] Logic Fix: 修復 hints 過濾邏輯，確保 model: "" (空字串) 能正確回傳，不再因真值判斷被丟棄。
- * 2. [Plugins] Brand Purity: 移除 Edge/WebKit 插件殘留，鎖定 Chrome 原生 3 件套，消除品牌衝突。
- * 3. [Platform] Strict Tiering: 依據 OS (Win/Mac/Linux) 分配標準化插件清單，拒絕跨平台混雜。
- * 4. [System] Full Inheritance: 繼承 v2.49 的所有防禦機制 (CSP Safe, Canvas Heuristics, DOMRect ReadOnly)。
+ * 1. [Requirement] 必須配合 Surge/QX 的 Header Rewrite (見上方說明) 鎖定 UA/CH，腳本將自動適配該特徵。
+ * 2. [Plugins] Physical Tiering: 實作 Win/Mac/Linux 物理分層定義，確保插件邏輯與 OS 特徵絕對綁定。
+ * 3. [UA-CH] High-Fidelity: 繼承 v2.50 的空值修復與過濾邏輯，確保 API 行為符合 Chrome 規範。
+ * 4. [Core] Final Polish: 包含所有安全性 (CSP Safe), 效能 (Canvas Heuristics) 與 穩定性 (Symbol Safe) 修正。
  * ----------------------------------------------------------------------------
  * @note Surge/Quantumult X 類 rewrite。
  */
@@ -19,9 +19,9 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_SEED_V250_SINGULARITY",
+    KEY_SEED: "FP_SHIELD_SEED_V251_FINAL",
     INTERFERENCE_LEVEL: 1, // 0:Min, 1:Bal, 2:Agg
-    REMOVE_CSP: false,     // Safe Default
+    REMOVE_CSP: false,     // [Safe Mode] Recommend false for stability
     
     // Heuristics
     CANVAS_MIN_SIZE: 16,
@@ -42,7 +42,7 @@
     WORKER_REVOKE_DELAY_MS: 4000,
     CANVAS_MAX_PIXELS_NOISE: 1920 * 1080,
     WEBGL_TA_CACHE_SIZE: 16,
-    INJECT_MARKER: "__FP_SHIELD_V250__"
+    INJECT_MARKER: "__FP_SHIELD_V251__"
   };
 
   const GET_NOISE_CONFIG = (level) => {
@@ -89,7 +89,7 @@
       "stackoverflow.com",
       "openai.com", "chatgpt.com", "claude.ai",
       "line.me", "whatsapp.com", "discord.com",
-      "webglreport.com", "browserleaks.com"
+      "webglreport.com"
     ]);
     const trustedSuffixes = [".gov.tw", ".edu.tw", ".org.tw", ".gov", ".edu", ".mil", ".bank"];
     const normalize = h => String(h || "").toLowerCase().trim();
@@ -129,7 +129,7 @@
   }
 
   // ============================================================================
-  // 4. 注入腳本 (v2.50-Singularity)
+  // 4. 注入腳本 (v2.51-Final-Protocol)
   // ============================================================================
   const injection = `
 <script>
@@ -142,7 +142,7 @@
   } catch(e) {}
 
   const CONFIG = {
-    ver: '2.50-Singularity',
+    ver: '2.51-Final-Protocol',
     isWhitelisted: ${isWhitelisted},
     isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream,
     maxErrorLogs: ${CONST.MAX_ERROR_LOGS},
@@ -217,14 +217,28 @@
 
   // ---------------- Strict Persona (Network Driven) ----------------
   const Persona = (function() {
+    // [Network Bridge] This UA should be the one rewritten by Proxy
     const currentUA = navigator.userAgent || '';
     
-    // [Plugins Fix] Pure Chrome Sets (No Edge/WebKit)
-    // Differentiated by OS for future-proofing, though currently unified for Chrome
-    const PLUGINS_CHROME_STD = [
+    let chromeVer = "120";
+    const match = currentUA.match(/Chrome\/(\d+)/);
+    if (match && match[1]) chromeVer = match[1];
+
+    // [Plugins Fix] Physical Tiering (Defined separately for strictness)
+    const PLUGINS_WIN = [
         { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
         { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
         { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }
+    ];
+    const PLUGINS_MAC = [
+        { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+        { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+        { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }
+    ];
+    const PLUGINS_LINUX = [
+        { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+        { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' } 
+        // Linux sometimes has fewer default aliases, kept separate for future tuning
     ];
 
     const PROFILES = {
@@ -232,36 +246,40 @@
             ua_os: 'Windows', platform: 'Win32', ch_plat: 'Windows', model: '', arch: 'x86', bitness: '64', platVer: '15.0.0',
             cpu: 16, ram: 32, 
             gpu: { v: 'Google Inc. (NVIDIA)', r: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)', topo: 'unified', tex: 16384 },
-            plugins: PLUGINS_CHROME_STD
+            plugins: PLUGINS_WIN
         },
         WIN_OFFICE: {
             ua_os: 'Windows', platform: 'Win32', ch_plat: 'Windows', model: '', arch: 'x86', bitness: '64', platVer: '15.0.0',
             cpu: 8, ram: 16, 
             gpu: { v: 'Google Inc. (Intel)', r: 'ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0, D3D11)', topo: 'unified', tex: 8192 },
-            plugins: PLUGINS_CHROME_STD
+            plugins: PLUGINS_WIN
         },
         MAC_M_SERIES: {
             ua_os: 'Macintosh', platform: 'MacIntel', ch_plat: 'macOS', model: 'Macintosh', arch: 'arm', bitness: '64', platVer: '14.0.0',
             cpu: 8, ram: 16, 
             gpu: { v: 'Apple', r: 'Apple M1', topo: 'unified', tex: 16384 },
-            plugins: PLUGINS_CHROME_STD
+            plugins: PLUGINS_MAC
+        },
+        LINUX_DESKTOP: {
+            ua_os: 'Linux', platform: 'Linux x86_64', ch_plat: 'Linux', model: '', arch: 'x86', bitness: '64', platVer: '6.5.0',
+            cpu: 8, ram: 16,
+            gpu: { v: 'Intel Open Source Technology Center', r: 'Mesa DRI Intel(R) HD Graphics 620 (Kaby Lake GT2)', topo: 'unified', tex: 16384 },
+            plugins: PLUGINS_LINUX
         },
         ANDROID_FLAGSHIP: {
             ua_os: 'Android', platform: 'Linux armv8l', ch_plat: 'Android', model: 'SM-S918B', arch: 'arm', bitness: '64', platVer: '13.0.0',
             cpu: 8, ram: 12, 
             gpu: { v: 'Qualcomm', r: 'Adreno (TM) 740', topo: 'tiered', tex: 8192 },
-            plugins: [] // Mobile is empty
+            plugins: []
         }
     };
 
+    // Auto-Select based on Network UA
     let selected = PROFILES.WIN_OFFICE;
     if (/Android/i.test(currentUA)) selected = PROFILES.ANDROID_FLAGSHIP;
     else if (/Mac/i.test(currentUA)) selected = PROFILES.MAC_M_SERIES;
+    else if (/Linux/i.test(currentUA)) selected = PROFILES.LINUX_DESKTOP;
     else if (/Win/i.test(currentUA)) selected = ((Seed % 100) > 50) ? PROFILES.WIN_GAMER : PROFILES.WIN_OFFICE;
-
-    let chromeVer = "120";
-    const match = currentUA.match(/Chrome\/(\d+)/);
-    if (match && match[1]) chromeVer = match[1];
 
     const brands = [
       { brand: "Not_A Brand", version: "8" },
@@ -495,7 +513,7 @@
         const highEntropyData = {
              architecture: Persona.ch.arch, 
              bitness: Persona.ch.bitness, 
-             platformVersion: Persona.ch.platformVersion, 
+             platformVersion: Persona.ch.platVer, 
              uaFullVersion: Persona.ua.ver + '.0.0.0',
              model: Persona.ch.model, 
              wow64: false
@@ -504,7 +522,6 @@
         const fake = {
           brands: Persona.ch.brands, mobile: Persona.ch.mobile, platform: Persona.ch.platform,
           getHighEntropyValues: (hints) => {
-             // [UA-CH Fix] Correct filtering: empty string is valid value
              const result = {
                  brands: Persona.ch.brands,
                  mobile: Persona.ch.mobile,
@@ -512,7 +529,6 @@
              };
              if (hints && Array.isArray(hints)) {
                  hints.forEach(h => {
-                     // Check property existence, not truthiness (fixes model: "")
                      if (highEntropyData.hasOwnProperty(h)) result[h] = highEntropyData[h];
                  });
              }
@@ -677,7 +693,6 @@
             ProxyGuard.override(ctx.prototype, 'getImageData', (orig) => function(x,y,w,h) {
                const r = orig.apply(this, arguments);
                const area = w * h;
-               // [Canvas Fix] Consistent threshold for both read & write
                if (w < CONFIG.canvasMinSize || area > CONFIG.canvasMaxNoiseArea) return r;
                noise(r.data);
                return r;
@@ -720,7 +735,6 @@
     }
   };
 
-  // ---------------- Injection ----------------
   const inject = function(win) {
     if (!win) return;
     Modules.hardware(win);
