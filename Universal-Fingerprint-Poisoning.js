@@ -1,11 +1,11 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.85-Mac-OS (Default macOS Persona)
- * @description [macOS 特化版] 基於 v2.81 重裝鎧甲，強制鎖定身分為 macOS 環境，並修正硬體邏輯。
+ * @version   2.86-Whitelist-Restored (macOS Persona)
+ * @description [白名單全域回補版] 基於 V2.85，恢復完整的雙層白名單機制（Hard/Soft）。
  * ----------------------------------------------------------------------------
- * 1. [Persona] Force macOS: 強制所有連線偽裝為 MacIntel / macOS。
- * 2. [Hardware] Mac GPU Only: 剔除 NVIDIA 顯卡，僅保留 Apple Silicon/Intel Iris/AMD Radeon。
- * 3. [Core] v2.81 Base: 包含 CSP 核彈移除、靜態注入、safeDefine iOS 防崩潰機制。
+ * 1. [Hard Exclusions] 網路層級略過：Apple/iCloud/銀行/OTA/Crashlytics -> 不注入。
+ * 2. [Soft Whitelist] 注入層級略過：Google/Netflix/Gov -> 顯示灰燈 (Bypass)。
+ * 3. [Persona] 保持 V2.85 的強制 macOS + Apple Silicon/Intel 混合偽裝。
  * ----------------------------------------------------------------------------
  * @note Surge/Quantumult X 類 rewrite。
  */
@@ -14,15 +14,15 @@
   "use strict";
 
   // ============================================================================
-  // 0. Surge 腳本配置 (v2.70 Shell)
+  // 0. 配置與常數
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // 更新 Key Seed 以隔離舊版指紋
-    KEY_SEED: "FP_SHIELD_MAC_V285", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V285",
-    INJECT_MARKER: "__FP_SHIELD_V285__",
+    KEY_SEED: "FP_SHIELD_MAC_V286", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V286",
+    INJECT_MARKER: "__FP_SHIELD_V286__",
     
+    // Core Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
     JITTER_RANGE_MS: 4 * 60 * 60 * 1000,
     INTERFERENCE_LEVEL: 1,
@@ -30,10 +30,8 @@
     CANVAS_MAX_NOISE_AREA: 500 * 500,
     MAX_POOL_SIZE: 5,
     MAX_POOL_DIM: 1024 * 1024,
-    MAX_ERROR_LOGS: 50,
     WEBGL_PARAM_CACHE_SIZE: 40,
     CACHE_CLEANUP_INTERVAL: 30000,
-    ERROR_THROTTLE_MS: 1000,
     TOBLOB_RELEASE_FALLBACK_MS: 3000
   };
 
@@ -42,45 +40,75 @@
     CONTENT_TYPE_JSONLIKE: /(application\/json|application\/(ld\+json|problem\+json)|text\/json|application\/javascript|text\/javascript)/i,
     HEAD_TAG: /<head[^>]*>/i, 
     HTML_TAG: /<html[^>]*>/i,
-    APP_BROWSERS: /line\/|fb_iab|micromessenger|worksmobile|naver|github|shopee|seamoney/i,
     JSON_START: /^\s*[\{\[]/,
     META_CSP_STRICT: /<meta[^>]*http-equiv=["']?Content-Security-Policy["']?[^>]*>/gi
   };
 
   const $res = $response;
-  
-  // 1. 基礎過濾
-  if ([204, 206, 301, 302, 304].includes($res.status)) { $done({}); return; }
   const headers = $res.headers || {};
   const normalizedHeaders = Object.keys(headers).reduce((acc, key) => { acc[String(key).toLowerCase()] = headers[key]; return acc; }, {});
+
+  // ============================================================================
+  // 1. 硬白名單 (Hard Exclusions) - 網路層級直接放行
+  // ============================================================================
+  // 這些網域或關鍵字完全不進行 Body 修改，避免 App 崩潰或連線中斷
+  const HardExclusions = (() => {
+    const list = [
+      // Apple Services (Critical for device health)
+      "apple.com", "icloud.com", "mzstatic.com", "itunes.apple.com", "cdn-apple.com",
+      "mesu.apple.com", "updates.cdn-apple.com", "xp.apple.com", "bag.itunes.apple.com",
+      // Crash Reporting & Analytics (Often embedded in apps)
+      "crashlytics.com", "firebaseio.com", "app-measurement.com", "google-analytics.com",
+      // Banking & Payments (Strict Integrity Checks)
+      "paypal.com", "stripe.com", "braintreegateway.com", "visa.com", "mastercard.com",
+      "americanexpress.com", "esunbank.com.tw", "ctbcbank.com", "cathaybk.com.tw", "taishinbank.com.tw",
+      // Captive Portals
+      "captive.apple.com", "connectivitycheck.gstatic.com", "msftconnecttest.com",
+      // Specific App APIs known to break
+      "instagram.com/api", "graph.facebook.com", "api.twitter.com"
+    ];
+    return {
+      check: (url) => {
+        const u = url.toLowerCase();
+        return list.some(k => u.includes(k));
+      }
+    };
+  })();
+
+  if (HardExclusions.check($request.url)) { $done({}); return; }
+
+  // ============================================================================
+  // 2. 基礎過濾 (Basic Filtering)
+  // ============================================================================
+  if ([204, 206, 301, 302, 304].includes($res.status)) { $done({}); return; }
   
   if (normalizedHeaders["upgrade"] === "websocket" || (normalizedHeaders["connection"] && String(normalizedHeaders["connection"]).toLowerCase().includes("upgrade"))) { $done({}); return; }
   if (parseInt(normalizedHeaders["content-length"] || "0", 10) > CONST.MAX_SIZE) { $done({}); return; }
   const cType = normalizedHeaders["content-type"] || "";
   if (cType && (REGEX.CONTENT_TYPE_JSONLIKE.test(cType) || !REGEX.CONTENT_TYPE_HTML.test(cType))) { $done({}); return; }
 
-  // 2. 白名單
-  const WhitelistManager = (() => {
-    const trustedDomains = new Set([
-      "google.com", "www.google.com", "accounts.google.com", "docs.google.com", "drive.google.com", "youtube.com", "www.youtube.com",
-      "microsoft.com", "login.microsoftonline.com", "live.com", "office.com", "onedrive.com",
-      "apple.com", "icloud.com", "appleid.apple.com",
-      "facebook.com", "messenger.com", "instagram.com", "whatsapp.com", 
-      "twitter.com", "x.com", "linkedin.com", "discord.com", "slack.com", "line.me", "zoom.us",
+  // ============================================================================
+  // 3. 軟白名單 (Soft Whitelist) - 注入但不干擾
+  // ============================================================================
+  const SoftWhitelist = (() => {
+    const domains = new Set([
+      "google.com", "www.google.com", "accounts.google.com", "docs.google.com", "drive.google.com", "youtube.com",
+      "microsoft.com", "live.com", "office.com", "onedrive.com", "sharepoint.com", "teams.microsoft.com",
+      "facebook.com", "messenger.com", "whatsapp.com", 
+      "twitter.com", "x.com", "linkedin.com", "slack.com", "zoom.us", "discord.com",
       "github.com", "gitlab.com", "stackoverflow.com", "openai.com", "chatgpt.com", "claude.ai",
-      "amazon.com", "ebay.com", "paypal.com", "shopee.tw", "shopee.com",
-      "netflix.com", "spotify.com", "twitch.tv", "disneyplus.com",
-      "webglreport.com" 
+      "amazon.com", "shopee.tw", "shopee.com", "momoshop.com.tw", "pchome.com.tw",
+      "netflix.com", "spotify.com", "disneyplus.com", "hulu.com", "twitch.tv",
+      "gov.tw", "edu.tw", "webglreport.com" // For checking true values if needed
     ]);
-    const trustedSuffixes = [".gov.tw", ".edu.tw", ".org.tw", ".gov", ".edu", ".mil", ".bank", ".int"];
-    const normalize = h => String(h || "").toLowerCase().trim();
+    const suffixes = [".gov", ".edu", ".mil", ".bank", ".int"];
+    
     return {
-      check: (hostname) => {
-        const h = normalize(hostname);
-        if (!h) return false;
-        if (trustedDomains.has(h)) return true;
-        for (const d of trustedDomains) { if (h.endsWith('.' + d)) return true; }
-        for (const s of trustedSuffixes) { if (h.endsWith(s)) return true; }
+      check: (h) => {
+        const host = String(h || "").toLowerCase().trim();
+        if (domains.has(host)) return true;
+        for (const d of domains) { if (host.endsWith('.' + d)) return true; }
+        for (const s of suffixes) { if (host.endsWith(s)) return true; }
         return false;
       }
     };
@@ -89,12 +117,12 @@
   let hostname = "";
   try { hostname = new URL($request.url).hostname.toLowerCase(); } catch (e) { $done({}); return; }
   
-  const isWhitelisted = WhitelistManager.check(hostname);
+  const isSoftWhitelisted = SoftWhitelist.check(hostname);
   let body = $res.body;
   if (!body || REGEX.JSON_START.test(body.substring(0, 80).trim())) { $done({}); return; }
   if (body.includes(CONST.INJECT_MARKER)) { $done({ body, headers }); return; }
 
-  // 3. CSP Header 移除 (Nuclear)
+  // 4. CSP Header 移除 (Nuclear)
   const headerKeys = Object.keys(headers);
   headerKeys.forEach(key => {
       const lowerKey = key.toLowerCase();
@@ -103,12 +131,12 @@
       }
   });
 
-  // 4. HTML 淨化
+  // 5. HTML 淨化
   body = body.replace(REGEX.META_CSP_STRICT, "<!-- CSP REMOVED -->");
   body = body.replace(/integrity=["'][^"']*["']/gi, "");
 
   // ============================================================================
-  // 5. 靜態 HTML UI (v2.85 Mac Badge)
+  // 6. 靜態 HTML UI
   // ============================================================================
   const staticBadgeHTML = `
   <div id="fp-nuclear-badge" style="
@@ -132,7 +160,7 @@
   `;
 
   // ============================================================================
-  // 6. 核心邏輯 (v2.85 Mac-Only)
+  // 7. 核心邏輯 (v2.86 Mac-Only + Soft Whitelist Handling)
   // ============================================================================
   const injectionScript = `
 <script>
@@ -141,7 +169,6 @@
   const MARKER = '${CONST.INJECT_MARKER}';
   try { if (window[MARKER]) { try { window[MARKER].cleanup(); } catch(e){} } Object.defineProperty(window, MARKER, { value: { cleanup: () => {} }, configurable: true, writable: true }); } catch(e) {}
 
-  // ---------------- UI Control ----------------
   const b = document.getElementById('fp-nuclear-badge');
   function panic(e) {
       if (e && (e.message || '').includes('readonly')) { console.warn('FP Soft-Fail:', e.message); return; }
@@ -150,7 +177,7 @@
 
   try {
       const CONFIG = {
-        isWhitelisted: ${isWhitelisted},
+        isWhitelisted: ${isSoftWhitelisted},
         rectNoiseRate: 0.0001,
         canvasNoiseStep: 2,
         audioNoiseLevel: 1e-6,
@@ -163,16 +190,17 @@
         toBlobReleaseFallbackMs: ${CONST.TOBLOB_RELEASE_FALLBACK_MS}
       };
 
+      // --- UI Status Logic ---
       if(b) {
           if(CONFIG.isWhitelisted) { 
               b.style.backgroundColor = '#666666'; b.textContent = 'FP Bypass'; 
           } else { 
-              // Blue for macOS
               b.style.backgroundColor = '#007AFF'; b.textContent = 'FP: macOS'; 
           }
           setTimeout(() => { if(b) { b.style.opacity='0'; setTimeout(()=>b.remove(), 1000); } }, 4000);
       }
 
+      // *** SOFT WHITELIST EXIT POINT ***
       if (CONFIG.isWhitelisted) return;
 
       // ---------------- Helper: SafeDefine (iOS Patch) ----------------
@@ -220,16 +248,13 @@
       };
       if (RNG.s === 0) RNG.s = 1;
 
-      // ---------------- Persona (v2.85 Mac Logic) ----------------
+      // ---------------- Persona (Mac-Only) ----------------
       const Persona = (function() {
         const currentUA = navigator.userAgent || '';
-        
-        // Mac Hardware Tiers (No Windows/Android HW)
         const MAC_HW = {
             SILICON: {
                 cpuPool: [8, 10, 12],
                 ramPool: [8, 16, 24, 32],
-                // Modern Macs often hide renderer details, but mimicking M-series or generic Apple GPU is safe
                 gpuPool: [
                     {v: 'Apple', r: 'Apple M1', w: 40},
                     {v: 'Apple', r: 'Apple M2', w: 30},
@@ -240,7 +265,6 @@
             INTEL: {
                 cpuPool: [4, 6, 8, 12],
                 ramPool: [8, 16, 32, 64],
-                // Intel/AMD GPUs found in 2018-2020 Macs
                 gpuPool: [
                     {v: 'Intel Inc.', r: 'Intel(R) Iris(TM) Plus Graphics 640', w: 40},
                     {v: 'ATI Technologies Inc.', r: 'AMD Radeon Pro 5300M', w: 30},
@@ -248,48 +272,31 @@
                 ]
             }
         };
-
         const r = RNG.next();
-        let tier = (r > 0.3) ? MAC_HW.SILICON : MAC_HW.INTEL; // 70% chance Apple Silicon
-
+        let tier = (r > 0.3) ? MAC_HW.SILICON : MAC_HW.INTEL;
         const cpu = RNG.pick(tier.cpuPool);
         const ram = RNG.pick(tier.ramPool);
         let gpu = RNG.pickWeighted(tier.gpuPool);
-        gpu.topo = 'unified'; 
-        gpu.tex = 16384; 
-
-        const PLUGINS_STD = [
-            { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-            { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-            { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }
-        ];
-
-        // FORCE MAC IDENTITY
-        const platform = 'MacIntel';
-        const ch_plat = 'macOS';
-        const arch = (tier === MAC_HW.SILICON) ? 'arm' : 'x86'; // M1 is arm, Intel is x86
-        const plugins = [...PLUGINS_STD];
-
+        gpu.topo = 'unified'; gpu.tex = 16384; 
+        
         let chromeVer = "120";
         const match = currentUA.match(/Chrome\\/(\\d+)/);
         if (match && match[1]) chromeVer = match[1];
 
-        const brands = [
-          { brand: "Not_A Brand", version: "8" },
-          { brand: "Chromium", version: chromeVer },
-          { brand: "Google Chrome", version: chromeVer }
-        ];
-
         return { 
-            ua: { raw: currentUA, ver: chromeVer, platform: platform },
-            ch: { brands, platform: ch_plat, mobile: false, arch, bitness: '64', model: '', platVer: '14.0.0' },
+            ua: { raw: currentUA, ver: chromeVer, platform: 'MacIntel' },
+            ch: { brands: [{brand:"Chromium",version:chromeVer}], platform: 'macOS', mobile: false, arch: (tier===MAC_HW.SILICON?'arm':'x86') },
             hw: { cpu, ram },
             gpu: gpu,
-            plugins: plugins
+            plugins: [
+                { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+                { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+                { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }
+            ]
         };
       })();
 
-      // ---------------- ProxyGuard (v2.60 Full) ----------------
+      // ---------------- ProxyGuard ----------------
       const ProxyGuard = {
         proxyMap: new WeakMap(), nativeStrings: new WeakMap(), toStringMap: new WeakMap(),
         _makeFakeToString: function(t, ns) {
@@ -341,7 +348,7 @@
         }
       };
 
-      // ---------------- CanvasPool (v2.60) ----------------
+      // ---------------- CanvasPool ----------------
       const CanvasPool = (function() {
         const pool = [];
         const shrink = (item) => { try { item.c.width = 1; item.c.height = 1; } catch(e) {} };
@@ -368,7 +375,7 @@
         };
       })();
 
-      // ---------------- Noise Helpers (v2.60) ----------------
+      // ---------------- Noise Helpers ----------------
       const Noise = {
         spatial01: function(x, y, salt) {
           let h = (x | 0) * 374761393 + (y | 0) * 668265263 + (salt | 0) * 1442695041 + (RNG.s | 0);
@@ -407,7 +414,7 @@
         font: function(w) { return w + (Noise.rand(Math.floor(w * 100)) * 0.04 - 0.02); }
       };
 
-      // ---------------- Modules (v2.85 Mac Integ) ----------------
+      // ---------------- Modules ----------------
       const Modules = {
         hardware: function(win) {
           const N = win.navigator;
@@ -419,12 +426,11 @@
           };
           spoofProp(N, 'hardwareConcurrency', Persona.hw.cpu);
           spoofProp(N, 'deviceMemory', Persona.hw.ram);
-          spoofProp(N, 'platform', Persona.ua.platform); // Always MacIntel
+          spoofProp(N, 'platform', Persona.ua.platform); 
           try { if ('webdriver' in N) delete N.webdriver; } catch(e) {}
 
           if ('getBattery' in N) {
               try {
-                  // Mac Laptops have batteries, so we keep this but ensure it looks realistic
                   let cached = null;
                   const makeBattery = () => {
                      const ET = win.EventTarget || Object;
@@ -455,7 +461,6 @@
               } catch(e) {}
           }
           
-          // Plugins Spoofing (Mac has standard plugins)
           if (!CONFIG.isIOS && !Persona.ch.mobile) {
              try {
                const pList = Persona.plugins;
@@ -485,7 +490,7 @@
                  uaFullVersion: Persona.ua.ver + '.0.0.0', model: Persona.ch.model, wow64: false
             };
             const fake = {
-              brands: Persona.ch.brands, mobile: false, platform: Persona.ch.platform, // Force macOS props
+              brands: Persona.ch.brands, mobile: false, platform: Persona.ch.platform,
               getHighEntropyValues: (hints) => {
                  const result = { brands: Persona.ch.brands, mobile: false, platform: Persona.ch.platform };
                  if (hints && Array.isArray(hints)) { hints.forEach(h => { if (highEntropyData.hasOwnProperty(h)) result[h] = highEntropyData[h]; }); }
@@ -707,12 +712,11 @@
 `;
 
   const combinedInjection = staticBadgeHTML + injectionScript;
-
-  // Head Injection Priority
   if (REGEX.HEAD_TAG.test(body)) body = body.replace(REGEX.HEAD_TAG, (m) => m + combinedInjection);
   else if (REGEX.HTML_TAG.test(body)) body = body.replace(REGEX.HTML_TAG, (m) => m + combinedInjection);
   else body = combinedInjection + body;
 
   $done({ body: body, headers: headers });
 })();
+
 
