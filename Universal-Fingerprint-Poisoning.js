@@ -1,12 +1,12 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.42-Sovereign-Glider (Geometry Invariants & Semantic Whitelist)
- * @description 針對幾何邏輯、白名單覆蓋率與插件標準化進行的最終修正。
+ * @version   2.46-Titan-Aegis (Safety First & Performance Heuristics)
+ * @description 最終安全定版：針對安全性與高效能運算的企業級修正。
  * ----------------------------------------------------------------------------
- * 1. [Math] Geometry Logic: 確保 getBoundingClientRect 回傳值符合 Right = Left + Width 公理，修復幾何矛盾。
- * 2. [Strategy] Semantic Whitelist: 放寬白名單判定，包含 'bank'/'pay' 等關鍵字即放行，確保金融網站相容性。
- * 3. [Plugins] Standard Set: 鎖定 Chrome 標準 5 件套插件列表，消除隨機長度造成的非主流特徵。
- * 4. [Core] Stability: 繼承 v2.41 的 Smart CSP、ProxyGuard (Symbol-Safe) 與 WebGL Jitter。
+ * 1. [Security] CSP Safe Mode: REMOVE_CSP 預設改為 false，不再主動降低站點安全性，優先保障使用者瀏覽安全。
+ * 2. [Perf] Canvas Heuristics: 引入 500x500 (250k px) 面積閾值。大尺寸畫布(如圖片編輯/QR生成)自動略過雜訊，避免 Worker 卡死與資料損毀。
+ * 3. [Stability] Offscreen Guard: convertToBlob 增加 Context 檢查與錯誤隔離，防止 WebGL/BitmapRenderer 衝突導致的崩潰。
+ * 4. [Core] Inheritance: 繼承 v2.45 的 Persona 引擎、BFCache 支援與 DOMRect 唯讀模擬。
  * ----------------------------------------------------------------------------
  * @note Surge/Quantumult X 類 rewrite。
  */
@@ -19,8 +19,15 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_SEED_V242_GLIDER",
+    KEY_SEED: "FP_SHIELD_SEED_V246_TITAN",
     INTERFERENCE_LEVEL: 1, // 0:Min, 1:Bal, 2:Agg
+    
+    // [Security Fix] Default to False. Safety first.
+    REMOVE_CSP: false,      
+    
+    // [Perf Fix] Only noise small/medium canvases (Fingerprint vectors).
+    // Skip large canvases (Images, Maps, Editors) to prevent lag/corruption.
+    CANVAS_MAX_NOISE_AREA: 500 * 500, 
     
     // System Configs
     MAX_POOL_SIZE: 5,
@@ -38,9 +45,9 @@
     BADGE_FADE_NORMAL: 4000,
     TOBLOB_RELEASE_FALLBACK_MS: 3000,
     WORKER_REVOKE_DELAY_MS: 4000,
-    CANVAS_MAX_PIXELS_NOISE: 1920 * 1080,
+    CANVAS_MAX_PIXELS_NOISE: 1920 * 1080, // Absolute clamp for extreme cases
     WEBGL_TA_CACHE_SIZE: 16,
-    INJECT_MARKER: "__FP_SHIELD_V242__"
+    INJECT_MARKER: "__FP_SHIELD_V246__"
   };
 
   const GET_NOISE_CONFIG = (level) => {
@@ -75,21 +82,36 @@
   const cType = normalizedHeaders["content-type"] || "";
   if (cType && (REGEX.CONTENT_TYPE_JSONLIKE.test(cType) || !REGEX.CONTENT_TYPE_HTML.test(cType))) { $done({}); return; }
 
-  // 2. 白名單 (Semantic Strategy)
+  // 2. 白名單 (Vault Strategy)
   const WhitelistManager = (() => {
-    // 關鍵字列表：只要網域包含這些字串，即視為敏感目標 (銀行/支付/政府/驗證)
-    const keywords = [
-      "bank", "pay", "gov", "edu", "sec", "auth", "login", "sso", 
-      "google.com", "youtube.com", "microsoft.com", "apple.com", "amazon.com",
-      "shopee", "line", "discord", "skype", "whatsapp", "telegram"
+    const trustedDomains = new Set([
+      "google.com", "www.google.com", "accounts.google.com", "docs.google.com",
+      "youtube.com", "www.youtube.com",
+      "microsoft.com", "login.microsoftonline.com", "live.com",
+      "apple.com", "icloud.com", "appleid.apple.com",
+      "amazon.com", "aws.amazon.com",
+      "github.com", "gitlab.com",
+      "stackoverflow.com",
+      "openai.com", "chatgpt.com", "claude.ai",
+      "line.me", "whatsapp.com", "discord.com",
+      "webglreport.com", "browserleaks.com"
+    ]);
+    
+    const trustedSuffixes = [
+      ".gov.tw", ".edu.tw", ".org.tw", 
+      ".gov", ".edu", ".mil", ".bank"
     ];
+
     const normalize = h => String(h || "").toLowerCase().trim();
+    
     return {
       check: (hostname) => {
         const h = normalize(hostname);
         if (!h) return false;
-        // [Strategy Fix] Semantic Check: Includes keyword
-        return keywords.some(k => h.includes(k));
+        if (trustedDomains.has(h)) return true;
+        for (const d of trustedDomains) { if (h.endsWith('.' + d)) return true; }
+        for (const s of trustedSuffixes) { if (h.endsWith(s)) return true; }
+        return false;
       }
     };
   })();
@@ -106,8 +128,9 @@
   if (!body || REGEX.JSON_START.test(body.substring(0, 80).trim())) { $done({}); return; }
   if (body.includes(CONST.INJECT_MARKER)) { $done({ body, headers }); return; }
 
-  // 3. CSP 移除 (Smart Strategy)
-  if (!isWhitelisted) {
+  // 3. CSP 移除 (Safe Mode)
+  // 只有在明確開啟 REMOVE_CSP 且非白名單時才執行 (預設關閉)
+  if (!isWhitelisted && CONST.REMOVE_CSP) {
       const blockingCspKeys = ["content-security-policy", "x-content-security-policy", "x-webkit-csp"];
       Object.keys(headers).forEach(k => { if (blockingCspKeys.includes(k.toLowerCase())) delete headers[k]; });
       
@@ -119,7 +142,7 @@
   }
 
   // ============================================================================
-  // 4. 注入腳本 (v2.42-Sovereign-Glider)
+  // 4. 注入腳本 (v2.46-Titan-Aegis)
   // ============================================================================
   const injection = `
 <script>
@@ -132,7 +155,7 @@
   } catch(e) {}
 
   const CONFIG = {
-    ver: '2.42-Sovereign-Glider',
+    ver: '2.46-Titan-Aegis',
     isWhitelisted: ${isWhitelisted},
     isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream,
     maxErrorLogs: ${CONST.MAX_ERROR_LOGS},
@@ -140,7 +163,10 @@
     canvasNoiseStep: ${NOISE_CFG.canvasStep},
     audioNoiseLevel: ${NOISE_CFG.audio},
     
+    // Heuristics
     canvasMinSize: ${CONST.CANVAS_MIN_SIZE},
+    canvasMaxNoiseArea: ${CONST.CANVAS_MAX_NOISE_AREA}, // [Perf Fix]
+    
     errorThrottleMs: ${CONST.ERROR_THROTTLE_MS},
     webglCacheSize: ${CONST.WEBGL_PARAM_CACHE_SIZE},
     cleanupInterval: ${CONST.CACHE_CLEANUP_INTERVAL},
@@ -167,7 +193,6 @@
     cleanup: function() { const b=document.getElementById('fp-shield-badge'); if(b) b.remove(); }
   };
 
-  // [Strategy] True Whitelist Exit
   if (CONFIG.isWhitelisted) {
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', UI.showBadge);
       else UI.showBadge();
@@ -293,10 +318,8 @@
     };
     const gpuProfile = GPU_PROFILES[gpuKey] || GPU_PROFILES["intel_desktop"];
 
-    // [Plugins Fix] Standard Set
     let plugins = [];
     if (!CONFIG.isIOS && !isMobile) { 
-        // Always 5 standard plugins for consistency with modern Chrome behavior
         plugins = [
             { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
             { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
@@ -311,14 +334,14 @@
       ch: { brands, platform: chPlatform, mobile: (profile==='mobile'), arch, bitness, platformVersion, model }, 
       hw: { cpu, ram }, 
       gpu: gpuProfile, 
+      locale: 'en-US', 
       plugins: plugins 
     };
   })();
 
-  // ---------------- ErrorHandler ----------------
   const ErrorHandler = { logs: [], clear: function(){this.logs=[];} };
 
-  // ---------------- ProxyGuard (Symbol-Safe) ----------------
+  // ---------------- ProxyGuard ----------------
   const ProxyGuard = {
     proxyMap: new WeakMap(), nativeStrings: new WeakMap(), toStringMap: new WeakMap(),
     _makeFakeToString: function(t, ns) {
@@ -377,6 +400,10 @@
     },
     rand: function(i) { let x = ((RNG.s + (i|0)) | 0) >>> 0; x^=x<<13; x^=x>>>17; x^=x<<5; return (x>>>0)/4294967296; },
     pixel: function(d, w, h) {
+      // [Perf Fix] Skip noise if canvas is too large (likely not a fingerprint)
+      const area = w * h;
+      if (area > CONFIG.canvasMaxNoiseArea) return; 
+      
       if (!d || d.length < 4) return;
       const step = CONFIG.canvasNoiseStep;
       if (!step || step <= 0) return; 
@@ -516,7 +543,6 @@
                    return Reflect.getOwnPropertyDescriptor(t, p);
                }
            });
-           
            try { Object.defineProperty(N, 'plugins', { get: () => fakePlugins, configurable: true }); } catch(e) {}
         }
       } catch(e) {}
@@ -593,8 +619,7 @@
       } catch(e) {}
     },
 
-    // [Passthrough] Locale/Timezone
-    timezone: function(win) {}, 
+    timezone: function(win) {},
 
     audio: function(win) {
       if (CONFIG.audioNoiseLevel < 1e-8) return; 
@@ -625,23 +650,36 @@
               return (x - Math.floor(x)) * CONFIG.rectNoiseRate;
            };
            const f = 1 + n(r.width, r.height);
-           // [Math Fix] Invariant: Right = Left + Width
            const nw = r.width * f;
            const nh = r.height * f;
-           return { 
-               top: r.top, left: r.left, x: r.x, y: r.y, 
-               width: nw, height: nh, 
-               right: r.left + nw, bottom: r.top + nh, 
-               toJSON: function(){return this;} 
+           const desc = {
+               x: { value: r.x, enumerable: true },
+               y: { value: r.y, enumerable: true },
+               width: { value: nw, enumerable: true },
+               height: { value: nh, enumerable: true },
+               top: { value: r.top, enumerable: true },
+               left: { value: r.left, enumerable: true },
+               right: { value: r.left + nw, enumerable: true },
+               bottom: { value: r.top + nh, enumerable: true },
+               toJSON: { value: function(){return this;}, enumerable: false }
            };
+           if (win.DOMRectReadOnly) {
+               const obj = Object.create(win.DOMRectReadOnly.prototype);
+               Object.defineProperties(obj, desc); 
+               return obj;
+           }
+           const obj = Object.create(Object.prototype);
+           Object.defineProperties(obj, desc);
+           return obj;
          };
+         
          ProxyGuard.override(Element.prototype, 'getBoundingClientRect', (orig) => function() { return wrap(orig.apply(this, arguments)); });
          ProxyGuard.override(Element.prototype, 'getClientRects', (orig) => function() {
             const rects = orig.apply(this, arguments);
-            const res = { length: rects.length, item: i => this[i] };
+            const res = { length: rects.length };
+            if (win.DOMRectList) Object.setPrototypeOf(res, win.DOMRectList.prototype);
+            res.item = function(i) { return this[i] || null; };
             for(let i=0; i<rects.length; i++) res[i] = wrap(rects[i]);
-            res[Symbol.iterator] = function*() { for(let i=0; i<this.length; i++) yield this[i]; };
-            if (win.DOMRectList) res.__proto__ = win.DOMRectList.prototype;
             return res;
          });
        } catch(e) {}
@@ -656,10 +694,43 @@
                if (RNG.next() < 0.01) d[i] = d[i] ^ 1; 
             }
          };
+         
+         // [Stability Fix] Offscreen Patch with Context Check
+         if (win.OffscreenCanvas) {
+             ProxyGuard.override(win.OffscreenCanvas.prototype, 'convertToBlob', (orig) => function() {
+                 try {
+                     // Check if noise should be applied (size limit)
+                     const area = this.width * this.height;
+                     if (area > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments);
+
+                     const ctx = this.getContext('2d');
+                     if (ctx) {
+                         const d = ctx.getImageData(0,0,this.width,this.height);
+                         noise(d.data);
+                         ctx.putImageData(d,0,0);
+                     }
+                 } catch(e){}
+                 return orig.apply(this, arguments);
+             });
+         }
+
+         [win.CanvasRenderingContext2D, win.OffscreenCanvasRenderingContext2D].forEach(ctx => {
+            if(!ctx || !ctx.prototype) return;
+            ProxyGuard.override(ctx.prototype, 'getImageData', (orig) => function(x,y,w,h) {
+               const r = orig.apply(this, arguments);
+               if (w < CONFIG.canvasMinSize) return r;
+               noise(r.data);
+               return r;
+            });
+         });
+
          if (win.HTMLCanvasElement) {
             ProxyGuard.override(win.HTMLCanvasElement.prototype, 'toDataURL', (orig) => function() {
                const w=this.width, h=this.height;
                if (w < CONFIG.canvasMinSize) return orig.apply(this, arguments);
+               // Heuristic check
+               if ((w*h) > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments);
+
                let p=null;
                try {
                   p = CanvasPool.get(w, h);
@@ -668,6 +739,22 @@
                   return p.canvas.toDataURL.apply(p.canvas, arguments);
                } catch(e) { return orig.apply(this, arguments); }
                finally { if(p) p.release(); }
+            });
+            
+            ProxyGuard.override(win.HTMLCanvasElement.prototype, 'toBlob', (orig) => function(cb, t, q) {
+               const w=this.width, h=this.height;
+               if (w < CONFIG.canvasMinSize) return orig.apply(this, arguments);
+               if ((w*h) > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments);
+
+               let p=null, released=false;
+               const safeRel = () => { if(!released) { released=true; if(p) p.release(); } };
+               try {
+                  p = CanvasPool.get(w, h);
+                  p.ctx.clearRect(0,0,w,h); p.ctx.drawImage(this,0,0);
+                  const d = p.ctx.getImageData(0,0,w,h); noise(d.data); p.ctx.putImageData(d,0,0);
+                  p.canvas.toBlob((b) => { try{if(cb)cb(b);}finally{safeRel();} }, t, q);
+                  setTimeout(safeRel, CONFIG.toBlobReleaseFallbackMs);
+               } catch(e) { safeRel(); return orig.apply(this, arguments); }
             });
          }
        } catch(e) {}
@@ -680,6 +767,7 @@
     Modules.hardware(win);
     Modules.clientHints(win);
     Modules.webgl(win);
+    Modules.timezone(win);
     Modules.audio(win);
     Modules.rects(win);
     Modules.canvas(win);
