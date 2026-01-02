@@ -1,14 +1,14 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.51-Final-Protocol (Full-Stack Convergence)
- * @description [最終版] 整合網路層 Header Rewrite 與 JS 注入，達成全棧一致性。
+ * @version   2.55-Stargate-Protocol (Native Harmony & Network Reactive)
+ * @description [最終完結篇] 放棄高風險的 Intl 偽裝，讓 JS 環境與網路層/原生設定自然同步。
  * ----------------------------------------------------------------------------
- * 1. [Requirement] 必須配合 Surge/QX 的 Header Rewrite (見上方說明) 鎖定 UA/CH，腳本將自動適配該特徵。
- * 2. [Plugins] Physical Tiering: 實作 Win/Mac/Linux 物理分層定義，確保插件邏輯與 OS 特徵絕對綁定。
- * 3. [UA-CH] High-Fidelity: 繼承 v2.50 的空值修復與過濾邏輯，確保 API 行為符合 Chrome 規範。
- * 4. [Core] Final Polish: 包含所有安全性 (CSP Safe), 效能 (Canvas Heuristics) 與 穩定性 (Symbol Safe) 修正。
+ * 1. [Intl] Native Harmony: 移除 Intl/Navigator 語系篡改。保留原生語系特徵 (如 zh-TW) 以消除 Hook 痕跡，將「語系/IP 不符」視為合法的 VPN 用戶特徵。
+ * 2. [Network] Reactive Persona: 腳本自動偵測當前 UA (由 Surge/QX 改寫)，並動態載入對應的 Win/Mac/Linux 檔案，確保 Header 與 JS 100% 一致。
+ * 3. [Plugins] OS Tiering: 嚴格區分 Win (3-set + Edge pollution), Mac (3-set pure), Linux (2-set distro) 插件列表。
+ * 4. [Core] Final Stability: 包含 Symbol-Safe Proxy, Canvas Heuristics, BFCache Support, CSP Safe Mode。
  * ----------------------------------------------------------------------------
- * @note Surge/Quantumult X 類 rewrite。
+ * @note 必須配合 Surge/Quantumult X 的 Header Rewrite 使用以達到最佳效果。
  */
 
 (function () {
@@ -19,9 +19,9 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_SEED_V251_FINAL",
+    KEY_SEED: "FP_SHIELD_SEED_V255_STARGATE",
     INTERFERENCE_LEVEL: 1, // 0:Min, 1:Bal, 2:Agg
-    REMOVE_CSP: false,     // [Safe Mode] Recommend false for stability
+    REMOVE_CSP: false,     // [Safe Mode] Recommend false
     
     // Heuristics
     CANVAS_MIN_SIZE: 16,
@@ -42,7 +42,7 @@
     WORKER_REVOKE_DELAY_MS: 4000,
     CANVAS_MAX_PIXELS_NOISE: 1920 * 1080,
     WEBGL_TA_CACHE_SIZE: 16,
-    INJECT_MARKER: "__FP_SHIELD_V251__"
+    INJECT_MARKER: "__FP_SHIELD_V255__"
   };
 
   const GET_NOISE_CONFIG = (level) => {
@@ -89,7 +89,7 @@
       "stackoverflow.com",
       "openai.com", "chatgpt.com", "claude.ai",
       "line.me", "whatsapp.com", "discord.com",
-      "webglreport.com"
+      "webglreport.com", "browserleaks.com"
     ]);
     const trustedSuffixes = [".gov.tw", ".edu.tw", ".org.tw", ".gov", ".edu", ".mil", ".bank"];
     const normalize = h => String(h || "").toLowerCase().trim();
@@ -129,7 +129,7 @@
   }
 
   // ============================================================================
-  // 4. 注入腳本 (v2.51-Final-Protocol)
+  // 4. 注入腳本 (v2.55-Stargate-Protocol)
   // ============================================================================
   const injection = `
 <script>
@@ -142,7 +142,7 @@
   } catch(e) {}
 
   const CONFIG = {
-    ver: '2.51-Final-Protocol',
+    ver: '2.55-Stargate-Protocol',
     isWhitelisted: ${isWhitelisted},
     isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream,
     maxErrorLogs: ${CONST.MAX_ERROR_LOGS},
@@ -161,22 +161,24 @@
     toBlobReleaseFallbackMs: ${CONST.TOBLOB_RELEASE_FALLBACK_MS}
   };
 
+  // [UI] Shadow DOM
   const UI = {
     showBadge: function() {
       try {
-        if (document.getElementById('fp-shield-badge')) return;
+        const host = document.createElement('div');
+        host.style.cssText = 'position:fixed;bottom:10px;left:10px;z-index:2147483647;pointer-events:none;width:0;height:0;';
+        const root = host.attachShadow({ mode: 'closed' });
         const b = document.createElement('div');
-        b.id = 'fp-shield-badge';
         const color = CONFIG.isWhitelisted ? 'rgba(100,100,100,0.85)' : 'rgba(0,120,0,0.9)';
         const text = CONFIG.isWhitelisted ? 'FP Bypass' : 'FP Active';
-        b.style.cssText = 'position:fixed;bottom:10px;left:10px;z-index:2147483647;background:'+color+';color:#fff;padding:6px;border-radius:4px;font-size:10px;pointer-events:none;opacity:0;transition:opacity 0.5s;';
+        b.style.cssText = 'background:'+color+';color:#fff;padding:6px;border-radius:4px;font-size:10px;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,0.2);font-family:sans-serif;opacity:0;transition:opacity 0.5s;';
         b.textContent = text;
-        (document.body||document.documentElement).appendChild(b);
+        root.appendChild(b);
+        (document.body||document.documentElement).appendChild(host);
         requestAnimationFrame(()=>b.style.opacity='1');
-        setTimeout(()=> { b.style.opacity='0'; setTimeout(()=>b.remove(),500); }, 3000);
+        setTimeout(()=> { b.style.opacity='0'; setTimeout(()=> host.remove(), 500); }, 3000);
       } catch(e){}
-    },
-    cleanup: function() { const b=document.getElementById('fp-shield-badge'); if(b) b.remove(); }
+    }
   };
 
   if (CONFIG.isWhitelisted) {
@@ -215,71 +217,73 @@
   };
   if (RNG.s === 0) RNG.s = 1;
 
-  // ---------------- Strict Persona (Network Driven) ----------------
+  // ---------------- Reactive Persona (Network Driven) ----------------
   const Persona = (function() {
-    // [Network Bridge] This UA should be the one rewritten by Proxy
+    // [Network Reactive] Detect current UA (rewritten by Proxy)
     const currentUA = navigator.userAgent || '';
     
-    let chromeVer = "120";
-    const match = currentUA.match(/Chrome\/(\d+)/);
-    if (match && match[1]) chromeVer = match[1];
+    const BASE_CHROME = [
+        { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+        { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+        { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }
+    ];
 
-    // [Plugins Fix] Physical Tiering (Defined separately for strictness)
-    const PLUGINS_WIN = [
-        { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-        { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-        { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }
-    ];
-    const PLUGINS_MAC = [
-        { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-        { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-        { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }
-    ];
-    const PLUGINS_LINUX = [
-        { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-        { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' } 
-        // Linux sometimes has fewer default aliases, kept separate for future tuning
-    ];
+    const getWinPlugins = () => {
+        const p = [...BASE_CHROME];
+        if (RNG.next() > 0.8) { // 20% Edge Pollution
+            p.push({ name: 'Microsoft Edge PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' });
+        }
+        return p;
+    };
+    const getLinuxPlugins = () => {
+        const p = [...BASE_CHROME];
+        if (RNG.next() > 0.5) p.pop(); // 50% reduced set
+        return p;
+    };
 
     const PROFILES = {
         WIN_GAMER: {
-            ua_os: 'Windows', platform: 'Win32', ch_plat: 'Windows', model: '', arch: 'x86', bitness: '64', platVer: '15.0.0',
+            platform: 'Win32', ch_plat: 'Windows', model: '', arch: 'x86', bitness: '64', platVer: '15.0.0',
             cpu: 16, ram: 32, 
             gpu: { v: 'Google Inc. (NVIDIA)', r: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)', topo: 'unified', tex: 16384 },
-            plugins: PLUGINS_WIN
+            getPlugins: getWinPlugins
         },
         WIN_OFFICE: {
-            ua_os: 'Windows', platform: 'Win32', ch_plat: 'Windows', model: '', arch: 'x86', bitness: '64', platVer: '15.0.0',
+            platform: 'Win32', ch_plat: 'Windows', model: '', arch: 'x86', bitness: '64', platVer: '15.0.0',
             cpu: 8, ram: 16, 
             gpu: { v: 'Google Inc. (Intel)', r: 'ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0, D3D11)', topo: 'unified', tex: 8192 },
-            plugins: PLUGINS_WIN
+            getPlugins: getWinPlugins
         },
         MAC_M_SERIES: {
-            ua_os: 'Macintosh', platform: 'MacIntel', ch_plat: 'macOS', model: 'Macintosh', arch: 'arm', bitness: '64', platVer: '14.0.0',
+            platform: 'MacIntel', ch_plat: 'macOS', model: 'Macintosh', arch: 'arm', bitness: '64', platVer: '14.0.0',
             cpu: 8, ram: 16, 
             gpu: { v: 'Apple', r: 'Apple M1', topo: 'unified', tex: 16384 },
-            plugins: PLUGINS_MAC
+            getPlugins: () => [...BASE_CHROME] // Clean
         },
         LINUX_DESKTOP: {
-            ua_os: 'Linux', platform: 'Linux x86_64', ch_plat: 'Linux', model: '', arch: 'x86', bitness: '64', platVer: '6.5.0',
+            platform: 'Linux x86_64', ch_plat: 'Linux', model: '', arch: 'x86', bitness: '64', platVer: '6.5.0',
             cpu: 8, ram: 16,
             gpu: { v: 'Intel Open Source Technology Center', r: 'Mesa DRI Intel(R) HD Graphics 620 (Kaby Lake GT2)', topo: 'unified', tex: 16384 },
-            plugins: PLUGINS_LINUX
+            getPlugins: getLinuxPlugins
         },
         ANDROID_FLAGSHIP: {
-            ua_os: 'Android', platform: 'Linux armv8l', ch_plat: 'Android', model: 'SM-S918B', arch: 'arm', bitness: '64', platVer: '13.0.0',
+            platform: 'Linux armv8l', ch_plat: 'Android', model: 'SM-S918B', arch: 'arm', bitness: '64', platVer: '13.0.0',
             cpu: 8, ram: 12, 
             gpu: { v: 'Qualcomm', r: 'Adreno (TM) 740', topo: 'tiered', tex: 8192 },
-            plugins: []
+            getPlugins: () => []
         }
     };
 
-    // Auto-Select based on Network UA
     let selected = PROFILES.WIN_OFFICE;
+    // Heuristic selection based on what the Network Layer provides
     if (/Android/i.test(currentUA)) selected = PROFILES.ANDROID_FLAGSHIP;
     else if (/Mac/i.test(currentUA)) selected = PROFILES.MAC_M_SERIES;
     else if (/Linux/i.test(currentUA)) selected = PROFILES.LINUX_DESKTOP;
     else if (/Win/i.test(currentUA)) selected = ((Seed % 100) > 50) ? PROFILES.WIN_GAMER : PROFILES.WIN_OFFICE;
+
+    let chromeVer = "120";
+    const match = currentUA.match(/Chrome\/(\d+)/);
+    if (match && match[1]) chromeVer = match[1];
 
     const brands = [
       { brand: "Not_A Brand", version: "8" },
@@ -300,7 +304,7 @@
         },
         hw: { cpu: selected.cpu, ram: selected.ram },
         gpu: selected.gpu,
-        plugins: selected.plugins
+        plugins: selected.getPlugins()
     };
   })();
 
@@ -332,6 +336,8 @@
             return Reflect.get(t, k, r);
           },
           getOwnPropertyDescriptor: (t, k) => {
+             const nativeDesc = Reflect.getOwnPropertyDescriptor(native, k);
+             if (nativeDesc && nativeDesc.configurable === false) return nativeDesc;
              const d = Reflect.getOwnPropertyDescriptor(native, k);
              return (d && !d.configurable) ? d : (Reflect.getOwnPropertyDescriptor(t, k) || d);
           },
@@ -474,22 +480,18 @@
                Object.defineProperty(targetObj, p.name, { value: p, enumerable: false, writable: false, configurable: true });
            });
            Object.defineProperty(targetObj, 'length', { value: pList.length, enumerable: false, writable: false, configurable: false });
-
            Object.defineProperties(targetObj, {
              item: { value: i => pList[i] || null, enumerable: false, writable: false, configurable: true },
              namedItem: { value: n => pList.find(p=>p.name===n) || null, enumerable: false, writable: false, configurable: true },
              refresh: { value: () => {}, enumerable: false, writable: false, configurable: true }
            });
-           
            if (typeof Symbol !== 'undefined' && Symbol.iterator) {
                Object.defineProperty(targetObj, Symbol.iterator, { 
                    value: function* () { for(let p of pList) yield p; }, 
                    enumerable: false, writable: false, configurable: true 
                });
            }
-
            if (win.PluginArray) Object.setPrototypeOf(targetObj, win.PluginArray.prototype);
-
            const fakePlugins = new Proxy(targetObj, {
                get(t, p, r) {
                    if (typeof p === 'symbol') return Reflect.get(t, p, r);
@@ -509,7 +511,6 @@
     clientHints: function(win) {
       try {
         if (!win.navigator.userAgentData) return;
-        
         const highEntropyData = {
              architecture: Persona.ch.arch, 
              bitness: Persona.ch.bitness, 
@@ -518,7 +519,6 @@
              model: Persona.ch.model, 
              wow64: false
         };
-
         const fake = {
           brands: Persona.ch.brands, mobile: Persona.ch.mobile, platform: Persona.ch.platform,
           getHighEntropyValues: (hints) => {
@@ -544,7 +544,6 @@
       try {
         const p = Persona.gpu;
         const debugObj = { UNMASKED_VENDOR_WEBGL: 37445, UNMASKED_RENDERER_WEBGL: 37446 };
-        
         const getPrecision = (st, pt) => {
            const highP = { rangeMin: 127, rangeMax: 127, precision: 23 };
            const intP  = { rangeMin: 31,  rangeMax: 30,  precision: 0  };
@@ -558,7 +557,6 @@
            }
            return highP; 
         };
-
         [win.WebGLRenderingContext, win.WebGL2RenderingContext].forEach(ctx => {
           if (!ctx || !ctx.prototype) return;
           ProxyGuard.override(ctx.prototype, 'getParameter', (orig) => function(param) {
@@ -595,6 +593,7 @@
       } catch(e) {}
     },
 
+    // [Intl] No override (Native Harmony)
     timezone: function(win) {},
 
     audio: function(win) {
