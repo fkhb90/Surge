@@ -1,8 +1,8 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.10 (Timezone Hardened)
- * @description [v2.10] 基於 v2.09c；修復 Date.toString() 時區名稱洩漏問題；實現全路徑時區偽裝 (Offset + Intl + String)。
- * @author    Claude & Gemini
+ * @version   2.11 (Enhanced Edition)
+ * @description [v2.11] 基於 v2.10；修復時區GMT格式化錯誤；新增完整Date方法覆蓋；新增Performance/MediaDevices防護；優化錯誤處理與代理保護
+ * @author    Claude & Gemini (Enhanced by Claude Sonnet 4.5)
  */
 
 (function() {
@@ -23,7 +23,7 @@
     };
 
     const REGEX = {
-        URL_PROTO: /^https?:\/\/([^/:]+)/i,
+        URL_PROTO: /^https?:\/\/([^\/:]+)/i,
         CONTENT_TYPE: /text\/html/i,
         HEAD_TAG: /<head>/i,
         HTML_TAG: /<html[^>]*>/i,
@@ -59,7 +59,7 @@
     // ============================================================================
     const WhitelistManager = (() => {
         const DEFAULT_WHITELIST = {
-            version: '3.3',
+            version: '3.4',
             exact: [
                 "chatgpt.com", "claude.ai", "gemini.google.com", "perplexity.ai", "www.perplexity.ai",
                 "accounts.google.com", "appleid.apple.com", "login.microsoftonline.com", "github.com",
@@ -120,7 +120,7 @@
     }
 
     // ============================================================================
-    // 4. 注入腳本 (v2.10 Timezone Hardened)
+    // 4. 注入腳本 (v2.11 Enhanced)
     // ============================================================================
     const injection = `
 <script>
@@ -128,7 +128,7 @@
     "use strict";
     
     const CONFIG = {
-        ver: '2.10',
+        ver: '2.11',
         isWhitelisted: ${isWhitelisted},
         isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream,
         maxErrorLogs: 50,
@@ -141,7 +141,7 @@
         logs: [],
         capture: function(ctx, err) {
             if (this.logs.length >= CONFIG.maxErrorLogs) this.logs.shift();
-            this.logs.push({ t: Date.now(), c: ctx, m: err?.message || String(err) });
+            this.logs.push({ t: Date.now(), c: ctx, m: err?.message || String(err), s: err?.stack || '' });
         },
         getLogs: function() { return this.logs; },
         getStats: function() {
@@ -216,7 +216,8 @@
             { v: 'NVIDIA Corporation', r: 'NVIDIA GeForce GTX 1650/PCIe/SSE2' },
             { v: 'Google Inc. (NVIDIA)', r: 'ANGLE (NVIDIA, NVIDIA GeForce GTX 1660 Ti Direct3D11 vs_5_0 ps_5_0, D3D11)' },
             { v: 'Apple', r: 'Apple M1' },
-            { v: 'Apple', r: 'Apple M2' }
+            { v: 'Apple', r: 'Apple M2' },
+            { v: 'Google Inc. (AMD)', r: 'ANGLE (AMD, AMD Radeon RX 580 Direct3D11 vs_5_0 ps_5_0)' }
         ];
         const selectedGpu = gpuPool[Math.floor(Math.abs(rand(42)) * gpuPool.length) % gpuPool.length];
 
@@ -238,13 +239,13 @@
             rect: function(v) { return v === 0 ? 0 : v * (1 + (rand(v * 100) * CONFIG.rectNoiseRate - CONFIG.rectNoiseRate / 2)); },
             int: function(base, variance) { return base + Math.floor(rand(base) * variance * 2 - variance); },
             getGPU: function() { return selectedGpu; },
-            // [New] Timezone Profiles
             getTimezone: function() {
                 const zones = [
                     { zone: 'America/New_York', offset: 300, name: 'Eastern Standard Time', abbr: 'EST' },
                     { zone: 'Europe/London', offset: 0, name: 'Greenwich Mean Time', abbr: 'GMT' },
                     { zone: 'Asia/Tokyo', offset: -540, name: 'Japan Standard Time', abbr: 'JST' },
-                    { zone: 'Asia/Shanghai', offset: -480, name: 'China Standard Time', abbr: 'CST' }
+                    { zone: 'Asia/Shanghai', offset: -480, name: 'China Standard Time', abbr: 'CST' },
+                    { zone: 'America/Los_Angeles', offset: 480, name: 'Pacific Standard Time', abbr: 'PST' }
                 ];
                 return zones[Math.floor(Math.abs(rand(99))) % zones.length];
             }
@@ -279,14 +280,23 @@
             const ns = Function.prototype.toString.call(native);
             return new Proxy(custom, {
                 apply: function(t, th, a) { return t.apply(th, a); },
-                get: function(t, k) { if (k === 'toString') return function() { return ns; }; if (k === H) return true; return t[k]; }
+                get: function(t, k) { 
+                    if (k === 'toString') return function() { return ns; }; 
+                    if (k === H) return true; 
+                    if (k === 'name') return native.name;
+                    if (k === 'length') return native.length;
+                    return t[k]; 
+                },
+                getPrototypeOf: function() { return Object.getPrototypeOf(native); }
             });
         },
         override: function(o, p, f) {
             if (!o || !o[p]) return;
             try {
-                const orig = o[p]; const safe = f(orig); const prot = ProxyGuard.protect(orig, safe); prot.prototype = orig.prototype;
-                try { Object.defineProperty(o, p, { value: prot, writable: true, configurable: true }); } catch(e) { try { o[p] = prot; } catch(e2) {} }
+                const orig = o[p]; const safe = f(orig); const prot = ProxyGuard.protect(orig, safe); 
+                if (orig.prototype) prot.prototype = orig.prototype;
+                try { Object.defineProperty(o, p, { value: prot, writable: true, configurable: true }); } 
+                catch(e) { try { o[p] = prot; } catch(e2) {} }
             } catch(e) { ErrorHandler.capture('PG:' + p, e); }
         }
     };
@@ -315,6 +325,17 @@
                             } catch(e) { return orig.apply(this, arguments); }
                         };
                     });
+                    ProxyGuard.override(win.HTMLCanvasElement.prototype, 'toBlob', function(orig) {
+                        return function(callback) {
+                            const w = this.width, h = this.height; 
+                            if (w < 16 || h < 16) return orig.apply(this, arguments);
+                            try {
+                                const p = CanvasPool.get(w, h); p.ctx.clearRect(0, 0, w, h); p.ctx.drawImage(this, 0, 0);
+                                const d = p.ctx.getImageData(0, 0, w, h); Noise.pixel(d.data, w, h); p.ctx.putImageData(d, 0, 0);
+                                p.canvas.toBlob.call(p.canvas, callback); p.release();
+                            } catch(e) { return orig.apply(this, arguments); }
+                        };
+                    });
                 }
             } catch(e) { ErrorHandler.capture('Mod.canvas', e); }
         },
@@ -327,6 +348,9 @@
                     });
                     ProxyGuard.override(win.AnalyserNode.prototype, 'getByteFrequencyData', function(orig) {
                         return function(a) { const r = orig.apply(this, arguments); for (let i = 0; i < a.length; i++) a[i] = Math.max(0, Math.min(255, a[i] + Math.floor((Math.random() * 3) - 1))); return r; };
+                    });
+                    ProxyGuard.override(win.AnalyserNode.prototype, 'getFloatTimeDomainData', function(orig) {
+                        return function(a) { const r = orig.apply(this, arguments); for (let i = 0; i < a.length; i++) a[i] += ((Math.random() * 0.001) - 0.0005); return r; };
                     });
                 }
                 if (AB && AB.prototype) {
@@ -419,12 +443,30 @@
             } catch(e) { ErrorHandler.capture('Mod.permissions', e); }
         },
         
-        // [New] Timezone Hardening
+        // [Enhanced] Timezone Hardening with Complete Date Coverage
         timezone: function(win) {
             try {
                 const fake = Noise.getTimezone();
                 
-                // 1. Intl Spoofing
+                // Helper: Format GMT offset string (e.g., GMT+0800 or GMT-0500)
+                const formatGMTOffset = function(offsetMinutes) {
+                    const sign = offsetMinutes <= 0 ? '+' : '-';
+                    const absOffset = Math.abs(offsetMinutes);
+                    const hours = Math.floor(absOffset / 60);
+                    const minutes = absOffset % 60;
+                    return 'GMT' + sign + String(hours).padStart(2, '0') + String(minutes).padStart(2, '0');
+                };
+                
+                // Helper: Replace timezone info in date strings
+                const replaceTimezoneInfo = function(str) {
+                    // Replace timezone name in parentheses
+                    str = str.replace(/\\([^\\)]+\\)$/, '(' + fake.name + ')');
+                    // Replace GMT offset
+                    str = str.replace(/GMT[\\+\\-]\\d{4}/, formatGMTOffset(fake.offset));
+                    return str;
+                };
+                
+                // 1. Intl.DateTimeFormat Spoofing
                 if (win.Intl && win.Intl.DateTimeFormat) {
                     const OrigDTF = win.Intl.DateTimeFormat;
                     win.Intl.DateTimeFormat = function() {
@@ -441,29 +483,110 @@
                     win.Intl.DateTimeFormat.supportedLocalesOf = OrigDTF.supportedLocalesOf;
                 }
                 
-                // 2. Date.getTimezoneOffset Spoofing
+                // 2. Date.prototype Methods Spoofing
                 if (win.Date && win.Date.prototype) {
+                    // getTimezoneOffset
                     ProxyGuard.override(win.Date.prototype, 'getTimezoneOffset', function() {
                         return function() { return fake.offset; };
                     });
                     
-                    // 3. Date.toString() Leak Protection
-                    // Override toString/toTimeString to replace real timezone name with fake one
-                    const replaceZone = function(str) {
-                        // Regex to catch (Zone Name) or GMT+XXXX
-                        return str.replace(/\([^\)]+\)/, '(' + fake.name + ')')
-                                  .replace(/GMT[\+\-]\d{4}/, 'GMT' + (fake.offset > 0 ? '-' : '+') + String(Math.abs(fake.offset/60*100)).padStart(4, '0')); 
-                                  // Note: Offset symbol is inverted in GMT string vs getTimezoneOffset
-                    };
-
+                    // toString
                     ProxyGuard.override(win.Date.prototype, 'toString', function(orig) {
-                        return function() { return replaceZone(orig.apply(this, arguments)); };
+                        return function() { return replaceTimezoneInfo(orig.apply(this, arguments)); };
                     });
+                    
+                    // toTimeString
                     ProxyGuard.override(win.Date.prototype, 'toTimeString', function(orig) {
-                        return function() { return replaceZone(orig.apply(this, arguments)); };
+                        return function() { return replaceTimezoneInfo(orig.apply(this, arguments)); };
+                    });
+                    
+                    // toDateString (no timezone info, but override for consistency)
+                    ProxyGuard.override(win.Date.prototype, 'toDateString', function(orig) {
+                        return function() { return orig.apply(this, arguments); };
+                    });
+                    
+                    // toLocaleString
+                    ProxyGuard.override(win.Date.prototype, 'toLocaleString', function(orig) {
+                        return function(locales, options) {
+                            const opts = options || {};
+                            opts.timeZone = fake.zone;
+                            return orig.call(this, locales, opts);
+                        };
+                    });
+                    
+                    // toLocaleDateString
+                    ProxyGuard.override(win.Date.prototype, 'toLocaleDateString', function(orig) {
+                        return function(locales, options) {
+                            const opts = options || {};
+                            opts.timeZone = fake.zone;
+                            return orig.call(this, locales, opts);
+                        };
+                    });
+                    
+                    // toLocaleTimeString
+                    ProxyGuard.override(win.Date.prototype, 'toLocaleTimeString', function(orig) {
+                        return function(locales, options) {
+                            const opts = options || {};
+                            opts.timeZone = fake.zone;
+                            return orig.call(this, locales, opts);
+                        };
                     });
                 }
             } catch(e) { ErrorHandler.capture('Mod.timezone', e); }
+        },
+        
+        // [New] Performance API Protection
+        performance: function(win) {
+            try {
+                if (!win.performance) return;
+                
+                // Add noise to performance.now()
+                const origNow = win.performance.now;
+                if (origNow) {
+                    const noiseOffset = Math.random() * 0.5;
+                    ProxyGuard.override(win.performance, 'now', function() {
+                        return function() { return origNow.call(win.performance) + noiseOffset; };
+                    });
+                }
+                
+                // Spoof memory info if available
+                if (win.performance.memory) {
+                    const origMemory = win.performance.memory;
+                    Object.defineProperty(win.performance, 'memory', {
+                        get: function() {
+                            return {
+                                jsHeapSizeLimit: Noise.int(origMemory.jsHeapSizeLimit || 2172649472, 10000000),
+                                totalJSHeapSize: Noise.int(origMemory.totalJSHeapSize || 50000000, 1000000),
+                                usedJSHeapSize: Noise.int(origMemory.usedJSHeapSize || 30000000, 1000000)
+                            };
+                        },
+                        configurable: true
+                    });
+                }
+            } catch(e) { ErrorHandler.capture('Mod.performance', e); }
+        },
+        
+        // [New] MediaDevices Protection
+        mediaDevices: function(win) {
+            try {
+                if (!win.navigator.mediaDevices) return;
+                
+                // Spoof enumerateDevices
+                ProxyGuard.override(win.navigator.mediaDevices, 'enumerateDevices', function(orig) {
+                    return function() {
+                        return orig.apply(this, arguments).then(function(devices) {
+                            return devices.map(function(device) {
+                                return {
+                                    deviceId: device.deviceId ? 'spoofed_' + Math.random().toString(36).substr(2, 9) : '',
+                                    groupId: device.groupId ? 'spoofed_' + Math.random().toString(36).substr(2, 9) : '',
+                                    kind: device.kind,
+                                    label: device.label
+                                };
+                            });
+                        });
+                    };
+                });
+            } catch(e) { ErrorHandler.capture('Mod.mediaDevices', e); }
         }
     };
 
@@ -472,9 +595,30 @@
             if (win._FP_V2_DONE) return;
             Object.defineProperty(win, '_FP_V2_DONE', { value: true, enumerable: false });
             
-            Modules.canvas(win); Modules.rects(win); Modules.webrtc(win); Modules.screen(win); Modules.webgl(win); Modules.timezone(win);
-            const lazy = function() { Modules.audio(win); Modules.hardware(win); Modules.permissions(win); };
-            if (win.requestIdleCallback) win.requestIdleCallback(lazy); else setTimeout(lazy, 0);
+            // Core modules (immediate)
+            Modules.canvas(win); 
+            Modules.rects(win); 
+            Modules.webrtc(win); 
+            Modules.screen(win); 
+            Modules.webgl(win); 
+            Modules.timezone(win);
+            
+            // Secondary modules (deferred)
+            const lazy = function() { 
+                Modules.audio(win); 
+                Modules.hardware(win); 
+                Modules.permissions(win); 
+                Modules.performance(win);
+                Modules.mediaDevices(win);
+            };
+            
+            if (win.requestIdleCallback) {
+                win.requestIdleCallback(lazy, { timeout: 1000 });
+            } else if (win.requestAnimationFrame) {
+                win.requestAnimationFrame(function() { setTimeout(lazy, 0); });
+            } else {
+                setTimeout(lazy, 0);
+            }
         } catch(e) { ErrorHandler.capture('inject', e); }
     };
 
@@ -499,9 +643,12 @@
     
     window.__FP_METRICS__ = {
         version: CONFIG.ver,
-        injections: { canvas: 0, audio: 0, font: 0, hardware: 0, webrtc: 0, rects: 0, screen: 0, webgl: 0, permissions: 0, timezone: 0 },
+        injections: { canvas: 0, audio: 0, font: 0, hardware: 0, webrtc: 0, rects: 0, screen: 0, webgl: 0, permissions: 0, timezone: 0, performance: 0, mediaDevices: 0 },
         getErrors: function() { return ErrorHandler.getLogs(); },
-        getErrorStats: function() { return ErrorHandler.getStats(); }
+        getErrorStats: function() { return ErrorHandler.getStats(); },
+        getSeed: function() { return Seed; },
+        getTimezone: function() { return Noise.getTimezone(); },
+        getGPU: function() { return Noise.getGPU(); }
     };
 })();
 </script>
