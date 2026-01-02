@@ -1,11 +1,11 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.60-Test-Ready (Unleashed)
- * @description [測試專用版] 移除 BrowserLeaks 白名單，繼承 v2.59 所有核心邏輯。
+ * @version   2.61-UI-Restored
+ * @description [顯示修復版] 基於 v2.60 核心，並強制恢復左下角視覺 UI (綠色盾牌)。
  * ----------------------------------------------------------------------------
- * 1. [Whitelist] Unlocked: 移除 browserleaks.com 白名單，允許在此類網站進行全火力測試。
- * 2. [Math] Symmetric Jitter: 維持 (Random * 2 - 1) 的 ±4h 對稱時間抖動，確保長期統計隱匿性。
- * 3. [Network] Protocol: 腳本邏輯已鎖定適配 Windows Chrome 120，請務必套用上方的 Surge Header Rewrite。
+ * 1. [UI] Restored: 修正前一版本盾牌消失問題，現在會顯示 "FP Active" (綠色) 或 "FP Bypass" (灰色)。
+ * 2. [Whitelist] Unlocked: 繼承 v2.60 設定，無 browserleaks 白名單限制 (全域測試)。
+ * 3. [Math] Symmetric Jitter: 維持 (Random * 2 - 1) 的 ±4h 對稱時間抖動。
  * 4. [System] Final Stable: 包含 CSP Safe, Canvas Heuristics (500x500), Symbol-Safe Proxy。
  * ----------------------------------------------------------------------------
  * @note Surge/Quantumult X 類 rewrite。
@@ -19,8 +19,9 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_SEED_V260_TEST", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V260",
+    // 更新 Key 以確保與舊版隔離
+    KEY_SEED: "FP_SHIELD_SEED_V261_UI", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V261_UI",
     
     // Rotation Config
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000, // 24 Hours
@@ -48,7 +49,7 @@
     WORKER_REVOKE_DELAY_MS: 4000,
     CANVAS_MAX_PIXELS_NOISE: 1920 * 1080,
     WEBGL_TA_CACHE_SIZE: 16,
-    INJECT_MARKER: "__FP_SHIELD_V260__"
+    INJECT_MARKER: "__FP_SHIELD_V261_UI__"
   };
 
   const GET_NOISE_CONFIG = (level) => {
@@ -136,7 +137,7 @@
   }
 
   // ============================================================================
-  // 4. 注入腳本 (v2.60-Test-Ready)
+  // 4. 注入腳本 (v2.61-UI-Restored)
   // ============================================================================
   const injection = `
 <script>
@@ -149,7 +150,7 @@
   } catch(e) {}
 
   const CONFIG = {
-    ver: '2.60-Test-Ready',
+    ver: '2.61-UI-Restored',
     isWhitelisted: ${isWhitelisted},
     isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream,
     maxErrorLogs: ${CONST.MAX_ERROR_LOGS},
@@ -168,6 +169,7 @@
     toBlobReleaseFallbackMs: ${CONST.TOBLOB_RELEASE_FALLBACK_MS}
   };
 
+  // ---------------- UI (Restored) ----------------
   const UI = {
     showBadge: function() {
       try {
@@ -175,7 +177,7 @@
         host.style.cssText = 'position:fixed;bottom:10px;left:10px;z-index:2147483647;pointer-events:none;width:0;height:0;';
         const root = host.attachShadow({ mode: 'closed' });
         const b = document.createElement('div');
-        const color = CONFIG.isWhitelisted ? 'rgba(100,100,100,0.85)' : 'rgba(0,120,0,0.9)';
+        const color = CONFIG.isWhitelisted ? 'rgba(100,100,100,0.85)' : 'rgba(0,120,0,0.9)'; // Green for active
         const text = CONFIG.isWhitelisted ? 'FP Bypass' : 'FP Active';
         b.style.cssText = 'background:'+color+';color:#fff;padding:6px;border-radius:4px;font-size:10px;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,0.2);font-family:sans-serif;opacity:0;transition:opacity 0.5s;';
         b.textContent = text;
