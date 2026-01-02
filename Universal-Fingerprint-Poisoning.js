@@ -1,11 +1,11 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.86-Whitelist-Restored (macOS Persona)
- * @description [白名單全域回補版] 基於 V2.85，恢復完整的雙層白名單機制（Hard/Soft）。
+ * @version   2.90-Traveler-Edition (OTA Targeting + Mode Switch)
+ * @description [環球旅行者版] 針對 OTA 訂房網進行反殺熟，並支援 Surge 模組一鍵切換購物模式。
  * ----------------------------------------------------------------------------
- * 1. [Hard Exclusions] 網路層級略過：Apple/iCloud/銀行/OTA/Crashlytics -> 不注入。
- * 2. [Soft Whitelist] 注入層級略過：Google/Netflix/Gov -> 顯示灰燈 (Bypass)。
- * 3. [Persona] 保持 V2.85 的強制 macOS + Apple Silicon/Intel 混合偽裝。
+ * 1. [OTA Sniper] 鎖定 Booking/Agoda/Airbnb 等訂房網，強制執行混淆以避免價格歧視。
+ * 2. [Mode Switch] 支援 argument="mode=shopping"，開啟後暫停干擾 (紫色徽章)。
+ * 3. [Core] 繼承 V2.87 的電商獵手邏輯與 macOS 偽裝。
  * ----------------------------------------------------------------------------
  * @note Surge/Quantumult X 類 rewrite。
  */
@@ -14,15 +14,17 @@
   "use strict";
 
   // ============================================================================
-  // 0. 配置與常數
+  // 0. 配置與參數解析
   // ============================================================================
+  const ARGS = (typeof $argument === "string") ? $argument : "";
+  const IS_SHOPPING_MODE = ARGS.includes("mode=shopping");
+
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_MAC_V286", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V286",
-    INJECT_MARKER: "__FP_SHIELD_V286__",
+    KEY_SEED: "FP_SHIELD_MAC_V290", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V290",
+    INJECT_MARKER: "__FP_SHIELD_V290__",
     
-    // Core Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
     JITTER_RANGE_MS: 4 * 60 * 60 * 1000,
     INTERFERENCE_LEVEL: 1,
@@ -49,23 +51,20 @@
   const normalizedHeaders = Object.keys(headers).reduce((acc, key) => { acc[String(key).toLowerCase()] = headers[key]; return acc; }, {});
 
   // ============================================================================
-  // 1. 硬白名單 (Hard Exclusions) - 網路層級直接放行
+  // 1. 硬白名單 (Hard Exclusions) - 基礎設施保護
   // ============================================================================
-  // 這些網域或關鍵字完全不進行 Body 修改，避免 App 崩潰或連線中斷
   const HardExclusions = (() => {
     const list = [
-      // Apple Services (Critical for device health)
       "apple.com", "icloud.com", "mzstatic.com", "itunes.apple.com", "cdn-apple.com",
-      "mesu.apple.com", "updates.cdn-apple.com", "xp.apple.com", "bag.itunes.apple.com",
-      // Crash Reporting & Analytics (Often embedded in apps)
-      "crashlytics.com", "firebaseio.com", "app-measurement.com", "google-analytics.com",
-      // Banking & Payments (Strict Integrity Checks)
+      "mesu.apple.com", "updates.cdn-apple.com", "xp.apple.com",
+      "crashlytics.com", "firebaseio.com", "app-measurement.com",
+      // Payment Gateways
       "paypal.com", "stripe.com", "braintreegateway.com", "visa.com", "mastercard.com",
-      "americanexpress.com", "esunbank.com.tw", "ctbcbank.com", "cathaybk.com.tw", "taishinbank.com.tw",
-      // Captive Portals
-      "captive.apple.com", "connectivitycheck.gstatic.com", "msftconnecttest.com",
-      // Specific App APIs known to break
-      "instagram.com/api", "graph.facebook.com", "api.twitter.com"
+      "americanexpress.com", "ecpay.com.tw", "newebpay.com", "jkopay.com", "line-pay",
+      // Banks
+      "esunbank.com.tw", "ctbcbank.com", "cathaybk.com.tw", "taishinbank.com.tw", 
+      "fubon.com", "megabank.com.tw", "sinopac.com",
+      "captive.apple.com", "connectivitycheck.gstatic.com"
     ];
     return {
       check: (url) => {
@@ -78,7 +77,7 @@
   if (HardExclusions.check($request.url)) { $done({}); return; }
 
   // ============================================================================
-  // 2. 基礎過濾 (Basic Filtering)
+  // 2. 基礎過濾
   // ============================================================================
   if ([204, 206, 301, 302, 304].includes($res.status)) { $done({}); return; }
   
@@ -88,20 +87,20 @@
   if (cType && (REGEX.CONTENT_TYPE_JSONLIKE.test(cType) || !REGEX.CONTENT_TYPE_HTML.test(cType))) { $done({}); return; }
 
   // ============================================================================
-  // 3. 軟白名單 (Soft Whitelist) - 注入但不干擾
+  // 3. 軟白名單 (Soft Whitelist) - 僅保留協作與媒體
   // ============================================================================
+  // 注意：OTA (Booking/Agoda) 與 電商 (Shopee/Momo) 均不在名單內 -> 視為目標
   const SoftWhitelist = (() => {
     const domains = new Set([
-      "google.com", "www.google.com", "accounts.google.com", "docs.google.com", "drive.google.com", "youtube.com",
-      "microsoft.com", "live.com", "office.com", "onedrive.com", "sharepoint.com", "teams.microsoft.com",
-      "facebook.com", "messenger.com", "whatsapp.com", 
-      "twitter.com", "x.com", "linkedin.com", "slack.com", "zoom.us", "discord.com",
+      "google.com", "www.google.com", "accounts.google.com", "docs.google.com", "drive.google.com", 
+      "microsoft.com", "office.com", "onedrive.com", "sharepoint.com", "teams.microsoft.com",
+      "notion.so", "figma.com", "canva.com",
+      "facebook.com", "messenger.com", "whatsapp.com", "line.me", "slack.com", "discord.com",
       "github.com", "gitlab.com", "stackoverflow.com", "openai.com", "chatgpt.com", "claude.ai",
-      "amazon.com", "shopee.tw", "shopee.com", "momoshop.com.tw", "pchome.com.tw",
-      "netflix.com", "spotify.com", "disneyplus.com", "hulu.com", "twitch.tv",
-      "gov.tw", "edu.tw", "webglreport.com" // For checking true values if needed
+      "netflix.com", "spotify.com", "disneyplus.com", "youtube.com", "twitch.tv",
+      "gov.tw", "edu.tw"
     ]);
-    const suffixes = [".gov", ".edu", ".mil", ".bank", ".int"];
+    const suffixes = [".gov", ".edu", ".mil", ".int"];
     
     return {
       check: (h) => {
@@ -117,12 +116,14 @@
   let hostname = "";
   try { hostname = new URL($request.url).hostname.toLowerCase(); } catch (e) { $done({}); return; }
   
-  const isSoftWhitelisted = SoftWhitelist.check(hostname);
+  // Logic: 若開啟購物模式，則強制視為軟白名單 (Bypass)
+  const isSoftWhitelisted = IS_SHOPPING_MODE || SoftWhitelist.check(hostname);
+  
   let body = $res.body;
   if (!body || REGEX.JSON_START.test(body.substring(0, 80).trim())) { $done({}); return; }
   if (body.includes(CONST.INJECT_MARKER)) { $done({ body, headers }); return; }
 
-  // 4. CSP Header 移除 (Nuclear)
+  // 4. CSP Header 移除
   const headerKeys = Object.keys(headers);
   headerKeys.forEach(key => {
       const lowerKey = key.toLowerCase();
@@ -138,6 +139,10 @@
   // ============================================================================
   // 6. 靜態 HTML UI
   // ============================================================================
+  // 根據模式顯示不同顏色的 Badge
+  const badgeColor = IS_SHOPPING_MODE ? "#AF52DE" : "#007AFF"; // Purple for Shopping, Blue for Protection
+  const badgeText = IS_SHOPPING_MODE ? "FP: Shopping" : "FP: macOS";
+
   const staticBadgeHTML = `
   <div id="fp-nuclear-badge" style="
       position: fixed !important;
@@ -145,7 +150,7 @@
       left: 10px !important;
       top: auto !important;
       z-index: 2147483647 !important;
-      background-color: #007AFF !important; 
+      background-color: ${badgeColor} !important; 
       color: #FFFFFF !important;
       padding: 6px 10px !important;
       border-radius: 6px !important;
@@ -156,11 +161,11 @@
       pointer-events: none !important;
       opacity: 1 !important;
       transition: opacity 0.5s, background-color 0.3s !important;
-  ">FP: macOS</div>
+  ">${badgeText}</div>
   `;
 
   // ============================================================================
-  // 7. 核心邏輯 (v2.86 Mac-Only + Soft Whitelist Handling)
+  // 7. 核心邏輯
   // ============================================================================
   const injectionScript = `
 <script>
@@ -190,17 +195,21 @@
         toBlobReleaseFallbackMs: ${CONST.TOBLOB_RELEASE_FALLBACK_MS}
       };
 
-      // --- UI Status Logic ---
       if(b) {
-          if(CONFIG.isWhitelisted) { 
-              b.style.backgroundColor = '#666666'; b.textContent = 'FP Bypass'; 
+          if(CONFIG.isWhitelisted) {
+             // 若為購物模式 (Shopping Mode)，顯示紫色
+             const isShop = ${IS_SHOPPING_MODE};
+             if (isShop) {
+                 b.style.backgroundColor = '#AF52DE'; b.textContent = 'FP: Shopping';
+             } else {
+                 b.style.backgroundColor = '#666666'; b.textContent = 'FP Bypass';
+             }
           } else { 
               b.style.backgroundColor = '#007AFF'; b.textContent = 'FP: macOS'; 
           }
           setTimeout(() => { if(b) { b.style.opacity='0'; setTimeout(()=>b.remove(), 1000); } }, 4000);
       }
 
-      // *** SOFT WHITELIST EXIT POINT ***
       if (CONFIG.isWhitelisted) return;
 
       // ---------------- Helper: SafeDefine (iOS Patch) ----------------
