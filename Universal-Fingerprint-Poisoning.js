@@ -1,11 +1,11 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.66-Ghost-Protocol (Smart Bypass)
- * @description [幽靈協議版] 解決 "Attempted to assign to readonly property" 錯誤。
+ * @version   2.67-Trojan-Horse (Global Corruption)
+ * @description [木馬屠城版] 針對紅色盾牌(JS不執行)，採用全域關鍵字破壞戰術。
  * ----------------------------------------------------------------------------
- * 1. [Fix] ReadOnly: 引入 SmartDefine，遇鎖定屬性自動改修 Prototype 或跳過。
- * 2. [System] Silent: 將屬性寫入失敗視為軟性錯誤，確保 UI 維持綠色 (Active)。
- * 3. [Core] Prototype: 針對 iOS WebKit，從原型鏈底層進行特徵混淆。
+ * 1. [CSP] Corrupt: 全域替換 "Content-Security-Policy" 為無效字串，強制癱瘓 CSP。
+ * 2. [SRI] Disable: 全域移除 "integrity" 屬性，防止 SRI 雜湊檢查導致的腳本封鎖。
+ * 3. [Inj] Head-First: 強制注入至 <head> 頂部，確保優先權高於頁面其他腳本。
  * ----------------------------------------------------------------------------
  * @note Surge/Quantumult X 類 rewrite。
  */
@@ -18,14 +18,14 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_SEED_V266", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V266",
+    KEY_SEED: "FP_SHIELD_SEED_V267", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V267",
     
     // Rotation Config
-    BASE_ROTATION_MS: 24 * 60 * 60 * 1000, // 24 Hours
-    JITTER_RANGE_MS: 4 * 60 * 60 * 1000,   // +/- 4 Hours
+    BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
+    JITTER_RANGE_MS: 4 * 60 * 60 * 1000,
     
-    INTERFERENCE_LEVEL: 1, // 0:Min, 1:Bal, 2:Agg
+    INTERFERENCE_LEVEL: 1, 
     
     // Heuristics
     CANVAS_MIN_SIZE: 16,
@@ -35,13 +35,12 @@
     MAX_POOL_SIZE: 5,
     MAX_POOL_DIM: 1024 * 1024,
     MAX_ERROR_LOGS: 50,
-    CSP_CHECK_LENGTH: 5000, 
     
     WEBGL_PARAM_CACHE_SIZE: 40,
     CACHE_CLEANUP_INTERVAL: 30000,
     ERROR_THROTTLE_MS: 1000,
     TOBLOB_RELEASE_FALLBACK_MS: 3000,
-    INJECT_MARKER: "__FP_SHIELD_V266__"
+    INJECT_MARKER: "__FP_SHIELD_V267__"
   };
 
   const GET_NOISE_CONFIG = (level) => {
@@ -57,10 +56,8 @@
   const REGEX = {
     CONTENT_TYPE_HTML: /text\/html/i,
     CONTENT_TYPE_JSONLIKE: /(application\/json|application\/(ld\+json|problem\+json)|text\/json|application\/javascript|text\/javascript)/i,
-    HEAD_TAG: /<head[^>]*>/i,
+    HEAD_TAG: /<head[^>]*>/i, // Target HEAD for higher priority
     HTML_TAG: /<html[^>]*>/i,
-    BODY_END_TAG: /<\/body>/i,
-    META_CSP_BLOCKING: /<meta[\s\S]*?http-equiv=["']?content-security-policy["']?[\s\S]*?>/gi,
     APP_BROWSERS: /line\/|fb_iab|micromessenger|worksmobile|naver|github|shopee|seamoney/i,
     JSON_START: /^\s*[\{\[]/,
   };
@@ -118,7 +115,7 @@
   if (!body || REGEX.JSON_START.test(body.substring(0, 80).trim())) { $done({}); return; }
   if (body.includes(CONST.INJECT_MARKER)) { $done({ body, headers }); return; }
 
-  // 3. CSP 移除
+  // 3. CSP Header 移除
   const headerKeys = Object.keys(headers);
   headerKeys.forEach(key => {
       const lowerKey = key.toLowerCase();
@@ -127,15 +124,19 @@
       }
   });
 
-  const headChunk = body.substring(0, CONST.CSP_CHECK_LENGTH);
-  if (REGEX.META_CSP_BLOCKING.test(headChunk)) {
-    REGEX.META_CSP_BLOCKING.lastIndex = 0; 
-    body = headChunk.replace(REGEX.META_CSP_BLOCKING, "") + body.substring(CONST.CSP_CHECK_LENGTH);
-  }
+  // 4. [Trojan-Horse] 全域 CSP 關鍵字破壞與 SRI 移除
+  // 注意：這一步必須在注入腳本之前進行，以淨化環境
+  // 替換所有 Content-Security-Policy 為 No-Security-Policy，破壞 Meta 標籤
+  body = body.replace(/Content-Security-Policy/gi, "No-Security-Policy");
+  // 移除 integrity="..." 屬性，防止 SRI 封鎖
+  body = body.replace(/integrity=["'][^"']*["']/gi, "");
+  // 破壞 nonce 檢查 (可選)
+  body = body.replace(/nonce=["'][^"']*["']/gi, "");
 
   // ============================================================================
-  // 4. 靜態 HTML UI
+  // 5. 靜態 HTML UI
   // ============================================================================
+  // Start Red (Wait JS).
   const staticBadgeHTML = `
   <div id="fp-nuclear-badge" style="
       position: fixed !important;
@@ -157,7 +158,7 @@
   `;
 
   // ============================================================================
-  // 5. 注入腳本 (v2.66) - Smart Bypass
+  // 6. 注入腳本 (v2.67) - Head Injection
   // ============================================================================
   const injectionScript = `
 <script>
@@ -166,7 +167,6 @@
   
   function panic(e) {
       try {
-          // Ignore specific read-only errors to keep shield green
           if (e && (e.message || '').includes('readonly')) {
               console.warn('FP Shield Soft-Fail:', e.message);
               return; 
@@ -190,7 +190,7 @@
       } catch(e) {} 
 
       const CONFIG = {
-        ver: '2.66-Ghost',
+        ver: '2.67-Trojan',
         isWhitelisted: ${isWhitelisted},
         isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream,
         maxErrorLogs: ${CONST.MAX_ERROR_LOGS},
@@ -267,24 +267,16 @@
       };
       if (RNG.s === 0) RNG.s = 1;
 
-      // ---------------- Smart Helper: Safe Property Definition ----------------
       const safeDefine = (obj, prop, descriptor) => {
           if (!obj) return false;
           try {
-              // 1. Check if property exists and is locked
               const d = Object.getOwnPropertyDescriptor(obj, prop);
-              if (d && !d.configurable) {
-                  // Property is locked. Cannot redefine.
-                  // Note: In strict mode, defineProperty would throw TypeError here.
-                  // We return false to signal we should try Prototype or give up.
-                  return false;
-              }
+              if (d && !d.configurable) return false;
               Object.defineProperty(obj, prop, descriptor);
               return true;
           } catch(e) { return false; }
       };
 
-      // ---------------- Strict Persona ----------------
       const Persona = (function() {
         const currentUA = navigator.userAgent || '';
         const HW_TIERS = {
@@ -381,7 +373,6 @@
           const safe = f(orig);
           const prot = this.protect(orig, safe);
           const newDesc = { value: prot, configurable: desc?desc.configurable:true, writable: desc?desc.writable:true, enumerable: desc?desc.enumerable:true };
-          // Use safeDefine for function overrides too
           safeDefine(o, p, newDesc);
         }
       };
@@ -389,12 +380,9 @@
       const Modules = {
         hardware: function(win) {
           const N = win.navigator;
-          // Strategy: Try Instance -> Try Prototype -> Soft Fail
-          
           const spoofProp = (target, prop, getterVal) => {
               const desc = { get: () => getterVal, configurable: true };
               if (!safeDefine(target, prop, desc)) {
-                  // If instance failed, try prototype
                   try {
                       if (win.Navigator && win.Navigator.prototype) {
                           safeDefine(win.Navigator.prototype, prop, desc);
@@ -408,7 +396,6 @@
           spoofProp(N, 'platform', Persona.ua.platform);
 
           if ('getBattery' in N) {
-              // For battery, we just try our best, no hard fail
               try {
                   let cached = null;
                   const makeBattery = () => {
@@ -419,10 +406,7 @@
                      bat.addEventListener = (t,f)=>{}; bat.removeEventListener = ()=>{}; bat.dispatchEvent = ()=>{};
                      return bat;
                   };
-                  // Attempt overwrite
-                  if (!safeDefine(N, 'getBattery', { value: function() { if(!cached) cached = makeBattery(); return Promise.resolve(cached); } })) {
-                      // Battery API is often protected, ignore failure
-                  }
+                  safeDefine(N, 'getBattery', { value: function() { if(!cached) cached = makeBattery(); return Promise.resolve(cached); } });
               } catch(e) {}
           }
         },
@@ -531,9 +515,10 @@
 
   const combinedInjection = staticBadgeHTML + injectionScript;
 
-  if (REGEX.BODY_END_TAG.test(body)) body = body.replace(REGEX.BODY_END_TAG, combinedInjection + '</body>');
-  else if (REGEX.HTML_TAG.test(body)) body = body.replace(REGEX.HTML_TAG, combinedInjection + '</html>');
-  else body = body + combinedInjection;
+  // 強制插入到 <head> 中，確保腳本在 body 渲染前就嘗試執行
+  if (REGEX.HEAD_TAG.test(body)) body = body.replace(REGEX.HEAD_TAG, (m) => m + combinedInjection);
+  else if (REGEX.HTML_TAG.test(body)) body = body.replace(REGEX.HTML_TAG, (m) => m + combinedInjection);
+  else body = combinedInjection + body;
 
   $done({ body: body, headers: headers });
 })();
