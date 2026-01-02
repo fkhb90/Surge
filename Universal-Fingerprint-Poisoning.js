@@ -1,11 +1,12 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.59-Symmetric-Chaos (True Jitter & Final Polish)
- * @description [代碼定案] 修正時序抖動的數學邏輯，達成完美的對稱隨機分佈。
+ * @version   2.60-Test-Ready (Unleashed)
+ * @description [測試專用版] 移除 BrowserLeaks 白名單，繼承 v2.59 所有核心邏輯。
  * ----------------------------------------------------------------------------
- * 1. [Math] Symmetric Jitter: 修正 Seed 輪替公式為 (Random * 2 - 1)，實現真正的 ±4 小時 (20h~28h) 對稱波動，消除正向漂移特徵。
- * 2. [Network] Bridge Required: 必須配合 Surge/QX Header Rewrite 鎖定 UA/CH (Win/Chrome 120)，腳本將自動適配。
- * 3. [System] Final Lock: 包含所有先前版本的安全性、效能與一致性修正。此為最終穩定版本。
+ * 1. [Whitelist] Unlocked: 移除 browserleaks.com 白名單，允許在此類網站進行全火力測試。
+ * 2. [Math] Symmetric Jitter: 維持 (Random * 2 - 1) 的 ±4h 對稱時間抖動，確保長期統計隱匿性。
+ * 3. [Network] Protocol: 腳本邏輯已鎖定適配 Windows Chrome 120，請務必套用上方的 Surge Header Rewrite。
+ * 4. [System] Final Stable: 包含 CSP Safe, Canvas Heuristics (500x500), Symbol-Safe Proxy。
  * ----------------------------------------------------------------------------
  * @note Surge/Quantumult X 類 rewrite。
  */
@@ -18,8 +19,8 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_SEED_V259_CHAOS", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V259",
+    KEY_SEED: "FP_SHIELD_SEED_V260_TEST", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V260",
     
     // Rotation Config
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000, // 24 Hours
@@ -47,7 +48,7 @@
     WORKER_REVOKE_DELAY_MS: 4000,
     CANVAS_MAX_PIXELS_NOISE: 1920 * 1080,
     WEBGL_TA_CACHE_SIZE: 16,
-    INJECT_MARKER: "__FP_SHIELD_V259__"
+    INJECT_MARKER: "__FP_SHIELD_V260__"
   };
 
   const GET_NOISE_CONFIG = (level) => {
@@ -82,7 +83,7 @@
   const cType = normalizedHeaders["content-type"] || "";
   if (cType && (REGEX.CONTENT_TYPE_JSONLIKE.test(cType) || !REGEX.CONTENT_TYPE_HTML.test(cType))) { $done({}); return; }
 
-  // 2. 白名單
+  // 2. 白名單 (Vault Strategy - Removed browserleaks)
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
       "google.com", "www.google.com", "accounts.google.com", "docs.google.com",
@@ -94,7 +95,8 @@
       "stackoverflow.com",
       "openai.com", "chatgpt.com", "claude.ai",
       "line.me", "whatsapp.com", "discord.com",
-      "webglreport.com", "browserleaks.com"
+      "webglreport.com" 
+      // "browserleaks.com" REMOVED for testing
     ]);
     const trustedSuffixes = [".gov.tw", ".edu.tw", ".org.tw", ".gov", ".edu", ".mil", ".bank"];
     const normalize = h => String(h || "").toLowerCase().trim();
@@ -134,7 +136,7 @@
   }
 
   // ============================================================================
-  // 4. 注入腳本 (v2.59-Symmetric-Chaos)
+  // 4. 注入腳本 (v2.60-Test-Ready)
   // ============================================================================
   const injection = `
 <script>
@@ -147,7 +149,7 @@
   } catch(e) {}
 
   const CONFIG = {
-    ver: '2.59-Symmetric-Chaos',
+    ver: '2.60-Test-Ready',
     isWhitelisted: ${isWhitelisted},
     isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream,
     maxErrorLogs: ${CONST.MAX_ERROR_LOGS},
@@ -214,8 +216,7 @@
             }
             val = extra.toString();
             
-            // [Math Fix] Symmetric Jitter: 24h +/- 4h (Range: 20h ~ 28h)
-            // (Math.random() * 2 - 1) produces range -1.0 to 1.0
+            // [Math] Symmetric Jitter: 24h +/- 4h
             const jitterOffset = Math.floor((Math.random() * 2 - 1) * ${CONST.JITTER_RANGE_MS});
             const nextExpiry = now + ${CONST.BASE_ROTATION_MS} + jitterOffset;
             
@@ -245,8 +246,9 @@
   };
   if (RNG.s === 0) RNG.s = 1;
 
-  // ---------------- Strict Persona (Joint Distribution) ----------------
+  // ---------------- Strict Persona (Network Driven) ----------------
   const Persona = (function() {
+    // [Network Reactive]
     const currentUA = navigator.userAgent || '';
     
     // Hardware Tiers
