@@ -1,54 +1,79 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   3.01-Payment-Safe (True iOS Revert)
- * @description [支付安全版] 修正購物模式邏輯。當切換至購物模式時，徹底停止 Header 偽裝，恢復真實 iOS 身份以通過銀行風控。
+ * @version   3.02-Diagnostic (Mode Detection Debug)
+ * @description [診斷版] 用於排查「購物模式」無法生效的問題。會在日誌中輸出策略組狀態。
  * ----------------------------------------------------------------------------
- * 1. [Fix] Shopping Mode 現在會繞過 Header 修改，回傳原始 iPhone User-Agent。
- * 2. [Core] 保持 V3.00 的雙重掛載架構與穩定性。
+ * 1. [Debug] 強制輸出 FP-Mode 的讀取結果，請查看 Surge 日誌。
+ * 2. [Logic] 增強關鍵字比對邏輯。
  * ----------------------------------------------------------------------------
- * @note 僅需更新 JS 檔案，模組 (Module) 設定無需更動。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 0. 全域配置與模式偵測
+  // 0. 全域配置
   // ============================================================================
   const TARGET_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
   
-  let IS_SHOPPING_MODE = false;
+  // [除錯開關] 開啟以檢查為什麼購物模式失效
+  const DEBUG_LOG = true; 
 
-  // 策略組連動偵測
+  let IS_SHOPPING_MODE = false;
+  let debugMsg = "";
+
+  // 策略組偵測邏輯
   try {
     if (typeof $surge !== 'undefined' && $surge.selectGroupDetails) {
-      const decisions = $surge.selectGroupDetails().decisions;
+      const details = $surge.selectGroupDetails();
+      const decisions = details.decisions;
+      
+      if (DEBUG_LOG) debugMsg += `[Group Check] Found decisions. `;
+
       if (decisions && decisions['FP-Mode']) {
         const selection = decisions['FP-Mode'];
-        if (selection.includes('Shopping') || selection.includes('購物')) {
+        debugMsg += `Selection: "${selection}". `;
+        
+        // 寬鬆比對：只要包含 Shopping 或 購物 即視為開啟
+        if (selection && (selection.indexOf('Shopping') !== -1 || selection.indexOf('購物') !== -1)) {
           IS_SHOPPING_MODE = true;
+          debugMsg += `-> MATCHED Shopping Mode. `;
+        } else {
+          debugMsg += `-> Protection Mode. `;
         }
+      } else {
+        debugMsg += `Error: FP-Mode group not found in decisions. `;
       }
+    } else {
+      debugMsg += `Error: $surge API not available. `;
     }
-  } catch (e) {}
+  } catch (e) {
+    debugMsg += `Exception: ${e.message}. `;
+  }
 
-  // 參數容錯
+  // 參數容錯 (Argument Override)
   if (!IS_SHOPPING_MODE && typeof $argument === "string" && $argument.includes("mode=shopping")) {
       IS_SHOPPING_MODE = true;
+      debugMsg += `[Arg Override] Forced Shopping Mode. `;
   }
 
   // ============================================================================
-  // Phase A: HTTP Request Header Rewrite (網路層)
+  // Phase A: HTTP Request Header Rewrite (網路層 - 問題核心)
   // ============================================================================
   if (typeof $response === 'undefined' && typeof $request !== 'undefined') {
       
-      // [V3.01 關鍵修正] 若為購物模式，直接放行，不修改 Header
-      // 這會讓伺服器看到真實的 iPhone User-Agent，確保支付風控通過
+      // [DEBUG] 輸出診斷訊息到 Surge 日誌
+      if (DEBUG_LOG) {
+          console.log(`🔍 FP-Header Diag: ${debugMsg} | Final Decision: ${IS_SHOPPING_MODE ? "SHOPPING (Pass)" : "PROTECTION (Rewrite)"}`);
+      }
+
+      // 若為購物模式，直接放行 (回傳 iOS 真實 Header)
       if (IS_SHOPPING_MODE) {
           $done({});
           return;
       }
 
+      // 保護模式：修改 Header
       const headers = $request.headers;
       const uaKey = Object.keys(headers).find(k => k.toLowerCase() === 'user-agent');
       
@@ -71,13 +96,11 @@
   // ============================================================================
   // Phase B: HTTP Response Body Injection (瀏覽器層)
   // ============================================================================
-  
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_MAC_V301", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V301",
-    INJECT_MARKER: "__FP_SHIELD_V301__",
-    
+    KEY_SEED: "FP_SHIELD_MAC_V302", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V302",
+    INJECT_MARKER: "__FP_SHIELD_V302__",
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
     JITTER_RANGE_MS: 4 * 60 * 60 * 1000,
     CANVAS_MIN_SIZE: 16,
@@ -102,7 +125,7 @@
   const headers = $res.headers || {};
   const normalizedHeaders = Object.keys(headers).reduce((acc, key) => { acc[String(key).toLowerCase()] = headers[key]; return acc; }, {});
 
-  // 1. 硬白名單
+  // Hard Exclusions
   const HardExclusions = (() => {
     const list = [
       "apple.com", "icloud.com", "mzstatic.com", "itunes.apple.com", "cdn-apple.com",
@@ -124,14 +147,14 @@
 
   if (HardExclusions.check($request.url)) { $done({}); return; }
 
-  // 2. 基礎過濾
+  // Basic Filter
   if ([204, 206, 301, 302, 304].includes($res.status)) { $done({}); return; }
   if (normalizedHeaders["upgrade"] === "websocket" || (normalizedHeaders["connection"] && String(normalizedHeaders["connection"]).toLowerCase().includes("upgrade"))) { $done({}); return; }
   if (parseInt(normalizedHeaders["content-length"] || "0", 10) > CONST.MAX_SIZE) { $done({}); return; }
   const cType = normalizedHeaders["content-type"] || "";
   if (cType && (REGEX.CONTENT_TYPE_JSONLIKE.test(cType) || !REGEX.CONTENT_TYPE_HTML.test(cType))) { $done({}); return; }
 
-  // 3. 軟白名單
+  // Soft Whitelist
   const SoftWhitelist = (() => {
     const domains = new Set([
       "google.com", "www.google.com", "accounts.google.com", "docs.google.com", "drive.google.com", 
@@ -163,7 +186,6 @@
   if (!body || REGEX.JSON_START.test(body.substring(0, 80).trim())) { $done({}); return; }
   if (body.includes(CONST.INJECT_MARKER)) { $done({ body, headers }); return; }
 
-  // 4. CSP
   const headerKeys = Object.keys(headers);
   headerKeys.forEach(key => {
       const lowerKey = key.toLowerCase();
@@ -172,11 +194,9 @@
       }
   });
 
-  // 5. HTML Purge
   body = body.replace(REGEX.META_CSP_STRICT, "<!-- CSP REMOVED -->");
   body = body.replace(/integrity=["'][^"']*["']/gi, "");
 
-  // 6. UI
   const badgeColor = IS_SHOPPING_MODE ? "#AF52DE" : "#007AFF"; 
   const badgeText = IS_SHOPPING_MODE ? "FP: Shopping" : "FP: macOS";
 
@@ -201,7 +221,7 @@
   ">${badgeText}</div>
   `;
 
-  // 7. Core
+  // Core Injection
   const injectionScript = `
 <script>
 (function() {
@@ -210,11 +230,6 @@
   try { if (window[MARKER]) { try { window[MARKER].cleanup(); } catch(e){} } Object.defineProperty(window, MARKER, { value: { cleanup: () => {} }, configurable: true, writable: true }); } catch(e) {}
 
   const b = document.getElementById('fp-nuclear-badge');
-  function panic(e) {
-      if (e && (e.message || '').includes('readonly')) { console.warn('FP Soft-Fail:', e.message); return; }
-      if (b) { b.style.backgroundColor='#FF9500'; b.textContent='E: ' + (e.message||'Run').substring(0,10); }
-  }
-
   try {
       const CONFIG = {
         isWhitelisted: ${isSoftWhitelisted},
@@ -728,5 +743,14 @@
   } catch(e) { panic(e); }
 })();
 </script>
+`;
+
+  const combinedInjection = staticBadgeHTML + injectionScript;
+  if (REGEX.HEAD_TAG.test(body)) body = body.replace(REGEX.HEAD_TAG, (m) => m + combinedInjection);
+  else if (REGEX.HTML_TAG.test(body)) body = body.replace(REGEX.HTML_TAG, (m) => m + combinedInjection);
+  else body = combinedInjection + body;
+
+  $done({ body: body, headers: headers });
+})();
 
 
