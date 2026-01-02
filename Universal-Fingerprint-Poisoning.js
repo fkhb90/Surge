@@ -1,11 +1,11 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.64-CSP-Killer (Scorched Earth)
- * @description [CSP 破壞版] 強力移除所有安全策略標頭，並增加 JS 錯誤回顯機制。
+ * @version   2.65-Stability-Patch (Catch & Survive)
+ * @description [穩定修正版] 修復橘色盾牌無錯誤碼問題，強化存儲權限與唯讀屬性的容錯率。
  * ----------------------------------------------------------------------------
- * 1. [CSP] Nuke: 暴力移除所有含有 "Security-Policy" 的 Header 與 Meta 標籤。
- * 2. [Debug] Feedback: 紅色(未執行) -> 橘色(執行但報錯) -> 綠色(成功)。
- * 3. [UI] Top-Left: 維持左上角靜態注入，確保視覺可見。
+ * 1. [Fix] Storage: 為 LocalStorage 增加 SecurityError 防護，防止隱私模式崩潰。
+ * 2. [Fix] Read-Only: 若瀏覽器鎖定 navigator 屬性，自動跳過不報錯 (Soft Fail)。
+ * 3. [Debug] Logs: 優化 panic 訊息輸出，確保錯誤原因清晰可見。
  * ----------------------------------------------------------------------------
  * @note Surge/Quantumult X 類 rewrite。
  */
@@ -18,8 +18,8 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_SEED_V264", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V264",
+    KEY_SEED: "FP_SHIELD_SEED_V265", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V265",
     
     // Rotation Config
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000, // 24 Hours
@@ -35,13 +35,13 @@
     MAX_POOL_SIZE: 5,
     MAX_POOL_DIM: 1024 * 1024,
     MAX_ERROR_LOGS: 50,
-    CSP_CHECK_LENGTH: 5000, // Increased scan range
+    CSP_CHECK_LENGTH: 5000, 
     
     WEBGL_PARAM_CACHE_SIZE: 40,
     CACHE_CLEANUP_INTERVAL: 30000,
     ERROR_THROTTLE_MS: 1000,
     TOBLOB_RELEASE_FALLBACK_MS: 3000,
-    INJECT_MARKER: "__FP_SHIELD_V264__"
+    INJECT_MARKER: "__FP_SHIELD_V265__"
   };
 
   const GET_NOISE_CONFIG = (level) => {
@@ -60,7 +60,6 @@
     HEAD_TAG: /<head[^>]*>/i,
     HTML_TAG: /<html[^>]*>/i,
     BODY_END_TAG: /<\/body>/i,
-    // Enhanced regex to catch CSP meta tags across lines
     META_CSP_BLOCKING: /<meta[\s\S]*?http-equiv=["']?content-security-policy["']?[\s\S]*?>/gi,
     APP_BROWSERS: /line\/|fb_iab|micromessenger|worksmobile|naver|github|shopee|seamoney/i,
     JSON_START: /^\s*[\{\[]/,
@@ -72,7 +71,6 @@
   // 1. 基礎過濾
   if ([204, 206, 301, 302, 304].includes($res.status)) { $done({}); return; }
   const headers = $res.headers || {};
-  // Normalize headers keys to lowercase
   const normalizedHeaders = Object.keys(headers).reduce((acc, key) => { acc[String(key).toLowerCase()] = headers[key]; return acc; }, {});
   
   if (normalizedHeaders["upgrade"] === "websocket" || (normalizedHeaders["connection"] && String(normalizedHeaders["connection"]).toLowerCase().includes("upgrade"))) { $done({}); return; }
@@ -121,7 +119,6 @@
   if (body.includes(CONST.INJECT_MARKER)) { $done({ body, headers }); return; }
 
   // 3. CSP 移除 (Scorched Earth Policy)
-  // 遍歷所有 Header，只要 Key 包含 'security-policy' 就刪除
   const headerKeys = Object.keys(headers);
   headerKeys.forEach(key => {
       const lowerKey = key.toLowerCase();
@@ -130,10 +127,8 @@
       }
   });
 
-  // 移除 HTML Meta CSP (支援跨行)
   const headChunk = body.substring(0, CONST.CSP_CHECK_LENGTH);
   if (REGEX.META_CSP_BLOCKING.test(headChunk)) {
-    // Reset lastIndex because we use 'g' flag
     REGEX.META_CSP_BLOCKING.lastIndex = 0; 
     body = headChunk.replace(REGEX.META_CSP_BLOCKING, "") + body.substring(CONST.CSP_CHECK_LENGTH);
   }
@@ -141,11 +136,10 @@
   // ============================================================================
   // 4. 靜態 HTML UI (Static Injection)
   // ============================================================================
-  // Start Red (Wait JS). If JS crashes, we try to set to Orange.
   const staticBadgeHTML = `
   <div id="fp-nuclear-badge" style="
       position: fixed !important;
-      top: 60px !important; /* Slightly adjusted for standard toolbars */
+      top: 60px !important;
       left: 0 !important;
       z-index: 2147483647 !important;
       background-color: #D8000C !important; 
@@ -163,23 +157,29 @@
   `;
 
   // ============================================================================
-  // 5. 注入腳本 (v2.64) - 包含錯誤捕捉
+  // 5. 注入腳本 (v2.65) - 穩定性增強版
   // ============================================================================
   const injectionScript = `
 <script>
 (function() {
   "use strict";
   
-  // ---------------- UI Panic Handler ----------------
-  // 定義一個緊急錯誤回報函數，若主邏輯崩潰，嘗試將錯誤寫入盾牌
-  function panic(msg) {
+  // ---------------- UI Panic Handler (Improved) ----------------
+  function panic(e) {
       try {
           const b = document.getElementById('fp-nuclear-badge');
           if (b) {
-              b.style.backgroundColor = '#FF8800'; // Orange for Error
-              b.textContent = 'ERR: ' + String(msg).substring(0, 10);
+              b.style.backgroundColor = '#FF8800'; // Orange
+              // Extract meaningful message
+              let msg = 'Unknown';
+              if (typeof e === 'string') msg = e;
+              else if (e && e.message) msg = e.message;
+              else if (e && e.name) msg = e.name;
+              
+              b.textContent = 'E:' + msg.substring(0, 15);
+              console.error('FP Shield Error:', e);
           }
-      } catch(e){}
+      } catch(_){}
   }
 
   try {
@@ -187,10 +187,10 @@
       try { 
         if (window[MARKER]) { try { window[MARKER].cleanup(); } catch(e){} }
         Object.defineProperty(window, MARKER, { value: { cleanup: () => {} }, configurable: true, writable: true }); 
-      } catch(e) {}
+      } catch(e) {} // Ignore defineProperty errors
 
       const CONFIG = {
-        ver: '2.64-CSP-Killer',
+        ver: '2.65-Stability',
         isWhitelisted: ${isWhitelisted},
         isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream,
         maxErrorLogs: ${CONST.MAX_ERROR_LOGS},
@@ -215,26 +215,31 @@
                if (!b) return; 
                
                if (CONFIG.isWhitelisted) {
-                   b.style.backgroundColor = '#666666'; // Gray
+                   b.style.backgroundColor = '#666666'; 
                    b.textContent = 'FP Bypass';
                } else {
-                   b.style.backgroundColor = '#00AA00'; // Green
+                   b.style.backgroundColor = '#00AA00'; 
                    b.textContent = 'FP Active';
                }
-               
+               // Auto hide
                setTimeout(() => { if(b) b.style.opacity = '0'; setTimeout(()=>{if(b)b.remove()}, 1000); }, 5000);
-           } catch(e) { panic('UI Upd Fail'); }
+           } catch(e) { panic(e); }
         }
       };
 
-      // ---------------- Seed & RNG ----------------
+      // ---------------- Seed & RNG (Storage Safe) ----------------
       const Seed = (function() {
+        // Safe Storage Access Wrapper
+        const safeGet = (k) => { try { return localStorage.getItem(k); } catch(e) { return null; } };
+        const safeSet = (k, v) => { try { localStorage.setItem(k, v); } catch(e) {} };
+        
         try {
             const KEY = '${CONST.KEY_SEED}';
             const KEY_EXP = '${CONST.KEY_EXPIRY}';
-            let val = localStorage.getItem(KEY);
-            const expiry = parseInt(localStorage.getItem(KEY_EXP) || '0', 10);
+            let val = safeGet(KEY);
+            const expiry = parseInt(safeGet(KEY_EXP) || '0', 10);
             const now = Date.now();
+            
             if (!val || now > expiry) {
                 let extra = 0;
                 if (window.crypto && window.crypto.getRandomValues) {
@@ -245,11 +250,14 @@
                 val = extra.toString();
                 const jitterOffset = Math.floor((Math.random() * 2 - 1) * ${CONST.JITTER_RANGE_MS});
                 const nextExpiry = now + ${CONST.BASE_ROTATION_MS} + jitterOffset;
-                localStorage.setItem(KEY, val);
-                localStorage.setItem(KEY_EXP, nextExpiry.toString());
+                safeSet(KEY, val);
+                safeSet(KEY_EXP, nextExpiry.toString());
             }
             return (parseInt(val, 10) >>> 0) || 1;
-        } catch(e) { return 1; }
+        } catch(e) { 
+            // Fallback seed if storage is totally blocked
+            return ((Date.now() ^ (Math.random()*100000)) >>> 0) || 1; 
+        }
       })();
 
       const RNG = {
@@ -370,7 +378,7 @@
         }
       };
 
-      // ---------------- Helpers & Modules ----------------
+      // ---------------- Helpers & Modules (Fail-Safe) ----------------
       const Noise = {
         spatial01: function(x, y, salt) {
           let h = (x | 0) * 374761393 + (y | 0) * 668265263 + (salt | 0) * 1442695041 + (RNG.s | 0);
@@ -439,9 +447,11 @@
         hardware: function(win) {
           try {
             const N = win.navigator;
+            // Safe Defines: Ignore errors if properties are read-only
             try { Object.defineProperty(N, 'hardwareConcurrency', { get: () => Persona.hw.cpu, configurable: true }); } catch(e) {}
             try { Object.defineProperty(N, 'deviceMemory', { get: () => Persona.hw.ram, configurable: true }); } catch(e) {}
             try { Object.defineProperty(N, 'platform', { get: () => Persona.ua.platform, configurable: true }); } catch(e) {}
+            
             if ('getBattery' in N) {
               let cached = null;
               const makeBattery = () => {
@@ -458,7 +468,7 @@
               N.getBattery = function() { if(!cached) cached = makeBattery(); return Promise.resolve(cached); };
               win._FP_BATTERY_DRAIN = () => { if(cached && cached._drain) cached._drain(); };
             }
-          } catch(e) {}
+          } catch(e) { /* Soft Fail for Hardware Module */ }
         },
         clientHints: function(win) {
           try {
@@ -473,7 +483,7 @@
               },
               toJSON: function() { return { brands: this.brands, mobile: this.mobile, platform: this.platform }; }
             };
-            Object.defineProperty(win.navigator, 'userAgentData', { get: () => fake, configurable: true });
+            try { Object.defineProperty(win.navigator, 'userAgentData', { get: () => fake, configurable: true }); } catch(e){}
           } catch(e) {}
         },
         webgl: function(win) {
@@ -562,7 +572,7 @@
       else init();
   
   } catch(e) {
-      panic('Boot Fail: ' + e.message);
+      panic(e);
   }
 
 })();
