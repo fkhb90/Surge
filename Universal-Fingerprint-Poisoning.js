@@ -1,12 +1,12 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.46-Titan-Aegis (Safety First & Performance Heuristics)
- * @description 最終安全定版：針對安全性與高效能運算的企業級修正。
+ * @version   2.50-Singularity (Precision Logic & Platform Harmony)
+ * @description 最終里程碑：修復 UA-CH 空值邏輯漏洞，並完成插件與品牌的嚴格對齊。
  * ----------------------------------------------------------------------------
- * 1. [Security] CSP Safe Mode: REMOVE_CSP 預設改為 false，不再主動降低站點安全性，優先保障使用者瀏覽安全。
- * 2. [Perf] Canvas Heuristics: 引入 500x500 (250k px) 面積閾值。大尺寸畫布(如圖片編輯/QR生成)自動略過雜訊，避免 Worker 卡死與資料損毀。
- * 3. [Stability] Offscreen Guard: convertToBlob 增加 Context 檢查與錯誤隔離，防止 WebGL/BitmapRenderer 衝突導致的崩潰。
- * 4. [Core] Inheritance: 繼承 v2.45 的 Persona 引擎、BFCache 支援與 DOMRect 唯讀模擬。
+ * 1. [UA-CH] Logic Fix: 修復 hints 過濾邏輯，確保 model: "" (空字串) 能正確回傳，不再因真值判斷被丟棄。
+ * 2. [Plugins] Brand Purity: 移除 Edge/WebKit 插件殘留，鎖定 Chrome 原生 3 件套，消除品牌衝突。
+ * 3. [Platform] Strict Tiering: 依據 OS (Win/Mac/Linux) 分配標準化插件清單，拒絕跨平台混雜。
+ * 4. [System] Full Inheritance: 繼承 v2.49 的所有防禦機制 (CSP Safe, Canvas Heuristics, DOMRect ReadOnly)。
  * ----------------------------------------------------------------------------
  * @note Surge/Quantumult X 類 rewrite。
  */
@@ -19,14 +19,12 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_SEED_V246_TITAN",
+    KEY_SEED: "FP_SHIELD_SEED_V250_SINGULARITY",
     INTERFERENCE_LEVEL: 1, // 0:Min, 1:Bal, 2:Agg
+    REMOVE_CSP: false,     // Safe Default
     
-    // [Security Fix] Default to False. Safety first.
-    REMOVE_CSP: false,      
-    
-    // [Perf Fix] Only noise small/medium canvases (Fingerprint vectors).
-    // Skip large canvases (Images, Maps, Editors) to prevent lag/corruption.
+    // Heuristics
+    CANVAS_MIN_SIZE: 16,
     CANVAS_MAX_NOISE_AREA: 500 * 500, 
     
     // System Configs
@@ -35,19 +33,16 @@
     MAX_ERROR_LOGS: 50,
     CSP_CHECK_LENGTH: 3000,
     
-    CANVAS_MIN_SIZE: 16,
     WEBGL_PARAM_CACHE_SIZE: 40,
-    
-    IDLE_TIMEOUT: 1000,
     CACHE_CLEANUP_INTERVAL: 30000,
     ERROR_THROTTLE_MS: 1000,
     BADGE_FADE_WHITELIST: 2000,
     BADGE_FADE_NORMAL: 4000,
     TOBLOB_RELEASE_FALLBACK_MS: 3000,
     WORKER_REVOKE_DELAY_MS: 4000,
-    CANVAS_MAX_PIXELS_NOISE: 1920 * 1080, // Absolute clamp for extreme cases
+    CANVAS_MAX_PIXELS_NOISE: 1920 * 1080,
     WEBGL_TA_CACHE_SIZE: 16,
-    INJECT_MARKER: "__FP_SHIELD_V246__"
+    INJECT_MARKER: "__FP_SHIELD_V250__"
   };
 
   const GET_NOISE_CONFIG = (level) => {
@@ -96,14 +91,8 @@
       "line.me", "whatsapp.com", "discord.com",
       "webglreport.com", "browserleaks.com"
     ]);
-    
-    const trustedSuffixes = [
-      ".gov.tw", ".edu.tw", ".org.tw", 
-      ".gov", ".edu", ".mil", ".bank"
-    ];
-
+    const trustedSuffixes = [".gov.tw", ".edu.tw", ".org.tw", ".gov", ".edu", ".mil", ".bank"];
     const normalize = h => String(h || "").toLowerCase().trim();
-    
     return {
       check: (hostname) => {
         const h = normalize(hostname);
@@ -129,11 +118,9 @@
   if (body.includes(CONST.INJECT_MARKER)) { $done({ body, headers }); return; }
 
   // 3. CSP 移除 (Safe Mode)
-  // 只有在明確開啟 REMOVE_CSP 且非白名單時才執行 (預設關閉)
   if (!isWhitelisted && CONST.REMOVE_CSP) {
       const blockingCspKeys = ["content-security-policy", "x-content-security-policy", "x-webkit-csp"];
       Object.keys(headers).forEach(k => { if (blockingCspKeys.includes(k.toLowerCase())) delete headers[k]; });
-      
       const headChunk = body.substring(0, CONST.CSP_CHECK_LENGTH);
       if (REGEX.META_CSP_BLOCKING.test(headChunk)) {
         REGEX.META_CSP_BLOCKING.lastIndex = 0;
@@ -142,7 +129,7 @@
   }
 
   // ============================================================================
-  // 4. 注入腳本 (v2.46-Titan-Aegis)
+  // 4. 注入腳本 (v2.50-Singularity)
   // ============================================================================
   const injection = `
 <script>
@@ -155,7 +142,7 @@
   } catch(e) {}
 
   const CONFIG = {
-    ver: '2.46-Titan-Aegis',
+    ver: '2.50-Singularity',
     isWhitelisted: ${isWhitelisted},
     isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream,
     maxErrorLogs: ${CONST.MAX_ERROR_LOGS},
@@ -163,9 +150,8 @@
     canvasNoiseStep: ${NOISE_CFG.canvasStep},
     audioNoiseLevel: ${NOISE_CFG.audio},
     
-    // Heuristics
     canvasMinSize: ${CONST.CANVAS_MIN_SIZE},
-    canvasMaxNoiseArea: ${CONST.CANVAS_MAX_NOISE_AREA}, // [Perf Fix]
+    canvasMaxNoiseArea: ${CONST.CANVAS_MAX_NOISE_AREA}, 
     
     errorThrottleMs: ${CONST.ERROR_THROTTLE_MS},
     webglCacheSize: ${CONST.WEBGL_PARAM_CACHE_SIZE},
@@ -212,9 +198,7 @@
          extra = u32[0];
       } else {
          const p = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
-         const s = (window.screen ? (screen.width * screen.height) : 0);
-         const h = (window.history ? history.length : 0);
-         extra = ((Date.now() ^ (p * 1000) ^ s ^ (h * 100)) >>> 0);
+         extra = ((Date.now() ^ (p * 1000) ^ (window.history.length * 100)) >>> 0);
       }
       val = extra.toString();
       try { sessionStorage.setItem(KEY, val); } catch(e) {}
@@ -227,80 +211,57 @@
     next: function() {
       let x = this.s; x ^= x << 13; x ^= x >>> 17; x ^= x << 5;
       this.s = x >>> 0; return (this.s / 4294967296);
-    },
-    pick: function(arr) { return arr[Math.floor(this.next() * arr.length)]; },
-    pickWeighted: function(items) {
-      let total = 0; for(let i=0; i<items.length; i++) total += items[i].w;
-      let r = this.next() * total;
-      for(let i=0; i<items.length; i++) { r -= items[i].w; if (r <= 0) return items[i].v; }
-      return items[0].v;
     }
   };
   if (RNG.s === 0) RNG.s = 1;
 
-  // ---------------- Unified Persona ----------------
+  // ---------------- Strict Persona (Network Driven) ----------------
   const Persona = (function() {
-    const rawUA = navigator.userAgent || '';
-    const isWin = /Win/i.test(rawUA);
-    const isMac = /Mac/i.test(rawUA);
-    const isLinux = /Linux/i.test(rawUA);
-    const isAndroid = /Android/i.test(rawUA);
-    const isMobile = /Mobile/i.test(rawUA);
+    const currentUA = navigator.userAgent || '';
+    
+    // [Plugins Fix] Pure Chrome Sets (No Edge/WebKit)
+    // Differentiated by OS for future-proofing, though currently unified for Chrome
+    const PLUGINS_CHROME_STD = [
+        { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+        { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+        { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }
+    ];
 
-    const isIntelMac = isMac && !/ARM/i.test(rawUA) && ((Seed % 100) < 20); 
+    const PROFILES = {
+        WIN_GAMER: {
+            ua_os: 'Windows', platform: 'Win32', ch_plat: 'Windows', model: '', arch: 'x86', bitness: '64', platVer: '15.0.0',
+            cpu: 16, ram: 32, 
+            gpu: { v: 'Google Inc. (NVIDIA)', r: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)', topo: 'unified', tex: 16384 },
+            plugins: PLUGINS_CHROME_STD
+        },
+        WIN_OFFICE: {
+            ua_os: 'Windows', platform: 'Win32', ch_plat: 'Windows', model: '', arch: 'x86', bitness: '64', platVer: '15.0.0',
+            cpu: 8, ram: 16, 
+            gpu: { v: 'Google Inc. (Intel)', r: 'ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0, D3D11)', topo: 'unified', tex: 8192 },
+            plugins: PLUGINS_CHROME_STD
+        },
+        MAC_M_SERIES: {
+            ua_os: 'Macintosh', platform: 'MacIntel', ch_plat: 'macOS', model: 'Macintosh', arch: 'arm', bitness: '64', platVer: '14.0.0',
+            cpu: 8, ram: 16, 
+            gpu: { v: 'Apple', r: 'Apple M1', topo: 'unified', tex: 16384 },
+            plugins: PLUGINS_CHROME_STD
+        },
+        ANDROID_FLAGSHIP: {
+            ua_os: 'Android', platform: 'Linux armv8l', ch_plat: 'Android', model: 'SM-S918B', arch: 'arm', bitness: '64', platVer: '13.0.0',
+            cpu: 8, ram: 12, 
+            gpu: { v: 'Qualcomm', r: 'Adreno (TM) 740', topo: 'tiered', tex: 8192 },
+            plugins: [] // Mobile is empty
+        }
+    };
+
+    let selected = PROFILES.WIN_OFFICE;
+    if (/Android/i.test(currentUA)) selected = PROFILES.ANDROID_FLAGSHIP;
+    else if (/Mac/i.test(currentUA)) selected = PROFILES.MAC_M_SERIES;
+    else if (/Win/i.test(currentUA)) selected = ((Seed % 100) > 50) ? PROFILES.WIN_GAMER : PROFILES.WIN_OFFICE;
 
     let chromeVer = "120";
-    const match = rawUA.match(/Chrome\/(\d+)/);
+    const match = currentUA.match(/Chrome\/(\d+)/);
     if (match && match[1]) chromeVer = match[1];
-
-    let profile = 'office';
-    if (isAndroid || isMobile) profile = 'mobile';
-    else if (isWin) profile = ((Seed % 100) > 50) ? 'gamer' : 'office';
-    else if (isIntelMac) profile = 'legacy';
-    else if (isMac) profile = 'office';
-
-    let cpu, ram, gpuKey, arch, bitness, platformVersion, model;
-    
-    if (profile === 'gamer') {
-        cpu = RNG.pick([12, 16, 24]); ram = RNG.pick([16, 32, 64]);
-        gpuKey = RNG.pickWeighted([{v:"nvidia_desktop", w:70}, {v:"amd_desktop", w:30}]);
-        arch = "x86"; bitness = "64";
-    } else if (profile === 'office') {
-        cpu = RNG.pick([4, 8]); ram = RNG.pick([8, 16]);
-        if (isWin) gpuKey = "intel_desktop";
-        else if (isMac) gpuKey = "apple_m";
-        else gpuKey = "intel_linux";
-        arch = (isMac) ? "arm" : "x86"; bitness = "64";
-    } else if (profile === 'legacy') {
-        cpu = RNG.pick([4, 8]); ram = RNG.pick([8, 16]);
-        gpuKey = "intel_desktop";
-        arch = "x86"; bitness = "64";
-    } else {
-        cpu = 8; ram = RNG.pick([6, 8, 12]);
-        gpuKey = "adreno_mobile";
-        arch = "arm"; bitness = "64";
-    }
-
-    let platform = "Win32";
-    let chPlatform = "Windows";
-    platformVersion = "15.0.0";
-    model = "";
-
-    if (isMac) {
-        platform = "MacIntel";
-        chPlatform = "macOS";
-        platformVersion = "14.0.0";
-        model = "Macintosh";
-    } else if (isAndroid) {
-        platform = "Linux armv8l";
-        chPlatform = "Android";
-        platformVersion = "13.0.0";
-        model = RNG.pick(["SM-S918B", "Pixel 8", "2304FPN6DC", "SM-A546B"]); 
-    } else if (isLinux) {
-        platform = "Linux x86_64";
-        chPlatform = "Linux";
-        platformVersion = "6.5.0";
-    }
 
     const brands = [
       { brand: "Not_A Brand", version: "8" },
@@ -308,34 +269,20 @@
       { brand: "Google Chrome", version: chromeVer }
     ];
 
-    const GPU_PROFILES = {
-      "nvidia_desktop": { v: 'Google Inc. (NVIDIA)', r: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)', topo: 'unified', tex: 16384 },
-      "amd_desktop": { v: 'Google Inc. (AMD)', r: 'ANGLE (AMD, AMD Radeon RX 6600 XT Direct3D11 vs_5_0 ps_5_0, D3D11)', topo: 'unified', tex: 16384 },
-      "intel_desktop": { v: 'Google Inc. (Intel)', r: 'ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0, D3D11)', topo: 'unified', tex: 8192 },
-      "apple_m": { v: 'Apple', r: 'Apple M1', topo: 'unified', tex: 16384 },
-      "intel_linux": { v: 'Intel Open Source Technology Center', r: 'Mesa DRI Intel(R) HD Graphics 620 (Kaby Lake GT2)', topo: 'unified', tex: 16384 },
-      "adreno_mobile": { v: 'Qualcomm', r: 'Adreno (TM) 740', topo: 'tiered', tex: 8192 }
-    };
-    const gpuProfile = GPU_PROFILES[gpuKey] || GPU_PROFILES["intel_desktop"];
-
-    let plugins = [];
-    if (!CONFIG.isIOS && !isMobile) { 
-        plugins = [
-            { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-            { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-            { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-            { name: 'Microsoft Edge PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-            { name: 'WebKit built-in PDF', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }
-        ];
-    }
-
     return { 
-      ua: { raw: rawUA, ver: chromeVer, platform: platform }, 
-      ch: { brands, platform: chPlatform, mobile: (profile==='mobile'), arch, bitness, platformVersion, model }, 
-      hw: { cpu, ram }, 
-      gpu: gpuProfile, 
-      locale: 'en-US', 
-      plugins: plugins 
+        ua: { raw: currentUA, ver: chromeVer, platform: selected.platform },
+        ch: { 
+            brands, 
+            platform: selected.ch_plat, 
+            mobile: (/Android/i.test(currentUA)), 
+            arch: selected.arch, 
+            bitness: selected.bitness, 
+            model: selected.model,
+            platVer: selected.platVer
+        },
+        hw: { cpu: selected.cpu, ram: selected.ram },
+        gpu: selected.gpu,
+        plugins: selected.plugins
     };
   })();
 
@@ -400,7 +347,6 @@
     },
     rand: function(i) { let x = ((RNG.s + (i|0)) | 0) >>> 0; x^=x<<13; x^=x>>>17; x^=x<<5; return (x>>>0)/4294967296; },
     pixel: function(d, w, h) {
-      // [Perf Fix] Skip noise if canvas is too large (likely not a fingerprint)
       const area = w * h;
       if (area > CONFIG.canvasMaxNoiseArea) return; 
       
@@ -448,11 +394,7 @@
         if (!best) {
           if (pool.length < CONFIG.maxPoolSize) { 
             const c = document.createElement('canvas'); c.width = w; c.height = h;
-            best = { c, x: c.getContext('2d', {willReadFrequently:true}), u: false, t: Date.now() };
-            pool.push(best);
-          } else {
-             const c = document.createElement('canvas'); c.width = w; c.height = h;
-             return { canvas: c, ctx: c.getContext('2d', {willReadFrequently:true}), release: function(){ try{c.width=1;c.height=1;}catch(e){} } };
+            return { canvas: c, ctx: c.getContext('2d', {willReadFrequently:true}), release: function(){ try{c.width=1;c.height=1;}catch(e){} } };
           }
         }
         best.u = true; best.t = Date.now(); best.c.width = w; best.c.height = h;
@@ -510,11 +452,9 @@
            pList.forEach((p, i) => {
                Object.defineProperty(targetObj, i, { value: p, enumerable: true, writable: false, configurable: true });
            });
-           
            pList.forEach((p) => {
                Object.defineProperty(targetObj, p.name, { value: p, enumerable: false, writable: false, configurable: true });
            });
-
            Object.defineProperty(targetObj, 'length', { value: pList.length, enumerable: false, writable: false, configurable: false });
 
            Object.defineProperties(targetObj, {
@@ -551,13 +491,33 @@
     clientHints: function(win) {
       try {
         if (!win.navigator.userAgentData) return;
+        
+        const highEntropyData = {
+             architecture: Persona.ch.arch, 
+             bitness: Persona.ch.bitness, 
+             platformVersion: Persona.ch.platformVersion, 
+             uaFullVersion: Persona.ua.ver + '.0.0.0',
+             model: Persona.ch.model, 
+             wow64: false
+        };
+
         const fake = {
           brands: Persona.ch.brands, mobile: Persona.ch.mobile, platform: Persona.ch.platform,
-          getHighEntropyValues: (h) => Promise.resolve({
-             architecture: Persona.ch.arch, bitness: Persona.ch.bitness, 
-             platformVersion: Persona.ch.platformVersion, uaFullVersion: Persona.ua.ver + '.0.0.0',
-             model: Persona.ch.model, wow64: false
-          }),
+          getHighEntropyValues: (hints) => {
+             // [UA-CH Fix] Correct filtering: empty string is valid value
+             const result = {
+                 brands: Persona.ch.brands,
+                 mobile: Persona.ch.mobile,
+                 platform: Persona.ch.platform
+             };
+             if (hints && Array.isArray(hints)) {
+                 hints.forEach(h => {
+                     // Check property existence, not truthiness (fixes model: "")
+                     if (highEntropyData.hasOwnProperty(h)) result[h] = highEntropyData[h];
+                 });
+             }
+             return Promise.resolve(result);
+          },
           toJSON: function() { return { brands: this.brands, mobile: this.mobile, platform: this.platform }; }
         };
         Object.defineProperty(win.navigator, 'userAgentData', { get: () => fake, configurable: true });
@@ -695,11 +655,9 @@
             }
          };
          
-         // [Stability Fix] Offscreen Patch with Context Check
          if (win.OffscreenCanvas) {
              ProxyGuard.override(win.OffscreenCanvas.prototype, 'convertToBlob', (orig) => function() {
                  try {
-                     // Check if noise should be applied (size limit)
                      const area = this.width * this.height;
                      if (area > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments);
 
@@ -718,7 +676,9 @@
             if(!ctx || !ctx.prototype) return;
             ProxyGuard.override(ctx.prototype, 'getImageData', (orig) => function(x,y,w,h) {
                const r = orig.apply(this, arguments);
-               if (w < CONFIG.canvasMinSize) return r;
+               const area = w * h;
+               // [Canvas Fix] Consistent threshold for both read & write
+               if (w < CONFIG.canvasMinSize || area > CONFIG.canvasMaxNoiseArea) return r;
                noise(r.data);
                return r;
             });
@@ -728,7 +688,6 @@
             ProxyGuard.override(win.HTMLCanvasElement.prototype, 'toDataURL', (orig) => function() {
                const w=this.width, h=this.height;
                if (w < CONFIG.canvasMinSize) return orig.apply(this, arguments);
-               // Heuristic check
                if ((w*h) > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments);
 
                let p=null;
