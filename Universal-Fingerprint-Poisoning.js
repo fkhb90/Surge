@@ -1,30 +1,26 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   3.10-Final-Production (Silent & Optimized)
- * @description [最終量產版] 基於 V3.06 架構，移除所有診斷日誌，優化執行效能。
+ * @version   3.11-Balanced (Logic Fix)
+ * @description [邏輯平衡版] 修復防護模式失效問題。
  * ----------------------------------------------------------------------------
- * 1. [Silent] 移除 Console Log，靜默執行，節省資源。
- * 2. [Force] 保留 Header 強制覆寫邏輯，確保購物模式下絕對是 iPhone。
- * 3. [Core] 整合 JS 注入與 Network 攔截雙重核心。
+ * 1. [Fix] 移除模組層級的強制刪除，改由 JS 內部處理 Header 衝突。
+ * 2. [Core] 確保 Protection Mode 下的 macOS Header 不會被誤刪。
+ * 3. [Shopping] 確保 Shopping Mode 下維持 iPhone Header。
  * ----------------------------------------------------------------------------
- * @note 請配合 Surge Module (V3.06+) 使用以獲得最佳效果。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 0. 全域配置與身份定義
+  // 0. 全域配置
   // ============================================================================
-  // 防護模式: macOS Chrome 120 (最新版特徵)
   const UA_MAC = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-  
-  // 購物模式: iPhone Safari (iOS 17.4) - 銀行風控白名單
   const UA_IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
 
   let IS_SHOPPING_MODE = false;
 
-  // 策略組連動偵測 (Silent Check)
+  // 策略組連動
   try {
     if (typeof $surge !== 'undefined' && $surge.selectGroupDetails) {
       const decisions = $surge.selectGroupDetails().decisions;
@@ -37,30 +33,34 @@
     }
   } catch (e) {}
 
-  // 參數容錯 (Argument Override)
   if (!IS_SHOPPING_MODE && typeof $argument === "string" && $argument.includes("mode=shopping")) {
       IS_SHOPPING_MODE = true;
   }
 
   // ============================================================================
-  // Phase A: HTTP Request Header Rewrite (網路層 - 強制覆寫)
+  // Phase A: HTTP Request Header Rewrite (網路層)
   // ============================================================================
   if (typeof $response === 'undefined' && typeof $request !== 'undefined') {
       const headers = $request.headers;
       
-      // 暴力清理舊 Header，防止大小寫重複
+      // [關鍵邏輯 V3.11] 
+      // 不依賴 Module 的 header-del，而是在這裡手動清洗
+      // 遍歷所有 Header，刪除任何既有的 User-Agent (包含 Win10 幽靈)
+      const keysToDelete = [];
       Object.keys(headers).forEach(key => {
           const lower = key.toLowerCase();
-          if (lower === 'user-agent' || lower === 'sec-ch-ua-mobile' || lower === 'sec-ch-ua-platform') {
-              delete headers[key];
+          if (lower === 'user-agent' || lower === 'sec-ch-ua' || lower === 'sec-ch-ua-mobile' || lower === 'sec-ch-ua-platform') {
+              keysToDelete.push(key);
           }
       });
+      keysToDelete.forEach(k => delete headers[k]);
 
+      // 重新寫入我們需要的 Header
       if (IS_SHOPPING_MODE) {
-          // [購物模式] 寫入 iPhone UA，其餘 Client Hints 留空 (回歸原生)
+          // 購物模式：iPhone
           headers['User-Agent'] = UA_IPHONE;
       } else {
-          // [防護模式] 寫入 macOS UA 與對應 Client Hints
+          // 防護模式：macOS
           headers['User-Agent'] = UA_MAC;
           headers['sec-ch-ua-mobile'] = "?0";
           headers['sec-ch-ua-platform'] = '"macOS"';
@@ -76,10 +76,9 @@
   
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_MAC_V310", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V310",
-    INJECT_MARKER: "__FP_SHIELD_V310__",
-    
+    KEY_SEED: "FP_SHIELD_MAC_V311", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V311",
+    INJECT_MARKER: "__FP_SHIELD_V311__",
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
     JITTER_RANGE_MS: 4 * 60 * 60 * 1000,
     CANVAS_MIN_SIZE: 16,
@@ -104,74 +103,36 @@
   const headers = $res.headers || {};
   const normalizedHeaders = Object.keys(headers).reduce((acc, key) => { acc[String(key).toLowerCase()] = headers[key]; return acc; }, {});
 
-  // Hard Exclusions (Network Skip)
   const HardExclusions = (() => {
-    const list = [
-      "apple.com", "icloud.com", "mzstatic.com", "itunes.apple.com", "cdn-apple.com",
-      "mesu.apple.com", "updates.cdn-apple.com", "xp.apple.com",
-      "crashlytics.com", "firebaseio.com", "app-measurement.com",
-      "paypal.com", "stripe.com", "braintreegateway.com", "visa.com", "mastercard.com",
-      "americanexpress.com", "ecpay.com.tw", "newebpay.com", "jkopay.com", "line-pay",
-      "esunbank.com.tw", "ctbcbank.com", "cathaybk.com.tw", "taishinbank.com.tw", 
-      "fubon.com", "megabank.com.tw", "sinopac.com",
-      "captive.apple.com", "connectivitycheck.gstatic.com"
-    ];
-    return {
-      check: (url) => {
-        const u = url.toLowerCase();
-        return list.some(k => u.includes(k));
-      }
-    };
+    const list = ["apple.com", "icloud.com", "mzstatic.com", "itunes.apple.com", "cdn-apple.com", "crashlytics.com", "firebaseio.com", "paypal.com", "stripe.com", "braintreegateway.com", "visa.com", "mastercard.com", "ecpay.com.tw", "jkopay.com", "esunbank.com.tw", "ctbcbank.com", "cathaybk.com.tw", "taishinbank.com.tw", "captive.apple.com"];
+    return { check: (url) => { const u = url.toLowerCase(); return list.some(k => u.includes(k)); } };
   })();
 
   if (HardExclusions.check($request.url)) { $done({}); return; }
 
-  // Basic Filter
   if ([204, 206, 301, 302, 304].includes($res.status)) { $done({}); return; }
   if (normalizedHeaders["upgrade"] === "websocket" || (normalizedHeaders["connection"] && String(normalizedHeaders["connection"]).toLowerCase().includes("upgrade"))) { $done({}); return; }
   if (parseInt(normalizedHeaders["content-length"] || "0", 10) > CONST.MAX_SIZE) { $done({}); return; }
   const cType = normalizedHeaders["content-type"] || "";
   if (cType && (REGEX.CONTENT_TYPE_JSONLIKE.test(cType) || !REGEX.CONTENT_TYPE_HTML.test(cType))) { $done({}); return; }
 
-  // Soft Whitelist
   const SoftWhitelist = (() => {
-    const domains = new Set([
-      "google.com", "www.google.com", "accounts.google.com", "docs.google.com", "drive.google.com", 
-      "microsoft.com", "office.com", "onedrive.com", "sharepoint.com", "teams.microsoft.com",
-      "notion.so", "figma.com", "canva.com",
-      "facebook.com", "messenger.com", "whatsapp.com", "line.me", "slack.com", "discord.com",
-      "github.com", "gitlab.com", "stackoverflow.com", "openai.com", "chatgpt.com", "claude.ai",
-      "netflix.com", "spotify.com", "disneyplus.com", "youtube.com", "twitch.tv",
-      "gov.tw", "edu.tw"
-    ]);
-    const suffixes = [".gov", ".edu", ".mil", ".int"];
-    return {
-      check: (h) => {
-        const host = String(h || "").toLowerCase().trim();
-        if (domains.has(host)) return true;
-        for (const d of domains) { if (host.endsWith('.' + d)) return true; }
-        for (const s of suffixes) { if (host.endsWith(s)) return true; }
-        return false;
-      }
-    };
+    const domains = new Set(["google.com", "youtube.com", "facebook.com", "netflix.com", "spotify.com", "gov.tw", "edu.tw"]);
+    return { check: (h) => { const host = String(h||"").toLowerCase().trim(); if(domains.has(host))return true; for(const d of domains){if(host.endsWith('.'+d))return true;} return false; } };
   })();
 
   let hostname = "";
   try { hostname = new URL($request.url).hostname.toLowerCase(); } catch (e) { $done({}); return; }
   
-  // 邏輯: 購物模式 = 強制白名單 (JS 不注入)
   const isSoftWhitelisted = IS_SHOPPING_MODE || SoftWhitelist.check(hostname);
   
   let body = $res.body;
   if (!body || REGEX.JSON_START.test(body.substring(0, 80).trim())) { $done({}); return; }
   if (body.includes(CONST.INJECT_MARKER)) { $done({ body, headers }); return; }
 
-  // CSP Removal
   Object.keys(headers).forEach(key => {
       const lowerKey = key.toLowerCase();
-      if (lowerKey.includes('content-security-policy') || lowerKey.includes('webkit-csp')) {
-          delete headers[key];
-      }
+      if (lowerKey.includes('content-security-policy') || lowerKey.includes('webkit-csp')) delete headers[key];
   });
 
   body = body.replace(REGEX.META_CSP_STRICT, "<!-- CSP REMOVED -->");
@@ -180,28 +141,8 @@
   const badgeColor = IS_SHOPPING_MODE ? "#AF52DE" : "#007AFF"; 
   const badgeText = IS_SHOPPING_MODE ? "FP: Shopping" : "FP: macOS";
 
-  const staticBadgeHTML = `
-  <div id="fp-nuclear-badge" style="
-      position: fixed !important;
-      bottom: 15px !important;
-      left: 10px !important;
-      top: auto !important;
-      z-index: 2147483647 !important;
-      background-color: ${badgeColor} !important; 
-      color: #FFFFFF !important;
-      padding: 6px 10px !important;
-      border-radius: 6px !important;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
-      font-size: 11px !important;
-      font-weight: 700 !important;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
-      pointer-events: none !important;
-      opacity: 1 !important;
-      transition: opacity 0.5s, background-color 0.3s !important;
-  ">${badgeText}</div>
-  `;
+  const staticBadgeHTML = `<div id="fp-nuclear-badge" style="position: fixed !important; bottom: 15px !important; left: 10px !important; top: auto !important; z-index: 2147483647 !important; background-color: ${badgeColor} !important; color: #FFFFFF !important; padding: 6px 10px !important; border-radius: 6px !important; font-family: -apple-system, BlinkMacSystemFont, sans-serif !important; font-size: 11px !important; font-weight: 700 !important; box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important; pointer-events: none !important; opacity: 1 !important; transition: opacity 0.5s, background-color 0.3s !important;">${badgeText}</div>`;
 
-  // Core Injection (Cleaned Up)
   const injectionScript = `
 <script>
 (function() {
