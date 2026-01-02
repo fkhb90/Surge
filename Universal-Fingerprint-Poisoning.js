@@ -1,14 +1,13 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.55-Stargate-Protocol (Native Harmony & Network Reactive)
- * @description [最終完結篇] 放棄高風險的 Intl 偽裝，讓 JS 環境與網路層/原生設定自然同步。
+ * @version   2.59-Symmetric-Chaos (True Jitter & Final Polish)
+ * @description [代碼定案] 修正時序抖動的數學邏輯，達成完美的對稱隨機分佈。
  * ----------------------------------------------------------------------------
- * 1. [Intl] Native Harmony: 移除 Intl/Navigator 語系篡改。保留原生語系特徵 (如 zh-TW) 以消除 Hook 痕跡，將「語系/IP 不符」視為合法的 VPN 用戶特徵。
- * 2. [Network] Reactive Persona: 腳本自動偵測當前 UA (由 Surge/QX 改寫)，並動態載入對應的 Win/Mac/Linux 檔案，確保 Header 與 JS 100% 一致。
- * 3. [Plugins] OS Tiering: 嚴格區分 Win (3-set + Edge pollution), Mac (3-set pure), Linux (2-set distro) 插件列表。
- * 4. [Core] Final Stability: 包含 Symbol-Safe Proxy, Canvas Heuristics, BFCache Support, CSP Safe Mode。
+ * 1. [Math] Symmetric Jitter: 修正 Seed 輪替公式為 (Random * 2 - 1)，實現真正的 ±4 小時 (20h~28h) 對稱波動，消除正向漂移特徵。
+ * 2. [Network] Bridge Required: 必須配合 Surge/QX Header Rewrite 鎖定 UA/CH (Win/Chrome 120)，腳本將自動適配。
+ * 3. [System] Final Lock: 包含所有先前版本的安全性、效能與一致性修正。此為最終穩定版本。
  * ----------------------------------------------------------------------------
- * @note 必須配合 Surge/Quantumult X 的 Header Rewrite 使用以達到最佳效果。
+ * @note Surge/Quantumult X 類 rewrite。
  */
 
 (function () {
@@ -19,9 +18,15 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_SEED_V255_STARGATE",
+    KEY_SEED: "FP_SHIELD_SEED_V259_CHAOS", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V259",
+    
+    // Rotation Config
+    BASE_ROTATION_MS: 24 * 60 * 60 * 1000, // 24 Hours
+    JITTER_RANGE_MS: 4 * 60 * 60 * 1000,   // +/- 4 Hours
+    
     INTERFERENCE_LEVEL: 1, // 0:Min, 1:Bal, 2:Agg
-    REMOVE_CSP: false,     // [Safe Mode] Recommend false
+    REMOVE_CSP: false,     // [Safe Mode]
     
     // Heuristics
     CANVAS_MIN_SIZE: 16,
@@ -42,7 +47,7 @@
     WORKER_REVOKE_DELAY_MS: 4000,
     CANVAS_MAX_PIXELS_NOISE: 1920 * 1080,
     WEBGL_TA_CACHE_SIZE: 16,
-    INJECT_MARKER: "__FP_SHIELD_V255__"
+    INJECT_MARKER: "__FP_SHIELD_V259__"
   };
 
   const GET_NOISE_CONFIG = (level) => {
@@ -77,7 +82,7 @@
   const cType = normalizedHeaders["content-type"] || "";
   if (cType && (REGEX.CONTENT_TYPE_JSONLIKE.test(cType) || !REGEX.CONTENT_TYPE_HTML.test(cType))) { $done({}); return; }
 
-  // 2. 白名單 (Vault Strategy)
+  // 2. 白名單
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
       "google.com", "www.google.com", "accounts.google.com", "docs.google.com",
@@ -117,7 +122,7 @@
   if (!body || REGEX.JSON_START.test(body.substring(0, 80).trim())) { $done({}); return; }
   if (body.includes(CONST.INJECT_MARKER)) { $done({ body, headers }); return; }
 
-  // 3. CSP 移除 (Safe Mode)
+  // 3. CSP 移除
   if (!isWhitelisted && CONST.REMOVE_CSP) {
       const blockingCspKeys = ["content-security-policy", "x-content-security-policy", "x-webkit-csp"];
       Object.keys(headers).forEach(k => { if (blockingCspKeys.includes(k.toLowerCase())) delete headers[k]; });
@@ -129,7 +134,7 @@
   }
 
   // ============================================================================
-  // 4. 注入腳本 (v2.55-Stargate-Protocol)
+  // 4. 注入腳本 (v2.59-Symmetric-Chaos)
   // ============================================================================
   const injection = `
 <script>
@@ -142,7 +147,7 @@
   } catch(e) {}
 
   const CONFIG = {
-    ver: '2.55-Stargate-Protocol',
+    ver: '2.59-Symmetric-Chaos',
     isWhitelisted: ${isWhitelisted},
     isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream,
     maxErrorLogs: ${CONST.MAX_ERROR_LOGS},
@@ -161,7 +166,6 @@
     toBlobReleaseFallbackMs: ${CONST.TOBLOB_RELEASE_FALLBACK_MS}
   };
 
-  // [UI] Shadow DOM
   const UI = {
     showBadge: function() {
       try {
@@ -178,7 +182,8 @@
         requestAnimationFrame(()=>b.style.opacity='1');
         setTimeout(()=> { b.style.opacity='0'; setTimeout(()=> host.remove(), 500); }, 3000);
       } catch(e){}
-    }
+    },
+    cleanup: function() { const b=document.getElementById('fp-shield-badge'); if(b) b.remove(); }
   };
 
   if (CONFIG.isWhitelisted) {
@@ -187,23 +192,39 @@
       return; 
   }
 
-  // ---------------- Seed & RNG ----------------
+  // ---------------- Seed & RNG (Symmetric Jitter) ----------------
   const Seed = (function() {
     const KEY = '${CONST.KEY_SEED}';
+    const KEY_EXP = '${CONST.KEY_EXPIRY}';
     let val;
-    try { val = sessionStorage.getItem(KEY); } catch(e) {}
-    if (!val) {
-      let extra = 0;
-      if (window.crypto && window.crypto.getRandomValues) {
-         const u32 = new Uint32Array(1);
-         window.crypto.getRandomValues(u32);
-         extra = u32[0];
-      } else {
-         const p = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
-         extra = ((Date.now() ^ (p * 1000) ^ (window.history.length * 100)) >>> 0);
-      }
-      val = extra.toString();
-      try { sessionStorage.setItem(KEY, val); } catch(e) {}
+    
+    try { 
+        val = localStorage.getItem(KEY);
+        const expiry = parseInt(localStorage.getItem(KEY_EXP) || '0', 10);
+        const now = Date.now();
+        
+        if (!val || now > expiry) {
+            let extra = 0;
+            if (window.crypto && window.crypto.getRandomValues) {
+               const u32 = new Uint32Array(1);
+               window.crypto.getRandomValues(u32);
+               extra = u32[0];
+            } else {
+               extra = ((Date.now() ^ (Math.random()*100000)) >>> 0);
+            }
+            val = extra.toString();
+            
+            // [Math Fix] Symmetric Jitter: 24h +/- 4h (Range: 20h ~ 28h)
+            // (Math.random() * 2 - 1) produces range -1.0 to 1.0
+            const jitterOffset = Math.floor((Math.random() * 2 - 1) * ${CONST.JITTER_RANGE_MS});
+            const nextExpiry = now + ${CONST.BASE_ROTATION_MS} + jitterOffset;
+            
+            localStorage.setItem(KEY, val);
+            localStorage.setItem(KEY_EXP, nextExpiry.toString());
+        }
+    } catch(e) {
+        try { val = sessionStorage.getItem(KEY); } catch(_){}
+        if (!val) { val = Math.floor(Math.random()*100000).toString(); try{sessionStorage.setItem(KEY,val);}catch(_){} }
     }
     return (parseInt(val, 10) >>> 0) || 1;
   })();
@@ -213,73 +234,94 @@
     next: function() {
       let x = this.s; x ^= x << 13; x ^= x >>> 17; x ^= x << 5;
       this.s = x >>> 0; return (this.s / 4294967296);
+    },
+    pick: function(arr) { return arr[Math.floor(this.next() * arr.length)]; },
+    pickWeighted: function(items) {
+      let total = 0; for(let i=0; i<items.length; i++) total += items[i].w;
+      let r = this.next() * total;
+      for(let i=0; i<items.length; i++) { r -= items[i].w; if (r <= 0) return items[i].v; }
+      return items[0].v;
     }
   };
   if (RNG.s === 0) RNG.s = 1;
 
-  // ---------------- Reactive Persona (Network Driven) ----------------
+  // ---------------- Strict Persona (Joint Distribution) ----------------
   const Persona = (function() {
-    // [Network Reactive] Detect current UA (rewritten by Proxy)
     const currentUA = navigator.userAgent || '';
     
-    const BASE_CHROME = [
+    // Hardware Tiers
+    const HW_TIERS = {
+        ENTRY: { // 20%
+            cpu: 4, 
+            ramPool: [4, 8],
+            gpuPool: [{v: 'Google Inc. (Intel)', r: 'ANGLE (Intel, Intel(R) UHD Graphics 630)', w: 100}]
+        },
+        MID: { // 60%
+            cpuPool: [6, 8],
+            ramPool: [8, 16],
+            gpuPool: [
+                {v: 'Google Inc. (NVIDIA)', r: 'ANGLE (NVIDIA, NVIDIA GeForce GTX 1650)', w: 50},
+                {v: 'Google Inc. (Intel)', r: 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics)', w: 50}
+            ]
+        },
+        HIGH: { // 20%
+            cpuPool: [12, 16, 24],
+            ramPool: [16, 32, 64],
+            gpuPool: [
+                {v: 'Google Inc. (NVIDIA)', r: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060)', w: 60},
+                {v: 'Google Inc. (NVIDIA)', r: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070)', w: 40}
+            ]
+        }
+    };
+
+    const r = RNG.next();
+    let tier = HW_TIERS.MID;
+    if (r < 0.2) tier = HW_TIERS.ENTRY;
+    else if (r > 0.8) tier = HW_TIERS.HIGH;
+
+    const cpu = tier.cpu || RNG.pick(tier.cpuPool);
+    const ram = RNG.pick(tier.ramPool);
+    let gpu = RNG.pickWeighted(tier.gpuPool);
+    gpu.topo = 'unified'; gpu.tex = 16384; 
+    if (tier === HW_TIERS.ENTRY) { gpu.tex = 8192; }
+
+    const PLUGINS_STD = [
         { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
         { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
         { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }
     ];
 
-    const getWinPlugins = () => {
-        const p = [...BASE_CHROME];
-        if (RNG.next() > 0.8) { // 20% Edge Pollution
-            p.push({ name: 'Microsoft Edge PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' });
-        }
-        return p;
-    };
-    const getLinuxPlugins = () => {
-        const p = [...BASE_CHROME];
-        if (RNG.next() > 0.5) p.pop(); // 50% reduced set
-        return p;
-    };
+    let platform = 'Win32';
+    let ch_plat = 'Windows';
+    let arch = 'x86';
+    let model = '';
+    let plugins = [];
 
-    const PROFILES = {
-        WIN_GAMER: {
-            platform: 'Win32', ch_plat: 'Windows', model: '', arch: 'x86', bitness: '64', platVer: '15.0.0',
-            cpu: 16, ram: 32, 
-            gpu: { v: 'Google Inc. (NVIDIA)', r: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)', topo: 'unified', tex: 16384 },
-            getPlugins: getWinPlugins
-        },
-        WIN_OFFICE: {
-            platform: 'Win32', ch_plat: 'Windows', model: '', arch: 'x86', bitness: '64', platVer: '15.0.0',
-            cpu: 8, ram: 16, 
-            gpu: { v: 'Google Inc. (Intel)', r: 'ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0, D3D11)', topo: 'unified', tex: 8192 },
-            getPlugins: getWinPlugins
-        },
-        MAC_M_SERIES: {
-            platform: 'MacIntel', ch_plat: 'macOS', model: 'Macintosh', arch: 'arm', bitness: '64', platVer: '14.0.0',
-            cpu: 8, ram: 16, 
-            gpu: { v: 'Apple', r: 'Apple M1', topo: 'unified', tex: 16384 },
-            getPlugins: () => [...BASE_CHROME] // Clean
-        },
-        LINUX_DESKTOP: {
-            platform: 'Linux x86_64', ch_plat: 'Linux', model: '', arch: 'x86', bitness: '64', platVer: '6.5.0',
-            cpu: 8, ram: 16,
-            gpu: { v: 'Intel Open Source Technology Center', r: 'Mesa DRI Intel(R) HD Graphics 620 (Kaby Lake GT2)', topo: 'unified', tex: 16384 },
-            getPlugins: getLinuxPlugins
-        },
-        ANDROID_FLAGSHIP: {
-            platform: 'Linux armv8l', ch_plat: 'Android', model: 'SM-S918B', arch: 'arm', bitness: '64', platVer: '13.0.0',
-            cpu: 8, ram: 12, 
-            gpu: { v: 'Qualcomm', r: 'Adreno (TM) 740', topo: 'tiered', tex: 8192 },
-            getPlugins: () => []
-        }
-    };
+    // [Mac] Align with x86 Header
+    const MAC_GPUS = [
+        { v: 'Intel Inc.', r: 'Intel(R) Iris(TM) Plus Graphics 640', w: 50 },
+        { v: 'ATI Technologies Inc.', r: 'AMD Radeon Pro 5300M', w: 50 }
+    ];
 
-    let selected = PROFILES.WIN_OFFICE;
-    // Heuristic selection based on what the Network Layer provides
-    if (/Android/i.test(currentUA)) selected = PROFILES.ANDROID_FLAGSHIP;
-    else if (/Mac/i.test(currentUA)) selected = PROFILES.MAC_M_SERIES;
-    else if (/Linux/i.test(currentUA)) selected = PROFILES.LINUX_DESKTOP;
-    else if (/Win/i.test(currentUA)) selected = ((Seed % 100) > 50) ? PROFILES.WIN_GAMER : PROFILES.WIN_OFFICE;
+    if (/Mac/i.test(currentUA)) {
+        platform = 'MacIntel'; ch_plat = 'macOS'; 
+        arch = 'x86'; 
+        gpu = RNG.pickWeighted(MAC_GPUS);
+        gpu.topo = 'unified'; gpu.tex = 16384;
+        plugins = [...PLUGINS_STD];
+    } else if (/Android/i.test(currentUA)) {
+        platform = 'Linux armv8l'; ch_plat = 'Android'; arch = 'arm';
+        gpu = { v: 'Qualcomm', r: 'Adreno (TM) 740', topo: 'tiered', tex: 8192 };
+        plugins = [];
+    } else if (/Linux/i.test(currentUA)) {
+        platform = 'Linux x86_64'; ch_plat = 'Linux';
+        plugins = [...PLUGINS_STD];
+        if (RNG.next() > 0.5) plugins.pop();
+    } else {
+        // Windows
+        plugins = [...PLUGINS_STD];
+        if (RNG.next() > 0.8) plugins.push({ name: 'Microsoft Edge PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' });
+    }
 
     let chromeVer = "120";
     const match = currentUA.match(/Chrome\/(\d+)/);
@@ -292,19 +334,11 @@
     ];
 
     return { 
-        ua: { raw: currentUA, ver: chromeVer, platform: selected.platform },
-        ch: { 
-            brands, 
-            platform: selected.ch_plat, 
-            mobile: (/Android/i.test(currentUA)), 
-            arch: selected.arch, 
-            bitness: selected.bitness, 
-            model: selected.model,
-            platVer: selected.platVer
-        },
-        hw: { cpu: selected.cpu, ram: selected.ram },
-        gpu: selected.gpu,
-        plugins: selected.getPlugins()
+        ua: { raw: currentUA, ver: chromeVer, platform: platform },
+        ch: { brands, platform: ch_plat, mobile: (/Android/i.test(currentUA)), arch, bitness: '64', model, platVer: '15.0.0' },
+        hw: { cpu, ram },
+        gpu: gpu,
+        plugins: plugins
     };
   })();
 
@@ -373,7 +407,6 @@
     pixel: function(d, w, h) {
       const area = w * h;
       if (area > CONFIG.canvasMaxNoiseArea) return; 
-      
       if (!d || d.length < 4) return;
       const step = CONFIG.canvasNoiseStep;
       if (!step || step <= 0) return; 
@@ -472,7 +505,6 @@
         if (!CONFIG.isIOS && !Persona.ch.mobile) {
            const pList = Persona.plugins;
            const targetObj = {};
-           
            pList.forEach((p, i) => {
                Object.defineProperty(targetObj, i, { value: p, enumerable: true, writable: false, configurable: true });
            });
@@ -593,7 +625,6 @@
       } catch(e) {}
     },
 
-    // [Intl] No override (Native Harmony)
     timezone: function(win) {},
 
     audio: function(win) {
