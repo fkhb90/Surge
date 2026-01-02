@@ -1,34 +1,30 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   3.05-Ultimate-Revert (Force Write iOS Header)
- * @description [終極復原版] 解決購物模式下 User-Agent 無法變回 iPhone 的問題。
+ * @version   3.10-Final-Production (Silent & Optimized)
+ * @description [最終量產版] 基於 V3.06 架構，移除所有診斷日誌，優化執行效能。
  * ----------------------------------------------------------------------------
- * 1. [Fix] Shopping Mode 不再被動放行，而是「強制寫入」標準 iPhone UA。
- * 2. [Force] 無論 Surge 原生設定為何，腳本都會強行覆蓋 Header。
- * 3. [Core] 保持 V3.00 的核心防護與雙重掛載架構。
+ * 1. [Silent] 移除 Console Log，靜默執行，節省資源。
+ * 2. [Force] 保留 Header 強制覆寫邏輯，確保購物模式下絕對是 iPhone。
+ * 3. [Core] 整合 JS 注入與 Network 攔截雙重核心。
  * ----------------------------------------------------------------------------
- * @note 僅需更新 JS 檔案，模組設定無需更動。
+ * @note 請配合 Surge Module (V3.06+) 使用以獲得最佳效果。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 0. 全域配置 (定義雙重身份)
+  // 0. 全域配置與身份定義
   // ============================================================================
-  // 防護模式: macOS Chrome 120
+  // 防護模式: macOS Chrome 120 (最新版特徵)
   const UA_MAC = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
   
-  // 購物模式: 標準 iPhone Safari (iOS 17.4) - 用於強制復原
-  // 注意：這是目前銀行風控接受度最高的 UA
+  // 購物模式: iPhone Safari (iOS 17.4) - 銀行風控白名單
   const UA_IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
-
-  // [DEBUG] 關閉日誌以提升效能
-  const DEBUG_LOG = false; 
 
   let IS_SHOPPING_MODE = false;
 
-  // 策略組連動偵測 (Surge Dashboard)
+  // 策略組連動偵測 (Silent Check)
   try {
     if (typeof $surge !== 'undefined' && $surge.selectGroupDetails) {
       const decisions = $surge.selectGroupDetails().decisions;
@@ -47,38 +43,27 @@
   }
 
   // ============================================================================
-  // Phase A: HTTP Request Header Rewrite (網路層 - 核心修正)
+  // Phase A: HTTP Request Header Rewrite (網路層 - 強制覆寫)
   // ============================================================================
   if (typeof $response === 'undefined' && typeof $request !== 'undefined') {
-      
       const headers = $request.headers;
       
-      // 尋找 Key (處理大小寫問題，有些 Server 對大小寫敏感)
-      const uaKey = Object.keys(headers).find(k => k.toLowerCase() === 'user-agent');
-      const targetKey = uaKey || 'User-Agent';
+      // 暴力清理舊 Header，防止大小寫重複
+      Object.keys(headers).forEach(key => {
+          const lower = key.toLowerCase();
+          if (lower === 'user-agent' || lower === 'sec-ch-ua-mobile' || lower === 'sec-ch-ua-platform') {
+              delete headers[key];
+          }
+      });
 
       if (IS_SHOPPING_MODE) {
-          // [V3.05 修正] 購物模式：主動攻擊，強制寫回 iPhone UA
-          // 我們不再信任 Surge 的預設行為，直接覆寫。
-          headers[targetKey] = UA_IPHONE;
-          
-          // 清理：移除可能導致矛盾的 "電腦版" Client Hints
-          const mobileKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-mobile');
-          if (mobileKey) delete headers[mobileKey]; // 手機不需要宣告這個，或者設為 ?1
-
-          const platformKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-platform');
-          if (platformKey) delete headers[platformKey]; // 移除 macOS 宣告
-
+          // [購物模式] 寫入 iPhone UA，其餘 Client Hints 留空 (回歸原生)
+          headers['User-Agent'] = UA_IPHONE;
       } else {
-          // [防護模式] 強制寫入 macOS UA
-          headers[targetKey] = UA_MAC;
-
-          // 注入 macOS 特徵
-          const mobileKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-mobile');
-          if (mobileKey) headers[mobileKey] = "?0";
-
-          const platformKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-platform');
-          if (platformKey) headers[platformKey] = '"macOS"';
+          // [防護模式] 寫入 macOS UA 與對應 Client Hints
+          headers['User-Agent'] = UA_MAC;
+          headers['sec-ch-ua-mobile'] = "?0";
+          headers['sec-ch-ua-platform'] = '"macOS"';
       }
 
       $done({ headers });
@@ -91,9 +76,9 @@
   
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_MAC_V305", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V305",
-    INJECT_MARKER: "__FP_SHIELD_V305__",
+    KEY_SEED: "FP_SHIELD_MAC_V310", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V310",
+    INJECT_MARKER: "__FP_SHIELD_V310__",
     
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
     JITTER_RANGE_MS: 4 * 60 * 60 * 1000,
@@ -119,7 +104,7 @@
   const headers = $res.headers || {};
   const normalizedHeaders = Object.keys(headers).reduce((acc, key) => { acc[String(key).toLowerCase()] = headers[key]; return acc; }, {});
 
-  // Hard Exclusions
+  // Hard Exclusions (Network Skip)
   const HardExclusions = (() => {
     const list = [
       "apple.com", "icloud.com", "mzstatic.com", "itunes.apple.com", "cdn-apple.com",
@@ -181,8 +166,8 @@
   if (!body || REGEX.JSON_START.test(body.substring(0, 80).trim())) { $done({}); return; }
   if (body.includes(CONST.INJECT_MARKER)) { $done({ body, headers }); return; }
 
-  const headerKeys = Object.keys(headers);
-  headerKeys.forEach(key => {
+  // CSP Removal
+  Object.keys(headers).forEach(key => {
       const lowerKey = key.toLowerCase();
       if (lowerKey.includes('content-security-policy') || lowerKey.includes('webkit-csp')) {
           delete headers[key];
@@ -216,7 +201,7 @@
   ">${badgeText}</div>
   `;
 
-  // Core Injection Script
+  // Core Injection (Cleaned Up)
   const injectionScript = `
 <script>
 (function() {
@@ -254,7 +239,6 @@
           setTimeout(() => { if(b) { b.style.opacity='0'; setTimeout(()=>b.remove(), 1000); } }, 4000);
       }
 
-      // [核心] 購物模式下直接終止 JS 注入，保持瀏覽器純淨
       if (CONFIG.isWhitelisted) return;
 
       const safeDefine = (obj, prop, descriptor) => {
@@ -633,75 +617,6 @@
                 for(let i=0; i<rects.length; i++) res[i] = wrap(rects[i]);
                 return res;
              });
-           } catch(e) {}
-        },
-
-        canvas: function(win) {
-           try {
-             const noise = (d) => {
-                const step = CONFIG.canvasNoiseStep; if (!step) return;
-                for (let i=0; i<d.length; i+=step*4) { if (RNG.next() < 0.01) d[i] = d[i] ^ 1; }
-             };
-             
-             if (win.OffscreenCanvas) {
-                 ProxyGuard.override(win.OffscreenCanvas.prototype, 'convertToBlob', (orig) => function() {
-                     try {
-                         const area = this.width * this.height;
-                         if (area > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments);
-                         const ctx = this.getContext('2d');
-                         if (ctx) {
-                             const d = ctx.getImageData(0,0,this.width,this.height);
-                             noise(d.data);
-                             ctx.putImageData(d,0,0);
-                         }
-                     } catch(e){}
-                     return orig.apply(this, arguments);
-                 });
-             }
-
-             [win.CanvasRenderingContext2D, win.OffscreenCanvasRenderingContext2D].forEach(ctx => {
-                if(!ctx || !ctx.prototype) return;
-                ProxyGuard.override(ctx.prototype, 'getImageData', (orig) => function(x,y,w,h) {
-                   const r = orig.apply(this, arguments);
-                   const area = w * h;
-                   if (w < CONFIG.canvasMinSize || area > CONFIG.canvasMaxNoiseArea) return r;
-                   noise(r.data);
-                   return r;
-                });
-             });
-
-             if (win.HTMLCanvasElement) {
-                ProxyGuard.override(win.HTMLCanvasElement.prototype, 'toDataURL', (orig) => function() {
-                   const w=this.width, h=this.height;
-                   if (w < CONFIG.canvasMinSize) return orig.apply(this, arguments);
-                   if ((w*h) > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments);
-
-                   let p=null;
-                   try {
-                      p = CanvasPool.get(w, h);
-                      p.ctx.clearRect(0,0,w,h); p.ctx.drawImage(this,0,0);
-                      const d = p.ctx.getImageData(0,0,w,h); noise(d.data); p.ctx.putImageData(d,0,0);
-                      return p.canvas.toDataURL.apply(p.canvas, arguments);
-                   } catch(e) { return orig.apply(this, arguments); }
-                   finally { if(p) p.release(); }
-                });
-                
-                ProxyGuard.override(win.HTMLCanvasElement.prototype, 'toBlob', (orig) => function(cb, t, q) {
-                   const w=this.width, h=this.height;
-                   if (w < CONFIG.canvasMinSize) return orig.apply(this, arguments);
-                   if ((w*h) > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments);
-
-                   let p=null, released=false;
-                   const safeRel = () => { if(!released) { released=true; if(p) p.release(); } };
-                   try {
-                      p = CanvasPool.get(w, h);
-                      p.ctx.clearRect(0,0,w,h); p.ctx.drawImage(this,0,0);
-                      const d = p.ctx.getImageData(0,0,w,h); noise(d.data); p.ctx.putImageData(d,0,0);
-                      p.canvas.toBlob((b) => { try{if(cb)cb(b);}finally{safeRel();} }, t, q);
-                      setTimeout(safeRel, CONFIG.toBlobReleaseFallbackMs);
-                   } catch(e) { safeRel(); return orig.apply(this, arguments); }
-                });
-             }
            } catch(e) {}
         }
       };
