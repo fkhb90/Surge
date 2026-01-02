@@ -1,33 +1,55 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   2.90-Traveler-Edition (OTA Targeting + Mode Switch)
- * @description [環球旅行者版] 針對 OTA 訂房網進行反殺熟，並支援 Surge 模組一鍵切換購物模式。
+ * @version   2.95-Dashboard-Control (Policy Group Integration)
+ * @description [儀表板控制版] 支援透過 Surge 首頁「策略組」直接切換購物模式。
  * ----------------------------------------------------------------------------
- * 1. [OTA Sniper] 鎖定 Booking/Agoda/Airbnb 等訂房網，強制執行混淆以避免價格歧視。
- * 2. [Mode Switch] 支援 argument="mode=shopping"，開啟後暫停干擾 (紫色徽章)。
- * 3. [Core] 繼承 V2.87 的電商獵手邏輯與 macOS 偽裝。
+ * 1. [Control] 連動策略組 'FP-Mode'，選項包含 'Shopping' 時自動進入購物模式。
+ * 2. [Fallback] 若未設定策略組，則預設為最高防護 (macOS 偽裝)。
+ * 3. [Core] 繼承 V2.90 的 OTA 狙擊與電商獵手邏輯。
  * ----------------------------------------------------------------------------
- * @note Surge/Quantumult X 類 rewrite。
+ * @note 需配合 Surge [Proxy] 與 [Proxy Group] 設定使用。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 0. 配置與參數解析
+  // 0. 模式偵測 (策略組連動邏輯)
   // ============================================================================
-  const ARGS = (typeof $argument === "string") ? $argument : "";
-  const IS_SHOPPING_MODE = ARGS.includes("mode=shopping");
+  // 優先權：Surge 策略組 > $argument 參數 > 預設值 (False)
+  let IS_SHOPPING_MODE = false;
+
+  try {
+    // 方法 A: 嘗試讀取 Surge 策略組決策
+    if (typeof $surge !== 'undefined' && $surge.selectGroupDetails) {
+      const decisions = $surge.selectGroupDetails().decisions;
+      // 偵測名為 'FP-Mode' 的策略組，若選中項目包含 'Shopping' 字眼，則啟動模式
+      if (decisions && decisions['FP-Mode']) {
+        const selection = decisions['FP-Mode'];
+        if (selection.includes('Shopping') || selection.includes('購物')) {
+          IS_SHOPPING_MODE = true;
+        }
+      }
+    }
+  } catch (e) {
+    // API 不支援或讀取失敗，回退至 Argument 檢查
+    const ARGS = (typeof $argument === "string") ? $argument : "";
+    if (ARGS.includes("mode=shopping")) IS_SHOPPING_MODE = true;
+  }
+
+  // 若上述皆未觸發，檢查是否純 Argument 模式 (舊容錯)
+  if (!IS_SHOPPING_MODE && typeof $argument === "string" && $argument.includes("mode=shopping")) {
+      IS_SHOPPING_MODE = true;
+  }
 
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_MAC_V290", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V290",
-    INJECT_MARKER: "__FP_SHIELD_V290__",
+    KEY_SEED: "FP_SHIELD_MAC_V295", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V295",
+    INJECT_MARKER: "__FP_SHIELD_V295__",
     
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
     JITTER_RANGE_MS: 4 * 60 * 60 * 1000,
-    INTERFERENCE_LEVEL: 1,
     CANVAS_MIN_SIZE: 16,
     CANVAS_MAX_NOISE_AREA: 500 * 500,
     MAX_POOL_SIZE: 5,
@@ -51,7 +73,7 @@
   const normalizedHeaders = Object.keys(headers).reduce((acc, key) => { acc[String(key).toLowerCase()] = headers[key]; return acc; }, {});
 
   // ============================================================================
-  // 1. 硬白名單 (Hard Exclusions) - 基礎設施保護
+  // 1. 硬白名單 (Hard Exclusions)
   // ============================================================================
   const HardExclusions = (() => {
     const list = [
@@ -80,16 +102,14 @@
   // 2. 基礎過濾
   // ============================================================================
   if ([204, 206, 301, 302, 304].includes($res.status)) { $done({}); return; }
-  
   if (normalizedHeaders["upgrade"] === "websocket" || (normalizedHeaders["connection"] && String(normalizedHeaders["connection"]).toLowerCase().includes("upgrade"))) { $done({}); return; }
   if (parseInt(normalizedHeaders["content-length"] || "0", 10) > CONST.MAX_SIZE) { $done({}); return; }
   const cType = normalizedHeaders["content-type"] || "";
   if (cType && (REGEX.CONTENT_TYPE_JSONLIKE.test(cType) || !REGEX.CONTENT_TYPE_HTML.test(cType))) { $done({}); return; }
 
   // ============================================================================
-  // 3. 軟白名單 (Soft Whitelist) - 僅保留協作與媒體
+  // 3. 軟白名單 (Soft Whitelist)
   // ============================================================================
-  // 注意：OTA (Booking/Agoda) 與 電商 (Shopee/Momo) 均不在名單內 -> 視為目標
   const SoftWhitelist = (() => {
     const domains = new Set([
       "google.com", "www.google.com", "accounts.google.com", "docs.google.com", "drive.google.com", 
@@ -101,7 +121,6 @@
       "gov.tw", "edu.tw"
     ]);
     const suffixes = [".gov", ".edu", ".mil", ".int"];
-    
     return {
       check: (h) => {
         const host = String(h || "").toLowerCase().trim();
@@ -116,7 +135,7 @@
   let hostname = "";
   try { hostname = new URL($request.url).hostname.toLowerCase(); } catch (e) { $done({}); return; }
   
-  // Logic: 若開啟購物模式，則強制視為軟白名單 (Bypass)
+  // Logic: 若開啟購物模式，強制放行
   const isSoftWhitelisted = IS_SHOPPING_MODE || SoftWhitelist.check(hostname);
   
   let body = $res.body;
@@ -139,8 +158,8 @@
   // ============================================================================
   // 6. 靜態 HTML UI
   // ============================================================================
-  // 根據模式顯示不同顏色的 Badge
-  const badgeColor = IS_SHOPPING_MODE ? "#AF52DE" : "#007AFF"; // Purple for Shopping, Blue for Protection
+  // 根據偵測到的模式顯示顏色
+  const badgeColor = IS_SHOPPING_MODE ? "#AF52DE" : "#007AFF"; 
   const badgeText = IS_SHOPPING_MODE ? "FP: Shopping" : "FP: macOS";
 
   const staticBadgeHTML = `
@@ -197,7 +216,6 @@
 
       if(b) {
           if(CONFIG.isWhitelisted) {
-             // 若為購物模式 (Shopping Mode)，顯示紫色
              const isShop = ${IS_SHOPPING_MODE};
              if (isShop) {
                  b.style.backgroundColor = '#AF52DE'; b.textContent = 'FP: Shopping';
