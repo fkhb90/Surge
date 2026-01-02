@@ -1,93 +1,80 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   3.02-Diagnostic (Mode Detection Debug)
- * @description [診斷版] 用於排查「購物模式」無法生效的問題。會在日誌中輸出策略組狀態。
+ * @version   3.04-Pure-Native (Total Revert in Shopping Mode)
+ * @description [純淨原生版] 確保購物模式下，不僅 Header 復原，JS 層面的 Canvas/WebGL/Audio 混淆也全數停止。
  * ----------------------------------------------------------------------------
- * 1. [Debug] 強制輸出 FP-Mode 的讀取結果，請查看 Surge 日誌。
- * 2. [Logic] 增強關鍵字比對邏輯。
+ * 1. [Total Revert] 購物模式 = 真實 iPhone Header + 真實瀏覽器指紋 (無雜訊)。
+ * 2. [Safety] 通過銀行「設備一致性」檢測，防止因指紋矛盾導致鎖卡。
+ * 3. [Core] 防護模式下維持 macOS 強力偽裝。
  * ----------------------------------------------------------------------------
+ * @note 僅需更新 JS 檔案，模組設定無需更動。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 0. 全域配置
+  // 0. 全域配置 (定義身份)
   // ============================================================================
-  const TARGET_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-  
-  // [除錯開關] 開啟以檢查為什麼購物模式失效
-  const DEBUG_LOG = true; 
+  const UA_MAC = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+  const UA_IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
+
+  // [DEBUG] 關閉日誌以提升效能
+  const DEBUG_LOG = false; 
 
   let IS_SHOPPING_MODE = false;
-  let debugMsg = "";
 
-  // 策略組偵測邏輯
+  // 策略組連動偵測 (Surge Dashboard)
   try {
     if (typeof $surge !== 'undefined' && $surge.selectGroupDetails) {
-      const details = $surge.selectGroupDetails();
-      const decisions = details.decisions;
-      
-      if (DEBUG_LOG) debugMsg += `[Group Check] Found decisions. `;
-
+      const decisions = $surge.selectGroupDetails().decisions;
       if (decisions && decisions['FP-Mode']) {
         const selection = decisions['FP-Mode'];
-        debugMsg += `Selection: "${selection}". `;
-        
-        // 寬鬆比對：只要包含 Shopping 或 購物 即視為開啟
-        if (selection && (selection.indexOf('Shopping') !== -1 || selection.indexOf('購物') !== -1)) {
+        if (selection.includes('Shopping') || selection.includes('購物')) {
           IS_SHOPPING_MODE = true;
-          debugMsg += `-> MATCHED Shopping Mode. `;
-        } else {
-          debugMsg += `-> Protection Mode. `;
         }
-      } else {
-        debugMsg += `Error: FP-Mode group not found in decisions. `;
       }
-    } else {
-      debugMsg += `Error: $surge API not available. `;
     }
-  } catch (e) {
-    debugMsg += `Exception: ${e.message}. `;
-  }
+  } catch (e) {}
 
-  // 參數容錯 (Argument Override)
+  // 參數容錯
   if (!IS_SHOPPING_MODE && typeof $argument === "string" && $argument.includes("mode=shopping")) {
       IS_SHOPPING_MODE = true;
-      debugMsg += `[Arg Override] Forced Shopping Mode. `;
   }
 
   // ============================================================================
-  // Phase A: HTTP Request Header Rewrite (網路層 - 問題核心)
+  // Phase A: HTTP Request Header Rewrite (網路層)
   // ============================================================================
   if (typeof $response === 'undefined' && typeof $request !== 'undefined') {
       
-      // [DEBUG] 輸出診斷訊息到 Surge 日誌
-      if (DEBUG_LOG) {
-          console.log(`🔍 FP-Header Diag: ${debugMsg} | Final Decision: ${IS_SHOPPING_MODE ? "SHOPPING (Pass)" : "PROTECTION (Rewrite)"}`);
-      }
-
-      // 若為購物模式，直接放行 (回傳 iOS 真實 Header)
-      if (IS_SHOPPING_MODE) {
-          $done({});
-          return;
-      }
-
-      // 保護模式：修改 Header
       const headers = $request.headers;
-      const uaKey = Object.keys(headers).find(k => k.toLowerCase() === 'user-agent');
       
-      if (uaKey) {
-          headers[uaKey] = TARGET_UA;
+      // 尋找 Key (處理大小寫問題)
+      const uaKey = Object.keys(headers).find(k => k.toLowerCase() === 'user-agent');
+      const targetKey = uaKey || 'User-Agent';
+
+      if (IS_SHOPPING_MODE) {
+          // [購物模式] 強制寫入 iPhone UA (驅魔)
+          headers[targetKey] = UA_IPHONE;
+          
+          // 移除任何可能導致矛盾的 Client Hints
+          const mobileKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-mobile');
+          if (mobileKey) delete headers[mobileKey];
+
+          const platformKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-platform');
+          if (platformKey) delete headers[platformKey];
+
       } else {
-          headers['User-Agent'] = TARGET_UA;
+          // [防護模式] 強制寫入 macOS UA
+          headers[targetKey] = UA_MAC;
+
+          // 注入 macOS 特徵
+          const mobileKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-mobile');
+          if (mobileKey) headers[mobileKey] = "?0";
+
+          const platformKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-platform');
+          if (platformKey) headers[platformKey] = '"macOS"';
       }
-
-      const mobileKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-mobile');
-      if (mobileKey) headers[mobileKey] = "?0";
-
-      const platformKey = Object.keys(headers).find(k => k.toLowerCase() === 'sec-ch-ua-platform');
-      if (platformKey) headers[platformKey] = '"macOS"';
 
       $done({ headers });
       return; 
@@ -96,11 +83,12 @@
   // ============================================================================
   // Phase B: HTTP Response Body Injection (瀏覽器層)
   // ============================================================================
+  
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_MAC_V302", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V302",
-    INJECT_MARKER: "__FP_SHIELD_V302__",
+    KEY_SEED: "FP_SHIELD_MAC_V304", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V304",
+    INJECT_MARKER: "__FP_SHIELD_V304__",
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
     JITTER_RANGE_MS: 4 * 60 * 60 * 1000,
     CANVAS_MIN_SIZE: 16,
@@ -180,6 +168,7 @@
   let hostname = "";
   try { hostname = new URL($request.url).hostname.toLowerCase(); } catch (e) { $done({}); return; }
   
+  // [邏輯] 若為購物模式，強制視為白名單 -> 觸發腳本內的 "return" 機制
   const isSoftWhitelisted = IS_SHOPPING_MODE || SoftWhitelist.check(hostname);
   
   let body = $res.body;
@@ -221,7 +210,7 @@
   ">${badgeText}</div>
   `;
 
-  // Core Injection
+  // Core Injection Script
   const injectionScript = `
 <script>
 (function() {
@@ -232,7 +221,7 @@
   const b = document.getElementById('fp-nuclear-badge');
   try {
       const CONFIG = {
-        isWhitelisted: ${isSoftWhitelisted},
+        isWhitelisted: ${isSoftWhitelisted}, // 這裡會接收到 true (如果是購物模式)
         rectNoiseRate: 0.0001,
         canvasNoiseStep: 2,
         audioNoiseLevel: 1e-6,
@@ -259,6 +248,10 @@
           setTimeout(() => { if(b) { b.style.opacity='0'; setTimeout(()=>b.remove(), 1000); } }, 4000);
       }
 
+      // [CRITICAL] 這是雙重保險
+      // 如果 CONFIG.isWhitelisted 為真 (購物模式或白名單)，直接 return。
+      // 下方的 Modules.hardware, Modules.canvas 等代碼完全不會被執行。
+      // 這保證了瀏覽器環境絕對純淨。
       if (CONFIG.isWhitelisted) return;
 
       const safeDefine = (obj, prop, descriptor) => {
@@ -305,7 +298,7 @@
       if (RNG.s === 0) RNG.s = 1;
 
       const Persona = (function() {
-        const headerUA = "${TARGET_UA}"; 
+        const headerUA = "${UA_MAC}"; 
         const MAC_HW = {
             SILICON: { cpuPool: [8, 10, 12], ramPool: [8, 16, 24, 32], gpuPool: [{v: 'Apple', r: 'Apple M1', w: 40}, {v: 'Apple', r: 'Apple M2', w: 30}, {v: 'Apple', r: 'Apple M3', w: 20}, {v: 'Apple', r: 'Apple GPU', w: 10}] },
             INTEL: { cpuPool: [4, 6, 8, 12], ramPool: [8, 16, 32, 64], gpuPool: [{v: 'Intel Inc.', r: 'Intel(R) Iris(TM) Plus Graphics 640', w: 40}, {v: 'ATI Technologies Inc.', r: 'AMD Radeon Pro 5300M', w: 30}, {v: 'ATI Technologies Inc.', r: 'AMD Radeon Pro 5500M', w: 30}] }
@@ -743,14 +736,5 @@
   } catch(e) { panic(e); }
 })();
 </script>
-`;
-
-  const combinedInjection = staticBadgeHTML + injectionScript;
-  if (REGEX.HEAD_TAG.test(body)) body = body.replace(REGEX.HEAD_TAG, (m) => m + combinedInjection);
-  else if (REGEX.HTML_TAG.test(body)) body = body.replace(REGEX.HTML_TAG, (m) => m + combinedInjection);
-  else body = combinedInjection + body;
-
-  $done({ body: body, headers: headers });
-})();
 
 
