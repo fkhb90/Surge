@@ -1,7 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge-V41.48.js
- * @version   41.48 (Foodpanda Action-Log Block)
- * @description [V41.48] 針對 Foodpanda 隱私強化：將 tw.fd-api.com 從硬白名單移至軟白名單，並精準攔截 /api/v5/action-log 行為追蹤；同步 V41.47 的全域化修正。
+ * @version   41.48 (Foodpanda & Uber Privacy Hardening)
+ * @description [V41.48] 深度隱私防護更新：
+ * 1. Foodpanda: 遷移 tw.fd-api.com 至軟白名單，並以 Regex 攔截跨版本行為日誌 (/api/v5~vX/action-log)。
+ * 2. Uber/UberEats: 全域攔截 /_events 與 /ramen/v1/events 遙測路徑。
+ * 3. 架構: 鞏固 Shopee/Tongyi 的全域路徑攔截策略。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2026-01-03
@@ -107,7 +110,7 @@ const CONFIG = {
     // [V41.00] account.uber.com 已移至 Soft Whitelist 以支援路徑過濾 (_events)
     // --- 台灣地區服務 ---
     'api.etmall.com.tw', 
-    // 'tw.fd-api.com', // [V41.48] Moved to Soft Whitelist to block /api/v5/action-log
+    // 'tw.fd-api.com', // [V41.48] Moved to Soft Whitelist
     // --- [V40.42] 台灣關鍵基礎設施 ---
     'api.map.ecpay.com.tw', // ECPay Logistics Map API
     // --- 支付 & 金流 API ---
@@ -421,8 +424,6 @@ const CONFIG = {
    * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充, V41.21 擴充, V41.26 修復, V41.27 修復, V41.28 修復, V41.30 修正, V41.31 擴充, V41.37 擴充, V41.46 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
-    // [V41.48] Foodpanda Action Log Block
-    ['tw.fd-api.com', new Set(['/api/v5/action-log'])],
     // [V41.46] Generic Ad API (Covers EPrice & others)
     // Removed specific domain mapping for '/api/web/ad/' as it's now covered by CRITICAL_TRACKING_GENERIC_PATHS below for broader coverage.
     
@@ -433,7 +434,7 @@ const CONFIG = {
     // [V41.31] Shopee LiveTech 行為追蹤 (ReportPB)
     ['data-rep.livetech.shopee.tw', new Set(['/dataapi/dataweb/event/'])],
     // [V41.00] Uber 登入頁面遙測阻擋
-    ['account.uber.com', new Set(['/_events'])],
+    // ['account.uber.com', new Set(['/_events'])], // [V41.48] Moved to Generic Path
     // [V41.08 & V41.09] 通義千問 (Tongyi AI) 行為日誌與業務埋點
     ['api.tongyi.com', new Set(['/qianwen/event/track'])], // [V41.47] /app/mobilelog 已移至通用路徑
     // [V41.10] 支付寶 (Alipay) 日誌配置檔源頭攔截 (防止 App 獲取上傳策略)
@@ -508,10 +509,18 @@ const CONFIG = {
    * 🚨 [V40.71 新增, V41.13 擴充, V41.37 擴充, V41.46 擴充] 關鍵追蹤路徑模式 (通用)
    */
   CRITICAL_TRACKING_GENERIC_PATHS: new Set([
-    // [V41.47] Generic Ad & Log API (Global Coverage)
-    '/api/web/ad/', 
+    // [V41.48] Foodpanda & Uber Generic Logs
+    '/action-log',       // Foodpanda 通用行為日誌 (v5/v6 agnostic)
+    '/ramen/v1/events',  // Uber Eats 行為日誌
+    '/_events',          // Uber Core 日誌
+    
+    // [V41.47] Shopee & Alibaba Global Logs
     '/report/v1/log', // Shopee Global Log
     '/app/mobilelog', // Tongyi/Alibaba Global Log
+    
+    // [V41.46] Generic Ad API
+    '/api/web/ad/', 
+    
     // [V41.37] Explicit Fingerprint API Endpoints
     '/api/fingerprint', '/v1/fingerprint', '/cdn/fp/', '/cdn/fingerprint/',
     '/api/device-id', '/api/visitor-id',
@@ -740,6 +749,8 @@ const CONFIG = {
     /[^\/]*sentry[^\/]*\.js/i,
     /\/v\d+\/event/i,
     /\/api\/v\d+\/collect$/i,
+    // [V41.48] Foodpanda Action Log (Version Agnostic: v5, v6, etc.)
+    /\/api\/v\d+\/action-log/i,
     // [V41.35] Browser Fingerprinting Scripts (e.g., fp2.js, fp2.hash.js)
     /\/fp\d+(\.[a-z0-9]+)?\.js$/i,
     // [V41.36] High Confidence Fingerprinting Patterns
@@ -1508,7 +1519,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.48 - Foodpanda Action-Log Block', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.48 - Foodpanda & Uber Privacy Hardening', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -1535,4 +1546,5 @@ function initialize() {
     if (typeof $done !== 'undefined') $done({});
   }
 })();
+
 
