@@ -1,11 +1,11 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   4.87-2026-Refresh (Green Shield + Gemini Support + Modern UAs)
- * @description [2026 維護版] 基於 V4.86。更新 User-Agent 以匹配 2026 年主流環境，降低過時指紋風險。
+ * @version   4.90-Life-Service-Stability
+ * @description [生活服務穩定版] 擴充高風險服務白名單。
  * ----------------------------------------------------------------------------
- * 1. [Security] UA 升級: Chrome 143 (Mac) / iOS 19.2 (iPhone)。
- * 2. [Visual] 狀態指示: 綠色(Active) / 灰色(Bypass) / 紫色(Shopping)。
- * 3. [Whitelist] 包含 Gemini, ChatGPT, 台灣網銀與主流串流媒體。
+ * 1. [Safety] 新增 Uber/Foodpanda/Booking/Agoda 至白名單，防止帳號風控。
+ * 2. [Logic] 延續 V4.89 的 Momo 修正與 Shopee 購物模式策略。
+ * 3. [Core] 保持 Chrome 143 / iOS 19.2 高階偽裝指紋。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -18,10 +18,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // [V4.87] 更新 Seed 以強制刷新緩存規則
-    KEY_SEED: "FP_SHIELD_SEED_V487", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V487",
-    INJECT_MARKER: "__FP_SHIELD_V487__",
+    // [V4.90] 更新 Seed
+    KEY_SEED: "FP_SHIELD_SEED_V490", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V490",
+    INJECT_MARKER: "__FP_SHIELD_V490__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -34,10 +34,8 @@
     CACHE_CLEANUP_INTERVAL: 30000,
     TOBLOB_RELEASE_FALLBACK_MS: 3000,
     
-    // [V4.87] User Agents Updated for Jan 2026
-    // Mac: Chrome 143 on macOS 15.7 (Modern Standard)
+    // User Agents (2026 Standards)
     UA_MAC: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
-    // iPhone: iOS 19.2 (Modern Mobile)
     UA_IPHONE: "Mozilla/5.0 (iPhone; CPU iPhone OS 19_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/19.2 Mobile/15E148 Safari/604.1"
   };
 
@@ -54,25 +52,17 @@
   try { hostname = new URL(currentUrl).hostname.toLowerCase(); } catch (e) {}
 
   // ============================================================================
-  // 1. [Hard Exclusion] 硬排除 - 絕對不碰的領域 (無 Badge 顯示)
+  // 1. [Hard Exclusion] 硬排除 - 絕對不碰的領域
   // ============================================================================
-  // 這些服務一旦修改 Header 或注入 JS，極易崩潰。硬排除會直接 $done({})，不顯示任何盾牌。
   const HARD_EXCLUSION_KEYWORDS = [
-    // 1. 通訊與社交 App
     "line.me", "line-apps", "line-scdn", "legy", 
     "naver.com", "naver.jp", 
     "facebook.com/api", "messenger.com", "whatsapp.com", "instagram.com",
-    
-    // 2. 系統服務 (Apple/Google 底層 API)
     "googleapis.com", "gstatic.com", "googleusercontent.com", 
     "apple.com", "icloud.com", "mzstatic.com", "itunes.apple.com",
-    
-    // 3. 敏感 AI 服務 (API 端點 - 前端網頁在白名單)
-    "oaistatic.com", "oaiusercontent.com", // ChatGPT Assets
-    "anthropic.com", // Claude API
-    
-    // 4. 驗證碼服務 (CAPTCHA)
-    "challenges.cloudflare.com", "recaptcha.net", "google.com/recaptcha", "hcaptcha.com", "arkoselabs.com"
+    "oaistatic.com", "oaiusercontent.com", "anthropic.com",
+    "challenges.cloudflare.com", "recaptcha.net", "google.com/recaptcha", "hcaptcha.com", "arkoselabs.com",
+    "sentry.io" // [V4.90] Error logging services
   ];
   
   if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) {
@@ -81,31 +71,32 @@
   }
 
   // ============================================================================
-  // 2. [Soft Whitelist] 軟白名單 - 顯示灰色 Badge (Bypass)
+  // 2. [Soft Whitelist] 軟白名單 (Grey Shield - Bypass)
   // ============================================================================
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
-      // AI 服務
+      // [V4.90] 生活服務與旅遊 (Life Services) - 高度風控
+      "uber.com", "ubereats.com", "foodpanda.com", "foodpanda.com.tw",
+      "booking.com", "agoda.com", "airbnb.com", "expedia.com",
+      "stripe.com", // 支付閘道
+      
+      // 電商修正
+      "momoshop.com.tw", 
+
+      // AI & Productivity
       "gemini.google.com", "bard.google.com", "chatgpt.com", "claude.ai", "perplexity.ai",
-      
-      // Google 交互式服務
       "docs.google.com", "drive.google.com", "mail.google.com", "meet.google.com", "calendar.google.com",
-      
-      // Microsoft 生產力工具
       "microsoft.com", "office.com", "live.com", "teams.microsoft.com", "sharepoint.com", "onenote.com",
       
-      // 串流媒體
+      // Streaming
       "netflix.com", "spotify.com", "disneyplus.com", "twitch.tv", "youtube.com", "iqiyi.com", "kkbox.com",
       
-      // 台灣主流網銀 (Taiwan Banks)
+      // Banks & Payments
       "ctbcbank.com", "cathaybk.com.tw", "esunbank.com.tw", "fubon.com", "taishinbank.com.tw", 
       "megabank.com.tw", "bot.com.tw", "firstbank.com.tw", "hncb.com.tw", "sinopac.com", "post.gov.tw",
-      
-      // 支付與驗證網關
       "paypal.com", "visa.com", "mastercard.com", "amex.com", 
       "jkos.com", "ecpay.com.tw", "newebpay.com"
     ]);
-    
     const trustedSuffixes = [".gov.tw", ".edu.tw", ".org.tw", ".mil", ".bank"];
     
     return {
@@ -123,21 +114,35 @@
   const isSoftWhitelisted = WhitelistManager.check(hostname);
 
   // ============================================================================
-  // 3. 模式偵測 (Shopping vs Protection)
+  // 3. [Mode Detection] 模式偵測 (Shopping vs Protection)
   // ============================================================================
   let mode = "protection";
-  try {
-    if (typeof $surge !== 'undefined' && $surge.selectGroupDetails) {
-      const decisions = $surge.selectGroupDetails().decisions;
-      for (let key in decisions) {
-        if (/[Ss]hopping|購物|🛍️|Bypass/.test(decisions[key])) {
-          mode = "shopping";
-          break;
+  
+  // Auto-Shopping Logic (Purple Shield)
+  // 針對需要 Mobile UA 但不需要 JS 噪音的網站
+  const AUTO_SHOPPING_DOMAINS = [
+      "shopee.", "shope.ee", "xiapi", 
+      "amazon.", "ebay.", "rakuten.", 
+      "pchome.com.tw"
+  ];
+
+  if (AUTO_SHOPPING_DOMAINS.some(d => hostname.includes(d))) {
+      mode = "shopping";
+  } else {
+      try {
+        if (typeof $surge !== 'undefined' && $surge.selectGroupDetails) {
+          const decisions = $surge.selectGroupDetails().decisions;
+          for (let key in decisions) {
+            if (/[Ss]hopping|購物|🛍️|Bypass/.test(decisions[key])) {
+              mode = "shopping";
+              break;
+            }
+          }
         }
-      }
-    }
-  } catch (e) {}
-  if (typeof $argument === "string" && $argument.includes("mode=shopping")) mode = "shopping";
+      } catch (e) {}
+      if (typeof $argument === "string" && $argument.includes("mode=shopping")) mode = "shopping";
+  }
+
   const IS_SHOPPING = (mode === "shopping");
 
   // ============================================================================
@@ -153,7 +158,7 @@
     if (IS_SHOPPING) {
       headers['User-Agent'] = CONST.UA_IPHONE;
     } else {
-      // [V4.87] Client Hints Update for Chrome 143
+      // 白名單模式下 (如 Uber/Momo) 仍走這裡，保持 Mac Chrome UA，確保電腦版網頁功能正常
       headers['User-Agent'] = CONST.UA_MAC;
       headers['sec-ch-ua'] = '"Not(A:Brand";v="99", "Google Chrome";v="143", "Chromium";v="143"';
       headers['sec-ch-ua-mobile'] = "?0";
@@ -172,46 +177,29 @@
     const headers = $response.headers || {};
     const cType = (headers['Content-Type'] || headers['content-type'] || "").toLowerCase();
 
-    // 基礎過濾
     if ([204, 206, 301, 302, 304].includes($response.status)) { $done({}); return; }
     if (!body || (cType && !cType.includes("html"))) { $done({}); return; }
     if (body.includes(CONST.INJECT_MARKER)) { $done({}); return; }
 
-    // Badge Logic (Inherited from V4.86)
-    // 預設: 綠色 (Green) - Protection Active
     let badgeColor = "#28CD41"; 
     let badgeText = "FP: Shield Active";
     
     if (IS_SHOPPING) {
-        // 購物模式: 紫色 (Purple)
         badgeColor = "#AF52DE"; badgeText = "FP: Shopping Mode"; 
     } else if (isSoftWhitelisted) {
-        // 白名單: 灰色 (Grey) - Bypass
         badgeColor = "#636366"; badgeText = "FP: Bypass (Safe)"; 
     }
 
-    // ------------------------------------------------------------------------
-    // [Core Injection] V2.81 Logic with V4.87 Configs
-    // ------------------------------------------------------------------------
     const injectionScript = `
     <!-- ${CONST.INJECT_MARKER} -->
     <div id="fp-badge" style="
-        position: fixed !important;
-        bottom: 15px !important;
-        left: 15px !important;
-        z-index: 2147483647 !important;
-        background: ${badgeColor} !important;
-        color: #ffffff !important;
-        padding: 7px 14px !important;
-        border-radius: 10px !important;
+        position: fixed !important; bottom: 15px !important; left: 15px !important;
+        z-index: 2147483647 !important; background: ${badgeColor} !important;
+        color: #ffffff !important; padding: 7px 14px !important; border-radius: 10px !important;
         font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
-        font-size: 12px !important;
-        font-weight: 700 !important;
-        pointer-events: none !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
-        transition: opacity 0.8s ease-out !important;
-        opacity: 1 !important;
-        display: block !important;
+        font-size: 12px !important; font-weight: 700 !important; pointer-events: none !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important; transition: opacity 0.8s ease-out !important;
+        opacity: 1 !important; display: block !important;
     ">${badgeText}</div>
     <script>
     (function() {
@@ -221,46 +209,36 @@
 
       // UI Control
       const b = document.getElementById('fp-badge');
-      // 延長顯示時間至 4000ms 確保使用者能看見
       setTimeout(() => { if(b) { b.style.opacity='0'; setTimeout(()=>b.remove(), 1000); } }, 4000);
 
-      // [Decision Gate]
-      // 若為購物模式或白名單網站，執行基礎清理後退出，確保不干擾功能
       const IS_SHOPPING = ${IS_SHOPPING};
       const IS_WHITELISTED = ${isSoftWhitelisted};
 
+      // [Decision Gate]
       if (IS_SHOPPING || IS_WHITELISTED) {
           try { if (navigator && 'webdriver' in navigator) delete navigator.webdriver; } catch(e) {}
-          return; // 白名單模式下，僅顯示 Badge 並移除 webdriver 標記，不執行後續混淆
+          try { 
+              if (window.cdc_adoQpoasnfa76pfcZLmcfl_Array) delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
+              if (window.cdc_adoQpoasnfa76pfcZLmcfl_Promise) delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
+              if (window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol) delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
+          } catch(e) {}
+          return; 
       }
 
-      // --- 以下為完整混淆邏輯 (僅在綠色盾牌模式下執行) ---
-
+      // --- 僅在 Green Shield 下執行的完整混淆邏輯 ---
       const CONFIG = {
-        rectNoiseRate: 0.0001,
-        canvasNoiseStep: 2,
-        audioNoiseLevel: 1e-6,
-        canvasMinSize: ${CONST.CANVAS_MIN_SIZE},
-        canvasMaxNoiseArea: ${CONST.CANVAS_MAX_NOISE_AREA},
-        maxPoolSize: ${CONST.MAX_POOL_SIZE},
-        maxPoolDim: ${CONST.MAX_POOL_DIM},
-        webglCacheSize: ${CONST.WEBGL_PARAM_CACHE_SIZE},
-        cleanupInterval: ${CONST.CACHE_CLEANUP_INTERVAL},
+        rectNoiseRate: 0.0001, canvasNoiseStep: 2, audioNoiseLevel: 1e-6,
+        canvasMinSize: ${CONST.CANVAS_MIN_SIZE}, canvasMaxNoiseArea: ${CONST.CANVAS_MAX_NOISE_AREA},
+        maxPoolSize: ${CONST.MAX_POOL_SIZE}, maxPoolDim: ${CONST.MAX_POOL_DIM},
+        webglCacheSize: ${CONST.WEBGL_PARAM_CACHE_SIZE}, cleanupInterval: ${CONST.CACHE_CLEANUP_INTERVAL},
         toBlobReleaseFallbackMs: ${CONST.TOBLOB_RELEASE_FALLBACK_MS}
       };
-
-      // ---------------- Helper: SafeDefine ----------------
+      
       const safeDefine = (obj, prop, descriptor) => {
           if (!obj) return false;
-          try {
-              const d = Object.getOwnPropertyDescriptor(obj, prop);
-              if (d && !d.configurable) return false;
-              Object.defineProperty(obj, prop, descriptor);
-              return true;
-          } catch(e) { return false; }
+          try { const d = Object.getOwnPropertyDescriptor(obj, prop); if (d && !d.configurable) return false; Object.defineProperty(obj, prop, descriptor); return true; } catch(e) { return false; }
       };
 
-      // ---------------- Seed & RNG ----------------
       const Seed = (function() {
         const safeGet = (k) => { try { return localStorage.getItem(k); } catch(e) { return null; } };
         const safeSet = (k, v) => { try { localStorage.setItem(k, v); } catch(e) {} };
@@ -280,10 +258,7 @@
 
       const RNG = {
         s: ((Seed * 9301 + 49297) | 0) >>> 0,
-        next: function() {
-          let x = this.s; x ^= x << 13; x ^= x >>> 17; x ^= x << 5;
-          this.s = x >>> 0; return (this.s / 4294967296);
-        },
+        next: function() { let x = this.s; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; this.s = x >>> 0; return (this.s / 4294967296); },
         pick: function(arr) { return arr[Math.floor(this.next() * arr.length)]; },
         pickWeighted: function(items) {
           let total = 0; for(let i=0; i<items.length; i++) total += items[i].w;
@@ -294,50 +269,22 @@
       };
       if (RNG.s === 0) RNG.s = 1;
 
-      // ---------------- Persona (Force macOS High-Tier 2026) ----------------
       const Persona = (function() {
         const MAC_TIERS = {
-            MID: { 
-                cpuPool: [8, 10], ramPool: [16, 24],
-                // Updated GPU models for 2026 Context
-                gpuPool: [{v: 'Apple', r: 'Apple M3 Pro', w: 60}, {v: 'Apple', r: 'Apple M3 Max', w: 40}]
-            },
-            HIGH: { 
-                cpuPool: [12, 16], ramPool: [32, 64],
-                // Updated GPU models for 2026 Context
-                gpuPool: [{v: 'Apple', r: 'Apple M3 Ultra', w: 60}, {v: 'Apple', r: 'Apple M4 Max', w: 40}]
-            }
+            MID: { cpuPool: [8, 10], ramPool: [16, 24], gpuPool: [{v: 'Apple', r: 'Apple M3 Pro', w: 60}, {v: 'Apple', r: 'Apple M3 Max', w: 40}] },
+            HIGH: { cpuPool: [12, 16], ramPool: [32, 64], gpuPool: [{v: 'Apple', r: 'Apple M3 Ultra', w: 60}, {v: 'Apple', r: 'Apple M4 Max', w: 40}] }
         };
-
-        const r = RNG.next();
-        let tier = (r > 0.6) ? MAC_TIERS.HIGH : MAC_TIERS.MID;
-
-        const cpu = RNG.pick(tier.cpuPool);
-        const ram = RNG.pick(tier.ramPool);
-        const gpu = RNG.pickWeighted(tier.gpuPool);
-        gpu.topo = 'unified'; gpu.tex = 16384;
-
-        const plugins = [
-            { name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-            { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-            { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }
-        ];
-
+        const r = RNG.next(); let tier = (r > 0.6) ? MAC_TIERS.HIGH : MAC_TIERS.MID;
+        const cpu = RNG.pick(tier.cpuPool); const ram = RNG.pick(tier.ramPool);
+        const gpu = RNG.pickWeighted(tier.gpuPool); gpu.topo = 'unified'; gpu.tex = 16384;
+        const plugins = [{ name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }, { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }, { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }];
         return { 
-            // Updated Version for 2026
             ua: { ver: "143", platform: "MacIntel" },
-            ch: { 
-                brands: [{brand:"Chromium",version:"143"},{brand:"Google Chrome",version:"143"},{brand:"Not(A:Brand",version:"99"}], 
-                platform: "macOS", mobile: false, arch: "x86", bitness: "64", model: "", 
-                platVer: "15.7.0" // Updated to match macOS 15.x
-            },
-            hw: { cpu, ram },
-            gpu: gpu,
-            plugins: plugins
+            ch: { brands: [{brand:"Chromium",version:"143"},{brand:"Google Chrome",version:"143"},{brand:"Not(A:Brand",version:"99"}], platform: "macOS", mobile: false, arch: "x86", bitness: "64", model: "", platVer: "15.7.0" },
+            hw: { cpu, ram }, gpu: gpu, plugins: plugins
         };
       })();
 
-      // ---------------- ProxyGuard ----------------
       const ProxyGuard = {
         proxyMap: new WeakMap(), nativeStrings: new WeakMap(), toStringMap: new WeakMap(),
         _makeFakeToString: function(t, ns) {
@@ -362,12 +309,7 @@
                 if (k === 'name' || k === 'length') return native[k];
                 return Reflect.get(t, k, r);
               },
-              getOwnPropertyDescriptor: (t, k) => {
-                 const nativeDesc = Reflect.getOwnPropertyDescriptor(native, k);
-                 if (nativeDesc && nativeDesc.configurable === false) return nativeDesc;
-                 const d = Reflect.getOwnPropertyDescriptor(native, k);
-                 return (d && !d.configurable) ? d : (Reflect.getOwnPropertyDescriptor(t, k) || d);
-              },
+              getOwnPropertyDescriptor: (t, k) => { const d = Reflect.getOwnPropertyDescriptor(native, k); return (d && !d.configurable) ? d : (Reflect.getOwnPropertyDescriptor(t, k) || d); },
               ownKeys: (t) => Array.from(new Set([].concat(Reflect.ownKeys(native), Reflect.ownKeys(t)))),
               has: (t, k) => (k in native || k in t),
               getPrototypeOf: () => Object.getPrototypeOf(native)
@@ -389,24 +331,19 @@
         }
       };
 
-      // ---------------- CanvasPool ----------------
       const CanvasPool = (function() {
         const pool = [];
         const shrink = (item) => { try { item.c.width = 1; item.c.height = 1; } catch(e) {} };
         return {
           get: function(w, h) {
             if (!w || !h || (w*h) > CONFIG.maxPoolDim) {
-              const c = document.createElement('canvas');
-              if (w && h && (w*h) <= CONFIG.maxPoolDim) { c.width = w; c.height = h; }
+              const c = document.createElement('canvas'); if (w && h && (w*h) <= CONFIG.maxPoolDim) { c.width = w; c.height = h; }
               return { canvas: c, ctx: c.getContext('2d', {willReadFrequently:true}), release: function(){ try{c.width=1;c.height=1;}catch(e){} } };
             }
             let best = null;
             for (let i = 0; i < pool.length; i++) if (!pool[i].u && pool[i].c.width >= w && pool[i].c.height >= h) { if (!best || pool[i].t < best.t) best = pool[i]; }
             if (!best) {
-              if (pool.length < CONFIG.maxPoolSize) { 
-                const c = document.createElement('canvas'); c.width = w; c.height = h;
-                return { canvas: c, ctx: c.getContext('2d', {willReadFrequently:true}), release: function(){ try{c.width=1;c.height=1;}catch(e){} } };
-              }
+              if (pool.length < CONFIG.maxPoolSize) { const c = document.createElement('canvas'); c.width = w; c.height = h; return { canvas: c, ctx: c.getContext('2d', {willReadFrequently:true}), release: function(){ try{c.width=1;c.height=1;}catch(e){} } }; }
             }
             best.u = true; best.t = Date.now(); best.c.width = w; best.c.height = h;
             return { canvas: best.c, ctx: best.x, release: function() { best.u = false; best.t = Date.now(); } };
@@ -416,7 +353,6 @@
         };
       })();
 
-      // ---------------- Noise Helpers ----------------
       const Noise = {
         spatial01: function(x, y, salt) {
           let h = (x | 0) * 374761393 + (y | 0) * 668265263 + (salt | 0) * 1442695041 + (RNG.s | 0);
@@ -425,221 +361,78 @@
         },
         rand: function(i) { let x = ((RNG.s + (i|0)) | 0) >>> 0; x^=x<<13; x^=x>>>17; x^=x<<5; return (x>>>0)/4294967296; },
         pixel: function(d, w, h) {
-          const area = w * h;
-          if (area > CONFIG.canvasMaxNoiseArea) return; 
-          if (!d || d.length < 4) return;
-          const step = CONFIG.canvasNoiseStep;
-          const rowSaltBase = (RNG.s ^ 0x9E3779B9) >>> 0;
+          const area = w * h; if (area > CONFIG.canvasMaxNoiseArea) return; if (!d || d.length < 4) return;
+          const step = CONFIG.canvasNoiseStep; const rowSaltBase = (RNG.s ^ 0x9E3779B9) >>> 0;
           for (let y = 0; y < h; y += step) {
-            const rowSalt = (rowSaltBase + (y * 2654435761)) >>> 0;
-            const rowOffset = y * w;
+            const rowSalt = (rowSaltBase + (y * 2654435761)) >>> 0; const rowOffset = y * w;
             for (let x = 0; x < w; x += step) {
-              const i = (rowOffset + x) * 4;
-              if (i + 2 >= d.length) continue;
+              const i = (rowOffset + x) * 4; if (i + 2 >= d.length) continue;
               const n = Noise.spatial01(x, y, rowSalt);
-              if (n < 0.05) {
-                const delta = (((n * 1000) | 0) & 1) ? 1 : -1;
-                d[i] = Math.max(0, Math.min(255, d[i] + delta));
-                d[i+1] = Math.max(0, Math.min(255, d[i+1] - delta));
-                d[i+2] = Math.max(0, Math.min(255, d[i+2] + delta));
-              }
+              if (n < 0.05) { const delta = (((n * 1000) | 0) & 1) ? 1 : -1; d[i] = Math.max(0, Math.min(255, d[i] + delta)); d[i+1] = Math.max(0, Math.min(255, d[i+1] - delta)); d[i+2] = Math.max(0, Math.min(255, d[i+2] + delta)); }
             }
           }
         },
-        audio: function(d) {
-           const lvl = CONFIG.audioNoiseLevel;
-           if (lvl < 1e-8) return;
-           for(let i=0; i<d.length; i+=100) d[i] += (Noise.rand(i) * lvl - lvl/2);
-        }
+        audio: function(d) { const lvl = CONFIG.audioNoiseLevel; if (lvl < 1e-8) return; for(let i=0; i<d.length; i+=100) d[i] += (Noise.rand(i) * lvl - lvl/2); }
       };
 
-      // ---------------- Modules ----------------
       const Modules = {
         hardware: function(win) {
           const N = win.navigator;
-          const spoofProp = (target, prop, getterVal) => {
-              const desc = { get: () => getterVal, configurable: true };
-              if (!safeDefine(target, prop, desc)) {
-                  try { if (win.Navigator && win.Navigator.prototype) { safeDefine(win.Navigator.prototype, prop, desc); } } catch(e) {}
-              }
-          };
-          spoofProp(N, 'hardwareConcurrency', Persona.hw.cpu);
-          spoofProp(N, 'deviceMemory', Persona.hw.ram);
-          spoofProp(N, 'platform', Persona.ua.platform);
+          const spoofProp = (target, prop, getterVal) => { const desc = { get: () => getterVal, configurable: true }; if (!safeDefine(target, prop, desc)) { try { if (win.Navigator && win.Navigator.prototype) { safeDefine(win.Navigator.prototype, prop, desc); } } catch(e) {} } };
+          spoofProp(N, 'hardwareConcurrency', Persona.hw.cpu); spoofProp(N, 'deviceMemory', Persona.hw.ram); spoofProp(N, 'platform', Persona.ua.platform);
           try { if ('webdriver' in N) delete N.webdriver; } catch(e) {}
-
-          // Plugins
           try {
-             const pList = Persona.plugins;
-             const targetObj = {};
+             const pList = Persona.plugins; const targetObj = {};
              pList.forEach((p, i) => { Object.defineProperty(targetObj, i, { value: p, enumerable: true, writable: false, configurable: true }); });
              pList.forEach((p) => { Object.defineProperty(targetObj, p.name, { value: p, enumerable: false, writable: false, configurable: true }); });
              Object.defineProperty(targetObj, 'length', { value: pList.length, enumerable: false, writable: false, configurable: false });
-             Object.defineProperties(targetObj, {
-                 item: { value: i => pList[i] || null, enumerable: false, writable: false, configurable: true },
-                 namedItem: { value: n => pList.find(p=>p.name===n) || null, enumerable: false, writable: false, configurable: true },
-                 refresh: { value: () => {}, enumerable: false, writable: false, configurable: true }
-             });
+             Object.defineProperties(targetObj, { item: { value: i => pList[i] || null, enumerable: false, writable: false, configurable: true }, namedItem: { value: n => pList.find(p=>p.name===n) || null, enumerable: false, writable: false, configurable: true }, refresh: { value: () => {}, enumerable: false, writable: false, configurable: true } });
              if (win.PluginArray) Object.setPrototypeOf(targetObj, win.PluginArray.prototype);
-             const fakePlugins = new Proxy(targetObj, {
-                 get(t, p, r) { if (typeof p === 'symbol') return Reflect.get(t, p, r); if (p === 'length') return t.length; return Reflect.get(t, p, r); }
-             });
+             const fakePlugins = new Proxy(targetObj, { get(t, p, r) { if (typeof p === 'symbol') return Reflect.get(t, p, r); if (p === 'length') return t.length; return Reflect.get(t, p, r); } });
              safeDefine(N, 'plugins', { get: () => fakePlugins, configurable: true });
           } catch(e) {}
         },
-
         clientHints: function(win) {
           try {
-            const highEntropyData = {
-                 architecture: Persona.ch.arch, bitness: Persona.ch.bitness, platformVersion: Persona.ch.platVer, 
-                 uaFullVersion: Persona.ua.ver + '.0.0.0', model: Persona.ch.model, wow64: false
-            };
-            const fake = {
-              brands: Persona.ch.brands, mobile: Persona.ch.mobile, platform: Persona.ch.platform,
-              getHighEntropyValues: (hints) => {
-                 const result = { brands: Persona.ch.brands, mobile: Persona.ch.mobile, platform: Persona.ch.platform };
-                 if (hints && Array.isArray(hints)) { hints.forEach(h => { if (highEntropyData.hasOwnProperty(h)) result[h] = highEntropyData[h]; }); }
-                 return Promise.resolve(result);
-              },
-              toJSON: function() { return { brands: this.brands, mobile: this.mobile, platform: this.platform }; }
-            };
+            const highEntropyData = { architecture: Persona.ch.arch, bitness: Persona.ch.bitness, platformVersion: Persona.ch.platVer, uaFullVersion: Persona.ua.ver + '.0.0.0', model: Persona.ch.model, wow64: false };
+            const fake = { brands: Persona.ch.brands, mobile: Persona.ch.mobile, platform: Persona.ch.platform, getHighEntropyValues: (hints) => { const result = { brands: Persona.ch.brands, mobile: Persona.ch.mobile, platform: Persona.ch.platform }; if (hints && Array.isArray(hints)) { hints.forEach(h => { if (highEntropyData.hasOwnProperty(h)) result[h] = highEntropyData[h]; }); } return Promise.resolve(result); }, toJSON: function() { return { brands: this.brands, mobile: this.mobile, platform: this.platform }; } };
             safeDefine(win.navigator, 'userAgentData', { get: () => fake, configurable: true });
           } catch(e) {}
         },
-
         webgl: function(win) {
           try {
-            const p = Persona.gpu;
-            const debugObj = { UNMASKED_VENDOR_WEBGL: 37445, UNMASKED_RENDERER_WEBGL: 37446 };
+            const p = Persona.gpu; const debugObj = { UNMASKED_VENDOR_WEBGL: 37445, UNMASKED_RENDERER_WEBGL: 37446 };
             [win.WebGLRenderingContext, win.WebGL2RenderingContext].forEach(ctx => {
               if (!ctx || !ctx.prototype) return;
-              ProxyGuard.override(ctx.prototype, 'getParameter', (orig) => function(param) {
-                 if (param === 37445) return p.v;
-                 if (param === 37446) return p.r;
-                 return orig.apply(this, arguments);
-              });
-              ProxyGuard.override(ctx.prototype, 'getExtension', (orig) => function(n) {
-                 if (n === 'WEBGL_debug_renderer_info') return debugObj;
-                 return orig.apply(this, arguments);
-              });
+              ProxyGuard.override(ctx.prototype, 'getParameter', (orig) => function(param) { if (param === 37445) return p.v; if (param === 37446) return p.r; return orig.apply(this, arguments); });
+              ProxyGuard.override(ctx.prototype, 'getExtension', (orig) => function(n) { if (n === 'WEBGL_debug_renderer_info') return debugObj; return orig.apply(this, arguments); });
             });
           } catch(e) {}
         },
-
-        audio: function(win) {
-          if (CONFIG.audioNoiseLevel < 1e-8) return;
-          try {
-            if(win.AnalyserNode) ProxyGuard.override(win.AnalyserNode.prototype, 'getFloatFrequencyData', (orig)=>function(a){ 
-                const r=orig.apply(this,arguments); Noise.audio(a); return r; 
-            });
-            if(win.OfflineAudioContext) ProxyGuard.override(win.OfflineAudioContext.prototype, 'startRendering', (orig)=>function(){ 
-                return orig.apply(this,arguments).then(b=>{ if(b) Noise.audio(b.getChannelData(0)); return b; }); 
-            });
-          } catch(e){}
-        },
-        
+        audio: function(win) { if (CONFIG.audioNoiseLevel < 1e-8) return; try { if(win.AnalyserNode) ProxyGuard.override(win.AnalyserNode.prototype, 'getFloatFrequencyData', (orig)=>function(a){ const r=orig.apply(this,arguments); Noise.audio(a); return r; }); if(win.OfflineAudioContext) ProxyGuard.override(win.OfflineAudioContext.prototype, 'startRendering', (orig)=>function(){ return orig.apply(this,arguments).then(b=>{ if(b) Noise.audio(b.getChannelData(0)); return b; }); }); } catch(e){} },
         rects: function(win) {
            try {
-             const Element = win.Element;
-             if (!Element) return;
+             const Element = win.Element; if (!Element) return;
              const wrap = r => {
                if (!r) return r;
-               const n = (w, h) => {
-                  const s = (Math.floor(w)*374761393) ^ (Math.floor(h)*668265263);
-                  const x = Math.sin(s) * 10000;
-                  return (x - Math.floor(x)) * CONFIG.rectNoiseRate;
-               };
-               const f = 1 + n(r.width, r.height);
-               const nw = r.width * f; const nh = r.height * f;
-               const desc = {
-                   x: { value: r.x, enumerable: true }, y: { value: r.y, enumerable: true },
-                   width: { value: nw, enumerable: true }, height: { value: nh, enumerable: true },
-                   top: { value: r.top, enumerable: true }, left: { value: r.left, enumerable: true },
-                   right: { value: r.left + nw, enumerable: true }, bottom: { value: r.top + nh, enumerable: true },
-                   toJSON: { value: function(){return this;}, enumerable: false }
-               };
+               const n = (w, h) => { const s = (Math.floor(w)*374761393) ^ (Math.floor(h)*668265263); const x = Math.sin(s) * 10000; return (x - Math.floor(x)) * CONFIG.rectNoiseRate; };
+               const f = 1 + n(r.width, r.height); const nw = r.width * f; const nh = r.height * f;
+               const desc = { x: { value: r.x, enumerable: true }, y: { value: r.y, enumerable: true }, width: { value: nw, enumerable: true }, height: { value: nh, enumerable: true }, top: { value: r.top, enumerable: true }, left: { value: r.left, enumerable: true }, right: { value: r.left + nw, enumerable: true }, bottom: { value: r.top + nh, enumerable: true }, toJSON: { value: function(){return this;}, enumerable: false } };
                if (win.DOMRectReadOnly) { const obj = Object.create(win.DOMRectReadOnly.prototype); Object.defineProperties(obj, desc); return obj; }
                return r; 
              };
-             
              ProxyGuard.override(Element.prototype, 'getBoundingClientRect', (orig) => function() { return wrap(orig.apply(this, arguments)); });
-             ProxyGuard.override(Element.prototype, 'getClientRects', (orig) => function() {
-                const rects = orig.apply(this, arguments);
-                const res = { length: rects.length };
-                if (win.DOMRectList) Object.setPrototypeOf(res, win.DOMRectList.prototype);
-                res.item = function(i) { return this[i] || null; };
-                for(let i=0; i<rects.length; i++) res[i] = wrap(rects[i]);
-                return res;
-             });
+             ProxyGuard.override(Element.prototype, 'getClientRects', (orig) => function() { const rects = orig.apply(this, arguments); const res = { length: rects.length }; if (win.DOMRectList) Object.setPrototypeOf(res, win.DOMRectList.prototype); res.item = function(i) { return this[i] || null; }; for(let i=0; i<rects.length; i++) res[i] = wrap(rects[i]); return res; });
            } catch(e) {}
         },
-
         canvas: function(win) {
            try {
-             const noise = (d) => {
-                const step = CONFIG.canvasNoiseStep;
-                if (!step) return;
-                for (let i=0; i<d.length; i+=step*4) { if (RNG.next() < 0.01) d[i] = d[i] ^ 1; }
-             };
-             
-             if (win.OffscreenCanvas) {
-                 ProxyGuard.override(win.OffscreenCanvas.prototype, 'convertToBlob', (orig) => function() {
-                     try {
-                         const area = this.width * this.height;
-                         if (area > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments);
-                         const ctx = this.getContext('2d');
-                         if (ctx) {
-                             const d = ctx.getImageData(0,0,this.width,this.height);
-                             noise(d.data);
-                             ctx.putImageData(d,0,0);
-                         }
-                     } catch(e){}
-                     return orig.apply(this, arguments);
-                 });
-             }
-
-             [win.CanvasRenderingContext2D, win.OffscreenCanvasRenderingContext2D].forEach(ctx => {
-                if(!ctx || !ctx.prototype) return;
-                ProxyGuard.override(ctx.prototype, 'getImageData', (orig) => function(x,y,w,h) {
-                   const r = orig.apply(this, arguments);
-                   const area = w * h;
-                   if (w < CONFIG.canvasMinSize || area > CONFIG.canvasMaxNoiseArea) return r;
-                   noise(r.data);
-                   return r;
-                });
-             });
-
+             const noise = (d) => { const step = CONFIG.canvasNoiseStep; if (!step) return; for (let i=0; i<d.length; i+=step*4) { if (RNG.next() < 0.01) d[i] = d[i] ^ 1; } };
+             if (win.OffscreenCanvas) { ProxyGuard.override(win.OffscreenCanvas.prototype, 'convertToBlob', (orig) => function() { try { const area = this.width * this.height; if (area > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments); const ctx = this.getContext('2d'); if (ctx) { const d = ctx.getImageData(0,0,this.width,this.height); noise(d.data); ctx.putImageData(d,0,0); } } catch(e){} return orig.apply(this, arguments); }); }
+             [win.CanvasRenderingContext2D, win.OffscreenCanvasRenderingContext2D].forEach(ctx => { if(!ctx || !ctx.prototype) return; ProxyGuard.override(ctx.prototype, 'getImageData', (orig) => function(x,y,w,h) { const r = orig.apply(this, arguments); const area = w * h; if (w < CONFIG.canvasMinSize || area > CONFIG.canvasMaxNoiseArea) return r; noise(r.data); return r; }); });
              if (win.HTMLCanvasElement) {
-                ProxyGuard.override(win.HTMLCanvasElement.prototype, 'toDataURL', (orig) => function() {
-                   const w=this.width, h=this.height;
-                   if (w < CONFIG.canvasMinSize) return orig.apply(this, arguments);
-                   if ((w*h) > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments);
-
-                   let p=null;
-                   try {
-                      p = CanvasPool.get(w, h);
-                      p.ctx.clearRect(0,0,w,h); p.ctx.drawImage(this,0,0);
-                      const d = p.ctx.getImageData(0,0,w,h); noise(d.data); p.ctx.putImageData(d,0,0);
-                      return p.canvas.toDataURL.apply(p.canvas, arguments);
-                   } catch(e) { return orig.apply(this, arguments); }
-                   finally { if(p) p.release(); }
-                });
-                
-                ProxyGuard.override(win.HTMLCanvasElement.prototype, 'toBlob', (orig) => function(cb, t, q) {
-                   const w=this.width, h=this.height;
-                   if (w < CONFIG.canvasMinSize) return orig.apply(this, arguments);
-                   if ((w*h) > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments);
-
-                   let p=null, released=false;
-                   const safeRel = () => { if(!released) { released=true; if(p) p.release(); } };
-                   try {
-                      p = CanvasPool.get(w, h);
-                      p.ctx.clearRect(0,0,w,h); p.ctx.drawImage(this,0,0);
-                      const d = p.ctx.getImageData(0,0,w,h); noise(d.data); p.ctx.putImageData(d,0,0);
-                      p.canvas.toBlob((b) => { try{if(cb)cb(b);}finally{safeRel();} }, t, q);
-                      setTimeout(safeRel, CONFIG.toBlobReleaseFallbackMs);
-                   } catch(e) { safeRel(); return orig.apply(this, arguments); }
-                });
+                ProxyGuard.override(win.HTMLCanvasElement.prototype, 'toDataURL', (orig) => function() { const w=this.width, h=this.height; if (w < CONFIG.canvasMinSize) return orig.apply(this, arguments); if ((w*h) > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments); let p=null; try { p = CanvasPool.get(w, h); p.ctx.clearRect(0,0,w,h); p.ctx.drawImage(this,0,0); const d = p.ctx.getImageData(0,0,w,h); noise(d.data); p.ctx.putImageData(d,0,0); return p.canvas.toDataURL.apply(p.canvas, arguments); } catch(e) { return orig.apply(this, arguments); } finally { if(p) p.release(); } });
+                ProxyGuard.override(win.HTMLCanvasElement.prototype, 'toBlob', (orig) => function(cb, t, q) { const w=this.width, h=this.height; if (w < CONFIG.canvasMinSize) return orig.apply(this, arguments); if ((w*h) > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments); let p=null, released=false; const safeRel = () => { if(!released) { released=true; if(p) p.release(); } }; try { p = CanvasPool.get(w, h); p.ctx.clearRect(0,0,w,h); p.ctx.drawImage(this,0,0); const d = p.ctx.getImageData(0,0,w,h); noise(d.data); p.ctx.putImageData(d,0,0); p.canvas.toBlob((b) => { try{if(cb)cb(b);}finally{safeRel();} }, t, q); setTimeout(safeRel, CONFIG.toBlobReleaseFallbackMs); } catch(e) { safeRel(); return orig.apply(this, arguments); } });
              }
            } catch(e) {}
         }
@@ -647,43 +440,24 @@
 
       const inject = function(win) {
         if (!win) return;
-        Modules.hardware(win);
-        Modules.clientHints(win);
-        Modules.webgl(win);
-        Modules.audio(win);
-        Modules.rects(win);
-        Modules.canvas(win);
+        Modules.hardware(win); Modules.clientHints(win); Modules.webgl(win); Modules.audio(win); Modules.rects(win); Modules.canvas(win);
       };
 
       const init = function() {
         inject(window);
-        new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => {
-           try { if (n.tagName === 'IFRAME' && n.contentWindow) n.addEventListener('load', () => inject(n.contentWindow)); } catch(e){}\n        }))).observe(document, {childList:true, subtree:true});
+        new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { try { if (n.tagName === 'IFRAME' && n.contentWindow) n.addEventListener('load', () => inject(n.contentWindow)); } catch(e){}\n        }))).observe(document, {childList:true, subtree:true});
       };
 
-      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-      else init();
-  
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
     })();
     </script>
     `;
 
-    // 注入順序優化
-    if (REGEX.HEAD_TAG.test(body)) {
-      body = body.replace(REGEX.HEAD_TAG, m => m + injectionScript);
-    } else if (REGEX.HTML_TAG.test(body)) {
-      body = body.replace(REGEX.HTML_TAG, m => m + injectionScript);
-    } else {
-      body = injectionScript + body;
-    }
+    if (REGEX.HEAD_TAG.test(body)) body = body.replace(REGEX.HEAD_TAG, m => m + injectionScript);
+    else if (REGEX.HTML_TAG.test(body)) body = body.replace(REGEX.HTML_TAG, m => m + injectionScript);
+    else body = injectionScript + body;
 
-    // Remove CSP
-    Object.keys(headers).forEach(k => {
-      const lowerKey = k.toLowerCase();
-      if (lowerKey.includes('content-security-policy') || lowerKey.includes('webkit-csp')) {
-          delete headers[k];
-      }
-    });
+    Object.keys(headers).forEach(k => { const lowerKey = k.toLowerCase(); if (lowerKey.includes('content-security-policy') || lowerKey.includes('webkit-csp')) delete headers[k]; });
     body = body.replace(REGEX.META_CSP_STRICT, "<!-- CSP REMOVED -->");
 
     $done({ body, headers });
