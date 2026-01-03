@@ -1,11 +1,11 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   4.83-Dual-List (Hard Exclusion + Soft Whitelist)
- * @description [雙重名單版] 嚴格區分「硬排除」與「軟白名單」，並內建台灣銀行列表。
+ * @version   4.85-AI-Compatibility (AI Tools + CAPTCHA Rescue)
+ * @description [AI 相容版] 針對 ChatGPT 等 AI 服務與驗證碼系統進行深度優化。
  * ----------------------------------------------------------------------------
- * 1. [Hard] 硬排除: LINE/Apple/iCloud -> 直接放行，不修改任何封包。
- * 2. [Soft] 軟白名單: 銀行/Google服務 -> 修改 UA 為 Mac，但關閉 JS 噪點干擾 (Grey Badge)。
- * 3. [Core] V2.81: 完整防護核心，僅在非白名單網站啟動 (Blue Badge)。
+ * 1. [Hard] 硬排除: AI (ChatGPT/Claude), CAPTCHA (Cloudflare/Google), Apple, LINE。
+ * 2. [Soft] 軟白名單: 台灣各大網銀、串流影音、政府(.gov.tw)、教育(.edu.tw)。
+ * 3. [Core] V2.81: 完整保留重裝指紋混淆邏輯，僅在非白名單網站啟動 (Blue Badge)。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -18,9 +18,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_SEED_V483", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V483",
-    INJECT_MARKER: "__FP_SHIELD_V483__",
+    // 更新 Seed 以強制刷新緩存規則
+    KEY_SEED: "FP_SHIELD_SEED_V485", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V485",
+    INJECT_MARKER: "__FP_SHIELD_V485__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -51,16 +52,30 @@
   try { hostname = new URL(currentUrl).hostname.toLowerCase(); } catch (e) {}
 
   // ============================================================================
-  // 1. [Hard Exclusion] 硬排除 - 直接終止，什麼都不做
+  // 1. [Hard Exclusion] 硬排除 - 絕對不碰的領域
   // ============================================================================
-  // 包含 LINE, Apple, iCloud, Google APIs (字型/地圖), Facebook API
+  // 這些服務對指紋極度敏感，或者承載了底層系統功能。一旦修改，極易導致崩潰或封號。
   const HARD_EXCLUSION_KEYWORDS = [
-    "line.me", "line-apps", "line-scdn", "legy", // LINE
-    "naver.com", "naver.jp", // Naver
-    "googleapis.com", "gstatic.com", "googleusercontent.com", // Google Infra
-    "apple.com", "icloud.com", "mzstatic.com", // Apple Services
-    "facebook.com/api", "messenger.com", "whatsapp.com", // Meta API
-    "cdn", "assets" // Static Assets (Optional optimization)
+    // 1. 通訊與社交 App (App 內嵌瀏覽器穩定性)
+    "line.me", "line-apps", "line-scdn", "legy", 
+    "naver.com", "naver.jp", 
+    "facebook.com/api", "messenger.com", "whatsapp.com", "instagram.com",
+    
+    // 2. 系統服務 (Apple/Google 底層)
+    "googleapis.com", "gstatic.com", "googleusercontent.com", 
+    "apple.com", "icloud.com", "mzstatic.com", "itunes.apple.com",
+    
+    // 3. AI 服務 (極嚴格的 Bot 偵測)
+    "openai.com", "chatgpt.com", "oaistatic.com", "oaiusercontent.com", // ChatGPT
+    "anthropic.com", "claude.ai", // Claude
+    "perplexity.ai", // Perplexity
+    "bing.com", // Bing Chat/Copilot
+    
+    // 4. 驗證碼服務 (CAPTCHA - 這是許多網站打不開的主因)
+    "challenges.cloudflare.com", // Cloudflare Turnstile
+    "recaptcha.net", "google.com/recaptcha", // Google reCAPTCHA
+    "hcaptcha.com", // hCaptcha
+    "arkoselabs.com" // Arkose Labs (常見於 Outlook/EA/Twitter 驗證)
   ];
   
   if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) {
@@ -69,31 +84,49 @@
   }
 
   // ============================================================================
-  // 2. [Soft Whitelist] 軟白名單 - 允許 UA 偽裝，但停用 JS 攻擊
+  // 2. [Soft Whitelist] 軟白名單 - 偽裝 Mac UA 但停用攻擊
   // ============================================================================
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
-      // Google Services (Interactive)
+      // Google 交互式服務
       "docs.google.com", "drive.google.com", "mail.google.com", "meet.google.com", "calendar.google.com",
-      // Microsoft / Office
-      "microsoft.com", "office.com", "live.com", "teams.microsoft.com", "sharepoint.com",
-      // Streaming (DRM issues)
-      "netflix.com", "spotify.com", "disneyplus.com", "twitch.tv", "youtube.com",
-      // Taiwan Banks (Common)
-      "ctbcbank.com", "cathaybk.com.tw", "esunbank.com.tw", "fubon.com", "taishinbank.com.tw", 
-      "megabank.com.tw", "bot.com.tw", "firstbank.com.tw", "hncb.com.tw", "sinopac.com",
-      // E-Commerce (Payment Gateways)
-      "paypal.com", "visa.com", "mastercard.com", "amex.com", "3dsecure"
+      
+      // Microsoft 生產力工具
+      "microsoft.com", "office.com", "live.com", "teams.microsoft.com", "sharepoint.com", "onenote.com",
+      
+      // 串流媒體 (DRM 保護內容，防止黑屏)
+      "netflix.com", "spotify.com", "disneyplus.com", "twitch.tv", "youtube.com", "iqiyi.com", "kkbox.com",
+      
+      // 台灣主流網銀 (Taiwan Banks)
+      "ctbcbank.com", // 中國信託
+      "cathaybk.com.tw", // 國泰世華
+      "esunbank.com.tw", // 玉山銀行
+      "fubon.com", // 富邦金控
+      "taishinbank.com.tw", // 台新銀行
+      "megabank.com.tw", // 兆豐銀行
+      "bot.com.tw", // 台灣銀行
+      "firstbank.com.tw", // 第一銀行
+      "hncb.com.tw", // 華南銀行
+      "sinopac.com", // 永豐銀行
+      "post.gov.tw", // 中華郵政
+      
+      // 支付與驗證網關
+      "paypal.com", "visa.com", "mastercard.com", "amex.com", 
+      "jkos.com", "ecpay.com.tw", "newebpay.com" // 街口, 綠界, 藍新
     ]);
-    const trustedSuffixes = [".gov.tw", ".edu.tw", ".mil", ".bank"];
+    
+    // 後綴檢測：政府(.gov.tw) 與 教育(.edu.tw)
+    const trustedSuffixes = [".gov.tw", ".edu.tw", ".org.tw", ".mil", ".bank"];
     
     return {
       check: (h) => {
         if (!h) return false;
+        // 1. 域名完全匹配或子域名匹配
         if (trustedDomains.has(h)) return true;
         for (const d of trustedDomains) { if (h.endsWith('.' + d)) return true; }
+        // 2. 後綴匹配
         for (const s of trustedSuffixes) { if (h.endsWith(s)) return true; }
-        // URL keyword check for 3DSecure
+        // 3. 網址關鍵字救援 (針對動態轉址的 3D 驗證)
         if (lowerUrl.includes("3dsecure") || lowerUrl.includes("acs")) return true;
         return false;
       }
@@ -133,8 +166,7 @@
     if (IS_SHOPPING) {
       headers['User-Agent'] = CONST.UA_IPHONE;
     } else {
-      // 即使是軟白名單，我們通常也保持 macOS UA，以避免同一 Session 中 UA 跳變
-      // 除非特定網站 (如 App 下載頁) 需要識別行動裝置，否則統一偽裝最安全
+      // 統一偽裝為 macOS Chrome 124
       headers['User-Agent'] = CONST.UA_MAC;
       headers['sec-ch-ua'] = '"Not_A Brand";v="8", "Chromium";v="124", "Google Chrome";v="124"';
       headers['sec-ch-ua-mobile'] = "?0";
@@ -146,7 +178,7 @@
   }
 
   // ============================================================================
-  // Phase B: HTTP Response (瀏覽器層 - 核心注入)
+  // Phase B: HTTP Response (瀏覽器層 - V2.81 核心注入)
   // ============================================================================
   if (typeof $response !== 'undefined') {
     let body = $response.body;
@@ -159,7 +191,7 @@
     if (body.includes(CONST.INJECT_MARKER)) { $done({}); return; }
 
     // Badge Logic
-    let badgeColor = "#007AFF"; // Blue (Active)
+    let badgeColor = "#007AFF"; // Blue (Protection)
     let badgeText = "FP: Shield Active";
     
     if (IS_SHOPPING) {
@@ -169,7 +201,7 @@
     }
 
     // ------------------------------------------------------------------------
-    // [Core Injection] V2.81 核心邏輯
+    // [Core Injection] V2.81 完整邏輯
     // ------------------------------------------------------------------------
     const injectionScript = `
     <!-- ${CONST.INJECT_MARKER} -->
@@ -185,13 +217,11 @@
       setTimeout(() => { if(b) { b.style.opacity='0'; setTimeout(()=>b.remove(), 1000); } }, 3500);
 
       // [Decision Gate]
-      // 1. Shopping Mode: 優先級最高，完全停止
-      // 2. Soft Whitelist: 允許 JS 載入 (因為已經改了 Header)，但不執行指紋混淆
+      // 若為購物模式或白名單網站，僅執行基礎清理，不注入指紋混淆
       const IS_SHOPPING = ${IS_SHOPPING};
       const IS_WHITELISTED = ${isSoftWhitelisted};
 
       if (IS_SHOPPING || IS_WHITELISTED) {
-          // 在白名單模式下，我們仍然建議做一件事：保護 navigator.webdriver (防止被偵測為自動化)
           try { if (navigator && 'webdriver' in navigator) delete navigator.webdriver; } catch(e) {}
           return;
       }
