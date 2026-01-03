@@ -1,11 +1,13 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   4.90-Life-Service-Stability
- * @description [生活服務穩定版] 擴充高風險服務白名單。
+ * @version   4.92-Deep-Mobile-Emulation
+ * @description [Foodpanda 終極修復] 針對 2FA 引入底層移動端特徵模擬。
  * ----------------------------------------------------------------------------
- * 1. [Safety] 新增 Uber/Foodpanda/Booking/Agoda 至白名單，防止帳號風控。
- * 2. [Logic] 延續 V4.89 的 Momo 修正與 Shopee 購物模式策略。
- * 3. [Core] 保持 Chrome 143 / iOS 19.2 高階偽裝指紋。
+ * 1. [Critical Fix] Foodpanda (Purple Mode): 
+ * - 強制覆寫 navigator.platform 為 "iPhone"。
+ * - 模擬 maxTouchPoints = 5 與觸控事件，解決 "Desktop Environment" 露餡問題。
+ * 2. [Network] 重建 Mobile Client Hints (sec-ch-ua-mobile: ?1)。
+ * 3. [Core] 保留 V4.90 的生活服務白名單與 Uber/Momo 穩定性策略。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -18,10 +20,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // [V4.90] 更新 Seed
-    KEY_SEED: "FP_SHIELD_SEED_V490", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V490",
-    INJECT_MARKER: "__FP_SHIELD_V490__",
+    // [V4.92] 更新 Seed 強制刷新規則
+    KEY_SEED: "FP_SHIELD_SEED_V492", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V492",
+    INJECT_MARKER: "__FP_SHIELD_V492__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -62,7 +64,7 @@
     "apple.com", "icloud.com", "mzstatic.com", "itunes.apple.com",
     "oaistatic.com", "oaiusercontent.com", "anthropic.com",
     "challenges.cloudflare.com", "recaptcha.net", "google.com/recaptcha", "hcaptcha.com", "arkoselabs.com",
-    "sentry.io" // [V4.90] Error logging services
+    "sentry.io"
   ];
   
   if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) {
@@ -75,12 +77,12 @@
   // ============================================================================
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
-      // [V4.90] 生活服務與旅遊 (Life Services) - 高度風控
-      "uber.com", "ubereats.com", "foodpanda.com", "foodpanda.com.tw",
+      // 生活服務與旅遊 (維持 PC UA + Clean Environment)
+      "uber.com", "ubereats.com", 
       "booking.com", "agoda.com", "airbnb.com", "expedia.com",
-      "stripe.com", // 支付閘道
+      "stripe.com",
       
-      // 電商修正
+      // 電商修正 (Momo 必須用 PC UA)
       "momoshop.com.tw", 
 
       // AI & Productivity
@@ -118,9 +120,10 @@
   // ============================================================================
   let mode = "protection";
   
-  // Auto-Shopping Logic (Purple Shield)
-  // 針對需要 Mobile UA 但不需要 JS 噪音的網站
+  // [V4.92] Auto-Shopping Logic (Purple Shield)
+  // 這些網站將執行 "Deep Mobile Emulation"
   const AUTO_SHOPPING_DOMAINS = [
+      "foodpanda.com", "foodpanda.com.tw", // 目標：修復 2FA
       "shopee.", "shope.ee", "xiapi", 
       "amazon.", "ebay.", "rakuten.", 
       "pchome.com.tw"
@@ -156,9 +159,14 @@
     });
 
     if (IS_SHOPPING) {
+      // [Purple Mode] Deep Mobile Spoofing
       headers['User-Agent'] = CONST.UA_IPHONE;
+      // [V4.92] 強制注入 Mobile Client Hints，騙過 WAF 的 Header 檢查
+      headers['sec-ch-ua'] = '"Not(A:Brand";v="99", "Chromium";v="143", "Google Chrome";v="143"'; // iOS Safari 通常不送這個，但若送出需正確
+      headers['sec-ch-ua-mobile'] = "?1"; // 關鍵：聲明我是移動端
+      headers['sec-ch-ua-platform'] = '"iOS"'; // 關鍵：聲明我是 iOS
     } else {
-      // 白名單模式下 (如 Uber/Momo) 仍走這裡，保持 Mac Chrome UA，確保電腦版網頁功能正常
+      // [Green/Grey Mode] Mac UA
       headers['User-Agent'] = CONST.UA_MAC;
       headers['sec-ch-ua'] = '"Not(A:Brand";v="99", "Google Chrome";v="143", "Chromium";v="143"';
       headers['sec-ch-ua-mobile'] = "?0";
@@ -214,18 +222,50 @@
       const IS_SHOPPING = ${IS_SHOPPING};
       const IS_WHITELISTED = ${isSoftWhitelisted};
 
-      // [Decision Gate]
-      if (IS_SHOPPING || IS_WHITELISTED) {
-          try { if (navigator && 'webdriver' in navigator) delete navigator.webdriver; } catch(e) {}
+      // Helper for safe define
+      const safeDefine = (obj, prop, descriptor) => {
+          if (!obj) return false;
+          try { const d = Object.getOwnPropertyDescriptor(obj, prop); if (d && !d.configurable) return false; Object.defineProperty(obj, prop, descriptor); return true; } catch(e) { return false; }
+      };
+
+      // =========================================================================
+      // [V4.92 Strategy] Shopping Mode (Purple) -> Deep Mobile Emulation
+      // =========================================================================
+      if (IS_SHOPPING) {
           try { 
+              // 1. Remove Automation Flags
+              if (navigator && 'webdriver' in navigator) delete navigator.webdriver;
               if (window.cdc_adoQpoasnfa76pfcZLmcfl_Array) delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
-              if (window.cdc_adoQpoasnfa76pfcZLmcfl_Promise) delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
-              if (window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol) delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
+
+              // 2. [Deep Mobile Spoofing] 覆寫 Desktop 特徵
+              // 強制修改 Platform，解決 "iPhone UA + Mac Platform" 的矛盾
+              Object.defineProperty(navigator, 'platform', { get: () => 'iPhone', configurable: true });
+              
+              // 強制開啟觸控支援 (Touch Events)，騙過 WAF 的設備類型檢測
+              Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5, configurable: true });
+              if (!('ontouchstart' in window)) {
+                  Object.defineProperty(window, 'ontouchstart', { value: null, writable: true });
+              }
+              
+              // 修正 Vendor (iOS Safari 通常是 Apple Computer, Inc.)
+              Object.defineProperty(navigator, 'vendor', { get: () => 'Apple Computer, Inc.', configurable: true });
+
           } catch(e) {}
+          return; // 購物模式下，僅做特徵匹配，不進行隨機混淆
+      }
+
+      // =========================================================================
+      // Whitelist Mode (Grey) -> Basic Cleanup
+      // =========================================================================
+      if (IS_WHITELISTED) {
+          try { if (navigator && 'webdriver' in navigator) delete navigator.webdriver; } catch(e) {}
           return; 
       }
 
-      // --- 僅在 Green Shield 下執行的完整混淆邏輯 ---
+      // =========================================================================
+      // Green Shield Mode -> Full Noise Injection (Below)
+      // =========================================================================
+      
       const CONFIG = {
         rectNoiseRate: 0.0001, canvasNoiseStep: 2, audioNoiseLevel: 1e-6,
         canvasMinSize: ${CONST.CANVAS_MIN_SIZE}, canvasMaxNoiseArea: ${CONST.CANVAS_MAX_NOISE_AREA},
@@ -234,11 +274,6 @@
         toBlobReleaseFallbackMs: ${CONST.TOBLOB_RELEASE_FALLBACK_MS}
       };
       
-      const safeDefine = (obj, prop, descriptor) => {
-          if (!obj) return false;
-          try { const d = Object.getOwnPropertyDescriptor(obj, prop); if (d && !d.configurable) return false; Object.defineProperty(obj, prop, descriptor); return true; } catch(e) { return false; }
-      };
-
       const Seed = (function() {
         const safeGet = (k) => { try { return localStorage.getItem(k); } catch(e) { return null; } };
         const safeSet = (k, v) => { try { localStorage.setItem(k, v); } catch(e) {} };
