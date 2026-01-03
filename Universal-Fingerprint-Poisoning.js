@@ -1,12 +1,12 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   4.96-Foodpanda-Locale-Fix
- * @description [語系修正] 在硬排除模式下，強制修復 Foodpanda 的中文顯示問題。
+ * @version   4.97-Absolute-Exclusion
+ * @description [回歸純淨] 移除語系注入，針對 Foodpanda 執行絕對硬排除。
  * ----------------------------------------------------------------------------
- * 1. [Fix] Foodpanda: 在 Request 階段強制注入 'Accept-Language: zh-TW'。
- * - 原因: 解決因硬排除導致伺服器讀取原始系統語系(英文)的問題。
- * - 安全性: 僅修改語系標頭，不修改 UA 或注入 JS，確保不觸發 2FA。
- * 2. [Config] 維持 fd-api.com 的硬排除與其他白名單策略。
+ * 1. [Revert] 移除 V4.96 的 Accept-Language 注入。
+ * - 原因: 任何 Header 修改（即使是語系）都可能被 WAF 視為 MITM 攻擊特徵。
+ * 2. [Hard Exclusion] 維持 foodpanda / fd-api 的關鍵字排除。
+ * 3. [Strategy] 建議使用者在 Surge 配置中將 Foodpanda 加入 MITM Skip List。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -19,10 +19,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // [V4.96] 更新 Seed
-    KEY_SEED: "FP_SHIELD_SEED_V496", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V496",
-    INJECT_MARKER: "__FP_SHIELD_V496__",
+    // [V4.97] 更新 Seed
+    KEY_SEED: "FP_SHIELD_SEED_V497", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V497",
+    INJECT_MARKER: "__FP_SHIELD_V497__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -56,7 +56,7 @@
   // 1. [Hard Exclusion] 硬排除 - 絕對不碰的領域
   // ============================================================================
   const HARD_EXCLUSION_KEYWORDS = [
-    // Foodpanda Domains
+    // [V4.97] Foodpanda Absolute Exclusion
     "fd-api.com", "tw.fd-api.com", "foodpanda.com", "foodpanda.com.tw",
 
     "line.me", "line-apps", "line-scdn", "legy", 
@@ -69,21 +69,8 @@
     "sentry.io"
   ];
   
+  // 偵測到硬排除關鍵字，直接回傳空物件 (無任何 Header 修改)
   if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) {
-    // [V4.96 Special Fix] Foodpanda Locale Injection
-    // 即使在硬排除模式下，也針對 Request 階段修正 Accept-Language，確保顯示中文
-    if (lowerUrl.includes("foodpanda") || lowerUrl.includes("fd-api")) {
-        // 僅處理 Request Header，Response 階段依然直接退出 (不注入 JS)
-        if (typeof $request !== 'undefined' && typeof $response === 'undefined') {
-            const headers = $request.headers;
-            // 強制設定為繁體中文，權重最高
-            headers['Accept-Language'] = 'zh-TW,zh-Hant;q=0.9,en-US;q=0.8,en;q=0.7';
-            $done({ headers });
-            return;
-        }
-    }
-
-    // 其他情況或 Response 階段，直接退出，保持純淨
     $done({});
     return;
   }
