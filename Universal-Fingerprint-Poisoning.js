@@ -1,13 +1,14 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   4.92-Deep-Mobile-Emulation
- * @description [Foodpanda 終極修復] 針對 2FA 引入底層移動端特徵模擬。
+ * @version   4.93-Holographic-Mobile-Fix
+ * @description [Foodpanda 最終防線] 全像式模擬 iPhone 15 Pro Max 硬體特徵。
  * ----------------------------------------------------------------------------
- * 1. [Critical Fix] Foodpanda (Purple Mode): 
- * - 強制覆寫 navigator.platform 為 "iPhone"。
- * - 模擬 maxTouchPoints = 5 與觸控事件，解決 "Desktop Environment" 露餡問題。
- * 2. [Network] 重建 Mobile Client Hints (sec-ch-ua-mobile: ?1)。
- * 3. [Core] 保留 V4.90 的生活服務白名單與 Uber/Momo 穩定性策略。
+ * 1. [Critical Fix] Foodpanda/Shopee (Purple Mode):
+ * - Screen: 強制偽裝解析度為 430x932 (iPhone 15 Pro Max)。
+ * - GPU: 強制 WebGL 渲染器顯示 "Apple GPU"。
+ * - CPU/RAM: 鎖定為 6核 / 8GB，消除 PC 高性能特徵。
+ * 2. [Network] 維持 V4.92 的 Mobile Client Hints。
+ * 3. [Core] 保留 V4.90 生活服務白名單與 Uber/Momo 穩定策略。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -20,10 +21,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // [V4.92] 更新 Seed 強制刷新規則
-    KEY_SEED: "FP_SHIELD_SEED_V492", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V492",
-    INJECT_MARKER: "__FP_SHIELD_V492__",
+    // [V4.93] 更新 Seed 強制刷新規則
+    KEY_SEED: "FP_SHIELD_SEED_V493", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V493",
+    INJECT_MARKER: "__FP_SHIELD_V493__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -77,12 +78,10 @@
   // ============================================================================
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
-      // 生活服務與旅遊 (維持 PC UA + Clean Environment)
+      // 生活服務 (Uber/Momo 維持 PC UA)
       "uber.com", "ubereats.com", 
       "booking.com", "agoda.com", "airbnb.com", "expedia.com",
       "stripe.com",
-      
-      // 電商修正 (Momo 必須用 PC UA)
       "momoshop.com.tw", 
 
       // AI & Productivity
@@ -93,7 +92,7 @@
       // Streaming
       "netflix.com", "spotify.com", "disneyplus.com", "twitch.tv", "youtube.com", "iqiyi.com", "kkbox.com",
       
-      // Banks & Payments
+      // Banks
       "ctbcbank.com", "cathaybk.com.tw", "esunbank.com.tw", "fubon.com", "taishinbank.com.tw", 
       "megabank.com.tw", "bot.com.tw", "firstbank.com.tw", "hncb.com.tw", "sinopac.com", "post.gov.tw",
       "paypal.com", "visa.com", "mastercard.com", "amex.com", 
@@ -116,14 +115,14 @@
   const isSoftWhitelisted = WhitelistManager.check(hostname);
 
   // ============================================================================
-  // 3. [Mode Detection] 模式偵測 (Shopping vs Protection)
+  // 3. [Mode Detection] 模式偵測
   // ============================================================================
   let mode = "protection";
   
-  // [V4.92] Auto-Shopping Logic (Purple Shield)
-  // 這些網站將執行 "Deep Mobile Emulation"
+  // [V4.93] Auto-Shopping Logic (Purple Shield)
+  // 執行 Holographic Mobile Emulation
   const AUTO_SHOPPING_DOMAINS = [
-      "foodpanda.com", "foodpanda.com.tw", // 目標：修復 2FA
+      "foodpanda.com", "foodpanda.com.tw", // Target Fix
       "shopee.", "shope.ee", "xiapi", 
       "amazon.", "ebay.", "rakuten.", 
       "pchome.com.tw"
@@ -149,7 +148,7 @@
   const IS_SHOPPING = (mode === "shopping");
 
   // ============================================================================
-  // Phase A: HTTP Request (網路層 - Header 偽裝)
+  // Phase A: Network Layer (Header Spoofing)
   // ============================================================================
   if (typeof $request !== 'undefined' && typeof $response === 'undefined') {
     const headers = $request.headers;
@@ -159,14 +158,13 @@
     });
 
     if (IS_SHOPPING) {
-      // [Purple Mode] Deep Mobile Spoofing
+      // [Purple] Full Mobile Headers
       headers['User-Agent'] = CONST.UA_IPHONE;
-      // [V4.92] 強制注入 Mobile Client Hints，騙過 WAF 的 Header 檢查
-      headers['sec-ch-ua'] = '"Not(A:Brand";v="99", "Chromium";v="143", "Google Chrome";v="143"'; // iOS Safari 通常不送這個，但若送出需正確
-      headers['sec-ch-ua-mobile'] = "?1"; // 關鍵：聲明我是移動端
-      headers['sec-ch-ua-platform'] = '"iOS"'; // 關鍵：聲明我是 iOS
+      headers['sec-ch-ua'] = '"Not(A:Brand";v="99", "Chromium";v="143", "Google Chrome";v="143"'; 
+      headers['sec-ch-ua-mobile'] = "?1"; 
+      headers['sec-ch-ua-platform'] = '"iOS"'; 
     } else {
-      // [Green/Grey Mode] Mac UA
+      // [Green/Grey] Desktop Headers
       headers['User-Agent'] = CONST.UA_MAC;
       headers['sec-ch-ua'] = '"Not(A:Brand";v="99", "Google Chrome";v="143", "Chromium";v="143"';
       headers['sec-ch-ua-mobile'] = "?0";
@@ -178,7 +176,7 @@
   }
 
   // ============================================================================
-  // Phase B: HTTP Response (瀏覽器層 - 核心注入)
+  // Phase B: Browser Environment (Injection)
   // ============================================================================
   if (typeof $response !== 'undefined') {
     let body = $response.body;
@@ -222,40 +220,78 @@
       const IS_SHOPPING = ${IS_SHOPPING};
       const IS_WHITELISTED = ${isSoftWhitelisted};
 
-      // Helper for safe define
+      // Helper
       const safeDefine = (obj, prop, descriptor) => {
           if (!obj) return false;
           try { const d = Object.getOwnPropertyDescriptor(obj, prop); if (d && !d.configurable) return false; Object.defineProperty(obj, prop, descriptor); return true; } catch(e) { return false; }
       };
 
       // =========================================================================
-      // [V4.92 Strategy] Shopping Mode (Purple) -> Deep Mobile Emulation
+      // [V4.93] Holographic Mobile Emulation (Shopping/Purple Mode)
       // =========================================================================
       if (IS_SHOPPING) {
-          try { 
-              // 1. Remove Automation Flags
+          try {
+              // 1. Basic Cleanup
               if (navigator && 'webdriver' in navigator) delete navigator.webdriver;
               if (window.cdc_adoQpoasnfa76pfcZLmcfl_Array) delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
 
-              // 2. [Deep Mobile Spoofing] 覆寫 Desktop 特徵
-              // 強制修改 Platform，解決 "iPhone UA + Mac Platform" 的矛盾
+              // 2. Identity Spoofing
               Object.defineProperty(navigator, 'platform', { get: () => 'iPhone', configurable: true });
-              
-              // 強制開啟觸控支援 (Touch Events)，騙過 WAF 的設備類型檢測
+              Object.defineProperty(navigator, 'vendor', { get: () => 'Apple Computer, Inc.', configurable: true });
               Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5, configurable: true });
+              
+              // 3. [New] Hardware Hardware Concurrency (Spoof A17 Pro - 6 Cores)
+              Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 6, configurable: true });
+              Object.defineProperty(navigator, 'deviceMemory', { get: () => 8, configurable: true }); // 8GB RAM
+
+              // 4. [New] Screen Resolution Spoofing (iPhone 15 Pro Max: 430x932)
+              // 這是欺騙風控的關鍵：讓 JS 獲取到的螢幕尺寸與 PC 螢幕脫鉤
+              const screenProps = {
+                  width: 430, height: 932,
+                  availWidth: 430, availHeight: 932,
+                  colorDepth: 32, pixelDepth: 32
+              };
+              for (let prop in screenProps) {
+                  Object.defineProperty(window.screen, prop, { get: () => screenProps[prop], configurable: true });
+              }
+
+              // 5. [New] WebGL Vendor Spoofing (Lightweight - No Noise)
+              // 僅修改廠商字串，不對圖像像素做雜訊處理，避免影響渲染效能
+              const spoofWebGL = (ctx) => {
+                  if (!ctx) return;
+                  const getParameter = ctx.getParameter;
+                  ctx.getParameter = function(param) {
+                      // UNMASKED_VENDOR_WEBGL = 37445, UNMASKED_RENDERER_WEBGL = 37446
+                      if (param === 37445) return 'Apple Inc.'; 
+                      if (param === 37446) return 'Apple GPU'; 
+                      return getParameter.apply(this, arguments);
+                  };
+              };
+              
+              const cvs = document.createElement('canvas');
+              spoofWebGL(cvs.getContext('webgl'));
+              spoofWebGL(cvs.getContext('experimental-webgl'));
+              spoofWebGL(cvs.getContext('webgl2'));
+              
+              // Hook future contexts
+              const oldGetContext = HTMLCanvasElement.prototype.getContext;
+              HTMLCanvasElement.prototype.getContext = function(type, opts) {
+                  const ctx = oldGetContext.call(this, type, opts);
+                  if (type && type.includes('webgl')) spoofWebGL(ctx);
+                  return ctx;
+              };
+
+              // 6. Touch Events
               if (!('ontouchstart' in window)) {
                   Object.defineProperty(window, 'ontouchstart', { value: null, writable: true });
               }
-              
-              // 修正 Vendor (iOS Safari 通常是 Apple Computer, Inc.)
-              Object.defineProperty(navigator, 'vendor', { get: () => 'Apple Computer, Inc.', configurable: true });
 
           } catch(e) {}
-          return; // 購物模式下，僅做特徵匹配，不進行隨機混淆
+          return; // Stop here for Shopping Mode
       }
 
       // =========================================================================
-      // Whitelist Mode (Grey) -> Basic Cleanup
+      // Whitelist Mode (Grey)
       // =========================================================================
       if (IS_WHITELISTED) {
           try { if (navigator && 'webdriver' in navigator) delete navigator.webdriver; } catch(e) {}
@@ -263,7 +299,7 @@
       }
 
       // =========================================================================
-      // Green Shield Mode -> Full Noise Injection (Below)
+      // Green Shield Mode (Standard Noise Injection)
       // =========================================================================
       
       const CONFIG = {
