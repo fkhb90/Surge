@@ -1,12 +1,11 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   4.94-Foodpanda-Hard-Exclusion
- * @description [最終手段] 將 Foodpanda 加入硬排除名單，徹底停用腳本介入。
+ * @version   4.95-API-Hard-Exclusion
+ * @description [API 修正版] 針對 Foodpanda API 網域進行硬排除。
  * ----------------------------------------------------------------------------
- * 1. [Hard Exclusion] 新增 foodpanda.com / foodpanda.com.tw。
- * - 原因: 平台採用 TCP/IP 底層指紋檢測，JS 模擬無效且持續觸發 2FA。
- * - 後果: 將暴露真實指紋，但能確保服務可用性 (不再跳驗證)。
- * 2. [Logic] 從自動購物模式 (Purple) 中移除 Foodpanda。
+ * 1. [Critical Fix] 新增 fd-api.com / tw.fd-api.com 至硬排除名單。
+ * - 原因: 避免 API 完整性校驗失敗導致的 2FA 迴圈。
+ * 2. [Config] 維持 V4.94 的主要網站硬排除策略 (Line/Google/Foodpanda Web)。
  * 3. [Core] 保留 Shopee/Amazon 的購物模式與其他白名單策略。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
@@ -20,10 +19,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // [V4.94] 更新 Seed
-    KEY_SEED: "FP_SHIELD_SEED_V494", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V494",
-    INJECT_MARKER: "__FP_SHIELD_V494__",
+    // [V4.95] 更新 Seed
+    KEY_SEED: "FP_SHIELD_SEED_V495", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V495",
+    INJECT_MARKER: "__FP_SHIELD_V495__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -58,8 +57,8 @@
   // ============================================================================
   // 這些服務一旦修改 Header 或注入 JS，極易崩潰或觸發高風險控管。
   const HARD_EXCLUSION_KEYWORDS = [
-    // [V4.94] Added Foodpanda (Risk Control Bypass)
-    "foodpanda.com", "foodpanda.com.tw",
+    // [V4.95] Foodpanda API Endpoints (CRITICAL)
+    "fd-api.com", "tw.fd-api.com", "foodpanda.com", "foodpanda.com.tw",
 
     "line.me", "line-apps", "line-scdn", "legy", 
     "naver.com", "naver.jp", 
@@ -123,8 +122,8 @@
   // ============================================================================
   let mode = "protection";
   
-  // [V4.94] Auto-Shopping Logic (Purple Shield)
-  // 移除 Foodpanda，其餘保持 Holographic Mobile Emulation
+  // [V4.95] Auto-Shopping Logic (Purple Shield)
+  // Foodpanda 已全面移至硬排除，其他電商維持全像模擬
   const AUTO_SHOPPING_DOMAINS = [
       "shopee.", "shope.ee", "xiapi", 
       "amazon.", "ebay.", "rakuten.", 
@@ -230,7 +229,7 @@
       };
 
       // =========================================================================
-      // Shopping Mode (Purple) -> Deep Mobile Emulation (Shopee/Amazon)
+      // Shopping Mode (Purple) -> Deep Mobile Emulation
       // =========================================================================
       if (IS_SHOPPING) {
           try {
