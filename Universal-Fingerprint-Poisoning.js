@@ -1,27 +1,26 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   4.81-Ultimate-Merge (V2.81 Core + V4.60 Shell)
- * @description [終極整合版] 結合 V4.60 的穩定架構與 V2.81 的重裝防護邏輯。
+ * @version   4.83-Dual-List (Hard Exclusion + Soft Whitelist)
+ * @description [雙重名單版] 嚴格區分「硬排除」與「軟白名單」，並內建台灣銀行列表。
  * ----------------------------------------------------------------------------
- * 1. [Shell] V4.60 架構: 包含 LINE 防誤殺、購物模式偵測、HTTP Header 偽裝。
- * 2. [Core] V2.81 核心: 移植完整的 ProxyGuard、CanvasPool、WebGL/Audio 噪點算法。
- * 3. [Sync] 深度一致性: JS 環境指紋強制與 Header 偽裝 (macOS/Chrome) 同步。
+ * 1. [Hard] 硬排除: LINE/Apple/iCloud -> 直接放行，不修改任何封包。
+ * 2. [Soft] 軟白名單: 銀行/Google服務 -> 修改 UA 為 Mac，但關閉 JS 噪點干擾 (Grey Badge)。
+ * 3. [Core] V2.81: 完整防護核心，僅在非白名單網站啟動 (Blue Badge)。
  * ----------------------------------------------------------------------------
- * @note 必須配合 Surge Script 配置 (type=http-response, pattern=^http, requires-body=1)。
- * 同時建議配置 type=http-request 用於 Header 修改。
+ * @note 必須配合 Surge/Quantumult X 配置使用。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 0. 全域配置 (Merge V2.81 & V4.60 Constants)
+  // 0. 全域配置
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    KEY_SEED: "FP_SHIELD_SEED_V481", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V481",
-    INJECT_MARKER: "__FP_SHIELD_V481__",
+    KEY_SEED: "FP_SHIELD_SEED_V483", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V483",
+    INJECT_MARKER: "__FP_SHIELD_V483__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -34,34 +33,77 @@
     CACHE_CLEANUP_INTERVAL: 30000,
     TOBLOB_RELEASE_FALLBACK_MS: 3000,
     
-    // User Agents (V4.60 Standard)
+    // User Agents
     UA_MAC: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     UA_IPHONE: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
   };
 
   const REGEX = {
     CONTENT_TYPE_HTML: /text\/html/i,
-    CONTENT_TYPE_JSONLIKE: /(application\/json|application\/(ld\+json|problem\+json)|text\/json|application\/javascript|text\/javascript)/i,
     HEAD_TAG: /<head[^>]*>/i, 
     HTML_TAG: /<html[^>]*>/i,
-    JSON_START: /^\s*[\{\[]/,
     META_CSP_STRICT: /<meta[^>]*http-equiv=["']?Content-Security-Policy["']?[^>]*>/gi
   };
 
-  // ============================================================================
-  // 1. 最高權限：防誤殺邏輯 (LINE 專用防線 - V4.60)
-  // ============================================================================
   const currentUrl = (typeof $request !== 'undefined') ? ($request.url || "") : "";
-  // 擴充排除列表，加入常見通訊軟體 API
-  const EXCLUSION_IDENTIFIERS = ["line.me", "line-apps", "line-scdn", "line-static", "legy", "facebook.com/api", "messenger.com", "whatsapp.com"];
+  const lowerUrl = currentUrl.toLowerCase();
+  let hostname = "";
+  try { hostname = new URL(currentUrl).hostname.toLowerCase(); } catch (e) {}
+
+  // ============================================================================
+  // 1. [Hard Exclusion] 硬排除 - 直接終止，什麼都不做
+  // ============================================================================
+  // 包含 LINE, Apple, iCloud, Google APIs (字型/地圖), Facebook API
+  const HARD_EXCLUSION_KEYWORDS = [
+    "line.me", "line-apps", "line-scdn", "legy", // LINE
+    "naver.com", "naver.jp", // Naver
+    "googleapis.com", "gstatic.com", "googleusercontent.com", // Google Infra
+    "apple.com", "icloud.com", "mzstatic.com", // Apple Services
+    "facebook.com/api", "messenger.com", "whatsapp.com", // Meta API
+    "cdn", "assets" // Static Assets (Optional optimization)
+  ];
   
-  if (EXCLUSION_IDENTIFIERS.some(id => currentUrl.toLowerCase().includes(id))) {
+  if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) {
     $done({});
     return;
   }
 
   // ============================================================================
-  // 2. 模式偵測 (Shopping vs Protection - V4.60)
+  // 2. [Soft Whitelist] 軟白名單 - 允許 UA 偽裝，但停用 JS 攻擊
+  // ============================================================================
+  const WhitelistManager = (() => {
+    const trustedDomains = new Set([
+      // Google Services (Interactive)
+      "docs.google.com", "drive.google.com", "mail.google.com", "meet.google.com", "calendar.google.com",
+      // Microsoft / Office
+      "microsoft.com", "office.com", "live.com", "teams.microsoft.com", "sharepoint.com",
+      // Streaming (DRM issues)
+      "netflix.com", "spotify.com", "disneyplus.com", "twitch.tv", "youtube.com",
+      // Taiwan Banks (Common)
+      "ctbcbank.com", "cathaybk.com.tw", "esunbank.com.tw", "fubon.com", "taishinbank.com.tw", 
+      "megabank.com.tw", "bot.com.tw", "firstbank.com.tw", "hncb.com.tw", "sinopac.com",
+      // E-Commerce (Payment Gateways)
+      "paypal.com", "visa.com", "mastercard.com", "amex.com", "3dsecure"
+    ]);
+    const trustedSuffixes = [".gov.tw", ".edu.tw", ".mil", ".bank"];
+    
+    return {
+      check: (h) => {
+        if (!h) return false;
+        if (trustedDomains.has(h)) return true;
+        for (const d of trustedDomains) { if (h.endsWith('.' + d)) return true; }
+        for (const s of trustedSuffixes) { if (h.endsWith(s)) return true; }
+        // URL keyword check for 3DSecure
+        if (lowerUrl.includes("3dsecure") || lowerUrl.includes("acs")) return true;
+        return false;
+      }
+    };
+  })();
+
+  const isSoftWhitelisted = WhitelistManager.check(hostname);
+
+  // ============================================================================
+  // 3. 模式偵測 (Shopping vs Protection)
   // ============================================================================
   let mode = "protection";
   try {
@@ -76,7 +118,6 @@
     }
   } catch (e) {}
   if (typeof $argument === "string" && $argument.includes("mode=shopping")) mode = "shopping";
-  
   const IS_SHOPPING = (mode === "shopping");
 
   // ============================================================================
@@ -84,7 +125,6 @@
   // ============================================================================
   if (typeof $request !== 'undefined' && typeof $response === 'undefined') {
     const headers = $request.headers;
-    // 清除既有指紋標頭
     Object.keys(headers).forEach(k => {
       const l = k.toLowerCase();
       if (l === 'user-agent' || l.startsWith('sec-ch-ua')) delete headers[k];
@@ -93,7 +133,8 @@
     if (IS_SHOPPING) {
       headers['User-Agent'] = CONST.UA_IPHONE;
     } else {
-      // 強制偽裝成現代 macOS Chrome
+      // 即使是軟白名單，我們通常也保持 macOS UA，以避免同一 Session 中 UA 跳變
+      // 除非特定網站 (如 App 下載頁) 需要識別行動裝置，否則統一偽裝最安全
       headers['User-Agent'] = CONST.UA_MAC;
       headers['sec-ch-ua'] = '"Not_A Brand";v="8", "Chromium";v="124", "Google Chrome";v="124"';
       headers['sec-ch-ua-mobile'] = "?0";
@@ -105,7 +146,7 @@
   }
 
   // ============================================================================
-  // Phase B: HTTP Response (瀏覽器層 - 注入 V2.81 核心邏輯)
+  // Phase B: HTTP Response (瀏覽器層 - 核心注入)
   // ============================================================================
   if (typeof $response !== 'undefined') {
     let body = $response.body;
@@ -117,14 +158,21 @@
     if (!body || (cType && !cType.includes("html"))) { $done({}); return; }
     if (body.includes(CONST.INJECT_MARKER)) { $done({}); return; }
 
-    // 設定 Badge 樣式 (V4.60 風格)
-    const badgeColor = IS_SHOPPING ? "#AF52DE" : "#007AFF"; // 紫色(購物) / 藍色(防護)
-    const badgeText = IS_SHOPPING ? "FP: Shopping" : "FP: macOS Shield";
+    // Badge Logic
+    let badgeColor = "#007AFF"; // Blue (Active)
+    let badgeText = "FP: Shield Active";
+    
+    if (IS_SHOPPING) {
+        badgeColor = "#AF52DE"; badgeText = "FP: Shopping Mode"; // Purple
+    } else if (isSoftWhitelisted) {
+        badgeColor = "#636366"; badgeText = "FP: Bypass (Safe)"; // Grey
+    }
 
     // ------------------------------------------------------------------------
-    // [Core Injection] 瀏覽器內部執行的完整代碼 (V2.81 移植版)
+    // [Core Injection] V2.81 核心邏輯
     // ------------------------------------------------------------------------
     const injectionScript = `
+    <!-- ${CONST.INJECT_MARKER} -->
     <div id="fp-badge" style="position:fixed!important;bottom:15px!important;left:15px!important;z-index:2147483647!important;background:${badgeColor}!important;color:#fff!important;padding:7px 14px!important;border-radius:10px!important;font-family:-apple-system,BlinkMacSystemFont,sans-serif!important;font-size:12px!important;font-weight:bold!important;pointer-events:none!important;box-shadow:0 6px 15px rgba(0,0,0,0.4)!important;transition:opacity 1s!important;opacity:1!important;">${badgeText}</div>
     <script>
     (function() {
@@ -136,8 +184,17 @@
       const b = document.getElementById('fp-badge');
       setTimeout(() => { if(b) { b.style.opacity='0'; setTimeout(()=>b.remove(), 1000); } }, 3500);
 
-      // [Shopping Mode Check] 若為購物模式，僅顯示標記，不執行混淆
-      if (${IS_SHOPPING}) return;
+      // [Decision Gate]
+      // 1. Shopping Mode: 優先級最高，完全停止
+      // 2. Soft Whitelist: 允許 JS 載入 (因為已經改了 Header)，但不執行指紋混淆
+      const IS_SHOPPING = ${IS_SHOPPING};
+      const IS_WHITELISTED = ${isSoftWhitelisted};
+
+      if (IS_SHOPPING || IS_WHITELISTED) {
+          // 在白名單模式下，我們仍然建議做一件事：保護 navigator.webdriver (防止被偵測為自動化)
+          try { if (navigator && 'webdriver' in navigator) delete navigator.webdriver; } catch(e) {}
+          return;
+      }
 
       const CONFIG = {
         rectNoiseRate: 0.0001,
@@ -152,7 +209,7 @@
         toBlobReleaseFallbackMs: ${CONST.TOBLOB_RELEASE_FALLBACK_MS}
       };
 
-      // ---------------- Helper: SafeDefine (V2.81 Fix for iOS) ----------------
+      // ---------------- Helper: SafeDefine ----------------
       const safeDefine = (obj, prop, descriptor) => {
           if (!obj) return false;
           try {
@@ -184,15 +241,12 @@
       const RNG = {
         s: ((Seed * 9301 + 49297) | 0) >>> 0,
         next: function() {
-          let x = this.s;
-          x ^= x << 13; x ^= x >>> 17; x ^= x << 5;
-          this.s = x >>> 0;
-          return (this.s / 4294967296);
+          let x = this.s; x ^= x << 13; x ^= x >>> 17; x ^= x << 5;
+          this.s = x >>> 0; return (this.s / 4294967296);
         },
         pick: function(arr) { return arr[Math.floor(this.next() * arr.length)]; },
         pickWeighted: function(items) {
-          let total = 0;
-          for(let i=0; i<items.length; i++) total += items[i].w;
+          let total = 0; for(let i=0; i<items.length; i++) total += items[i].w;
           let r = this.next() * total;
           for(let i=0; i<items.length; i++) { r -= items[i].w; if (r <= 0) return items[i].v; }
           return items[0].v;
@@ -200,9 +254,8 @@
       };
       if (RNG.s === 0) RNG.s = 1;
 
-      // ---------------- Persona (V2.81 Logic adapted for V4.60 macOS Profile) ----------------
+      // ---------------- Persona (Force macOS High-Tier) ----------------
       const Persona = (function() {
-        // 強制使用 macOS High-Tier 檔案，以配合 Header 的 User-Agent
         const MAC_TIERS = {
             MID: { 
                 cpuPool: [8, 10], ramPool: [16, 24],
@@ -237,7 +290,7 @@
         };
       })();
 
-      // ---------------- ProxyGuard (V2.81 Full Implementation) ----------------
+      // ---------------- ProxyGuard ----------------
       const ProxyGuard = {
         proxyMap: new WeakMap(), nativeStrings: new WeakMap(), toStringMap: new WeakMap(),
         _makeFakeToString: function(t, ns) {
@@ -289,7 +342,7 @@
         }
       };
 
-      // ---------------- CanvasPool (V2.81) ----------------
+      // ---------------- CanvasPool ----------------
       const CanvasPool = (function() {
         const pool = [];
         const shrink = (item) => { try { item.c.width = 1; item.c.height = 1; } catch(e) {} };
@@ -316,7 +369,7 @@
         };
       })();
 
-      // ---------------- Noise Helpers (V2.81) ----------------
+      // ---------------- Noise Helpers ----------------
       const Noise = {
         spatial01: function(x, y, salt) {
           let h = (x | 0) * 374761393 + (y | 0) * 668265263 + (salt | 0) * 1442695041 + (RNG.s | 0);
@@ -353,7 +406,7 @@
         }
       };
 
-      // ---------------- Modules (V2.81 Full Modules) ----------------
+      // ---------------- Modules ----------------
       const Modules = {
         hardware: function(win) {
           const N = win.navigator;
@@ -368,7 +421,7 @@
           spoofProp(N, 'platform', Persona.ua.platform);
           try { if ('webdriver' in N) delete N.webdriver; } catch(e) {}
 
-          // Plugins Spoofing
+          // Plugins
           try {
              const pList = Persona.plugins;
              const targetObj = {};
@@ -390,7 +443,6 @@
 
         clientHints: function(win) {
           try {
-            // 即使原瀏覽器不支持，也注入假的 userAgentData 以符合 Chrome 124 特徵
             const highEntropyData = {
                  architecture: Persona.ch.arch, bitness: Persona.ch.bitness, platformVersion: Persona.ch.platVer, 
                  uaFullVersion: Persona.ua.ver + '.0.0.0', model: Persona.ch.model, wow64: false
@@ -483,7 +535,6 @@
                 for (let i=0; i<d.length; i+=step*4) { if (RNG.next() < 0.01) d[i] = d[i] ^ 1; }
              };
              
-             // OffscreenCanvas
              if (win.OffscreenCanvas) {
                  ProxyGuard.override(win.OffscreenCanvas.prototype, 'convertToBlob', (orig) => function() {
                      try {
@@ -500,7 +551,6 @@
                  });
              }
 
-             // Context GetImageData
              [win.CanvasRenderingContext2D, win.OffscreenCanvasRenderingContext2D].forEach(ctx => {
                 if(!ctx || !ctx.prototype) return;
                 ProxyGuard.override(ctx.prototype, 'getImageData', (orig) => function(x,y,w,h) {
@@ -512,7 +562,6 @@
                 });
              });
 
-             // HTMLCanvasElement
              if (win.HTMLCanvasElement) {
                 ProxyGuard.override(win.HTMLCanvasElement.prototype, 'toDataURL', (orig) => function() {
                    const w=this.width, h=this.height;
@@ -573,7 +622,6 @@
     </script>
     `;
 
-    // 注入順序優化
     if (REGEX.HEAD_TAG.test(body)) {
       body = body.replace(REGEX.HEAD_TAG, m => m + injectionScript);
     } else if (REGEX.HTML_TAG.test(body)) {
@@ -582,15 +630,17 @@
       body = injectionScript + body;
     }
 
-    // 移除 CSP Header (Nuclear Option)
+    // Remove CSP
     Object.keys(headers).forEach(k => {
       const lowerKey = k.toLowerCase();
       if (lowerKey.includes('content-security-policy') || lowerKey.includes('webkit-csp')) {
           delete headers[k];
       }
     });
-    body = body.replace(REGEX.META_CSP_STRICT, "");
+    body = body.replace(REGEX.META_CSP_STRICT, "<!-- CSP REMOVED -->");
 
     $done({ body, headers });
   }
 })();
+
+
