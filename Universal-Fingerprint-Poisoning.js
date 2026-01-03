@@ -1,12 +1,12 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   4.95-API-Hard-Exclusion
- * @description [API 修正版] 針對 Foodpanda API 網域進行硬排除。
+ * @version   4.96-Foodpanda-Locale-Fix
+ * @description [語系修正] 在硬排除模式下，強制修復 Foodpanda 的中文顯示問題。
  * ----------------------------------------------------------------------------
- * 1. [Critical Fix] 新增 fd-api.com / tw.fd-api.com 至硬排除名單。
- * - 原因: 避免 API 完整性校驗失敗導致的 2FA 迴圈。
- * 2. [Config] 維持 V4.94 的主要網站硬排除策略 (Line/Google/Foodpanda Web)。
- * 3. [Core] 保留 Shopee/Amazon 的購物模式與其他白名單策略。
+ * 1. [Fix] Foodpanda: 在 Request 階段強制注入 'Accept-Language: zh-TW'。
+ * - 原因: 解決因硬排除導致伺服器讀取原始系統語系(英文)的問題。
+ * - 安全性: 僅修改語系標頭，不修改 UA 或注入 JS，確保不觸發 2FA。
+ * 2. [Config] 維持 fd-api.com 的硬排除與其他白名單策略。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -19,10 +19,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // [V4.95] 更新 Seed
-    KEY_SEED: "FP_SHIELD_SEED_V495", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V495",
-    INJECT_MARKER: "__FP_SHIELD_V495__",
+    // [V4.96] 更新 Seed
+    KEY_SEED: "FP_SHIELD_SEED_V496", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V496",
+    INJECT_MARKER: "__FP_SHIELD_V496__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -55,9 +55,8 @@
   // ============================================================================
   // 1. [Hard Exclusion] 硬排除 - 絕對不碰的領域
   // ============================================================================
-  // 這些服務一旦修改 Header 或注入 JS，極易崩潰或觸發高風險控管。
   const HARD_EXCLUSION_KEYWORDS = [
-    // [V4.95] Foodpanda API Endpoints (CRITICAL)
+    // Foodpanda Domains
     "fd-api.com", "tw.fd-api.com", "foodpanda.com", "foodpanda.com.tw",
 
     "line.me", "line-apps", "line-scdn", "legy", 
@@ -70,8 +69,21 @@
     "sentry.io"
   ];
   
-  // 偵測到硬排除關鍵字，直接回傳空物件，不做任何處理
   if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) {
+    // [V4.96 Special Fix] Foodpanda Locale Injection
+    // 即使在硬排除模式下，也針對 Request 階段修正 Accept-Language，確保顯示中文
+    if (lowerUrl.includes("foodpanda") || lowerUrl.includes("fd-api")) {
+        // 僅處理 Request Header，Response 階段依然直接退出 (不注入 JS)
+        if (typeof $request !== 'undefined' && typeof $response === 'undefined') {
+            const headers = $request.headers;
+            // 強制設定為繁體中文，權重最高
+            headers['Accept-Language'] = 'zh-TW,zh-Hant;q=0.9,en-US;q=0.8,en;q=0.7';
+            $done({ headers });
+            return;
+        }
+    }
+
+    // 其他情況或 Response 階段，直接退出，保持純淨
     $done({});
     return;
   }
@@ -81,7 +93,7 @@
   // ============================================================================
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
-      // 生活服務 (維持 PC UA + Clean JS)
+      // 生活服務
       "uber.com", "ubereats.com", 
       "booking.com", "agoda.com", "airbnb.com", "expedia.com",
       "stripe.com",
@@ -122,8 +134,7 @@
   // ============================================================================
   let mode = "protection";
   
-  // [V4.95] Auto-Shopping Logic (Purple Shield)
-  // Foodpanda 已全面移至硬排除，其他電商維持全像模擬
+  // Auto-Shopping Logic
   const AUTO_SHOPPING_DOMAINS = [
       "shopee.", "shope.ee", "xiapi", 
       "amazon.", "ebay.", "rakuten.", 
