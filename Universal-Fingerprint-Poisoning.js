@@ -1,14 +1,13 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   4.93-Holographic-Mobile-Fix
- * @description [Foodpanda 最終防線] 全像式模擬 iPhone 15 Pro Max 硬體特徵。
+ * @version   4.94-Foodpanda-Hard-Exclusion
+ * @description [最終手段] 將 Foodpanda 加入硬排除名單，徹底停用腳本介入。
  * ----------------------------------------------------------------------------
- * 1. [Critical Fix] Foodpanda/Shopee (Purple Mode):
- * - Screen: 強制偽裝解析度為 430x932 (iPhone 15 Pro Max)。
- * - GPU: 強制 WebGL 渲染器顯示 "Apple GPU"。
- * - CPU/RAM: 鎖定為 6核 / 8GB，消除 PC 高性能特徵。
- * 2. [Network] 維持 V4.92 的 Mobile Client Hints。
- * 3. [Core] 保留 V4.90 生活服務白名單與 Uber/Momo 穩定策略。
+ * 1. [Hard Exclusion] 新增 foodpanda.com / foodpanda.com.tw。
+ * - 原因: 平台採用 TCP/IP 底層指紋檢測，JS 模擬無效且持續觸發 2FA。
+ * - 後果: 將暴露真實指紋，但能確保服務可用性 (不再跳驗證)。
+ * 2. [Logic] 從自動購物模式 (Purple) 中移除 Foodpanda。
+ * 3. [Core] 保留 Shopee/Amazon 的購物模式與其他白名單策略。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -21,10 +20,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // [V4.93] 更新 Seed 強制刷新規則
-    KEY_SEED: "FP_SHIELD_SEED_V493", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V493",
-    INJECT_MARKER: "__FP_SHIELD_V493__",
+    // [V4.94] 更新 Seed
+    KEY_SEED: "FP_SHIELD_SEED_V494", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V494",
+    INJECT_MARKER: "__FP_SHIELD_V494__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -57,7 +56,11 @@
   // ============================================================================
   // 1. [Hard Exclusion] 硬排除 - 絕對不碰的領域
   // ============================================================================
+  // 這些服務一旦修改 Header 或注入 JS，極易崩潰或觸發高風險控管。
   const HARD_EXCLUSION_KEYWORDS = [
+    // [V4.94] Added Foodpanda (Risk Control Bypass)
+    "foodpanda.com", "foodpanda.com.tw",
+
     "line.me", "line-apps", "line-scdn", "legy", 
     "naver.com", "naver.jp", 
     "facebook.com/api", "messenger.com", "whatsapp.com", "instagram.com",
@@ -68,6 +71,7 @@
     "sentry.io"
   ];
   
+  // 偵測到硬排除關鍵字，直接回傳空物件，不做任何處理
   if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) {
     $done({});
     return;
@@ -78,7 +82,7 @@
   // ============================================================================
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
-      // 生活服務 (Uber/Momo 維持 PC UA)
+      // 生活服務 (維持 PC UA + Clean JS)
       "uber.com", "ubereats.com", 
       "booking.com", "agoda.com", "airbnb.com", "expedia.com",
       "stripe.com",
@@ -119,10 +123,9 @@
   // ============================================================================
   let mode = "protection";
   
-  // [V4.93] Auto-Shopping Logic (Purple Shield)
-  // 執行 Holographic Mobile Emulation
+  // [V4.94] Auto-Shopping Logic (Purple Shield)
+  // 移除 Foodpanda，其餘保持 Holographic Mobile Emulation
   const AUTO_SHOPPING_DOMAINS = [
-      "foodpanda.com", "foodpanda.com.tw", // Target Fix
       "shopee.", "shope.ee", "xiapi", 
       "amazon.", "ebay.", "rakuten.", 
       "pchome.com.tw"
@@ -158,7 +161,7 @@
     });
 
     if (IS_SHOPPING) {
-      // [Purple] Full Mobile Headers
+      // [Purple] Mobile Headers
       headers['User-Agent'] = CONST.UA_IPHONE;
       headers['sec-ch-ua'] = '"Not(A:Brand";v="99", "Chromium";v="143", "Google Chrome";v="143"'; 
       headers['sec-ch-ua-mobile'] = "?1"; 
@@ -227,25 +230,20 @@
       };
 
       // =========================================================================
-      // [V4.93] Holographic Mobile Emulation (Shopping/Purple Mode)
+      // Shopping Mode (Purple) -> Deep Mobile Emulation (Shopee/Amazon)
       // =========================================================================
       if (IS_SHOPPING) {
           try {
-              // 1. Basic Cleanup
               if (navigator && 'webdriver' in navigator) delete navigator.webdriver;
               if (window.cdc_adoQpoasnfa76pfcZLmcfl_Array) delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
 
-              // 2. Identity Spoofing
               Object.defineProperty(navigator, 'platform', { get: () => 'iPhone', configurable: true });
               Object.defineProperty(navigator, 'vendor', { get: () => 'Apple Computer, Inc.', configurable: true });
               Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5, configurable: true });
               
-              // 3. [New] Hardware Hardware Concurrency (Spoof A17 Pro - 6 Cores)
               Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 6, configurable: true });
-              Object.defineProperty(navigator, 'deviceMemory', { get: () => 8, configurable: true }); // 8GB RAM
+              Object.defineProperty(navigator, 'deviceMemory', { get: () => 8, configurable: true });
 
-              // 4. [New] Screen Resolution Spoofing (iPhone 15 Pro Max: 430x932)
-              // 這是欺騙風控的關鍵：讓 JS 獲取到的螢幕尺寸與 PC 螢幕脫鉤
               const screenProps = {
                   width: 430, height: 932,
                   availWidth: 430, availHeight: 932,
@@ -255,13 +253,10 @@
                   Object.defineProperty(window.screen, prop, { get: () => screenProps[prop], configurable: true });
               }
 
-              // 5. [New] WebGL Vendor Spoofing (Lightweight - No Noise)
-              // 僅修改廠商字串，不對圖像像素做雜訊處理，避免影響渲染效能
               const spoofWebGL = (ctx) => {
                   if (!ctx) return;
                   const getParameter = ctx.getParameter;
                   ctx.getParameter = function(param) {
-                      // UNMASKED_VENDOR_WEBGL = 37445, UNMASKED_RENDERER_WEBGL = 37446
                       if (param === 37445) return 'Apple Inc.'; 
                       if (param === 37446) return 'Apple GPU'; 
                       return getParameter.apply(this, arguments);
@@ -273,7 +268,6 @@
               spoofWebGL(cvs.getContext('experimental-webgl'));
               spoofWebGL(cvs.getContext('webgl2'));
               
-              // Hook future contexts
               const oldGetContext = HTMLCanvasElement.prototype.getContext;
               HTMLCanvasElement.prototype.getContext = function(type, opts) {
                   const ctx = oldGetContext.call(this, type, opts);
@@ -281,13 +275,11 @@
                   return ctx;
               };
 
-              // 6. Touch Events
               if (!('ontouchstart' in window)) {
                   Object.defineProperty(window, 'ontouchstart', { value: null, writable: true });
               }
-
           } catch(e) {}
-          return; // Stop here for Shopping Mode
+          return; 
       }
 
       // =========================================================================
