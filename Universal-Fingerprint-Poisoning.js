@@ -1,11 +1,11 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   4.86-Visual-Patch (Green Shield + Gemini Support)
- * @description [視覺優化版] 調整 Badge 顏色邏輯，並支援 Google Gemini。
+ * @version   4.87-2026-Refresh (Green Shield + Gemini Support + Modern UAs)
+ * @description [2026 維護版] 基於 V4.86。更新 User-Agent 以匹配 2026 年主流環境，降低過時指紋風險。
  * ----------------------------------------------------------------------------
- * 1. [Visual] 狀態指示: 綠色(Active) / 灰色(Bypass) / 紫色(Shopping)。
- * 2. [Whitelist] 新增 gemini.google.com 至軟白名單，確保 AI 對話流暢。
- * 3. [Core] V2.81: 完整保留重裝指紋混淆邏輯，僅在非白名單網站啟動。
+ * 1. [Security] UA 升級: Chrome 143 (Mac) / iOS 19.2 (iPhone)。
+ * 2. [Visual] 狀態指示: 綠色(Active) / 灰色(Bypass) / 紫色(Shopping)。
+ * 3. [Whitelist] 包含 Gemini, ChatGPT, 台灣網銀與主流串流媒體。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -18,10 +18,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // 更新 Seed 以強制刷新緩存規則
-    KEY_SEED: "FP_SHIELD_SEED_V486", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V486",
-    INJECT_MARKER: "__FP_SHIELD_V486__",
+    // [V4.87] 更新 Seed 以強制刷新緩存規則
+    KEY_SEED: "FP_SHIELD_SEED_V487", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V487",
+    INJECT_MARKER: "__FP_SHIELD_V487__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -34,9 +34,11 @@
     CACHE_CLEANUP_INTERVAL: 30000,
     TOBLOB_RELEASE_FALLBACK_MS: 3000,
     
-    // User Agents
-    UA_MAC: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    UA_IPHONE: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
+    // [V4.87] User Agents Updated for Jan 2026
+    // Mac: Chrome 143 on macOS 15.7 (Modern Standard)
+    UA_MAC: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    // iPhone: iOS 19.2 (Modern Mobile)
+    UA_IPHONE: "Mozilla/5.0 (iPhone; CPU iPhone OS 19_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/19.2 Mobile/15E148 Safari/604.1"
   };
 
   const REGEX = {
@@ -65,7 +67,7 @@
     "googleapis.com", "gstatic.com", "googleusercontent.com", 
     "apple.com", "icloud.com", "mzstatic.com", "itunes.apple.com",
     
-    // 3. 敏感 AI 服務 (API 端點)
+    // 3. 敏感 AI 服務 (API 端點 - 前端網頁在白名單)
     "oaistatic.com", "oaiusercontent.com", // ChatGPT Assets
     "anthropic.com", // Claude API
     
@@ -83,7 +85,7 @@
   // ============================================================================
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
-      // AI 服務 (新增 Gemini)
+      // AI 服務
       "gemini.google.com", "bard.google.com", "chatgpt.com", "claude.ai", "perplexity.ai",
       
       // Google 交互式服務
@@ -151,8 +153,9 @@
     if (IS_SHOPPING) {
       headers['User-Agent'] = CONST.UA_IPHONE;
     } else {
+      // [V4.87] Client Hints Update for Chrome 143
       headers['User-Agent'] = CONST.UA_MAC;
-      headers['sec-ch-ua'] = '"Not_A Brand";v="8", "Chromium";v="124", "Google Chrome";v="124"';
+      headers['sec-ch-ua'] = '"Not(A:Brand";v="99", "Google Chrome";v="143", "Chromium";v="143"';
       headers['sec-ch-ua-mobile'] = "?0";
       headers['sec-ch-ua-platform'] = '"macOS"';
     }
@@ -174,7 +177,7 @@
     if (!body || (cType && !cType.includes("html"))) { $done({}); return; }
     if (body.includes(CONST.INJECT_MARKER)) { $done({}); return; }
 
-    // Badge Logic (Updated V4.86)
+    // Badge Logic (Inherited from V4.86)
     // 預設: 綠色 (Green) - Protection Active
     let badgeColor = "#28CD41"; 
     let badgeText = "FP: Shield Active";
@@ -188,7 +191,7 @@
     }
 
     // ------------------------------------------------------------------------
-    // [Core Injection] V2.81 完整邏輯
+    // [Core Injection] V2.81 Logic with V4.87 Configs
     // ------------------------------------------------------------------------
     const injectionScript = `
     <!-- ${CONST.INJECT_MARKER} -->
@@ -291,16 +294,18 @@
       };
       if (RNG.s === 0) RNG.s = 1;
 
-      // ---------------- Persona (Force macOS High-Tier) ----------------
+      // ---------------- Persona (Force macOS High-Tier 2026) ----------------
       const Persona = (function() {
         const MAC_TIERS = {
             MID: { 
                 cpuPool: [8, 10], ramPool: [16, 24],
-                gpuPool: [{v: 'Apple', r: 'Apple M2', w: 60}, {v: 'Apple', r: 'Apple M2 Pro', w: 40}]
+                // Updated GPU models for 2026 Context
+                gpuPool: [{v: 'Apple', r: 'Apple M3 Pro', w: 60}, {v: 'Apple', r: 'Apple M3 Max', w: 40}]
             },
             HIGH: { 
                 cpuPool: [12, 16], ramPool: [32, 64],
-                gpuPool: [{v: 'Apple', r: 'Apple M3 Max', w: 60}, {v: 'Apple', r: 'Apple M3 Ultra', w: 40}]
+                // Updated GPU models for 2026 Context
+                gpuPool: [{v: 'Apple', r: 'Apple M3 Ultra', w: 60}, {v: 'Apple', r: 'Apple M4 Max', w: 40}]
             }
         };
 
@@ -319,8 +324,13 @@
         ];
 
         return { 
-            ua: { ver: "124", platform: "MacIntel" },
-            ch: { brands: [{brand:"Chromium",version:"124"},{brand:"Google Chrome",version:"124"},{brand:"Not-A.Brand",version:"8"}], platform: "macOS", mobile: false, arch: "x86", bitness: "64", model: "", platVer: "14.4.1" },
+            // Updated Version for 2026
+            ua: { ver: "143", platform: "MacIntel" },
+            ch: { 
+                brands: [{brand:"Chromium",version:"143"},{brand:"Google Chrome",version:"143"},{brand:"Not(A:Brand",version:"99"}], 
+                platform: "macOS", mobile: false, arch: "x86", bitness: "64", model: "", 
+                platVer: "15.7.0" // Updated to match macOS 15.x
+            },
             hw: { cpu, ram },
             gpu: gpu,
             plugins: plugins
@@ -648,8 +658,7 @@
       const init = function() {
         inject(window);
         new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => {
-           try { if (n.tagName === 'IFRAME' && n.contentWindow) n.addEventListener('load', () => inject(n.contentWindow)); } catch(e){}
-        }))).observe(document, {childList:true, subtree:true});
+           try { if (n.tagName === 'IFRAME' && n.contentWindow) n.addEventListener('load', () => inject(n.contentWindow)); } catch(e){}\n        }))).observe(document, {childList:true, subtree:true});
       };
 
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
@@ -680,5 +689,4 @@
     $done({ body, headers });
   }
 })();
-
 
