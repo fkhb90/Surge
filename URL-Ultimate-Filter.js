@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.47.js
- * @version   41.47 (Path-Centric Re-audit)
- * @description [V41.47] 執行路徑通用化審核。將 Shopee Log (/report/v1/log) 與 Tongyi Log (/app/mobilelog) 升級為全域攔截規則，適用於所有子網域與跨國站點；保留 EPrice 全域規則。
+ * @file      URL-Ultimate-Filter-Surge-V41.48.js
+ * @version   41.48 (Foodpanda Action-Log Block)
+ * @description [V41.48] 針對 Foodpanda 隱私強化：將 tw.fd-api.com 從硬白名單移至軟白名單，並精準攔截 /api/v5/action-log 行為追蹤；同步 V41.47 的全域化修正。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
- * @lastUpdated 2025-12-31
+ * @lastUpdated 2026-01-03
  */
 
 // #################################################################################################
@@ -106,7 +106,8 @@ const CONFIG = {
     'api.login.yahoo.com', // [V41.15] Yahoo OpenID 登入核心 (絕對保護)
     // [V41.00] account.uber.com 已移至 Soft Whitelist 以支援路徑過濾 (_events)
     // --- 台灣地區服務 ---
-    'api.etmall.com.tw', 'tw.fd-api.com',
+    'api.etmall.com.tw', 
+    // 'tw.fd-api.com', // [V41.48] Moved to Soft Whitelist to block /api/v5/action-log
     // --- [V40.42] 台灣關鍵基礎設施 ---
     'api.map.ecpay.com.tw', // ECPay Logistics Map API
     // --- 支付 & 金流 API ---
@@ -168,6 +169,7 @@ const CONFIG = {
     'api.cloudflare.com', 'auth.docker.io', 'database.windows.net', 'login.docker.com',
     // --- 台灣地區服務 ---
     'api.irentcar.com.tw', 'gateway.shopback.com.tw', 
+    'tw.fd-api.com', // [V41.48] Foodpanda API Core (Moved from Hard Whitelist to filter action-log)
     'usiot.roborock.com', // [V41.30] 核心認證服務，必須放行以確保 App 可用
     'www.momoshop.com.tw', // [V41.05] 優化 crossBridge.jsp 跨域橋接效能，避免掃描
     'm.momoshop.com.tw', // [V41.14] 優化行動版 UI 載入腳本 (momocoLoadingEnd.js)，避免卡死
@@ -419,7 +421,9 @@ const CONFIG = {
    * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充, V41.21 擴充, V41.26 修復, V41.27 修復, V41.28 修復, V41.30 修正, V41.31 擴充, V41.37 擴充, V41.46 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
    */
   CRITICAL_TRACKING_MAP: new Map([
-    // [V41.46] EPrice Ad API Blocking
+    // [V41.48] Foodpanda Action Log Block
+    ['tw.fd-api.com', new Set(['/api/v5/action-log'])],
+    // [V41.46] Generic Ad API (Covers EPrice & others)
     // Removed specific domain mapping for '/api/web/ad/' as it's now covered by CRITICAL_TRACKING_GENERIC_PATHS below for broader coverage.
     
     // [V41.30] Roborock Protocol: 移除所有 Mock 設定，改採 Allowlist 策略
@@ -773,14 +777,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.47)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.48)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.47'; // [V41.47] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.48'; // [V41.48] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1504,7 +1508,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.47 - Path-Centric Re-audit', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.48 - Foodpanda Action-Log Block', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -1531,3 +1535,4 @@ function initialize() {
     if (typeof $done !== 'undefined') $done({});
   }
 })();
+
