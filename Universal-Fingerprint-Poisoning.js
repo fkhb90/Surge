@@ -1,11 +1,11 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   4.85-AI-Compatibility (AI Tools + CAPTCHA Rescue)
- * @description [AI 相容版] 針對 ChatGPT 等 AI 服務與驗證碼系統進行深度優化。
+ * @version   4.86-Visual-Patch (Green Shield + Gemini Support)
+ * @description [視覺優化版] 調整 Badge 顏色邏輯，並支援 Google Gemini。
  * ----------------------------------------------------------------------------
- * 1. [Hard] 硬排除: AI (ChatGPT/Claude), CAPTCHA (Cloudflare/Google), Apple, LINE。
- * 2. [Soft] 軟白名單: 台灣各大網銀、串流影音、政府(.gov.tw)、教育(.edu.tw)。
- * 3. [Core] V2.81: 完整保留重裝指紋混淆邏輯，僅在非白名單網站啟動 (Blue Badge)。
+ * 1. [Visual] 狀態指示: 綠色(Active) / 灰色(Bypass) / 紫色(Shopping)。
+ * 2. [Whitelist] 新增 gemini.google.com 至軟白名單，確保 AI 對話流暢。
+ * 3. [Core] V2.81: 完整保留重裝指紋混淆邏輯，僅在非白名單網站啟動。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -19,9 +19,9 @@
   const CONST = {
     MAX_SIZE: 5000000,
     // 更新 Seed 以強制刷新緩存規則
-    KEY_SEED: "FP_SHIELD_SEED_V485", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V485",
-    INJECT_MARKER: "__FP_SHIELD_V485__",
+    KEY_SEED: "FP_SHIELD_SEED_V486", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V486",
+    INJECT_MARKER: "__FP_SHIELD_V486__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -52,30 +52,25 @@
   try { hostname = new URL(currentUrl).hostname.toLowerCase(); } catch (e) {}
 
   // ============================================================================
-  // 1. [Hard Exclusion] 硬排除 - 絕對不碰的領域
+  // 1. [Hard Exclusion] 硬排除 - 絕對不碰的領域 (無 Badge 顯示)
   // ============================================================================
-  // 這些服務對指紋極度敏感，或者承載了底層系統功能。一旦修改，極易導致崩潰或封號。
+  // 這些服務一旦修改 Header 或注入 JS，極易崩潰。硬排除會直接 $done({})，不顯示任何盾牌。
   const HARD_EXCLUSION_KEYWORDS = [
-    // 1. 通訊與社交 App (App 內嵌瀏覽器穩定性)
+    // 1. 通訊與社交 App
     "line.me", "line-apps", "line-scdn", "legy", 
     "naver.com", "naver.jp", 
     "facebook.com/api", "messenger.com", "whatsapp.com", "instagram.com",
     
-    // 2. 系統服務 (Apple/Google 底層)
+    // 2. 系統服務 (Apple/Google 底層 API)
     "googleapis.com", "gstatic.com", "googleusercontent.com", 
     "apple.com", "icloud.com", "mzstatic.com", "itunes.apple.com",
     
-    // 3. AI 服務 (極嚴格的 Bot 偵測)
-    "openai.com", "chatgpt.com", "oaistatic.com", "oaiusercontent.com", // ChatGPT
-    "anthropic.com", "claude.ai", // Claude
-    "perplexity.ai", // Perplexity
-    "bing.com", // Bing Chat/Copilot
+    // 3. 敏感 AI 服務 (API 端點)
+    "oaistatic.com", "oaiusercontent.com", // ChatGPT Assets
+    "anthropic.com", // Claude API
     
-    // 4. 驗證碼服務 (CAPTCHA - 這是許多網站打不開的主因)
-    "challenges.cloudflare.com", // Cloudflare Turnstile
-    "recaptcha.net", "google.com/recaptcha", // Google reCAPTCHA
-    "hcaptcha.com", // hCaptcha
-    "arkoselabs.com" // Arkose Labs (常見於 Outlook/EA/Twitter 驗證)
+    // 4. 驗證碼服務 (CAPTCHA)
+    "challenges.cloudflare.com", "recaptcha.net", "google.com/recaptcha", "hcaptcha.com", "arkoselabs.com"
   ];
   
   if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) {
@@ -84,49 +79,39 @@
   }
 
   // ============================================================================
-  // 2. [Soft Whitelist] 軟白名單 - 偽裝 Mac UA 但停用攻擊
+  // 2. [Soft Whitelist] 軟白名單 - 顯示灰色 Badge (Bypass)
   // ============================================================================
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
+      // AI 服務 (新增 Gemini)
+      "gemini.google.com", "bard.google.com", "chatgpt.com", "claude.ai", "perplexity.ai",
+      
       // Google 交互式服務
       "docs.google.com", "drive.google.com", "mail.google.com", "meet.google.com", "calendar.google.com",
       
       // Microsoft 生產力工具
       "microsoft.com", "office.com", "live.com", "teams.microsoft.com", "sharepoint.com", "onenote.com",
       
-      // 串流媒體 (DRM 保護內容，防止黑屏)
+      // 串流媒體
       "netflix.com", "spotify.com", "disneyplus.com", "twitch.tv", "youtube.com", "iqiyi.com", "kkbox.com",
       
       // 台灣主流網銀 (Taiwan Banks)
-      "ctbcbank.com", // 中國信託
-      "cathaybk.com.tw", // 國泰世華
-      "esunbank.com.tw", // 玉山銀行
-      "fubon.com", // 富邦金控
-      "taishinbank.com.tw", // 台新銀行
-      "megabank.com.tw", // 兆豐銀行
-      "bot.com.tw", // 台灣銀行
-      "firstbank.com.tw", // 第一銀行
-      "hncb.com.tw", // 華南銀行
-      "sinopac.com", // 永豐銀行
-      "post.gov.tw", // 中華郵政
+      "ctbcbank.com", "cathaybk.com.tw", "esunbank.com.tw", "fubon.com", "taishinbank.com.tw", 
+      "megabank.com.tw", "bot.com.tw", "firstbank.com.tw", "hncb.com.tw", "sinopac.com", "post.gov.tw",
       
       // 支付與驗證網關
       "paypal.com", "visa.com", "mastercard.com", "amex.com", 
-      "jkos.com", "ecpay.com.tw", "newebpay.com" // 街口, 綠界, 藍新
+      "jkos.com", "ecpay.com.tw", "newebpay.com"
     ]);
     
-    // 後綴檢測：政府(.gov.tw) 與 教育(.edu.tw)
     const trustedSuffixes = [".gov.tw", ".edu.tw", ".org.tw", ".mil", ".bank"];
     
     return {
       check: (h) => {
         if (!h) return false;
-        // 1. 域名完全匹配或子域名匹配
         if (trustedDomains.has(h)) return true;
         for (const d of trustedDomains) { if (h.endsWith('.' + d)) return true; }
-        // 2. 後綴匹配
         for (const s of trustedSuffixes) { if (h.endsWith(s)) return true; }
-        // 3. 網址關鍵字救援 (針對動態轉址的 3D 驗證)
         if (lowerUrl.includes("3dsecure") || lowerUrl.includes("acs")) return true;
         return false;
       }
@@ -166,7 +151,6 @@
     if (IS_SHOPPING) {
       headers['User-Agent'] = CONST.UA_IPHONE;
     } else {
-      // 統一偽裝為 macOS Chrome 124
       headers['User-Agent'] = CONST.UA_MAC;
       headers['sec-ch-ua'] = '"Not_A Brand";v="8", "Chromium";v="124", "Google Chrome";v="124"';
       headers['sec-ch-ua-mobile'] = "?0";
@@ -178,7 +162,7 @@
   }
 
   // ============================================================================
-  // Phase B: HTTP Response (瀏覽器層 - V2.81 核心注入)
+  // Phase B: HTTP Response (瀏覽器層 - 核心注入)
   // ============================================================================
   if (typeof $response !== 'undefined') {
     let body = $response.body;
@@ -190,14 +174,17 @@
     if (!body || (cType && !cType.includes("html"))) { $done({}); return; }
     if (body.includes(CONST.INJECT_MARKER)) { $done({}); return; }
 
-    // Badge Logic
-    let badgeColor = "#007AFF"; // Blue (Protection)
+    // Badge Logic (Updated V4.86)
+    // 預設: 綠色 (Green) - Protection Active
+    let badgeColor = "#28CD41"; 
     let badgeText = "FP: Shield Active";
     
     if (IS_SHOPPING) {
-        badgeColor = "#AF52DE"; badgeText = "FP: Shopping Mode"; // Purple
+        // 購物模式: 紫色 (Purple)
+        badgeColor = "#AF52DE"; badgeText = "FP: Shopping Mode"; 
     } else if (isSoftWhitelisted) {
-        badgeColor = "#636366"; badgeText = "FP: Bypass (Safe)"; // Grey
+        // 白名單: 灰色 (Grey) - Bypass
+        badgeColor = "#636366"; badgeText = "FP: Bypass (Safe)"; 
     }
 
     // ------------------------------------------------------------------------
@@ -205,7 +192,24 @@
     // ------------------------------------------------------------------------
     const injectionScript = `
     <!-- ${CONST.INJECT_MARKER} -->
-    <div id="fp-badge" style="position:fixed!important;bottom:15px!important;left:15px!important;z-index:2147483647!important;background:${badgeColor}!important;color:#fff!important;padding:7px 14px!important;border-radius:10px!important;font-family:-apple-system,BlinkMacSystemFont,sans-serif!important;font-size:12px!important;font-weight:bold!important;pointer-events:none!important;box-shadow:0 6px 15px rgba(0,0,0,0.4)!important;transition:opacity 1s!important;opacity:1!important;">${badgeText}</div>
+    <div id="fp-badge" style="
+        position: fixed !important;
+        bottom: 15px !important;
+        left: 15px !important;
+        z-index: 2147483647 !important;
+        background: ${badgeColor} !important;
+        color: #ffffff !important;
+        padding: 7px 14px !important;
+        border-radius: 10px !important;
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        pointer-events: none !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+        transition: opacity 0.8s ease-out !important;
+        opacity: 1 !important;
+        display: block !important;
+    ">${badgeText}</div>
     <script>
     (function() {
       "use strict";
@@ -214,17 +218,20 @@
 
       // UI Control
       const b = document.getElementById('fp-badge');
-      setTimeout(() => { if(b) { b.style.opacity='0'; setTimeout(()=>b.remove(), 1000); } }, 3500);
+      // 延長顯示時間至 4000ms 確保使用者能看見
+      setTimeout(() => { if(b) { b.style.opacity='0'; setTimeout(()=>b.remove(), 1000); } }, 4000);
 
       // [Decision Gate]
-      // 若為購物模式或白名單網站，僅執行基礎清理，不注入指紋混淆
+      // 若為購物模式或白名單網站，執行基礎清理後退出，確保不干擾功能
       const IS_SHOPPING = ${IS_SHOPPING};
       const IS_WHITELISTED = ${isSoftWhitelisted};
 
       if (IS_SHOPPING || IS_WHITELISTED) {
           try { if (navigator && 'webdriver' in navigator) delete navigator.webdriver; } catch(e) {}
-          return;
+          return; // 白名單模式下，僅顯示 Badge 並移除 webdriver 標記，不執行後續混淆
       }
+
+      // --- 以下為完整混淆邏輯 (僅在綠色盾牌模式下執行) ---
 
       const CONFIG = {
         rectNoiseRate: 0.0001,
@@ -652,6 +659,7 @@
     </script>
     `;
 
+    // 注入順序優化
     if (REGEX.HEAD_TAG.test(body)) {
       body = body.replace(REGEX.HEAD_TAG, m => m + injectionScript);
     } else if (REGEX.HTML_TAG.test(body)) {
