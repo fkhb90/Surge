@@ -1,11 +1,13 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   5.01-Global-Locale-Lock
- * @description [語系穩定版] 擴大 Header 注入範圍，防止 Foodpanda App 回退至英文。
+ * @version   5.02-Traffic-Shunt
+ * @description [流量分流版] 移除所有對 Foodpanda 的主動介入，專注於 SDK 相容性。
  * ----------------------------------------------------------------------------
- * 1. [Fix] 擴大語系注入範圍: 涵蓋所有 deliveryhero / fd-api 相關網域。
- * 2. [Stability] 防止 App 背景更新 Config 時因未攔截而覆寫為英文緩存。
- * 3. [Core] 維持 V5.00 的 JSON 防護與 2FA 繞過機制。
+ * 1. [Revert] 移除 V5.00/V5.01 的語系注入 (zh-TW)。
+ * - 原因: 任何 Header 修改都會觸發 WAF 的 "Header Integrity Check" 導致 2FA。
+ * - 代價: App 介面可能會變回英文 (這是為了安全必須的妥協)。
+ * 2. [Logic] 針對 API 流量 (JSON) 執行嚴格的 Pass-through，不注入任何代碼。
+ * 3. [Config] 建議用戶檢查 Surge 規則，確保未 Reject 風控類 SDK。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -18,10 +20,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // [V5.01] 更新 Seed
-    KEY_SEED: "FP_SHIELD_SEED_V501", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V501",
-    INJECT_MARKER: "__FP_SHIELD_V501__",
+    // [V5.02] 更新 Seed
+    KEY_SEED: "FP_SHIELD_SEED_V502", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V502",
+    INJECT_MARKER: "__FP_SHIELD_V502__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -63,7 +65,9 @@
     "apple.com", "icloud.com", "mzstatic.com", "itunes.apple.com",
     "oaistatic.com", "oaiusercontent.com", "anthropic.com",
     "challenges.cloudflare.com", "recaptcha.net", "google.com/recaptcha", "hcaptcha.com", "arkoselabs.com",
-    "sentry.io"
+    "sentry.io",
+    // [V5.02] Security SDKs (MUST NOT TOUCH)
+    "perimeterx.net", "datadome.co", "siftscience.com"
   ];
   
   if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) {
@@ -76,9 +80,9 @@
   // ============================================================================
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
-      // Foodpanda Ecosystem (MITM Allowed)
+      // Foodpanda Ecosystem (MITM Allowed, No Injection)
       "foodpanda.com", "foodpanda.com.tw", "fd-api.com", "tw.fd-api.com", 
-      "deliveryhero.io", "deliveryhero.net", "foodora.com", // [V5.01] 擴增母公司網域
+      "deliveryhero.io", "deliveryhero.net", "foodora.com",
 
       // 生活服務
       "uber.com", "ubereats.com", 
@@ -153,12 +157,9 @@
   if (typeof $request !== 'undefined' && typeof $response === 'undefined') {
     const headers = $request.headers;
     
-    // [V5.01] Global Locale Lock for Foodpanda
-    // 擴大判斷邏輯，捕捉所有可能的 API 請求
+    // [V5.02] Foodpanda Pure Pass-through
+    // 不再注入 Accept-Language，確保 Header 100% 原始
     if (lowerUrl.includes("foodpanda") || lowerUrl.includes("fd-api") || lowerUrl.includes("deliveryhero")) {
-        // 強制注入繁體中文，權重最高
-        headers['Accept-Language'] = 'zh-TW,zh-Hant;q=0.9,en-US;q=0.8,en;q=0.7';
-        // [V5.01] 確保不刪除 App 的原始 UA，避免 API 簽章失效
         $done({ headers });
         return;
     }
@@ -198,7 +199,7 @@
     const cType = (headers['Content-Type'] || headers['content-type'] || "").toLowerCase();
 
     // ------------------------------------------------------------------------
-    // [V5.01] JSON/API Safety Guard
+    // [V5.02] JSON/API Safety Guard
     // ------------------------------------------------------------------------
     if (REGEX.CONTENT_TYPE_JSON.test(cType)) {
         $done({});
