@@ -1,13 +1,12 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   4.99-App-Compatibility-Fix
- * @description [App 修復版] 防止腳本注入 JSON API 導致的手機 App 崩潰或風控。
+ * @version   5.00-Milestone-Stability
+ * @description [里程碑版] 完美解決 Foodpanda App 語系、2FA 與穩定性問題。
  * ----------------------------------------------------------------------------
- * 1. [Critical Fix] 嚴格檢查 Content-Type。
- * - 邏輯: 遇到 application/json 或 xml 時絕對不注入。
- * - 原因: 修正 Foodpanda App 因收到含 <script> 的 JSON 而觸發解析錯誤與 2FA。
- * 2. [Config] 維持 Foodpanda 的白名單策略 (允許 MITM 但不修改)。
- * 3. [Core] 保留 V4.98 的混合生存策略與電商優化。
+ * 1. [Fix] Foodpanda App 語系修正: 在 Request 階段強制注入 zh-TW 標頭。
+ * 2. [Safety] JSON/API 防護: 嚴格禁止對 application/json 回應進行注入。
+ * 3. [Core] V4.98 混合生存策略: 允許 MITM 流量通過，但進行特徵清洗。
+ * 4. [Config] 針對台灣電商 (Shopee/Momo) 與生活服務 (Uber) 的最佳化配置。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -20,10 +19,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // [V4.99] 更新 Seed
-    KEY_SEED: "FP_SHIELD_SEED_V499", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V499",
-    INJECT_MARKER: "__FP_SHIELD_V499__",
+    // [V5.00] 更新 Seed
+    KEY_SEED: "FP_SHIELD_SEED_V500", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V500",
+    INJECT_MARKER: "__FP_SHIELD_V500__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -43,7 +42,6 @@
 
   const REGEX = {
     CONTENT_TYPE_HTML: /text\/html/i,
-    // [V4.99] 新增 API 格式偵測
     CONTENT_TYPE_JSON: /(application|text)\/(json|xml|javascript)/i,
     HEAD_TAG: /<head[^>]*>/i, 
     HTML_TAG: /<html[^>]*>/i,
@@ -59,7 +57,6 @@
   // 1. [Hard Exclusion] 硬排除 - 絕對不碰的領域
   // ============================================================================
   const HARD_EXCLUSION_KEYWORDS = [
-    // 社交與通訊 (App Native 流量極高)
     "line.me", "line-apps", "line-scdn", "legy", 
     "naver.com", "naver.jp", 
     "facebook.com/api", "messenger.com", "whatsapp.com", "instagram.com",
@@ -80,7 +77,7 @@
   // ============================================================================
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
-      // [V4.99] Foodpanda 家族 (允許 MITM 但不注入)
+      // Foodpanda: 允許 MITM，但執行特殊處理
       "foodpanda.com", "foodpanda.com.tw", "fd-api.com", "tw.fd-api.com", "deliveryhero.io",
 
       // 生活服務
@@ -156,8 +153,16 @@
   if (typeof $request !== 'undefined' && typeof $response === 'undefined') {
     const headers = $request.headers;
     
-    // [V4.99] 對於 App 流量 (Foodpanda)，絕對不修改 Header
-    // 保持原始 App UA，避免被 WAF 發現 UA 與 API 簽章不符
+    // [V5.00] Foodpanda Locale Injection Fix
+    // 即使在白名單模式，也針對 Foodpanda 注入 zh-TW，解決 App Footer 變英文的問題
+    if (lowerUrl.includes("foodpanda") || lowerUrl.includes("fd-api")) {
+        // 保留原始 UA (不修改)，但強制注入語系
+        // 這通常不會觸發 2FA，因為語系改變是合法的用戶行為
+        headers['Accept-Language'] = 'zh-TW,zh-Hant;q=0.9,en-US;q=0.8,en;q=0.7';
+        $done({ headers });
+        return;
+    }
+
     if (isSoftWhitelisted) {
         $done({ headers });
         return;
@@ -185,37 +190,28 @@
   }
 
   // ============================================================================
-  // Phase B: Browser Environment (Injection) - 關鍵修復區域
+  // Phase B: Browser Environment (Injection)
   // ============================================================================
   if (typeof $response !== 'undefined') {
     let body = $response.body;
     const headers = $response.headers || {};
-    // 正規化 Content-Type 檢查
     const cType = (headers['Content-Type'] || headers['content-type'] || "").toLowerCase();
 
     // ------------------------------------------------------------------------
-    // [V4.99 CRITICAL CHECK] JSON/API 保護機制
+    // [V5.00 CRITICAL] JSON/API Safety Guard
     // ------------------------------------------------------------------------
-    // 如果是 App API 常用的 JSON/XML 格式，絕對禁止注入！
-    // 這是造成 Foodpanda App 2FA 或崩潰的主因
+    // 只要是 API 數據，絕對禁止注入，避免 App 崩潰
     if (REGEX.CONTENT_TYPE_JSON.test(cType)) {
         $done({});
         return;
     }
 
-    // 雙重檢查：必須包含 "html" 且有 body 內容才考慮注入
-    if (!body || !cType.includes("html")) { 
-        $done({}); 
-        return; 
-    }
-    
-    // 狀態碼檢查
+    // HTML Double Check
+    if (!body || !cType.includes("html")) { $done({}); return; }
     if ([204, 206, 301, 302, 304].includes($response.status)) { $done({}); return; }
-    
-    // 重複注入檢查
     if (body.includes(CONST.INJECT_MARKER)) { $done({}); return; }
 
-    // 以下為 HTML 注入邏輯 (僅對瀏覽器生效)
+    // HTML Injection Logic
     let badgeColor = "#28CD41"; 
     let badgeText = "FP: Shield Active";
     
@@ -249,21 +245,16 @@
       const IS_SHOPPING = ${IS_SHOPPING};
       const IS_WHITELISTED = ${isSoftWhitelisted};
 
-      // Helper
       const safeDefine = (obj, prop, descriptor) => {
           if (!obj) return false;
           try { const d = Object.getOwnPropertyDescriptor(obj, prop); if (d && !d.configurable) return false; Object.defineProperty(obj, prop, descriptor); return true; } catch(e) { return false; }
       };
 
-      // [V4.99] 白名單處理 - App 內嵌 WebView 場景
       if (IS_WHITELISTED) {
-          try { 
-              if (navigator && 'webdriver' in navigator) delete navigator.webdriver;
-          } catch(e) {}
+          try { if (navigator && 'webdriver' in navigator) delete navigator.webdriver; } catch(e) {}
           return; 
       }
 
-      // Shopping Mode (Purple)
       if (IS_SHOPPING) {
           try {
               if (navigator && 'webdriver' in navigator) delete navigator.webdriver;
@@ -303,7 +294,6 @@
           return; 
       }
 
-      // Green Shield Mode (Standard Noise Injection)
       const CONFIG = {
         rectNoiseRate: 0.0001, canvasNoiseStep: 2, audioNoiseLevel: 1e-6,
         canvasMinSize: ${CONST.CANVAS_MIN_SIZE}, canvasMaxNoiseArea: ${CONST.CANVAS_MAX_NOISE_AREA},
