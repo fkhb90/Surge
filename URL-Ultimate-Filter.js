@@ -1,7 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.49.js
- * @version   41.49 (Kuaishou Widget Log Block)
- * @description [V41.49] 針對快手 (Kuaishou) 隱私強化：新增 /rest/n/log 通用攔截規則，阻擋桌面 Widget 行為追蹤與設備資訊上傳 (txko.h.com)。繼承 V41.48 的 Foodpanda 與 Uber 防護。
+ * @file      URL-Ultimate-Filter-Surge-V41.51.js
+ * @version   41.51 (YouTube Deep Clean & Google Ads Hardening)
+ * @description [V41.51] YouTube 深度淨化與 Google 廣告生態系防護：
+ * 1. YouTube: 新增攔截 log_interaction, ptracking, api/stats/ads, pagead 等隱蔽追蹤端點。
+ * 2. 參數: 全域移除 gclid, dclid 等 Google 廣告追蹤參數。
+ * 3. 繼承: 包含 V41.50 的所有全域化架構與 Foodpanda/Uber 防護。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2026-01-04
@@ -142,7 +145,7 @@ const CONFIG = {
     // --- [V40.85 新增] DNS & 隱私工具 ---
     'nextdns.io',
     // --- 系統 & 平台核心服務 ---
-    'googleapis.com',
+    // 'googleapis.com', // [V41.50] Moved to Soft Whitelist to enable path filtering (e.g., youtubei log_event)
     'icloud.com', // [V40.48] 註解強化：因其大量動態生成的功能性子域，暫時保留於萬用字元硬白名單中。
     'linksyssmartwifi.com', 'update.microsoft.com', 'windowsupdate.com',
     // --- 網頁存檔服務 (對參數極度敏感) ---
@@ -195,6 +198,8 @@ const CONFIG = {
    * ✅ 軟白名單 - 萬用字元 (Soft Whitelist - Wildcards)
    */
   SOFT_WHITELIST_WILDCARDS: new Set([
+    // --- [V41.50] 遷移自硬白名單的 Google 核心 API (以支援 YouTube/Maps 路徑過濾) ---
+    'googleapis.com', 
     // --- [V40.44] 遷移自硬白名單的電商與內容平台 ---
     'book.com.tw', 'citiesocial.com', 'coupang.com', 'iherb.biz', 'iherb.com',
     'm.youtube.com', 'momo.dm', 'momoshop.com.tw', 'pxmart.com.tw', 'pxpayplus.com',
@@ -508,6 +513,17 @@ const CONFIG = {
    * 🚨 [V40.71 新增, V41.13 擴充, V41.37 擴充, V41.46 擴充] 關鍵追蹤路徑模式 (通用)
    */
   CRITICAL_TRACKING_GENERIC_PATHS: new Set([
+    // [V41.51] YouTube Deep Clean & Google Ads
+    '/youtubei/v1/log_interaction',
+    '/youtubei/v1/player/log',
+    '/ptracking',
+    '/api/stats/ads',
+    '/pagead/paralleladview',
+    '/pagead/gen_204',
+    
+    // [V41.50] YouTube Behavior & Ad Log
+    '/youtubei/v1/log_event',
+
     // [V41.49] Kuaishou (快手) Widget Log
     '/rest/n/log', // Generic Kuaishou Log path (covers /desktop/widget)
     
@@ -666,14 +682,16 @@ const CONFIG = {
   ]),
 
   /**
-   * 🗑️ [V40.69 擴充, V41.34 擴充] 追蹤參數黑名單 (全域)
+   * 🗑️ [V40.69 擴充, V41.34 擴充, V41.51 擴充] 追蹤參數黑名單 (全域)
    */
   GLOBAL_TRACKING_PARAMS: new Set([
+      // [V41.51] Google Ads & Conversion Tracking
+      'gclid', 'dclid', 'gclsrc', 'yt_src', 'yt_ad',
       // [V41.34] KaiOS Log ID Removal
       'lid',
       '_branch_match_id', '_ga', '_gl', '_gid', '_openstat', 'admitad_uid', 'aiad_clid', 'awc', 'btag',
-      'cjevent', 'cmpid', 'cuid', 'dclid', 'external_click_id', 'fbclid', 'gad_source', 'gclid', 
-      'gclsrc', 'gbraid', 'gps_adid', 'iclid', 'igshid', 'irclickid', 'is_retargeting', 
+      'cjevent', 'cmpid', 'cuid', 'external_click_id', 'fbclid', 'gad_source', 
+      'gbraid', 'gps_adid', 'iclid', 'igshid', 'irclickid', 'is_retargeting', 
       'ko_click_id', 'li_fat_id', 'mc_cid', 'mc_eid', 'mibextid', 'msclkid', 'oprtrack', 'rb_clickid',
       'srsltid', 'sscid', 'trk', 'ttclid', 'twclid', 'usqp', 'vero_conv', 'vero_id', 'wbraid',
       'wt_mc', 'xtor', 'yclid', 'ysclid', 'zanpid',
@@ -743,7 +761,7 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 [V40.76 修訂, V41.35 擴充, V41.36 擴充, V41.37 擴充] 基於正規表示式的路徑黑名單
+   * 🚫 [V40.76 修訂, V41.35 擴充, V41.36 擴充, V41.37 擴充, V41.51 擴充] 基於正規表示式的路徑黑名單
    * 說明：移除了可被原生字串方法取代的簡單規則，以提升效能。
    */
   PATH_BLOCK_REGEX: [
@@ -753,6 +771,8 @@ const CONFIG = {
     /\/api\/v\d+\/collect$/i,
     // [V41.48] Foodpanda Action Log (Version Agnostic: v5, v6, etc.)
     /\/api\/v\d+\/action-log/i,
+    // [V41.51] YouTube /api/stats filtering (block ads/atr, allow watchtime)
+    /\/api\/stats\/(ads|atr|qoe|playback)/i,
     // [V41.35] Browser Fingerprinting Scripts (e.g., fp2.js, fp2.hash.js)
     /\/fp\d+(\.[a-z0-9]+)?\.js$/i,
     // [V41.36] High Confidence Fingerprinting Patterns
@@ -790,14 +810,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.49)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.51)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.49'; // [V41.49] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.51'; // [V41.51] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1521,7 +1541,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.49 - Kuaishou Widget Log Block', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.51 - YouTube Deep Clean', stats: optimizedStats.getStats() });
       }
       return;
     }
