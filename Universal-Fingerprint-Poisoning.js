@@ -1,13 +1,15 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   5.04-Universal-Adaptive-Performance
- * @description [全域效能版] 將購物車效能優化邏輯標準化，適用於所有高負載頁面。
+ * @version   5.05-Security-Whitelist-Expansion
+ * @description [安全白名單擴充版] 針對高風險實名制服務進行預防性硬排除。
  * ----------------------------------------------------------------------------
- * 1. [Optimization] 全域重度頁面偵測 (Heavy Page Detection):
- * - 自動識別 cart/checkout/pay/video/live 等關鍵路徑。
- * - 命中時自動降級為 Lite Mode (停止 Canvas/WebGL/Screen 偽裝)，僅保留 UA。
- * 2. [Strategy] 適用範圍擴大: 所有硬白名單與購物模式網站皆繼承此優化。
- * 3. [Config] 維持對 Foodpanda 的 API/JSON 嚴格保護與 MITM 分流策略。
+ * 1. [Hard Exclusion] 大幅擴充排除名單:
+ * - 核心帳號: Apple, Google Accounts, Microsoft Login.
+ * - 金融支付: PayPal, Line Pay, Stripe, Visa/Mastercard.
+ * - 驗證服務: Cloudflare Turnstile, hCaptcha, Recaptcha.
+ * - 生活服務: Foodpanda, Uber (API).
+ * 2. [Strategy] 確立「實名服務不混淆」原則，確保帳號安全與服務可用性。
+ * 3. [Core] 維持 V5.04 的自適應效能優化 (Adaptive Performance) 於購物場景。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -20,10 +22,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // [V5.04] 更新 Seed
-    KEY_SEED: "FP_SHIELD_SEED_V504", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V504",
-    INJECT_MARKER: "__FP_SHIELD_V504__",
+    // [V5.05] 更新 Seed
+    KEY_SEED: "FP_SHIELD_SEED_V505", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V505",
+    INJECT_MARKER: "__FP_SHIELD_V505__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -44,7 +46,7 @@
   const REGEX = {
     CONTENT_TYPE_HTML: /text\/html/i,
     CONTENT_TYPE_JSON: /(application|text)\/(json|xml|javascript)/i,
-    // [V5.04] 擴充重度頁面關鍵字庫
+    // Heavy Pages for Lite Mode
     HEAVY_PAGES: /cart|checkout|buy|trade|billing|payment|video|live|stream|player/i,
     HEAD_TAG: /<head[^>]*>/i, 
     HTML_TAG: /<html[^>]*>/i,
@@ -59,18 +61,41 @@
   // ============================================================================
   // 1. [Hard Exclusion] 硬排除 - 絕對不碰的領域
   // ============================================================================
+  // 這些服務涉及帳號安全、金流或高強度風控，必須使用真實指紋。
   const HARD_EXCLUSION_KEYWORDS = [
+    // [Group A] Foodpanda Ecosystem (Priority)
+    "foodpanda", "fd-api", "deliveryhero", "foodora",
+
+    // [Group B] Identity Providers (帳號核心)
+    "accounts.google.com", // Google 登入頁
+    "apple.com", "icloud.com", "appleid", // Apple 相關
+    "login.live.com", "login.microsoftonline.com", // Microsoft 登入
+    "facebook.com/login", "facebook.com/api", // FB 登入與 API
+
+    // [Group C] Communication & Social (通訊軟體)
     "line.me", "line-apps", "line-scdn", "legy", 
-    "naver.com", "naver.jp", 
-    "facebook.com/api", "messenger.com", "whatsapp.com", "instagram.com",
+    "messenger.com", "whatsapp.com", "instagram.com/api", "discord.com/api",
+
+    // [Group D] Financial & Payments (金融支付)
+    "paypal.com", "paypalobjects.com",
+    "stripe.com", "stripe.network",
+    "visa.com", "mastercard.com", "amex.com",
+    "jkos.com", // 街口支付
+    "ecpay.com.tw", "newebpay.com", // 綠界/藍新
+
+    // [Group E] Security & Captcha (風控驗證)
+    "challenges.cloudflare.com", // Cloudflare Turnstile
+    "recaptcha.net", "google.com/recaptcha",
+    "hcaptcha.com", "arkoselabs.com",
+    "sentry.io", "perimeterx.net", "datadome.co", "siftscience.com",
+
+    // [Group F] System Services
     "googleapis.com", "gstatic.com", "googleusercontent.com", 
-    "apple.com", "icloud.com", "mzstatic.com", "itunes.apple.com",
-    "oaistatic.com", "oaiusercontent.com", "anthropic.com",
-    "challenges.cloudflare.com", "recaptcha.net", "google.com/recaptcha", "hcaptcha.com", "arkoselabs.com",
-    "sentry.io",
-    "perimeterx.net", "datadome.co", "siftscience.com"
+    "mzstatic.com", "itunes.apple.com",
+    "oaistatic.com", "oaiusercontent.com", "anthropic.com"
   ];
   
+  // 偵測到硬排除關鍵字，直接回傳空物件 (Pass-through)
   if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) {
     $done({});
     return;
@@ -79,32 +104,28 @@
   // ============================================================================
   // 2. [Soft Whitelist] 軟白名單 (Grey Shield - Bypass)
   // ============================================================================
+  // 這些網站允許 MITM，但腳本不應注入噪音，僅做基本清理。
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
-      // Foodpanda Ecosystem
-      "foodpanda.com", "foodpanda.com.tw", "fd-api.com", "tw.fd-api.com", 
-      "deliveryhero.io", "deliveryhero.net", "foodora.com",
-
-      // 生活服務
+      // 生活服務 (Uber/Booking)
       "uber.com", "ubereats.com", 
       "booking.com", "agoda.com", "airbnb.com", "expedia.com",
-      "stripe.com",
-      "momoshop.com.tw", 
+      "tixcraft.com", // 拓元售票
 
-      // AI & Productivity
+      // AI & Productivity (Web Interface)
       "gemini.google.com", "bard.google.com", "chatgpt.com", "claude.ai", "perplexity.ai",
       "docs.google.com", "drive.google.com", "mail.google.com", "meet.google.com", "calendar.google.com",
-      "microsoft.com", "office.com", "live.com", "teams.microsoft.com", "sharepoint.com", "onenote.com",
+      "microsoft.com", "office.com", "teams.microsoft.com", "sharepoint.com", "onenote.com",
       
-      // Streaming
+      // Streaming (Web Player)
       "netflix.com", "spotify.com", "disneyplus.com", "twitch.tv", "youtube.com", "iqiyi.com", "kkbox.com",
       
-      // Banks
+      // Taiwan Banks (Web Banking)
       "ctbcbank.com", "cathaybk.com.tw", "esunbank.com.tw", "fubon.com", "taishinbank.com.tw", 
-      "megabank.com.tw", "bot.com.tw", "firstbank.com.tw", "hncb.com.tw", "sinopac.com", "post.gov.tw",
-      "paypal.com", "visa.com", "mastercard.com", "amex.com", 
-      "jkos.com", "ecpay.com.tw", "newebpay.com"
+      "megabank.com.tw", "bot.com.tw", "firstbank.com.tw", "hncb.com.tw", "sinopac.com", "post.gov.tw"
     ]);
+    
+    // 網域後綴白名單
     const trustedSuffixes = [".gov.tw", ".edu.tw", ".org.tw", ".mil", ".bank"];
     
     return {
@@ -113,7 +134,8 @@
         if (trustedDomains.has(h)) return true;
         for (const d of trustedDomains) { if (h.endsWith('.' + d)) return true; }
         for (const s of trustedSuffixes) { if (h.endsWith(s)) return true; }
-        if (lowerUrl.includes("3dsecure") || lowerUrl.includes("acs")) return true;
+        // 3D Secure 驗證頁面 (刷卡驗證)
+        if (lowerUrl.includes("3dsecure") || lowerUrl.includes("acs") || lowerUrl.includes("otp")) return true;
         return false;
       }
     };
@@ -126,11 +148,11 @@
   // ============================================================================
   let mode = "protection";
   
-  // Auto-Shopping Logic
+  // Auto-Shopping Logic (維持電商偽裝)
   const AUTO_SHOPPING_DOMAINS = [
       "shopee.", "shope.ee", "xiapi", 
       "amazon.", "ebay.", "rakuten.", 
-      "pchome.com.tw"
+      "pchome.com.tw", "momoshop.com.tw" // Momo 也加入購物模式嘗試
   ];
 
   if (AUTO_SHOPPING_DOMAINS.some(d => hostname.includes(d))) {
@@ -158,8 +180,9 @@
   if (typeof $request !== 'undefined' && typeof $response === 'undefined') {
     const headers = $request.headers;
     
-    // Foodpanda Pure Pass-through
-    if (lowerUrl.includes("foodpanda") || lowerUrl.includes("fd-api") || lowerUrl.includes("deliveryhero")) {
+    // [V5.05] Foodpanda & Hard Exclusion Logic
+    // 在 Request 階段再次確認，防止漏網之魚
+    if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) {
         $done({ headers });
         return;
     }
@@ -208,7 +231,7 @@
     let badgeColor = "#28CD41"; 
     let badgeText = "FP: Shield Active";
     
-    // [V5.04] Universal Heavy Page Detection
+    // Universal Heavy Page Detection
     const IS_HEAVY_PAGE = REGEX.HEAVY_PAGES.test(lowerUrl);
 
     if (IS_SHOPPING) {
@@ -241,7 +264,6 @@
 
       const IS_SHOPPING = ${IS_SHOPPING};
       const IS_WHITELISTED = ${isSoftWhitelisted};
-      // [V5.04] Pass Heavy Page flag
       const IS_HEAVY_PAGE = ${IS_HEAVY_PAGE};
 
       const safeDefine = (obj, prop, descriptor) => {
@@ -255,7 +277,7 @@
       }
 
       // =========================================================================
-      // [V5.04] Adaptive Performance Logic (Shopping & Heavy Pages)
+      // [V5.05] Shopping Mode Logic
       // =========================================================================
       if (IS_SHOPPING) {
           try {
@@ -263,12 +285,12 @@
               if (navigator && 'webdriver' in navigator) delete navigator.webdriver;
               if (window.cdc_adoQpoasnfa76pfcZLmcfl_Array) delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
 
-              // 2. Identity Spoofing (Always active to match UA)
+              // 2. Identity Spoofing
               Object.defineProperty(navigator, 'platform', { get: () => 'iPhone', configurable: true });
               Object.defineProperty(navigator, 'vendor', { get: () => 'Apple Computer, Inc.', configurable: true });
               Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5, configurable: true });
               
-              // 3. Hardware Emulation (DISABLED on Heavy Pages for Performance)
+              // 3. Hardware Emulation (SKIP on Heavy Pages)
               if (!IS_HEAVY_PAGE) {
                   Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 6, configurable: true });
                   Object.defineProperty(navigator, 'deviceMemory', { get: () => 8, configurable: true });
@@ -342,8 +364,8 @@
 
       const Persona = (function() {
         const MAC_TIERS = {
-            MID: { cpuPool: [8, 10], ramPool: [16, 24], gpuPool: [{v: 'Apple', r: 'Apple M3 Pro', w: 60}, {v: 'Apple', r: 'Apple M3 Max', w: 40}] },
-            HIGH: { cpuPool: [12, 16], ramPool: [32, 64], gpuPool: [{v: 'Apple', r: 'Apple M3 Ultra', w: 60}, {v: 'Apple', r: 'Apple M4 Max', w: 40}] }
+            MID: { cpuPool: [8, 10], ramPool: [16, 24], gpuPool: [{v: 'Apple', r: 'Apple M2', w: 60}, {v: 'Apple', r: 'Apple M2 Pro', w: 40}] },
+            HIGH: { cpuPool: [12, 16], ramPool: [32, 64], gpuPool: [{v: 'Apple', r: 'Apple M3 Max', w: 60}, {v: 'Apple', r: 'Apple M3 Ultra', w: 40}] }
         };
         const r = RNG.next(); let tier = (r > 0.6) ? MAC_TIERS.HIGH : MAC_TIERS.MID;
         const cpu = RNG.pick(tier.cpuPool); const ram = RNG.pick(tier.ramPool);
@@ -534,4 +556,5 @@
     $done({ body, headers });
   }
 })();
+
 
