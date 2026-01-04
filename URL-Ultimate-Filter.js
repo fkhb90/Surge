@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.52.js
- * @version   41.52 (High Scrutiny Logic Patch)
- * @description [V41.52] 緊急修復：
- * 1. 核心邏輯：引入「高強度審查 (High Scrutiny)」機制，強制對 googleapis.com 與 fd-api.com 執行完整路徑掃描，解決軟白名單導致攔截失效的問題。
- * 2. YouTube: 將 /api/stats/ (atr, qoe, ads) 提升至關鍵路徑清單，確保優先攔截。
- * 3. 繼承: 包含 V41.51 的所有參數清理與全域防護。
+ * @file      URL-Ultimate-Filter-Surge-V41.53.js
+ * @version   41.53 (Priority Zero Block)
+ * @description [V41.53] 架構重構：
+ * 1. 引入「零級優先權 (P0)」機制：將通用關鍵路徑攔截 (YouTube log_event, Foodpanda action-log) 移至邏輯最頂層。
+ * 2. 強制執行：無視白名單與 L1 快取狀態，優先阻殺惡意路徑。
+ * 3. 繼承: 包含 V41.52 的所有規則庫。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2026-01-04
@@ -226,19 +226,6 @@ const CONFIG = {
     'multiup.io', 'nmac.to', 'noelshack.com', 'pic-upload.de', 'pixhost.to', 'postimg.cc', 'prnt.sc', 
     'sfile.mobi', 'thefileslocker.net', 'turboimagehost.com', 'uploadhaven.com', 'uploadrar.com', 
     'usersdrive.com',
-  ]),
-
-  /**
-   * 🚨 [V41.52 新增] 高強度審查域名 (High Scrutiny Domains)
-   * 說明：即使這些域名位於軟白名單中，仍強制執行完整的路徑與Regex檢查。
-   * 用途：解決軟白名單優先權過高導致特定 API (如 YouTube log_event) 攔截失效的問題。
-   */
-  HIGH_SCRUTINY_DOMAINS: new Set([
-      'googleapis.com',
-      'youtubei.googleapis.com',
-      'fd-api.com',
-      'tw.fd-api.com',
-      'uber.com'
   ]),
 
   /**
@@ -700,16 +687,14 @@ const CONFIG = {
   ]),
 
   /**
-   * 🗑️ [V40.69 擴充, V41.34 擴充, V41.51 擴充] 追蹤參數黑名單 (全域)
+   * 🗑️ [V40.69 擴充, V41.34 擴充] 追蹤參數黑名單 (全域)
    */
   GLOBAL_TRACKING_PARAMS: new Set([
-      // [V41.51] Google Ads & Conversion Tracking
-      'gclid', 'dclid', 'gclsrc', 'yt_src', 'yt_ad',
       // [V41.34] KaiOS Log ID Removal
       'lid',
       '_branch_match_id', '_ga', '_gl', '_gid', '_openstat', 'admitad_uid', 'aiad_clid', 'awc', 'btag',
-      'cjevent', 'cmpid', 'cuid', 'external_click_id', 'fbclid', 'gad_source', 
-      'gbraid', 'gps_adid', 'iclid', 'igshid', 'irclickid', 'is_retargeting', 
+      'cjevent', 'cmpid', 'cuid', 'dclid', 'external_click_id', 'fbclid', 'gad_source', 'gclid', 
+      'gclsrc', 'gbraid', 'gps_adid', 'iclid', 'igshid', 'irclickid', 'is_retargeting', 
       'ko_click_id', 'li_fat_id', 'mc_cid', 'mc_eid', 'mibextid', 'msclkid', 'oprtrack', 'rb_clickid',
       'srsltid', 'sscid', 'trk', 'ttclid', 'twclid', 'usqp', 'vero_conv', 'vero_id', 'wbraid',
       'wt_mc', 'xtor', 'yclid', 'ysclid', 'zanpid',
@@ -789,6 +774,8 @@ const CONFIG = {
     /\/api\/v\d+\/collect$/i,
     // [V41.48] Foodpanda Action Log (Version Agnostic: v5, v6, etc.)
     /\/api\/v\d+\/action-log/i,
+    // [V41.51] YouTube /api/stats filtering (block ads/atr, allow watchtime)
+    /\/api\/stats\/(ads|atr|qoe|playback)/i,
     // [V41.35] Browser Fingerprinting Scripts (e.g., fp2.js, fp2.hash.js)
     /\/fp\d+(\.[a-z0-9]+)?\.js$/i,
     // [V41.36] High Confidence Fingerprinting Patterns
@@ -826,14 +813,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.52)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.53)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.52'; // [V41.52] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.53'; // [V41.53] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1197,6 +1184,7 @@ function isCriticalTrackingScript(hostname, lowerFullPath) {
     }
   }
 
+  // [V41.53] Generic check is now performed at top level, but we keep this for consistency if called separately
   if (getAcCriticalGeneric().matches(pathOnly, CONFIG.AC_SCAN_MAX_LENGTH)) {
     multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
     return true;
@@ -1414,6 +1402,21 @@ function processRequest(request) {
 
     if(t0) optimizedStats.addTiming('parse', __now__() - tParse0);
 
+    const qIndex = fullPath.indexOf('?');
+    const pathname = qIndex === -1 ? fullPath : fullPath.substring(0, qIndex);
+    const pathnameLower = pathname.toLowerCase();
+
+    // [V41.53] PRIORITY ZERO BLOCK - Generic Critical Path Check
+    // This check is performed BEFORE any whitelist or cache lookup to ensure malicious paths
+    // on whitelisted domains (e.g. googleapis.com/log_event) are ALWAYS blocked.
+    const tCritGen0 = t0 ? __now__() : 0;
+    if (getAcCriticalGeneric().matches(pathnameLower, CONFIG.AC_SCAN_MAX_LENGTH)) {
+        optimizedStats.increment('criticalScriptBlocked'); optimizedStats.increment('blockedRequests');
+        if(t0) { optimizedStats.addTiming('critical', __now__() - tCritGen0); optimizedStats.addTiming('total', __now__() - t0); }
+        return getBlockResponse(pathnameLower);
+    }
+    if(t0) optimizedStats.addTiming('critical', __now__() - tCritGen0);
+
     // [V40.88] Path Exemption Check for Blocked Domains (Moved earlier for efficiency)
     const exemptions = CONFIG.PATH_EXEMPTIONS_FOR_BLOCKED_DOMAINS.get(hostname);
     if (exemptions) {
@@ -1434,9 +1437,6 @@ function processRequest(request) {
 
     const tL10 = t0 ? __now__() : 0;
     const l1Decision = multiLevelCache.getDomainDecision(hostname);
-    const qIndex = fullPath.indexOf('?');
-    const pathname = qIndex === -1 ? fullPath : fullPath.substring(0, qIndex);
-    const pathnameLower = pathname.toLowerCase();
      
     // [V40.83] 邏輯修正：將域名黑名單檢查提前，使其優先於軟白名單
     if (isDomainBlocked(hostname)) {
@@ -1469,14 +1469,10 @@ function processRequest(request) {
     }
     if (t0) optimizedStats.addTiming('whitelist', __now__() - tWl0);
 
-    // [V41.52] High Scrutiny Logic Fix
-    // If the domain is in HIGH_SCRUTINY_DOMAINS (like googleapis.com), we force path checks even if it is soft whitelisted.
-    // This fixes the issue where generic regex blocks were skipped for whitelisted domains.
-    const isHighScrutiny = CONFIG.HIGH_SCRUTINY_DOMAINS.has(hostname) || hostname.endsWith('googleapis.com');
-
-    if (!isSoftWhitelisted || isHighScrutiny) {
-        if (l1Decision !== DECISION.ALLOW && l1Decision !== DECISION.NEGATIVE_CACHE && !isSoftWhitelisted) {
+    if (!isSoftWhitelisted) {
+        if (l1Decision !== DECISION.ALLOW && l1Decision !== DECISION.NEGATIVE_CACHE) {
             const tDom0 = t0 ? __now__() : 0;
+            // The isDomainBlocked check is now at the top
             multiLevelCache.setDomainDecision(hostname, DECISION.ALLOW, 10 * 60 * 1000);
             if(t0) optimizedStats.addTiming('domainStage', __now__() - tDom0);
         }
@@ -1561,7 +1557,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.52 - High Scrutiny Logic Patch', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.53 - Priority Zero Block', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -1588,3 +1584,4 @@ function initialize() {
     if (typeof $done !== 'undefined') $done({});
   }
 })();
+
