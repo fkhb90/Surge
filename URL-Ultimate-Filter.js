@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.51.js
- * @version   41.51 (YouTube Deep Clean & Google Ads Hardening)
- * @description [V41.51] YouTube 深度淨化與 Google 廣告生態系防護：
- * 1. YouTube: 新增攔截 log_interaction, ptracking, api/stats/ads, pagead 等隱蔽追蹤端點。
- * 2. 參數: 全域移除 gclid, dclid 等 Google 廣告追蹤參數。
- * 3. 繼承: 包含 V41.50 的所有全域化架構與 Foodpanda/Uber 防護。
+ * @file      URL-Ultimate-Filter-Surge-V41.52.js
+ * @version   41.52 (High Scrutiny Logic Patch)
+ * @description [V41.52] 緊急修復：
+ * 1. 核心邏輯：引入「高強度審查 (High Scrutiny)」機制，強制對 googleapis.com 與 fd-api.com 執行完整路徑掃描，解決軟白名單導致攔截失效的問題。
+ * 2. YouTube: 將 /api/stats/ (atr, qoe, ads) 提升至關鍵路徑清單，確保優先攔截。
+ * 3. 繼承: 包含 V41.51 的所有參數清理與全域防護。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2026-01-04
@@ -226,6 +226,19 @@ const CONFIG = {
     'multiup.io', 'nmac.to', 'noelshack.com', 'pic-upload.de', 'pixhost.to', 'postimg.cc', 'prnt.sc', 
     'sfile.mobi', 'thefileslocker.net', 'turboimagehost.com', 'uploadhaven.com', 'uploadrar.com', 
     'usersdrive.com',
+  ]),
+
+  /**
+   * 🚨 [V41.52 新增] 高強度審查域名 (High Scrutiny Domains)
+   * 說明：即使這些域名位於軟白名單中，仍強制執行完整的路徑與Regex檢查。
+   * 用途：解決軟白名單優先權過高導致特定 API (如 YouTube log_event) 攔截失效的問題。
+   */
+  HIGH_SCRUTINY_DOMAINS: new Set([
+      'googleapis.com',
+      'youtubei.googleapis.com',
+      'fd-api.com',
+      'tw.fd-api.com',
+      'uber.com'
   ]),
 
   /**
@@ -513,11 +526,16 @@ const CONFIG = {
    * 🚨 [V40.71 新增, V41.13 擴充, V41.37 擴充, V41.46 擴充] 關鍵追蹤路徑模式 (通用)
    */
   CRITICAL_TRACKING_GENERIC_PATHS: new Set([
+    // [V41.52] YouTube Stats (Moved from Regex to AC for guaranteed block)
+    '/api/stats/ads',
+    '/api/stats/atr',
+    '/api/stats/qoe',
+    '/api/stats/playback',
+    
     // [V41.51] YouTube Deep Clean & Google Ads
     '/youtubei/v1/log_interaction',
     '/youtubei/v1/player/log',
     '/ptracking',
-    '/api/stats/ads',
     '/pagead/paralleladview',
     '/pagead/gen_204',
     
@@ -771,8 +789,6 @@ const CONFIG = {
     /\/api\/v\d+\/collect$/i,
     // [V41.48] Foodpanda Action Log (Version Agnostic: v5, v6, etc.)
     /\/api\/v\d+\/action-log/i,
-    // [V41.51] YouTube /api/stats filtering (block ads/atr, allow watchtime)
-    /\/api\/stats\/(ads|atr|qoe|playback)/i,
     // [V41.35] Browser Fingerprinting Scripts (e.g., fp2.js, fp2.hash.js)
     /\/fp\d+(\.[a-z0-9]+)?\.js$/i,
     // [V41.36] High Confidence Fingerprinting Patterns
@@ -810,14 +826,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.51)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.52)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.51'; // [V41.51] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.52'; // [V41.52] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1453,10 +1469,14 @@ function processRequest(request) {
     }
     if (t0) optimizedStats.addTiming('whitelist', __now__() - tWl0);
 
-    if (!isSoftWhitelisted) {
-        if (l1Decision !== DECISION.ALLOW && l1Decision !== DECISION.NEGATIVE_CACHE) {
+    // [V41.52] High Scrutiny Logic Fix
+    // If the domain is in HIGH_SCRUTINY_DOMAINS (like googleapis.com), we force path checks even if it is soft whitelisted.
+    // This fixes the issue where generic regex blocks were skipped for whitelisted domains.
+    const isHighScrutiny = CONFIG.HIGH_SCRUTINY_DOMAINS.has(hostname) || hostname.endsWith('googleapis.com');
+
+    if (!isSoftWhitelisted || isHighScrutiny) {
+        if (l1Decision !== DECISION.ALLOW && l1Decision !== DECISION.NEGATIVE_CACHE && !isSoftWhitelisted) {
             const tDom0 = t0 ? __now__() : 0;
-            // The isDomainBlocked check is now at the top
             multiLevelCache.setDomainDecision(hostname, DECISION.ALLOW, 10 * 60 * 1000);
             if(t0) optimizedStats.addTiming('domainStage', __now__() - tDom0);
         }
@@ -1541,7 +1561,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.51 - YouTube Deep Clean', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.52 - High Scrutiny Logic Patch', stats: optimizedStats.getStats() });
       }
       return;
     }
@@ -1568,4 +1588,3 @@ function initialize() {
     if (typeof $done !== 'undefined') $done({});
   }
 })();
-
