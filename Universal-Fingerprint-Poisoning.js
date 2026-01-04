@@ -1,13 +1,13 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   5.02-Traffic-Shunt
- * @description [流量分流版] 移除所有對 Foodpanda 的主動介入，專注於 SDK 相容性。
+ * @version   5.03-Adaptive-Performance
+ * @description [效能修復版] 解決購物車頁面因過度偽裝導致的卡頓與白屏。
  * ----------------------------------------------------------------------------
- * 1. [Revert] 移除 V5.00/V5.01 的語系注入 (zh-TW)。
- * - 原因: 任何 Header 修改都會觸發 WAF 的 "Header Integrity Check" 導致 2FA。
- * - 代價: App 介面可能會變回英文 (這是為了安全必須的妥協)。
- * 2. [Logic] 針對 API 流量 (JSON) 執行嚴格的 Pass-through，不注入任何代碼。
- * 3. [Config] 建議用戶檢查 Surge 規則，確保未 Reject 風控類 SDK。
+ * 1. [Fix] 購物車頁面 (Cart/Checkout) 自動降級:
+ * - 停止偽裝 window.screen 與 WebGL，避免與 Desktop 響應式佈局衝突。
+ * - 僅保留 User-Agent 偽裝，維持 Session 一致性。
+ * 2. [Config] 維持 V5.02 對 Foodpanda 的流量分流與 API 保護策略。
+ * 3. [Core] 優化 Shopping Mode 的觸發邏輯，提升複雜網頁的渲染效能。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -20,10 +20,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // [V5.02] 更新 Seed
-    KEY_SEED: "FP_SHIELD_SEED_V502", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V502",
-    INJECT_MARKER: "__FP_SHIELD_V502__",
+    // [V5.03] 更新 Seed
+    KEY_SEED: "FP_SHIELD_SEED_V503", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V503",
+    INJECT_MARKER: "__FP_SHIELD_V503__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -66,7 +66,7 @@
     "oaistatic.com", "oaiusercontent.com", "anthropic.com",
     "challenges.cloudflare.com", "recaptcha.net", "google.com/recaptcha", "hcaptcha.com", "arkoselabs.com",
     "sentry.io",
-    // [V5.02] Security SDKs (MUST NOT TOUCH)
+    // Security SDKs
     "perimeterx.net", "datadome.co", "siftscience.com"
   ];
   
@@ -157,8 +157,7 @@
   if (typeof $request !== 'undefined' && typeof $response === 'undefined') {
     const headers = $request.headers;
     
-    // [V5.02] Foodpanda Pure Pass-through
-    // 不再注入 Accept-Language，確保 Header 100% 原始
+    // Foodpanda Pure Pass-through
     if (lowerUrl.includes("foodpanda") || lowerUrl.includes("fd-api") || lowerUrl.includes("deliveryhero")) {
         $done({ headers });
         return;
@@ -198,23 +197,24 @@
     const headers = $response.headers || {};
     const cType = (headers['Content-Type'] || headers['content-type'] || "").toLowerCase();
 
-    // ------------------------------------------------------------------------
-    // [V5.02] JSON/API Safety Guard
-    // ------------------------------------------------------------------------
-    if (REGEX.CONTENT_TYPE_JSON.test(cType)) {
-        $done({});
-        return;
-    }
-
+    // API Safety Guard
+    if (REGEX.CONTENT_TYPE_JSON.test(cType)) { $done({}); return; }
     if (!body || !cType.includes("html")) { $done({}); return; }
     if ([204, 206, 301, 302, 304].includes($response.status)) { $done({}); return; }
     if (body.includes(CONST.INJECT_MARKER)) { $done({}); return; }
 
+    // Badge Logic
     let badgeColor = "#28CD41"; 
     let badgeText = "FP: Shield Active";
     
+    // [V5.03] 識別關鍵交易頁面 (Cart/Checkout)
+    // 這些頁面對 JS 效能與 DOM 結構極度敏感
+    const IS_HEAVY_PAGE = /cart|checkout|buy|trade|billing/i.test(lowerUrl);
+
     if (IS_SHOPPING) {
-        badgeColor = "#AF52DE"; badgeText = "FP: Shopping Mode"; 
+        // 如果是購物模式，但處於重度頁面，顯示 "Lite" 狀態
+        badgeColor = IS_HEAVY_PAGE ? "#5856D6" : "#AF52DE"; 
+        badgeText = IS_HEAVY_PAGE ? "FP: Shopping Lite" : "FP: Shopping Mode"; 
     } else if (isSoftWhitelisted) {
         badgeColor = "#636366"; badgeText = "FP: Bypass (Safe)"; 
     }
@@ -242,6 +242,8 @@
 
       const IS_SHOPPING = ${IS_SHOPPING};
       const IS_WHITELISTED = ${isSoftWhitelisted};
+      // [V5.03] 傳遞重度頁面旗標至 Injection Scope
+      const IS_HEAVY_PAGE = ${IS_HEAVY_PAGE};
 
       const safeDefine = (obj, prop, descriptor) => {
           if (!obj) return false;
@@ -253,40 +255,51 @@
           return; 
       }
 
+      // =========================================================================
+      // [V5.03] Shopping Mode Logic
+      // =========================================================================
       if (IS_SHOPPING) {
           try {
+              // 1. Basic Cleanup (Always Run)
               if (navigator && 'webdriver' in navigator) delete navigator.webdriver;
               if (window.cdc_adoQpoasnfa76pfcZLmcfl_Array) delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
 
+              // 2. Identity Spoofing (Always Run to match Header UA)
               Object.defineProperty(navigator, 'platform', { get: () => 'iPhone', configurable: true });
               Object.defineProperty(navigator, 'vendor', { get: () => 'Apple Computer, Inc.', configurable: true });
               Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5, configurable: true });
-              Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 6, configurable: true });
-              Object.defineProperty(navigator, 'deviceMemory', { get: () => 8, configurable: true });
+              
+              // 3. Hardware Emulation (SKIP on Heavy Pages)
+              // 購物車/結帳頁面不偽裝螢幕與 WebGL，避免 Layout Thrashing 與白屏
+              if (!IS_HEAVY_PAGE) {
+                  Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 6, configurable: true });
+                  Object.defineProperty(navigator, 'deviceMemory', { get: () => 8, configurable: true });
 
-              const screenProps = { width: 430, height: 932, availWidth: 430, availHeight: 932, colorDepth: 32, pixelDepth: 32 };
-              for (let prop in screenProps) { Object.defineProperty(window.screen, prop, { get: () => screenProps[prop], configurable: true }); }
+                  const screenProps = { width: 430, height: 932, availWidth: 430, availHeight: 932, colorDepth: 32, pixelDepth: 32 };
+                  for (let prop in screenProps) { Object.defineProperty(window.screen, prop, { get: () => screenProps[prop], configurable: true }); }
 
-              const spoofWebGL = (ctx) => {
-                  if (!ctx) return;
-                  const getParameter = ctx.getParameter;
-                  ctx.getParameter = function(param) {
-                      if (param === 37445) return 'Apple Inc.'; 
-                      if (param === 37446) return 'Apple GPU'; 
-                      return getParameter.apply(this, arguments);
+                  const spoofWebGL = (ctx) => {
+                      if (!ctx) return;
+                      const getParameter = ctx.getParameter;
+                      ctx.getParameter = function(param) {
+                          if (param === 37445) return 'Apple Inc.'; 
+                          if (param === 37446) return 'Apple GPU'; 
+                          return getParameter.apply(this, arguments);
+                      };
                   };
-              };
-              
-              const cvs = document.createElement('canvas');
-              spoofWebGL(cvs.getContext('webgl')); spoofWebGL(cvs.getContext('experimental-webgl')); spoofWebGL(cvs.getContext('webgl2'));
-              
-              const oldGetContext = HTMLCanvasElement.prototype.getContext;
-              HTMLCanvasElement.prototype.getContext = function(type, opts) {
-                  const ctx = oldGetContext.call(this, type, opts);
-                  if (type && type.includes('webgl')) spoofWebGL(ctx);
-                  return ctx;
-              };
+                  
+                  const cvs = document.createElement('canvas');
+                  spoofWebGL(cvs.getContext('webgl')); spoofWebGL(cvs.getContext('experimental-webgl')); spoofWebGL(cvs.getContext('webgl2'));
+                  
+                  const oldGetContext = HTMLCanvasElement.prototype.getContext;
+                  HTMLCanvasElement.prototype.getContext = function(type, opts) {
+                      const ctx = oldGetContext.call(this, type, opts);
+                      if (type && type.includes('webgl')) spoofWebGL(ctx);
+                      return ctx;
+                  };
+              }
 
+              // 4. Touch Event Support (Always Run)
               if (!('ontouchstart' in window)) { Object.defineProperty(window, 'ontouchstart', { value: null, writable: true }); }
           } catch(e) {}
           return; 
