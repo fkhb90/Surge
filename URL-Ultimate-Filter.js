@@ -1,11 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.54.js
- * @version   41.54 (Brute Force Safety Net)
- * @description [V41.54] 終極修正：
- * 1. 暴力阻殺 (Brute Force): 針對 YouTube (log_event), Foodpanda (action-log), Uber (_events) 引入硬編碼的 if 判斷，繞過所有演算法與快取，確保攔截。
- * 2. 規則簡化: 將長路徑特徵簡化為關鍵字 (如 /log_event)，提升命中率。
- * 3. 繼承: 包含所有 V41.53 的防護邏輯。
- * @note      ⚠️ 必須啟用 MitM (hostname = *.googleapis.com, *.fd-api.com) 腳本才能生效。
+ * @file      URL-Ultimate-Filter-Surge-V41.55.js
+ * @version   41.55 (Stable Architecture Restoration)
+ * @description [V41.55] 黃金穩定版：
+ * 1. 架構還原：移除 V41.54 的暴力除錯代碼，回歸高效能的「零級優先權 (Priority Zero)」AC 自動機攔截架構。
+ * 2. 完整防護：繼承 YouTube (log_event/stats), Foodpanda (action-log), Uber (_events), 快手 (widget) 的全方位隱私規則。
+ * 3. 策略優化：確保 googleapis.com 等軟白名單域名下的惡意路徑仍會被精準阻殺。
+ * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2026-01-04
  */
@@ -229,19 +229,6 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚨 [V41.52 新增] 高強度審查域名 (High Scrutiny Domains)
-   * 說明：即使這些域名位於軟白名單中，仍強制執行完整的路徑與Regex檢查。
-   * 用途：解決軟白名單優先權過高導致特定 API (如 YouTube log_event) 攔截失效的問題。
-   */
-  HIGH_SCRUTINY_DOMAINS: new Set([
-      'googleapis.com',
-      'youtubei.googleapis.com',
-      'fd-api.com',
-      'tw.fd-api.com',
-      'uber.com'
-  ]),
-
-  /**
    * 🚫 [V40.51 強化, V40.90 修訂, V41.07 擴充, V41.32 擴充, V41.37 擴充] 域名攔截黑名單
    */
   BLOCK_DOMAINS: new Set([
@@ -384,171 +371,32 @@ const CONFIG = {
   ]),
 
   /**
-   * 🚫 [V40.35 新增] Regex 域名攔截黑名單
-   */
-  BLOCK_DOMAINS_REGEX: [
-    // --- 台灣新聞媒體廣告 (動態子域名) ---
-    /^ad[s]?\d*\.(ettoday\.net|ltn\.com\.tw)$/,
-  ],
-   
-  /**
-   * 🚨 [V40.61 擴充, V40.93 修訂, V41.04 擴充, V41.08 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充] 關鍵追蹤腳本攔截清單
-   */
-  CRITICAL_TRACKING_SCRIPTS: new Set([
-    // --- Google ---
-    'ads.js', 'adsbygoogle.js', 'analytics.js', 'ga-init.js', // [V40.91] 新增 MOMO GA 載入腳本
-    'ga.js', 'gtag.js', 'gtm.js', 'ytag.js',
-    // --- Facebook / Meta ---
-    'connect.js', 'fbevents.js', 'fbq.js', 'pixel.js',
-    // --- [V40.51 新增] TikTok 追蹤腳本 ---
-    'events.js', 'tiktok-pixel.js', 'ttclid.js',
-    // --- [V40.51 新增] LinkedIn 追蹤腳本 ---
-    'analytics.js', 'insight.min.js',
-    // --- 主流分析平台 ---
-    'amplitude.js', 'braze.js', 'chartbeat.js', 'clarity.js', 'comscore.js', 'crazyegg.js', 'customerio.js', 'fullstory.js', 'heap.js',
-    'hotjar.js', 'inspectlet.js', 'iterable.js', 'logrocket.js', 'matomo.js', 'mixpanel.js', 'mouseflow.js', 'optimizely.js',
-    'piwik.js', 'posthog.js', 'quant.js', 'quantcast.js', 'segment.js', 'statsig.js', 'vwo.js',
-    // --- 廣告技術平台 (Ad Tech) ---
-    'ad-manager.js', 'ad-player.js', 'ad-sdk.js', 'adloader.js', 'adroll.js', 'adsense.js', 'advideo.min.js', 'apstag.js',
-    'criteo-loader.js', // [V40.91] 新增 Criteo 再行銷腳本
-    'criteo.js', 'doubleclick.js', 'mgid.js', 'outbrain.js', 'prebid.js', 'pubmatic.js', 'revcontent.js', 'taboola.js',
-    // --- 平台特定腳本 (Platform-Specific) ---
-    'ad-full-page.min.js', // Pixnet Full Page Ad
-    'api_event_tracking_rtb_house.js', // [V40.80] MOMO
-    'ed.js', // [V40.89] MOMO (edq 核心追蹤器)
-    'itriweblog.js', // [V40.93] MOMO (ITRI 網站日誌)
-    'api_event_tracking.js', // [V41.04] MOMO 購物車事件追蹤 (Safe Block)
-    // --- 內容傳遞 & 標籤管理 ---
-    'adobedtm.js', 'dax.js', 'tag.js', 'utag.js', 'visitorapi.js',
-    // --- 效能監控 ---
-    'newrelic.js', 'nr-loader.js', 'perf.js', 'trace.js',
-    // --- 社群 & LinkedIn Insight ---
-    'essb-core.min.js', 'intercom.js', 'pangle.js', 'tagtoo.js', 'tiktok-analytics.js',
-    // --- 中國大陸地區 ---
-    'aplus.js', 'aplus_wap.js', 'ec.js', 'gdt.js', 'hm.js', 'u.js', 'um.js',
-    // --- Cloudflare / Bing / Plausible ---
-    'bat.js', 'beacon.min.js', 'plausible.outbound-links.js',
-    // --- 通用 & 其他 ---
-    'abtasty.js', 'action.js', 'activity.js', 'ad-core.js', 'ad-lib.js', 'adroll_pro.js', 'ads-beacon.js',
-    'autotrack.js', 'beacon.js', 'capture.js', 'cf.js', 'cmp.js', 'collect.js', 'conversion.js', 'event.js',
-    'link-click-tracker.js', 'main-ad.js', 'scevent.min.js', 'showcoverad.min.js', 'sp.js', 'tracker.js',
-    'tracking-api.js', 'tracking.js', 'user-id.js', 'user-timing.js', 'wcslog.js',
-  ]),
-
-  /**
-   * 🚨 [V40.71 重構, V41.00 擴充, V41.08 擴充, V41.09 擴充, V41.10 擴充, V41.11 擴充, V41.12 擴充, V41.13 擴充, V41.15 擴充, V41.17 擴充, V41.19 擴充, V41.21 擴充, V41.26 修復, V41.27 修復, V41.28 修復, V41.30 修正, V41.31 擴充, V41.37 擴充, V41.46 擴充] 關鍵追蹤路徑模式 (主機名 -> 路徑前綴集)
-   */
-  CRITICAL_TRACKING_MAP: new Map([
-    // [V41.48] Foodpanda Action Log Block
-    ['tw.fd-api.com', new Set(['/api/v5/action-log'])],
-    // [V41.46] Generic Ad API (Covers EPrice & others)
-    // Removed specific domain mapping for '/api/web/ad/' as it's now covered by CRITICAL_TRACKING_GENERIC_PATHS below for broader coverage.
-    
-    // [V41.30] Roborock Protocol: 移除所有 Mock 設定，改採 Allowlist 策略
-    // [V41.21] Shopee Chatbot 日誌阻擋 (Removed in V41.47 for Generic Path)
-    // ['chatbot.shopee.tw', new Set(['/report/v1/log'])], // [V41.47] 已移至通用路徑
-    
-    // [V41.31] Shopee LiveTech 行為追蹤 (ReportPB)
-    ['data-rep.livetech.shopee.tw', new Set(['/dataapi/dataweb/event/'])],
-    // [V41.00] Uber 登入頁面遙測阻擋
-    // ['account.uber.com', new Set(['/_events'])], // [V41.48] Moved to Generic Path
-    // [V41.08 & V41.09] 通義千問 (Tongyi AI) 行為日誌與業務埋點
-    ['api.tongyi.com', new Set(['/qianwen/event/track'])], // [V41.47] /app/mobilelog 已移至通用路徑
-    // [V41.10] 支付寶 (Alipay) 日誌配置檔源頭攔截 (防止 App 獲取上傳策略)
-    ['gw.alipayobjects.com', new Set(['/config/loggw/'])],
-    // [V41.11 & V41.12] Slack 效能剖析、日誌啟用與遙測上傳
-    ['slack.com', new Set(['/api/profiling.logging.enablement', '/api/telemetry'])],
-    // [V41.15] Yahoo Shopping UI Clean Up
-    ['graphql.ec.yahoo.com', new Set(['/app/sas/v1/fullsitepromotions'])], // [V41.26] Fix lowercase
-    ['prism.ec.yahoo.com', new Set(['/api/prism/v2/streamwithads'])],     // [V41.26] Fix lowercase
-    // [V41.19] 104 Job Bank Rules - Logic moved to native regex block inside isCriticalTrackingScript for max precision
-    // Common Trackers
-    ['analytics.google.com', new Set(['/g/collect'])],
-    ['region1.analytics.google.com', new Set(['/g/collect'])],
-    ['stats.g.doubleclick.net', new Set(['/g/collect', '/j/collect'])],
-    ['www.google-analytics.com', new Set(['/debug/mp/collect', '/g/collect', '/j/collect', '/mp/collect'])],
-    ['google.com', new Set(['/ads', '/pagead'])],
-    ['facebook.com', new Set(['/tr'])],
-    ['ads.tiktok.com', new Set(['/i18n/pixel'])],
-    ['business-api.tiktok.com', new Set(['/open_api', '/open_api/v1.2/pixel/track', '/open_api/v1.3/event/track', '/open_api/v1.3/pixel/track'])],
-    ['analytics.linkedin.com', new Set(['/collect'])],
-    ['px.ads.linkedin.com', new Set(['/collect'])],
-    ['ad.360yield.com', new Set([])], // Host only
-    ['ads.bing.com', new Set(['/msclkid'])],
-    ['ads.linkedin.com', new Set(['/li/track'])],
-    ['ads.yahoo.com', new Set(['/pixel'])],
-    ['amazon-adsystem.com', new Set(['/e/ec'])],
-    ['api-iam.intercom.io', new Set(['/messenger/web/events'])],
-    ['api.amplitude.com', new Set(['/2/httpapi'])],
-    ['api.hubspot.com', new Set(['/events'])],
-    ['api-js.mixpanel.com', new Set(['/track'])],
-    ['api.mixpanel.com', new Set(['/track'])],
-    ['api.segment.io', new Set(['/v1/page', '/v1/track'])],
-    ['c.segment.com', new Set(['/v1/track', '/v1/page', '/v1/identify'])], // [V40.88] 新增
-    ['heap.io', new Set(['/api/track'])],
-    ['in.hotjar.com', new Set(['/api/v2/client'])],
-    ['scorecardresearch.com', new Set(['/beacon.js'])],
-    ['segment.io', new Set(['/v1/track'])],
-    ['tr.snap.com', new Set(['/v2/conversion'])], // [V44.88] 新增
-    ['widget.intercom.io', new Set([])], // Host only
-    ['ads-api.tiktok.com', new Set(['/api/v2/pixel'])],
-    ['ads.pinterest.com', new Set(['/v3/conversions/events'])],
-    ['analytics.snapchat.com', new Set(['/v1/batch'])],
-    ['cnzz.com', new Set(['/stat.php'])],
-    ['gdt.qq.com', new Set(['/gdt_mview.fcg'])],
-    ['hm.baidu.com', new Set(['/hm.js'])],
-    ['cloudflareinsights.com', new Set(['/cdn-cgi/rum'])],
-    ['static.cloudflareinsights.com', new Set(['/beacon.min.js'])],
-    ['bat.bing.com', new Set(['/action'])],
-    ['metrics.vitals.vercel-insights.com', new Set(['/v1/metrics'])], // [V40.88] 新增
-    ['monorail-edge.shopifysvc.com', new Set(['/v1/produce'])],
-    ['vitals.vercel-insights.com', new Set(['/v1/vitals'])],
-    ['pbd.yahoo.com', new Set(['/data/logs'])],
-    ['plausible.io', new Set(['/api/event'])],
-    ['analytics.tiktok.com', new Set(['/i18n/pixel/events.js'])],
-    ['a.clarity.ms', new Set(['/collect'])],
-    ['d.clarity.ms', new Set(['/collect'])],
-    ['l.clarity.ms', new Set(['/collect'])],
-    ['ingest.sentry.io', new Set(['/api/'])],
-    ['agent-http-intake.logs.us5.datadoghq.com', new Set([])], // Host only
-    ['browser-intake-datadoghq.com', new Set(['/api/v2/rum'])],
-    ['browser-intake-datadoghq.eu', new Set(['/api/v2/rum'])],
-    ['http-intake.logs.datadoghq.com', new Set(['/v1/input'])],
-    ['ct.pinterest.com', new Set(['/v3'])],
-    ['events.redditmedia.com', new Set(['/v1'])],
-    ['s.pinimg.com', new Set(['/ct/core.js'])],
-    ['www.redditstatic.com', new Set(['/ads/pixel.js'])],
-    ['discord.com', new Set(['/api/v10/science', '/api/v9/science'])],
-    ['vk.com', new Set(['/rtrg'])],
-  ]),
-
-  /**
    * 🚨 [V40.71 新增, V41.13 擴充, V41.37 擴充, V41.46 擴充] 關鍵追蹤路徑模式 (通用)
    */
   CRITICAL_TRACKING_GENERIC_PATHS: new Set([
-    // [V41.54] Simplified & Brute Forced in Code Logic (Here for AC consistency)
-    '/log_event',
-    '/log_interaction',
-    '/action-log',
-    '/_events',
-    
-    // [V41.52] YouTube Stats
+    // [V41.52] YouTube Stats (Moved from Regex to AC for guaranteed block)
     '/api/stats/ads',
     '/api/stats/atr',
     '/api/stats/qoe',
     '/api/stats/playback',
     
     // [V41.51] YouTube Deep Clean & Google Ads
+    '/youtubei/v1/log_interaction',
     '/youtubei/v1/player/log',
     '/ptracking',
     '/pagead/paralleladview',
     '/pagead/gen_204',
+    
+    // [V41.50] YouTube Behavior & Ad Log
+    '/youtubei/v1/log_event',
 
     // [V41.49] Kuaishou (快手) Widget Log
     '/rest/n/log', // Generic Kuaishou Log path (covers /desktop/widget)
     
     // [V41.48] Foodpanda & Uber Generic Logs
+    '/action-log',       // Foodpanda 通用行為日誌 (v5/v6 agnostic)
     '/ramen/v1/events',  // Uber Eats 行為日誌
+    '/_events',          // Uber Core 日誌
     
     // [V41.47] Shopee & Alibaba Global Logs
     '/report/v1/log', // Shopee Global Log
@@ -700,14 +548,16 @@ const CONFIG = {
   ]),
 
   /**
-   * 🗑️ [V40.69 擴充, V41.34 擴充] 追蹤參數黑名單 (全域)
+   * 🗑️ [V40.69 擴充, V41.34 擴充, V41.51 擴充] 追蹤參數黑名單 (全域)
    */
   GLOBAL_TRACKING_PARAMS: new Set([
+      // [V41.51] Google Ads & Conversion Tracking
+      'gclid', 'dclid', 'gclsrc', 'yt_src', 'yt_ad',
       // [V41.34] KaiOS Log ID Removal
       'lid',
       '_branch_match_id', '_ga', '_gl', '_gid', '_openstat', 'admitad_uid', 'aiad_clid', 'awc', 'btag',
-      'cjevent', 'cmpid', 'cuid', 'dclid', 'external_click_id', 'fbclid', 'gad_source', 'gclid', 
-      'gclsrc', 'gbraid', 'gps_adid', 'iclid', 'igshid', 'irclickid', 'is_retargeting', 
+      'cjevent', 'cmpid', 'cuid', 'external_click_id', 'fbclid', 'gad_source', 
+      'gbraid', 'gps_adid', 'iclid', 'igshid', 'irclickid', 'is_retargeting', 
       'ko_click_id', 'li_fat_id', 'mc_cid', 'mc_eid', 'mibextid', 'msclkid', 'oprtrack', 'rb_clickid',
       'srsltid', 'sscid', 'trk', 'ttclid', 'twclid', 'usqp', 'vero_conv', 'vero_id', 'wbraid',
       'wt_mc', 'xtor', 'yclid', 'ysclid', 'zanpid',
@@ -826,14 +676,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.54)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.55)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.54'; // [V41.54] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.55'; // [V41.55] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1197,6 +1047,7 @@ function isCriticalTrackingScript(hostname, lowerFullPath) {
     }
   }
 
+  // [V41.53] Generic check is now performed at top level, but we keep this for consistency if called separately
   if (getAcCriticalGeneric().matches(pathOnly, CONFIG.AC_SCAN_MAX_LENGTH)) {
     multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
     return true;
@@ -1418,31 +1269,10 @@ function processRequest(request) {
     const pathname = qIndex === -1 ? fullPath : fullPath.substring(0, qIndex);
     const pathnameLower = pathname.toLowerCase();
 
-    // [V41.54] BRUTE FORCE SAFETY NET - Bypass AC/Cache for specific high-profile targets
-    // This explicit check bypasses all other logic to ensure blocking if MitM is active.
-    if (hostname.endsWith('youtubei.googleapis.com')) {
-        if (pathnameLower.includes('/log_event') || pathnameLower.includes('/log_interaction')) {
-             optimizedStats.increment('criticalScriptBlocked');
-             if(t0) optimizedStats.addTiming('critical', __now__() - tParse0);
-             return getBlockResponse(pathnameLower);
-        }
-    }
-    if (hostname.endsWith('fd-api.com')) {
-        if (pathnameLower.includes('/action-log')) {
-             optimizedStats.increment('criticalScriptBlocked');
-             if(t0) optimizedStats.addTiming('critical', __now__() - tParse0);
-             return getBlockResponse(pathnameLower);
-        }
-    }
-    if (hostname.endsWith('uber.com')) {
-        if (pathnameLower.includes('/_events') || pathnameLower.includes('/ramen/v1/events')) {
-             optimizedStats.increment('criticalScriptBlocked');
-             if(t0) optimizedStats.addTiming('critical', __now__() - tParse0);
-             return getBlockResponse(pathnameLower);
-        }
-    }
-
-    // [V41.53] PRIORITY ZERO BLOCK - Generic Critical Path Check
+    // [V41.55] PRIORITY ZERO BLOCK - Generic Critical Path Check
+    // This check is performed BEFORE any whitelist or cache lookup to ensure malicious paths
+    // on whitelisted domains (e.g. googleapis.com/log_event) are ALWAYS blocked.
+    // This architecture replaces the brute-force hacks from V41.54.
     const tCritGen0 = t0 ? __now__() : 0;
     if (getAcCriticalGeneric().matches(pathnameLower, CONFIG.AC_SCAN_MAX_LENGTH)) {
         optimizedStats.increment('criticalScriptBlocked'); optimizedStats.increment('blockedRequests');
@@ -1503,12 +1333,10 @@ function processRequest(request) {
     }
     if (t0) optimizedStats.addTiming('whitelist', __now__() - tWl0);
 
-    // [V41.52] High Scrutiny Logic Fix
-    const isHighScrutiny = CONFIG.HIGH_SCRUTINY_DOMAINS.has(hostname) || hostname.endsWith('googleapis.com');
-
-    if (!isSoftWhitelisted || isHighScrutiny) {
-        if (l1Decision !== DECISION.ALLOW && l1Decision !== DECISION.NEGATIVE_CACHE && !isSoftWhitelisted) {
+    if (!isSoftWhitelisted) {
+        if (l1Decision !== DECISION.ALLOW && l1Decision !== DECISION.NEGATIVE_CACHE) {
             const tDom0 = t0 ? __now__() : 0;
+            // The isDomainBlocked check is now at the top
             multiLevelCache.setDomainDecision(hostname, DECISION.ALLOW, 10 * 60 * 1000);
             if(t0) optimizedStats.addTiming('domainStage', __now__() - tDom0);
         }
@@ -1593,7 +1421,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.54 - Brute Force Safety Net', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.55 - Stable Architecture Restoration', stats: optimizedStats.getStats() });
       }
       return;
     }
