@@ -1,12 +1,11 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   5.00-Milestone-Stability
- * @description [里程碑版] 完美解決 Foodpanda App 語系、2FA 與穩定性問題。
+ * @version   5.01-Global-Locale-Lock
+ * @description [語系穩定版] 擴大 Header 注入範圍，防止 Foodpanda App 回退至英文。
  * ----------------------------------------------------------------------------
- * 1. [Fix] Foodpanda App 語系修正: 在 Request 階段強制注入 zh-TW 標頭。
- * 2. [Safety] JSON/API 防護: 嚴格禁止對 application/json 回應進行注入。
- * 3. [Core] V4.98 混合生存策略: 允許 MITM 流量通過，但進行特徵清洗。
- * 4. [Config] 針對台灣電商 (Shopee/Momo) 與生活服務 (Uber) 的最佳化配置。
+ * 1. [Fix] 擴大語系注入範圍: 涵蓋所有 deliveryhero / fd-api 相關網域。
+ * 2. [Stability] 防止 App 背景更新 Config 時因未攔截而覆寫為英文緩存。
+ * 3. [Core] 維持 V5.00 的 JSON 防護與 2FA 繞過機制。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -19,10 +18,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // [V5.00] 更新 Seed
-    KEY_SEED: "FP_SHIELD_SEED_V500", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V500",
-    INJECT_MARKER: "__FP_SHIELD_V500__",
+    // [V5.01] 更新 Seed
+    KEY_SEED: "FP_SHIELD_SEED_V501", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V501",
+    INJECT_MARKER: "__FP_SHIELD_V501__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -77,8 +76,9 @@
   // ============================================================================
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
-      // Foodpanda: 允許 MITM，但執行特殊處理
-      "foodpanda.com", "foodpanda.com.tw", "fd-api.com", "tw.fd-api.com", "deliveryhero.io",
+      // Foodpanda Ecosystem (MITM Allowed)
+      "foodpanda.com", "foodpanda.com.tw", "fd-api.com", "tw.fd-api.com", 
+      "deliveryhero.io", "deliveryhero.net", "foodora.com", // [V5.01] 擴增母公司網域
 
       // 生活服務
       "uber.com", "ubereats.com", 
@@ -153,12 +153,12 @@
   if (typeof $request !== 'undefined' && typeof $response === 'undefined') {
     const headers = $request.headers;
     
-    // [V5.00] Foodpanda Locale Injection Fix
-    // 即使在白名單模式，也針對 Foodpanda 注入 zh-TW，解決 App Footer 變英文的問題
-    if (lowerUrl.includes("foodpanda") || lowerUrl.includes("fd-api")) {
-        // 保留原始 UA (不修改)，但強制注入語系
-        // 這通常不會觸發 2FA，因為語系改變是合法的用戶行為
+    // [V5.01] Global Locale Lock for Foodpanda
+    // 擴大判斷邏輯，捕捉所有可能的 API 請求
+    if (lowerUrl.includes("foodpanda") || lowerUrl.includes("fd-api") || lowerUrl.includes("deliveryhero")) {
+        // 強制注入繁體中文，權重最高
         headers['Accept-Language'] = 'zh-TW,zh-Hant;q=0.9,en-US;q=0.8,en;q=0.7';
+        // [V5.01] 確保不刪除 App 的原始 UA，避免 API 簽章失效
         $done({ headers });
         return;
     }
@@ -198,20 +198,17 @@
     const cType = (headers['Content-Type'] || headers['content-type'] || "").toLowerCase();
 
     // ------------------------------------------------------------------------
-    // [V5.00 CRITICAL] JSON/API Safety Guard
+    // [V5.01] JSON/API Safety Guard
     // ------------------------------------------------------------------------
-    // 只要是 API 數據，絕對禁止注入，避免 App 崩潰
     if (REGEX.CONTENT_TYPE_JSON.test(cType)) {
         $done({});
         return;
     }
 
-    // HTML Double Check
     if (!body || !cType.includes("html")) { $done({}); return; }
     if ([204, 206, 301, 302, 304].includes($response.status)) { $done({}); return; }
     if (body.includes(CONST.INJECT_MARKER)) { $done({}); return; }
 
-    // HTML Injection Logic
     let badgeColor = "#28CD41"; 
     let badgeText = "FP: Shield Active";
     
