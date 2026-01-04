@@ -1,12 +1,13 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   4.97-Absolute-Exclusion
- * @description [回歸純淨] 移除語系注入，針對 Foodpanda 執行絕對硬排除。
+ * @version   4.99-App-Compatibility-Fix
+ * @description [App 修復版] 防止腳本注入 JSON API 導致的手機 App 崩潰或風控。
  * ----------------------------------------------------------------------------
- * 1. [Revert] 移除 V4.96 的 Accept-Language 注入。
- * - 原因: 任何 Header 修改（即使是語系）都可能被 WAF 視為 MITM 攻擊特徵。
- * 2. [Hard Exclusion] 維持 foodpanda / fd-api 的關鍵字排除。
- * 3. [Strategy] 建議使用者在 Surge 配置中將 Foodpanda 加入 MITM Skip List。
+ * 1. [Critical Fix] 嚴格檢查 Content-Type。
+ * - 邏輯: 遇到 application/json 或 xml 時絕對不注入。
+ * - 原因: 修正 Foodpanda App 因收到含 <script> 的 JSON 而觸發解析錯誤與 2FA。
+ * 2. [Config] 維持 Foodpanda 的白名單策略 (允許 MITM 但不修改)。
+ * 3. [Core] 保留 V4.98 的混合生存策略與電商優化。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -19,10 +20,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // [V4.97] 更新 Seed
-    KEY_SEED: "FP_SHIELD_SEED_V497", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V497",
-    INJECT_MARKER: "__FP_SHIELD_V497__",
+    // [V4.99] 更新 Seed
+    KEY_SEED: "FP_SHIELD_SEED_V499", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V499",
+    INJECT_MARKER: "__FP_SHIELD_V499__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -42,6 +43,8 @@
 
   const REGEX = {
     CONTENT_TYPE_HTML: /text\/html/i,
+    // [V4.99] 新增 API 格式偵測
+    CONTENT_TYPE_JSON: /(application|text)\/(json|xml|javascript)/i,
     HEAD_TAG: /<head[^>]*>/i, 
     HTML_TAG: /<html[^>]*>/i,
     META_CSP_STRICT: /<meta[^>]*http-equiv=["']?Content-Security-Policy["']?[^>]*>/gi
@@ -56,9 +59,7 @@
   // 1. [Hard Exclusion] 硬排除 - 絕對不碰的領域
   // ============================================================================
   const HARD_EXCLUSION_KEYWORDS = [
-    // [V4.97] Foodpanda Absolute Exclusion
-    "fd-api.com", "tw.fd-api.com", "foodpanda.com", "foodpanda.com.tw",
-
+    // 社交與通訊 (App Native 流量極高)
     "line.me", "line-apps", "line-scdn", "legy", 
     "naver.com", "naver.jp", 
     "facebook.com/api", "messenger.com", "whatsapp.com", "instagram.com",
@@ -69,7 +70,6 @@
     "sentry.io"
   ];
   
-  // 偵測到硬排除關鍵字，直接回傳空物件 (無任何 Header 修改)
   if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) {
     $done({});
     return;
@@ -80,6 +80,9 @@
   // ============================================================================
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
+      // [V4.99] Foodpanda 家族 (允許 MITM 但不注入)
+      "foodpanda.com", "foodpanda.com.tw", "fd-api.com", "tw.fd-api.com", "deliveryhero.io",
+
       // 生活服務
       "uber.com", "ubereats.com", 
       "booking.com", "agoda.com", "airbnb.com", "expedia.com",
@@ -152,19 +155,25 @@
   // ============================================================================
   if (typeof $request !== 'undefined' && typeof $response === 'undefined') {
     const headers = $request.headers;
+    
+    // [V4.99] 對於 App 流量 (Foodpanda)，絕對不修改 Header
+    // 保持原始 App UA，避免被 WAF 發現 UA 與 API 簽章不符
+    if (isSoftWhitelisted) {
+        $done({ headers });
+        return;
+    }
+
     Object.keys(headers).forEach(k => {
       const l = k.toLowerCase();
       if (l === 'user-agent' || l.startsWith('sec-ch-ua')) delete headers[k];
     });
 
     if (IS_SHOPPING) {
-      // [Purple] Mobile Headers
       headers['User-Agent'] = CONST.UA_IPHONE;
       headers['sec-ch-ua'] = '"Not(A:Brand";v="99", "Chromium";v="143", "Google Chrome";v="143"'; 
       headers['sec-ch-ua-mobile'] = "?1"; 
       headers['sec-ch-ua-platform'] = '"iOS"'; 
     } else {
-      // [Green/Grey] Desktop Headers
       headers['User-Agent'] = CONST.UA_MAC;
       headers['sec-ch-ua'] = '"Not(A:Brand";v="99", "Google Chrome";v="143", "Chromium";v="143"';
       headers['sec-ch-ua-mobile'] = "?0";
@@ -176,17 +185,37 @@
   }
 
   // ============================================================================
-  // Phase B: Browser Environment (Injection)
+  // Phase B: Browser Environment (Injection) - 關鍵修復區域
   // ============================================================================
   if (typeof $response !== 'undefined') {
     let body = $response.body;
     const headers = $response.headers || {};
+    // 正規化 Content-Type 檢查
     const cType = (headers['Content-Type'] || headers['content-type'] || "").toLowerCase();
 
+    // ------------------------------------------------------------------------
+    // [V4.99 CRITICAL CHECK] JSON/API 保護機制
+    // ------------------------------------------------------------------------
+    // 如果是 App API 常用的 JSON/XML 格式，絕對禁止注入！
+    // 這是造成 Foodpanda App 2FA 或崩潰的主因
+    if (REGEX.CONTENT_TYPE_JSON.test(cType)) {
+        $done({});
+        return;
+    }
+
+    // 雙重檢查：必須包含 "html" 且有 body 內容才考慮注入
+    if (!body || !cType.includes("html")) { 
+        $done({}); 
+        return; 
+    }
+    
+    // 狀態碼檢查
     if ([204, 206, 301, 302, 304].includes($response.status)) { $done({}); return; }
-    if (!body || (cType && !cType.includes("html"))) { $done({}); return; }
+    
+    // 重複注入檢查
     if (body.includes(CONST.INJECT_MARKER)) { $done({}); return; }
 
+    // 以下為 HTML 注入邏輯 (僅對瀏覽器生效)
     let badgeColor = "#28CD41"; 
     let badgeText = "FP: Shield Active";
     
@@ -226,9 +255,15 @@
           try { const d = Object.getOwnPropertyDescriptor(obj, prop); if (d && !d.configurable) return false; Object.defineProperty(obj, prop, descriptor); return true; } catch(e) { return false; }
       };
 
-      // =========================================================================
-      // Shopping Mode (Purple) -> Deep Mobile Emulation
-      // =========================================================================
+      // [V4.99] 白名單處理 - App 內嵌 WebView 場景
+      if (IS_WHITELISTED) {
+          try { 
+              if (navigator && 'webdriver' in navigator) delete navigator.webdriver;
+          } catch(e) {}
+          return; 
+      }
+
+      // Shopping Mode (Purple)
       if (IS_SHOPPING) {
           try {
               if (navigator && 'webdriver' in navigator) delete navigator.webdriver;
@@ -237,18 +272,11 @@
               Object.defineProperty(navigator, 'platform', { get: () => 'iPhone', configurable: true });
               Object.defineProperty(navigator, 'vendor', { get: () => 'Apple Computer, Inc.', configurable: true });
               Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5, configurable: true });
-              
               Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 6, configurable: true });
               Object.defineProperty(navigator, 'deviceMemory', { get: () => 8, configurable: true });
 
-              const screenProps = {
-                  width: 430, height: 932,
-                  availWidth: 430, availHeight: 932,
-                  colorDepth: 32, pixelDepth: 32
-              };
-              for (let prop in screenProps) {
-                  Object.defineProperty(window.screen, prop, { get: () => screenProps[prop], configurable: true });
-              }
+              const screenProps = { width: 430, height: 932, availWidth: 430, availHeight: 932, colorDepth: 32, pixelDepth: 32 };
+              for (let prop in screenProps) { Object.defineProperty(window.screen, prop, { get: () => screenProps[prop], configurable: true }); }
 
               const spoofWebGL = (ctx) => {
                   if (!ctx) return;
@@ -261,9 +289,7 @@
               };
               
               const cvs = document.createElement('canvas');
-              spoofWebGL(cvs.getContext('webgl'));
-              spoofWebGL(cvs.getContext('experimental-webgl'));
-              spoofWebGL(cvs.getContext('webgl2'));
+              spoofWebGL(cvs.getContext('webgl')); spoofWebGL(cvs.getContext('experimental-webgl')); spoofWebGL(cvs.getContext('webgl2'));
               
               const oldGetContext = HTMLCanvasElement.prototype.getContext;
               HTMLCanvasElement.prototype.getContext = function(type, opts) {
@@ -272,25 +298,12 @@
                   return ctx;
               };
 
-              if (!('ontouchstart' in window)) {
-                  Object.defineProperty(window, 'ontouchstart', { value: null, writable: true });
-              }
+              if (!('ontouchstart' in window)) { Object.defineProperty(window, 'ontouchstart', { value: null, writable: true }); }
           } catch(e) {}
           return; 
       }
 
-      // =========================================================================
-      // Whitelist Mode (Grey)
-      // =========================================================================
-      if (IS_WHITELISTED) {
-          try { if (navigator && 'webdriver' in navigator) delete navigator.webdriver; } catch(e) {}
-          return; 
-      }
-
-      // =========================================================================
       // Green Shield Mode (Standard Noise Injection)
-      // =========================================================================
-      
       const CONFIG = {
         rectNoiseRate: 0.0001, canvasNoiseStep: 2, audioNoiseLevel: 1e-6,
         canvasMinSize: ${CONST.CANVAS_MIN_SIZE}, canvasMaxNoiseArea: ${CONST.CANVAS_MAX_NOISE_AREA},
