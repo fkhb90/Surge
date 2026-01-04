@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.56.js
- * @version   41.56 (Priority Domain Block)
- * @description [V41.56] 權限重構：
- * 1. 新增「P0 優先級域名黑名單」：將 DoubleClick, AdMob, AppsFlyer, UnityAds 等核心廣告商的攔截優先級提升至白名單之前，防止被誤放行。
- * 2. 邏輯優化：確保「通用路徑攔截」與「優先域名攔截」構成雙重防護網。
- * 3. 繼承：包含 V41.55 的所有穩定性修正與參數清理規則。
+ * @file      URL-Ultimate-Filter-Surge-V41.57.js
+ * @version   41.57 (Golden Standard)
+ * @description [V41.57] 黃金基準版：
+ * 1. 架構定案：確立「P0 路徑攔截 -> P0 域名攔截 -> 白名單放行 -> 一般攔截」的標準處理流程。
+ * 2. 代碼潔癖：移除所有過渡期的除錯代碼與冗餘註解，保持邏輯精簡高效。
+ * 3. 完整收錄：包含 YouTube, Foodpanda, Uber, Shopee, Kuaishou 的所有深度隱私規則。
  * @note      此為長期維護穩定版，建議所有使用者更新。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2026-01-04
@@ -18,71 +18,33 @@
 // #################################################################################################
 
 const CONFIG = {
-  /**
-   * ✅ [V40.40 新增] 全域「除錯模式」
-   */
   DEBUG_MODE: false,
-
-  /**
-   * ✅ [V40.75 修訂] AC 自動機掃描長度
-   */
   AC_SCAN_MAX_LENGTH: 512,
    
-  /**
-   * ✅ [V40.76 新增] L1 快取預熱種子
-   */
   CACHE_SEEDS: new Map([
       ['google.com', { decision: 'ALLOW', ttl: 3600 * 1000 }],
       ['apple.com', { decision: 'ALLOW', ttl: 3600 * 1000 }],
       ['facebook.com', { decision: 'ALLOW', ttl: 3600 * 1000 }],
-      // doubleclick 等已移至 P0 黑名單，不需在此預熱 Block
+      ['microsoft.com', { decision: 'ALLOW', ttl: 3600 * 1000 }],
   ]),
 
   /**
-   * 🚨 [V41.56 新增] P0 優先級域名黑名單 (Priority Block Domains)
-   * 說明：此清單中的域名擁有「絕對攔截權」，會在「硬白名單」之前被檢查。
-   * 用途：專門對付那些容易被泛用白名單（如 *.com, *.google.com）意外放行的頑固廣告商。
+   * 🚨 P0 優先級域名黑名單 (Priority Block Domains)
+   * 優先權：高於白名單。即使母網域在白名單中，此清單中的子網域仍會被強制攔截。
    */
   PRIORITY_BLOCK_DOMAINS: new Set([
-      // --- Google Advertising Core (絕對攔截) ---
-      'doubleclick.net', 
-      'googleadservices.com', 
-      'googlesyndication.com', 
-      'admob.com',
-      'ads.google.com',
-      // --- Mobile Measurement Partners (MMP - App 追蹤核心) ---
-      'appsflyer.com', 
-      'adjust.com', 
-      'kochava.com', 
-      'branch.io', 
-      'app-measurement.com',
-      'singular.net',
-      // --- Game & Video Ads (手遊廣告巨頭) ---
-      'unityads.unity3d.com', 
-      'applovin.com', 
-      'ironsrc.com', 
-      'vungle.com',
-      'adcolony.com', 
-      'chartboost.com', 
-      'tapjoy.com',
-      'pangle.io',
-      // --- Native Ads (文章底部的推薦廣告) ---
-      'taboola.com', 
-      'outbrain.com',
-      'popads.net',
-      // --- Social Ads ---
-      'ads.tiktok.com',
-      'analytics.tiktok.com',
-      'ads.linkedin.com',
-      // --- Local High Risk (台灣高風險廣告域) ---
-      'ad.etmall.com.tw', 
-      'trk.momoshop.com.tw',
-      'ad.line.me' // LINE 廣告核心
+      // Google Ads Core
+      'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'admob.com', 'ads.google.com',
+      // MMP (Mobile Measurement Partners)
+      'appsflyer.com', 'adjust.com', 'kochava.com', 'branch.io', 'app-measurement.com', 'singular.net',
+      // Game & Video Ads
+      'unityads.unity3d.com', 'applovin.com', 'ironsrc.com', 'vungle.com', 'adcolony.com', 'chartboost.com', 'tapjoy.com', 'pangle.io',
+      // Native & Social Ads
+      'taboola.com', 'outbrain.com', 'popads.net', 'ads.tiktok.com', 'analytics.tiktok.com', 'ads.linkedin.com',
+      // Local High Risk
+      'ad.etmall.com.tw', 'trk.momoshop.com.tw', 'ad.line.me'
   ]),
 
-  /**
-   * ✳️ [V40.59 新增] 啟發式直跳域名列表
-   */
   REDIRECTOR_HOSTS: new Set([
     '1ink.cc', '1link.club', 'adfoc.us', 'adsafelink.com', 'adshnk.com', 'adz7short.space', 'aylink.co', 
     'bc.vc', 'bcvc.ink', 'birdurls.com', 'bitcosite.com', 'blogbux.net', 'boost.ink', 'ceesty.com', 
@@ -103,9 +65,6 @@ const CONFIG = {
     'zegtrends.com'
   ]),
 
-  /**
-   * ✳️ 硬白名單 - 精確匹配
-   */
   HARD_WHITELIST_EXACT: new Set([
     'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
     'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
@@ -124,9 +83,6 @@ const CONFIG = {
     'iappapi.investing.com', 'today.line.me', 't.uber.com',
   ]),
 
-  /**
-   * ✳️ 硬白名單 - 萬用字元
-   */
   HARD_WHITELIST_WILDCARDS: new Set([
     'bot.com.tw', 'cathaybk.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw', 'ctbcbank.com', 'dawho.tw', 'dbs.com.tw',
     'esunbank.com.tw', 'firstbank.com.tw', 'fubon.com', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw',
@@ -142,9 +98,6 @@ const CONFIG = {
     'googlevideo.com', 'cfe.uber.com',
   ]),
 
-  /**
-   * ✅ 軟白名單 - 精確匹配
-   */
   SOFT_WHITELIST_EXACT: new Set([
     'a-api.anthropic.com', 'api.anthropic.com', 'api.cohere.ai', 'api.digitalocean.com', 'api.fastly.com', 
     'api.feedly.com', 'api.github.com', 'api.heroku.com', 'api.hubapi.com', 'api.mailgun.com', 'api.netlify.com', 
@@ -159,9 +112,6 @@ const CONFIG = {
     'account.uber.com', 'xlb.uber.com',
   ]),
 
-  /**
-   * ✅ 軟白名單 - 萬用字元
-   */
   SOFT_WHITELIST_WILDCARDS: new Set([
     'googleapis.com', 
     'book.com.tw', 'citiesocial.com', 'coupang.com', 'iherb.biz', 'iherb.com',
@@ -183,17 +133,10 @@ const CONFIG = {
     'usersdrive.com',
   ]),
 
-  /**
-   * 🚨 高強度審查域名 (需完整掃描路徑)
-   */
   HIGH_SCRUTINY_DOMAINS: new Set([
       'googleapis.com', 'youtubei.googleapis.com', 'fd-api.com', 'tw.fd-api.com', 'uber.com'
   ]),
 
-  /**
-   * 🚫 一般域名攔截黑名單 (優先權低於白名單)
-   * (P0 黑名單中的域名已從此處移除以避免重複，但為了保險起見保留 Regex/Trie 邏輯)
-   */
   BLOCK_DOMAINS: new Set([
     'openfpcdn.io', 'fingerprintjs.com', 'fpjs.io',
     'adunblock1.static-cloudflare.workers.dev', 'fundingchoicesmessages.google.com',
@@ -264,16 +207,10 @@ const CONFIG = {
     'adnx.com', 'cint.com', 'revjet.com', 'rlcdn.com', 'sc-static.net', 'wcs.naver.net',
   ]),
 
-  /**
-   * 🚫 [V40.35 新增] Regex 域名攔截黑名單
-   */
   BLOCK_DOMAINS_REGEX: [
     /^ad[s]?\d*\.(ettoday\.net|ltn\.com\.tw)$/,
   ],
    
-  /**
-   * 🚨 [V40.71 新增] 關鍵追蹤路徑 (通用)
-   */
   CRITICAL_TRACKING_GENERIC_PATHS: new Set([
     '/api/stats/ads',
     '/api/stats/atr',
@@ -572,7 +509,7 @@ const CONFIG = {
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.56';
+const SCRIPT_VERSION = '41.57';
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1296,7 +1233,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.56 - Priority Domain Block', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.57 - Golden Standard', stats: optimizedStats.getStats() });
       }
       return;
     }
