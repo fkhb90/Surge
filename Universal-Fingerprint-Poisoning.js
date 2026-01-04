@@ -1,13 +1,13 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   5.03-Adaptive-Performance
- * @description [效能修復版] 解決購物車頁面因過度偽裝導致的卡頓與白屏。
+ * @version   5.04-Universal-Adaptive-Performance
+ * @description [全域效能版] 將購物車效能優化邏輯標準化，適用於所有高負載頁面。
  * ----------------------------------------------------------------------------
- * 1. [Fix] 購物車頁面 (Cart/Checkout) 自動降級:
- * - 停止偽裝 window.screen 與 WebGL，避免與 Desktop 響應式佈局衝突。
- * - 僅保留 User-Agent 偽裝，維持 Session 一致性。
- * 2. [Config] 維持 V5.02 對 Foodpanda 的流量分流與 API 保護策略。
- * 3. [Core] 優化 Shopping Mode 的觸發邏輯，提升複雜網頁的渲染效能。
+ * 1. [Optimization] 全域重度頁面偵測 (Heavy Page Detection):
+ * - 自動識別 cart/checkout/pay/video/live 等關鍵路徑。
+ * - 命中時自動降級為 Lite Mode (停止 Canvas/WebGL/Screen 偽裝)，僅保留 UA。
+ * 2. [Strategy] 適用範圍擴大: 所有硬白名單與購物模式網站皆繼承此優化。
+ * 3. [Config] 維持對 Foodpanda 的 API/JSON 嚴格保護與 MITM 分流策略。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -20,10 +20,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // [V5.03] 更新 Seed
-    KEY_SEED: "FP_SHIELD_SEED_V503", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V503",
-    INJECT_MARKER: "__FP_SHIELD_V503__",
+    // [V5.04] 更新 Seed
+    KEY_SEED: "FP_SHIELD_SEED_V504", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V504",
+    INJECT_MARKER: "__FP_SHIELD_V504__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -44,6 +44,8 @@
   const REGEX = {
     CONTENT_TYPE_HTML: /text\/html/i,
     CONTENT_TYPE_JSON: /(application|text)\/(json|xml|javascript)/i,
+    // [V5.04] 擴充重度頁面關鍵字庫
+    HEAVY_PAGES: /cart|checkout|buy|trade|billing|payment|video|live|stream|player/i,
     HEAD_TAG: /<head[^>]*>/i, 
     HTML_TAG: /<html[^>]*>/i,
     META_CSP_STRICT: /<meta[^>]*http-equiv=["']?Content-Security-Policy["']?[^>]*>/gi
@@ -66,7 +68,6 @@
     "oaistatic.com", "oaiusercontent.com", "anthropic.com",
     "challenges.cloudflare.com", "recaptcha.net", "google.com/recaptcha", "hcaptcha.com", "arkoselabs.com",
     "sentry.io",
-    // Security SDKs
     "perimeterx.net", "datadome.co", "siftscience.com"
   ];
   
@@ -80,7 +81,7 @@
   // ============================================================================
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
-      // Foodpanda Ecosystem (MITM Allowed, No Injection)
+      // Foodpanda Ecosystem
       "foodpanda.com", "foodpanda.com.tw", "fd-api.com", "tw.fd-api.com", 
       "deliveryhero.io", "deliveryhero.net", "foodora.com",
 
@@ -207,12 +208,10 @@
     let badgeColor = "#28CD41"; 
     let badgeText = "FP: Shield Active";
     
-    // [V5.03] 識別關鍵交易頁面 (Cart/Checkout)
-    // 這些頁面對 JS 效能與 DOM 結構極度敏感
-    const IS_HEAVY_PAGE = /cart|checkout|buy|trade|billing/i.test(lowerUrl);
+    // [V5.04] Universal Heavy Page Detection
+    const IS_HEAVY_PAGE = REGEX.HEAVY_PAGES.test(lowerUrl);
 
     if (IS_SHOPPING) {
-        // 如果是購物模式，但處於重度頁面，顯示 "Lite" 狀態
         badgeColor = IS_HEAVY_PAGE ? "#5856D6" : "#AF52DE"; 
         badgeText = IS_HEAVY_PAGE ? "FP: Shopping Lite" : "FP: Shopping Mode"; 
     } else if (isSoftWhitelisted) {
@@ -242,7 +241,7 @@
 
       const IS_SHOPPING = ${IS_SHOPPING};
       const IS_WHITELISTED = ${isSoftWhitelisted};
-      // [V5.03] 傳遞重度頁面旗標至 Injection Scope
+      // [V5.04] Pass Heavy Page flag
       const IS_HEAVY_PAGE = ${IS_HEAVY_PAGE};
 
       const safeDefine = (obj, prop, descriptor) => {
@@ -256,21 +255,20 @@
       }
 
       // =========================================================================
-      // [V5.03] Shopping Mode Logic
+      // [V5.04] Adaptive Performance Logic (Shopping & Heavy Pages)
       // =========================================================================
       if (IS_SHOPPING) {
           try {
-              // 1. Basic Cleanup (Always Run)
+              // 1. Basic Cleanup
               if (navigator && 'webdriver' in navigator) delete navigator.webdriver;
               if (window.cdc_adoQpoasnfa76pfcZLmcfl_Array) delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
 
-              // 2. Identity Spoofing (Always Run to match Header UA)
+              // 2. Identity Spoofing (Always active to match UA)
               Object.defineProperty(navigator, 'platform', { get: () => 'iPhone', configurable: true });
               Object.defineProperty(navigator, 'vendor', { get: () => 'Apple Computer, Inc.', configurable: true });
               Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5, configurable: true });
               
-              // 3. Hardware Emulation (SKIP on Heavy Pages)
-              // 購物車/結帳頁面不偽裝螢幕與 WebGL，避免 Layout Thrashing 與白屏
+              // 3. Hardware Emulation (DISABLED on Heavy Pages for Performance)
               if (!IS_HEAVY_PAGE) {
                   Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 6, configurable: true });
                   Object.defineProperty(navigator, 'deviceMemory', { get: () => 8, configurable: true });
@@ -299,7 +297,6 @@
                   };
               }
 
-              // 4. Touch Event Support (Always Run)
               if (!('ontouchstart' in window)) { Object.defineProperty(window, 'ontouchstart', { value: null, writable: true }); }
           } catch(e) {}
           return; 
