@@ -1,11 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.53.js
- * @version   41.53 (Priority Zero Block)
- * @description [V41.53] 架構重構：
- * 1. 引入「零級優先權 (P0)」機制：將通用關鍵路徑攔截 (YouTube log_event, Foodpanda action-log) 移至邏輯最頂層。
- * 2. 強制執行：無視白名單與 L1 快取狀態，優先阻殺惡意路徑。
- * 3. 繼承: 包含 V41.52 的所有規則庫。
- * @note      此為長期維護穩定版，建議所有使用者更新。
+ * @file      URL-Ultimate-Filter-Surge-V41.54.js
+ * @version   41.54 (Brute Force Safety Net)
+ * @description [V41.54] 終極修正：
+ * 1. 暴力阻殺 (Brute Force): 針對 YouTube (log_event), Foodpanda (action-log), Uber (_events) 引入硬編碼的 if 判斷，繞過所有演算法與快取，確保攔截。
+ * 2. 規則簡化: 將長路徑特徵簡化為關鍵字 (如 /log_event)，提升命中率。
+ * 3. 繼承: 包含所有 V41.53 的防護邏輯。
+ * @note      ⚠️ 必須啟用 MitM (hostname = *.googleapis.com, *.fd-api.com) 腳本才能生效。
  * @author    Claude & Gemini & Acterus (+ Community Feedback)
  * @lastUpdated 2026-01-04
  */
@@ -226,6 +226,19 @@ const CONFIG = {
     'multiup.io', 'nmac.to', 'noelshack.com', 'pic-upload.de', 'pixhost.to', 'postimg.cc', 'prnt.sc', 
     'sfile.mobi', 'thefileslocker.net', 'turboimagehost.com', 'uploadhaven.com', 'uploadrar.com', 
     'usersdrive.com',
+  ]),
+
+  /**
+   * 🚨 [V41.52 新增] 高強度審查域名 (High Scrutiny Domains)
+   * 說明：即使這些域名位於軟白名單中，仍強制執行完整的路徑與Regex檢查。
+   * 用途：解決軟白名單優先權過高導致特定 API (如 YouTube log_event) 攔截失效的問題。
+   */
+  HIGH_SCRUTINY_DOMAINS: new Set([
+      'googleapis.com',
+      'youtubei.googleapis.com',
+      'fd-api.com',
+      'tw.fd-api.com',
+      'uber.com'
   ]),
 
   /**
@@ -513,29 +526,29 @@ const CONFIG = {
    * 🚨 [V40.71 新增, V41.13 擴充, V41.37 擴充, V41.46 擴充] 關鍵追蹤路徑模式 (通用)
    */
   CRITICAL_TRACKING_GENERIC_PATHS: new Set([
-    // [V41.52] YouTube Stats (Moved from Regex to AC for guaranteed block)
+    // [V41.54] Simplified & Brute Forced in Code Logic (Here for AC consistency)
+    '/log_event',
+    '/log_interaction',
+    '/action-log',
+    '/_events',
+    
+    // [V41.52] YouTube Stats
     '/api/stats/ads',
     '/api/stats/atr',
     '/api/stats/qoe',
     '/api/stats/playback',
     
     // [V41.51] YouTube Deep Clean & Google Ads
-    '/youtubei/v1/log_interaction',
     '/youtubei/v1/player/log',
     '/ptracking',
     '/pagead/paralleladview',
     '/pagead/gen_204',
-    
-    // [V41.50] YouTube Behavior & Ad Log
-    '/youtubei/v1/log_event',
 
     // [V41.49] Kuaishou (快手) Widget Log
     '/rest/n/log', // Generic Kuaishou Log path (covers /desktop/widget)
     
     // [V41.48] Foodpanda & Uber Generic Logs
-    '/action-log',       // Foodpanda 通用行為日誌 (v5/v6 agnostic)
     '/ramen/v1/events',  // Uber Eats 行為日誌
-    '/_events',          // Uber Core 日誌
     
     // [V41.47] Shopee & Alibaba Global Logs
     '/report/v1/log', // Shopee Global Log
@@ -813,14 +826,14 @@ const CONFIG = {
 
 // #################################################################################################
 // #                                                                                               #
-// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.53)                            #
+// #                            🚀 HYPER-OPTIMIZED CORE ENGINE (V41.54)                            #
 // #                                                                                               #
 // #################################################################################################
 
 // ================================================================================================
 // 🚀 CORE CONSTANTS & VERSION
 // ================================================================================================
-const SCRIPT_VERSION = '41.53'; // [V41.53] 版本戳，用於快取失效
+const SCRIPT_VERSION = '41.54'; // [V41.54] 版本戳，用於快取失效
 
 const __now__ = (typeof performance !== 'undefined' && typeof performance.now === 'function')
   ? () => performance.now()
@@ -1184,7 +1197,6 @@ function isCriticalTrackingScript(hostname, lowerFullPath) {
     }
   }
 
-  // [V41.53] Generic check is now performed at top level, but we keep this for consistency if called separately
   if (getAcCriticalGeneric().matches(pathOnly, CONFIG.AC_SCAN_MAX_LENGTH)) {
     multiLevelCache.setUrlDecision('crit', hostname, lowerFullPath, true);
     return true;
@@ -1406,9 +1418,31 @@ function processRequest(request) {
     const pathname = qIndex === -1 ? fullPath : fullPath.substring(0, qIndex);
     const pathnameLower = pathname.toLowerCase();
 
+    // [V41.54] BRUTE FORCE SAFETY NET - Bypass AC/Cache for specific high-profile targets
+    // This explicit check bypasses all other logic to ensure blocking if MitM is active.
+    if (hostname.endsWith('youtubei.googleapis.com')) {
+        if (pathnameLower.includes('/log_event') || pathnameLower.includes('/log_interaction')) {
+             optimizedStats.increment('criticalScriptBlocked');
+             if(t0) optimizedStats.addTiming('critical', __now__() - tParse0);
+             return getBlockResponse(pathnameLower);
+        }
+    }
+    if (hostname.endsWith('fd-api.com')) {
+        if (pathnameLower.includes('/action-log')) {
+             optimizedStats.increment('criticalScriptBlocked');
+             if(t0) optimizedStats.addTiming('critical', __now__() - tParse0);
+             return getBlockResponse(pathnameLower);
+        }
+    }
+    if (hostname.endsWith('uber.com')) {
+        if (pathnameLower.includes('/_events') || pathnameLower.includes('/ramen/v1/events')) {
+             optimizedStats.increment('criticalScriptBlocked');
+             if(t0) optimizedStats.addTiming('critical', __now__() - tParse0);
+             return getBlockResponse(pathnameLower);
+        }
+    }
+
     // [V41.53] PRIORITY ZERO BLOCK - Generic Critical Path Check
-    // This check is performed BEFORE any whitelist or cache lookup to ensure malicious paths
-    // on whitelisted domains (e.g. googleapis.com/log_event) are ALWAYS blocked.
     const tCritGen0 = t0 ? __now__() : 0;
     if (getAcCriticalGeneric().matches(pathnameLower, CONFIG.AC_SCAN_MAX_LENGTH)) {
         optimizedStats.increment('criticalScriptBlocked'); optimizedStats.increment('blockedRequests');
@@ -1469,10 +1503,12 @@ function processRequest(request) {
     }
     if (t0) optimizedStats.addTiming('whitelist', __now__() - tWl0);
 
-    if (!isSoftWhitelisted) {
-        if (l1Decision !== DECISION.ALLOW && l1Decision !== DECISION.NEGATIVE_CACHE) {
+    // [V41.52] High Scrutiny Logic Fix
+    const isHighScrutiny = CONFIG.HIGH_SCRUTINY_DOMAINS.has(hostname) || hostname.endsWith('googleapis.com');
+
+    if (!isSoftWhitelisted || isHighScrutiny) {
+        if (l1Decision !== DECISION.ALLOW && l1Decision !== DECISION.NEGATIVE_CACHE && !isSoftWhitelisted) {
             const tDom0 = t0 ? __now__() : 0;
-            // The isDomainBlocked check is now at the top
             multiLevelCache.setDomainDecision(hostname, DECISION.ALLOW, 10 * 60 * 1000);
             if(t0) optimizedStats.addTiming('domainStage', __now__() - tDom0);
         }
@@ -1557,7 +1593,7 @@ function initialize() {
 
     if (typeof $request === 'undefined') {
       if (typeof $done !== 'undefined') {
-        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.53 - Priority Zero Block', stats: optimizedStats.getStats() });
+        $done({ version: SCRIPT_VERSION, status: 'ready', message: 'URL Filter v41.54 - Brute Force Safety Net', stats: optimizedStats.getStats() });
       }
       return;
     }
