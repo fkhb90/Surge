@@ -1,6 +1,6 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   5.45-Daily-Rhythm-Rotation
+ * @version   5.46-Daily-Rhythm-Rotation
  * @description [每日節奏輪替版] 引入日級動態時間窗參數，瓦解長期時序建模攻擊。
  * ----------------------------------------------------------------------------
  * 1. [Security] Daily Rhythm: 漂移窗口大小不再僅由 ID 決定，而是引入 (ID ^ Date) 
@@ -154,10 +154,13 @@
   try { hostname = new URL(currentUrl).hostname.toLowerCase(); } catch (e) {}
 
   const ENV = (() => {
-      let sys = "iOS";
+    // 強制所有設備都偽裝成 Mac
+    return "MAC";
+      /* let sys = "iOS";
       try { if (typeof $environment !== 'undefined') sys = $environment['system'] || sys; } catch(e) {}
       if (/mac/i.test(sys)) return "MAC";
       return "IOS";
+      */
   })();
   
   const CURRENT_PERSONA = PERSONA_CONFIG[ENV];
