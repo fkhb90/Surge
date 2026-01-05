@@ -1,11 +1,13 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   5.06-Final-Stable
- * @description [最終穩定版] 移除冗餘規則，並針對高風險服務進行精準硬排除。
+ * @version   5.07-Shopee-2FA-Fix
+ * @description [蝦皮修復版] 針對 Shopee App 的 2FA 驗證頁面進行硬排除。
  * ----------------------------------------------------------------------------
- * 1. [Audit] 移除 sentry.io, anthropic.com 等非關鍵項目，精簡規則。
- * 2. [Safety] 確認 Foodpanda / 支付 / 驗證服務皆在硬排除名單，保障帳號安全。
- * 3. [Core] 維持 V5.04 的自適應效能優化 (Lite Mode) 於購物場景。
+ * 1. [Fix] 新增 ban.shopee / shopee-security 至硬排除名單。
+ * - 原因: 解決 Shopee App 在購物模式下，2FA/驗證頁面無法載入或白屏的問題。
+ * - 邏輯: 驗證頁面必須保持 "Clean Environment" 才能通過 App Native 檢測。
+ * 2. [Config] 維持對 Foodpanda 的全域語系鎖定與 API 保護。
+ * 3. [Core] 保留 V5.06 的穩定性架構與其他硬白名單。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -18,10 +20,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // [V5.06] 更新 Seed
-    KEY_SEED: "FP_SHIELD_SEED_V506", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V506",
-    INJECT_MARKER: "__FP_SHIELD_V506__",
+    // [V5.07] 更新 Seed
+    KEY_SEED: "FP_SHIELD_SEED_V507", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V507",
+    INJECT_MARKER: "__FP_SHIELD_V507__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -42,7 +44,7 @@
   const REGEX = {
     CONTENT_TYPE_HTML: /text\/html/i,
     CONTENT_TYPE_JSON: /(application|text)\/(json|xml|javascript)/i,
-    // Heavy Pages for Lite Mode (Performance)
+    // Heavy Pages for Lite Mode
     HEAVY_PAGES: /cart|checkout|buy|trade|billing|payment|video|live|stream|player/i,
     HEAD_TAG: /<head[^>]*>/i, 
     HTML_TAG: /<html[^>]*>/i,
@@ -57,37 +59,37 @@
   // ============================================================================
   // 1. [Hard Exclusion] 硬排除 - 絕對不碰的領域
   // ============================================================================
-  // 這些服務涉及帳號安全、金流或高強度風控，必須使用真實指紋。
-  // 腳本一旦偵測到這些關鍵字，會直接回傳 $done({})，不修改任何 Header 或 Body。
   const HARD_EXCLUSION_KEYWORDS = [
     // [Group A] Foodpanda Ecosystem (High Risk)
     "foodpanda", "fd-api", "deliveryhero", "foodora",
 
-    // [Group B] Identity Providers (帳號核心)
-    "accounts.google.com", // Google 登入頁
-    "apple.com", "icloud.com", "appleid", // Apple 相關
-    "login.live.com", "login.microsoftonline.com", // Microsoft 登入
-    "facebook.com/login", "facebook.com/api", // FB 登入與 API
+    // [Group B] Shopee Security & 2FA (CRITICAL FIX V5.07)
+    // 這些子網域負責處理驗證碼與帳號風控，必須絕對純淨
+    "ban.shopee", "shopee-security", "shopee.tw/verify", "shopee.tw/buyer/login/otp",
 
-    // [Group C] Communication & Social (通訊軟體)
+    // [Group C] Identity Providers (帳號核心)
+    "accounts.google.com", 
+    "apple.com", "icloud.com", "appleid", 
+    "login.live.com", "login.microsoftonline.com", 
+    "facebook.com/login", "facebook.com/api", 
+
+    // [Group D] Communication & Social
     "line.me", "line-apps", "line-scdn", "legy", 
     "messenger.com", "whatsapp.com", "instagram.com/api", "discord.com/api",
 
-    // [Group D] Financial & Payments (金融支付)
+    // [Group E] Financial & Payments
     "paypal.com", "paypalobjects.com",
     "stripe.com", "stripe.network",
     "visa.com", "mastercard.com", "amex.com",
-    "jkos.com", // 街口支付
-    "ecpay.com.tw", "newebpay.com", // 綠界/藍新
+    "jkos.com", "ecpay.com.tw", "newebpay.com", 
 
-    // [Group E] Security & Captcha (風控驗證)
-    "challenges.cloudflare.com", // Cloudflare Turnstile
+    // [Group F] Security & Captcha
+    "challenges.cloudflare.com", 
     "recaptcha.net", "google.com/recaptcha",
     "hcaptcha.com", "arkoselabs.com",
-    // 風控 SDK (移除 sentry.io, anthropic.com)
     "perimeterx.net", "datadome.co", "siftscience.com",
 
-    // [Group F] System Services
+    // [Group G] System Services
     "googleapis.com", "gstatic.com", "googleusercontent.com", 
     "mzstatic.com", "itunes.apple.com"
   ];
@@ -101,30 +103,27 @@
   // ============================================================================
   // 2. [Soft Whitelist] 軟白名單 (Grey Shield - Bypass)
   // ============================================================================
-  // 這些網站允許 MITM，但腳本不應注入噪音，僅做基本清理。
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
-      // 生活服務 (Uber/Booking)
+      // 生活服務
       "uber.com", "ubereats.com", 
       "booking.com", "agoda.com", "airbnb.com", "expedia.com",
-      "tixcraft.com", // 拓元售票
+      "tixcraft.com", 
 
-      // AI & Productivity (Web Interface)
-      // Anthropic 移至此處保護
+      // AI & Productivity
       "anthropic.com", "claude.ai", 
       "gemini.google.com", "bard.google.com", "chatgpt.com", "perplexity.ai",
       "docs.google.com", "drive.google.com", "mail.google.com", "meet.google.com", "calendar.google.com",
       "microsoft.com", "office.com", "teams.microsoft.com", "sharepoint.com", "onenote.com",
       
-      // Streaming (Web Player)
+      // Streaming
       "netflix.com", "spotify.com", "disneyplus.com", "twitch.tv", "youtube.com", "iqiyi.com", "kkbox.com",
       
-      // Taiwan Banks (Web Banking)
+      // Taiwan Banks
       "ctbcbank.com", "cathaybk.com.tw", "esunbank.com.tw", "fubon.com", "taishinbank.com.tw", 
       "megabank.com.tw", "bot.com.tw", "firstbank.com.tw", "hncb.com.tw", "sinopac.com", "post.gov.tw"
     ]);
     
-    // 網域後綴白名單
     const trustedSuffixes = [".gov.tw", ".edu.tw", ".org.tw", ".mil", ".bank"];
     
     return {
@@ -133,7 +132,6 @@
         if (trustedDomains.has(h)) return true;
         for (const d of trustedDomains) { if (h.endsWith('.' + d)) return true; }
         for (const s of trustedSuffixes) { if (h.endsWith(s)) return true; }
-        // 3D Secure 驗證頁面 (刷卡驗證)
         if (lowerUrl.includes("3dsecure") || lowerUrl.includes("acs") || lowerUrl.includes("otp")) return true;
         return false;
       }
@@ -147,8 +145,7 @@
   // ============================================================================
   let mode = "protection";
   
-  // Auto-Shopping Logic (維持電商偽裝)
-  // 這些網站使用 iPhone UA，但會在重度頁面 (Cart) 自動降級為 Lite 模式
+  // Auto-Shopping Logic
   const AUTO_SHOPPING_DOMAINS = [
       "shopee.", "shope.ee", "xiapi", 
       "amazon.", "ebay.", "rakuten.", 
@@ -180,7 +177,7 @@
   if (typeof $request !== 'undefined' && typeof $response === 'undefined') {
     const headers = $request.headers;
     
-    // Hard Exclusion Double Check
+    // Hard Exclusion Check
     if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) {
         $done({ headers });
         return;
@@ -276,7 +273,7 @@
       }
 
       // =========================================================================
-      // [V5.06] Shopping Mode Logic (Adaptive Performance)
+      // Shopping Mode Logic
       // =========================================================================
       if (IS_SHOPPING) {
           try {
@@ -513,17 +510,6 @@
              ProxyGuard.override(Element.prototype, 'getBoundingClientRect', (orig) => function() { return wrap(orig.apply(this, arguments)); });
              ProxyGuard.override(Element.prototype, 'getClientRects', (orig) => function() { const rects = orig.apply(this, arguments); const res = { length: rects.length }; if (win.DOMRectList) Object.setPrototypeOf(res, win.DOMRectList.prototype); res.item = function(i) { return this[i] || null; }; for(let i=0; i<rects.length; i++) res[i] = wrap(rects[i]); return res; });
            } catch(e) {}
-        },
-        canvas: function(win) {
-           try {
-             const noise = (d) => { const step = CONFIG.canvasNoiseStep; if (!step) return; for (let i=0; i<d.length; i+=step*4) { if (RNG.next() < 0.01) d[i] = d[i] ^ 1; } };
-             if (win.OffscreenCanvas) { ProxyGuard.override(win.OffscreenCanvas.prototype, 'convertToBlob', (orig) => function() { try { const area = this.width * this.height; if (area > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments); const ctx = this.getContext('2d'); if (ctx) { const d = ctx.getImageData(0,0,this.width,this.height); noise(d.data); ctx.putImageData(d,0,0); } } catch(e){} return orig.apply(this, arguments); }); }
-             [win.CanvasRenderingContext2D, win.OffscreenCanvasRenderingContext2D].forEach(ctx => { if(!ctx || !ctx.prototype) return; ProxyGuard.override(ctx.prototype, 'getImageData', (orig) => function(x,y,w,h) { const r = orig.apply(this, arguments); const area = w * h; if (w < CONFIG.canvasMinSize || area > CONFIG.canvasMaxNoiseArea) return r; noise(r.data); return r; }); });
-             if (win.HTMLCanvasElement) {
-                ProxyGuard.override(win.HTMLCanvasElement.prototype, 'toDataURL', (orig) => function() { const w=this.width, h=this.height; if (w < CONFIG.canvasMinSize) return orig.apply(this, arguments); if ((w*h) > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments); let p=null; try { p = CanvasPool.get(w, h); p.ctx.clearRect(0,0,w,h); p.ctx.drawImage(this,0,0); const d = p.ctx.getImageData(0,0,w,h); noise(d.data); p.ctx.putImageData(d,0,0); return p.canvas.toDataURL.apply(p.canvas, arguments); } catch(e) { return orig.apply(this, arguments); } finally { if(p) p.release(); } });
-                ProxyGuard.override(win.HTMLCanvasElement.prototype, 'toBlob', (orig) => function(cb, t, q) { const w=this.width, h=this.height; if (w < CONFIG.canvasMinSize) return orig.apply(this, arguments); if ((w*h) > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments); let p=null, released=false; const safeRel = () => { if(!released) { released=true; if(p) p.release(); } }; try { p = CanvasPool.get(w, h); p.ctx.clearRect(0,0,w,h); p.ctx.drawImage(this,0,0); const d = p.ctx.getImageData(0,0,w,h); noise(d.data); p.ctx.putImageData(d,0,0); p.canvas.toBlob((b) => { try{if(cb)cb(b);}finally{safeRel();} }, t, q); setTimeout(safeRel, CONFIG.toBlobReleaseFallbackMs); } catch(e) { safeRel(); return orig.apply(this, arguments); } });
-             }
-           } catch(e) {}
         }
       };
 
@@ -572,3 +558,4 @@
     $done({ body, headers });
   }
 })();
+
