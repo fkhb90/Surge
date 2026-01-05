@@ -167,6 +167,7 @@
     "foodpanda", "fd-api", "deliveryhero", "shopee.tw/verify", 
     "accounts.google.com", "appleid", "login.live.com", 
     "paypal.com", "stripe.com", "recaptcha.net", "hcaptcha.com"
+    "gemini.google.com", "bard.google.com"
   ];
   if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) { $done({}); return; }
 
