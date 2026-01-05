@@ -1,13 +1,15 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   5.07-Shopee-2FA-Fix
- * @description [蝦皮修復版] 針對 Shopee App 的 2FA 驗證頁面進行硬排除。
+ * @version   5.08-Native-Consistency
+ * @description [原生一致性版] 消除恐怖谷效應，停止強制身分偽裝，專注於環境淨化。
  * ----------------------------------------------------------------------------
- * 1. [Fix] 新增 ban.shopee / shopee-security 至硬排除名單。
- * - 原因: 解決 Shopee App 在購物模式下，2FA/驗證頁面無法載入或白屏的問題。
- * - 邏輯: 驗證頁面必須保持 "Clean Environment" 才能通過 App Native 檢測。
- * 2. [Config] 維持對 Foodpanda 的全域語系鎖定與 API 保護。
- * 3. [Core] 保留 V5.06 的穩定性架構與其他硬白名單。
+ * 1. [Strategy] Shopping Mode 重構: 
+ * - 不再強制修改 UA 為 iPhone/Mac。
+ * - 不再偽裝螢幕解析度與觸控特徵。
+ * - 僅執行 "Sanitization" (移除 webdriver/自動化變數)，確保 TLS/TCP 指紋與應用層一致。
+ * 2. [Safety] 解決 App 內嵌瀏覽器 (Shopee/Line) 因 UA 衝突導致的功能異常。
+ * 3. [Config] 維持對 Foodpanda/Uber 等高風險服務的 API 保護與硬排除機制。
+ * 4. [Core] 綠色模式 (Protection) 仍維持隨機噪音注入，用於非敏感瀏覽。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -20,10 +22,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // [V5.07] 更新 Seed
-    KEY_SEED: "FP_SHIELD_SEED_V507", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V507",
-    INJECT_MARKER: "__FP_SHIELD_V507__",
+    // [V5.08] 更新 Seed
+    KEY_SEED: "FP_SHIELD_SEED_V508", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V508",
+    INJECT_MARKER: "__FP_SHIELD_V508__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -36,16 +38,14 @@
     CACHE_CLEANUP_INTERVAL: 30000,
     TOBLOB_RELEASE_FALLBACK_MS: 3000,
     
-    // User Agents (2026 Standards)
-    UA_MAC: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
-    UA_IPHONE: "Mozilla/5.0 (iPhone; CPU iPhone OS 19_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/19.2 Mobile/15E148 Safari/604.1"
+    // [V5.08] 移除強制 UA 常數，改為動態偵測或僅在綠色模式使用
+    // 僅供 Protection Mode (綠色) 混淆使用，Shopping Mode 不使用
+    UA_SPOOF_MAC: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
   };
 
   const REGEX = {
     CONTENT_TYPE_HTML: /text\/html/i,
     CONTENT_TYPE_JSON: /(application|text)\/(json|xml|javascript)/i,
-    // Heavy Pages for Lite Mode
-    HEAVY_PAGES: /cart|checkout|buy|trade|billing|payment|video|live|stream|player/i,
     HEAD_TAG: /<head[^>]*>/i, 
     HTML_TAG: /<html[^>]*>/i,
     META_CSP_STRICT: /<meta[^>]*http-equiv=["']?Content-Security-Policy["']?[^>]*>/gi
@@ -59,72 +59,43 @@
   // ============================================================================
   // 1. [Hard Exclusion] 硬排除 - 絕對不碰的領域
   // ============================================================================
+  // 針對 2FA 核心與 API，維持 Pass-through
   const HARD_EXCLUSION_KEYWORDS = [
-    // [Group A] Foodpanda Ecosystem (High Risk)
+    // Foodpanda Ecosystem
     "foodpanda", "fd-api", "deliveryhero", "foodora",
 
-    // [Group B] Shopee Security & 2FA (CRITICAL FIX V5.07)
-    // 這些子網域負責處理驗證碼與帳號風控，必須絕對純淨
+    // Shopee Security (2FA Page) - 雖然 V5.08 改善了相容性，但驗證頁面仍建議放行
     "ban.shopee", "shopee-security", "shopee.tw/verify", "shopee.tw/buyer/login/otp",
 
-    // [Group C] Identity Providers (帳號核心)
-    "accounts.google.com", 
-    "apple.com", "icloud.com", "appleid", 
-    "login.live.com", "login.microsoftonline.com", 
-    "facebook.com/login", "facebook.com/api", 
+    // Identity & Payments
+    "accounts.google.com", "apple.com", "icloud.com", "appleid", 
+    "login.live.com", "facebook.com/login", "facebook.com/api",
+    "paypal.com", "stripe.com", "visa.com", "mastercard.com", "jkos.com", "ecpay.com.tw",
 
-    // [Group D] Communication & Social
-    "line.me", "line-apps", "line-scdn", "legy", 
-    "messenger.com", "whatsapp.com", "instagram.com/api", "discord.com/api",
+    // Captcha & Security SDKs
+    "challenges.cloudflare.com", "recaptcha.net", "google.com/recaptcha",
+    "hcaptcha.com", "arkoselabs.com", "perimeterx.net", "datadome.co", "siftscience.com",
 
-    // [Group E] Financial & Payments
-    "paypal.com", "paypalobjects.com",
-    "stripe.com", "stripe.network",
-    "visa.com", "mastercard.com", "amex.com",
-    "jkos.com", "ecpay.com.tw", "newebpay.com", 
-
-    // [Group F] Security & Captcha
-    "challenges.cloudflare.com", 
-    "recaptcha.net", "google.com/recaptcha",
-    "hcaptcha.com", "arkoselabs.com",
-    "perimeterx.net", "datadome.co", "siftscience.com",
-
-    // [Group G] System Services
-    "googleapis.com", "gstatic.com", "googleusercontent.com", 
-    "mzstatic.com", "itunes.apple.com"
+    // System Services
+    "googleapis.com", "gstatic.com", "itunes.apple.com"
   ];
   
-  // 偵測到硬排除關鍵字，直接回傳空物件 (Pass-through)
   if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) {
     $done({});
     return;
   }
 
   // ============================================================================
-  // 2. [Soft Whitelist] 軟白名單 (Grey Shield - Bypass)
+  // 2. [Soft Whitelist] 軟白名單 (Grey Shield)
   // ============================================================================
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
-      // 生活服務
-      "uber.com", "ubereats.com", 
-      "booking.com", "agoda.com", "airbnb.com", "expedia.com",
-      "tixcraft.com", 
-
-      // AI & Productivity
-      "anthropic.com", "claude.ai", 
-      "gemini.google.com", "bard.google.com", "chatgpt.com", "perplexity.ai",
-      "docs.google.com", "drive.google.com", "mail.google.com", "meet.google.com", "calendar.google.com",
-      "microsoft.com", "office.com", "teams.microsoft.com", "sharepoint.com", "onenote.com",
-      
-      // Streaming
-      "netflix.com", "spotify.com", "disneyplus.com", "twitch.tv", "youtube.com", "iqiyi.com", "kkbox.com",
-      
-      // Taiwan Banks
-      "ctbcbank.com", "cathaybk.com.tw", "esunbank.com.tw", "fubon.com", "taishinbank.com.tw", 
-      "megabank.com.tw", "bot.com.tw", "firstbank.com.tw", "hncb.com.tw", "sinopac.com", "post.gov.tw"
+      "uber.com", "ubereats.com", "booking.com", "agoda.com", "tixcraft.com",
+      "anthropic.com", "claude.ai", "gemini.google.com", "chatgpt.com", "openai.com",
+      "microsoft.com", "office.com", "netflix.com", "spotify.com",
+      "ctbcbank.com", "cathaybk.com.tw", "esunbank.com.tw", "fubon.com"
     ]);
-    
-    const trustedSuffixes = [".gov.tw", ".edu.tw", ".org.tw", ".mil", ".bank"];
+    const trustedSuffixes = [".gov.tw", ".edu.tw", ".org.tw", ".bank"];
     
     return {
       check: (h) => {
@@ -172,37 +143,29 @@
   const IS_SHOPPING = (mode === "shopping");
 
   // ============================================================================
-  // Phase A: Network Layer (Header Spoofing)
+  // Phase A: Network Layer
   // ============================================================================
   if (typeof $request !== 'undefined' && typeof $response === 'undefined') {
     const headers = $request.headers;
     
-    // Hard Exclusion Check
-    if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) {
-        $done({ headers });
-        return;
-    }
+    if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) { $done({ headers }); return; }
+    if (isSoftWhitelisted) { $done({ headers }); return; }
 
-    if (isSoftWhitelisted) {
-        $done({ headers });
-        return;
-    }
-
-    Object.keys(headers).forEach(k => {
-      const l = k.toLowerCase();
-      if (l === 'user-agent' || l.startsWith('sec-ch-ua')) delete headers[k];
-    });
-
+    // [V5.08 Change] Shopping Mode 不再修改 UA
+    // 讓流量特徵保持 "Native"，避免與 TLS 指紋衝突
     if (IS_SHOPPING) {
-      headers['User-Agent'] = CONST.UA_IPHONE;
-      headers['sec-ch-ua'] = '"Not(A:Brand";v="99", "Chromium";v="143", "Google Chrome";v="143"'; 
-      headers['sec-ch-ua-mobile'] = "?1"; 
-      headers['sec-ch-ua-platform'] = '"iOS"'; 
+       // Do NOT modify User-Agent for Shopping Mode
+       // Just let it pass as original (Mobile stay Mobile, Desktop stay Desktop)
     } else {
-      headers['User-Agent'] = CONST.UA_MAC;
-      headers['sec-ch-ua'] = '"Not(A:Brand";v="99", "Google Chrome";v="143", "Chromium";v="143"';
-      headers['sec-ch-ua-mobile'] = "?0";
-      headers['sec-ch-ua-platform'] = '"macOS"';
+       // Protection Mode (Green) - 仍執行標準化偽裝，防止追蹤
+       Object.keys(headers).forEach(k => {
+         const l = k.toLowerCase();
+         if (l === 'user-agent' || l.startsWith('sec-ch-ua')) delete headers[k];
+       });
+       headers['User-Agent'] = CONST.UA_SPOOF_MAC;
+       headers['sec-ch-ua'] = '"Not(A:Brand";v="99", "Google Chrome";v="124", "Chromium";v="124"';
+       headers['sec-ch-ua-mobile'] = "?0";
+       headers['sec-ch-ua-platform'] = '"macOS"';
     }
 
     $done({ headers });
@@ -225,16 +188,14 @@
 
     // Badge Logic
     let badgeColor = "#28CD41"; 
-    let badgeText = "FP: Shield Active";
+    let badgeText = "FP: Shield Active"; // Green: Spoofed UA + Noise
     
-    // Universal Heavy Page Detection
-    const IS_HEAVY_PAGE = REGEX.HEAVY_PAGES.test(lowerUrl);
-
     if (IS_SHOPPING) {
-        badgeColor = IS_HEAVY_PAGE ? "#5856D6" : "#AF52DE"; 
-        badgeText = IS_HEAVY_PAGE ? "FP: Shopping Lite" : "FP: Shopping Mode"; 
+        badgeColor = "#AF52DE"; 
+        badgeText = "FP: Native Clean"; // Purple: Real UA + No Noise (Sanitized)
     } else if (isSoftWhitelisted) {
-        badgeColor = "#636366"; badgeText = "FP: Bypass (Safe)"; 
+        badgeColor = "#636366"; 
+        badgeText = "FP: Bypass (Safe)"; // Grey: Real UA + No Action
     }
 
     const injectionScript = `
@@ -260,7 +221,6 @@
 
       const IS_SHOPPING = ${IS_SHOPPING};
       const IS_WHITELISTED = ${isSoftWhitelisted};
-      const IS_HEAVY_PAGE = ${IS_HEAVY_PAGE};
 
       const safeDefine = (obj, prop, descriptor) => {
           if (!obj) return false;
@@ -273,50 +233,30 @@
       }
 
       // =========================================================================
-      // Shopping Mode Logic
+      // [V5.08] Native Consistency Logic (Shopping Mode)
       // =========================================================================
       if (IS_SHOPPING) {
           try {
+              // 1. Sanitization: Remove Automation Flags ONLY
               if (navigator && 'webdriver' in navigator) delete navigator.webdriver;
               if (window.cdc_adoQpoasnfa76pfcZLmcfl_Array) delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
-
-              Object.defineProperty(navigator, 'platform', { get: () => 'iPhone', configurable: true });
-              Object.defineProperty(navigator, 'vendor', { get: () => 'Apple Computer, Inc.', configurable: true });
-              Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5, configurable: true });
               
-              if (!IS_HEAVY_PAGE) {
-                  Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 6, configurable: true });
-                  Object.defineProperty(navigator, 'deviceMemory', { get: () => 8, configurable: true });
-
-                  const screenProps = { width: 430, height: 932, availWidth: 430, availHeight: 932, colorDepth: 32, pixelDepth: 32 };
-                  for (let prop in screenProps) { Object.defineProperty(window.screen, prop, { get: () => screenProps[prop], configurable: true }); }
-
-                  const spoofWebGL = (ctx) => {
-                      if (!ctx) return;
-                      const getParameter = ctx.getParameter;
-                      ctx.getParameter = function(param) {
-                          if (param === 37445) return 'Apple Inc.'; 
-                          if (param === 37446) return 'Apple GPU'; 
-                          return getParameter.apply(this, arguments);
-                      };
-                  };
-                  
-                  const cvs = document.createElement('canvas');
-                  spoofWebGL(cvs.getContext('webgl')); spoofWebGL(cvs.getContext('experimental-webgl')); spoofWebGL(cvs.getContext('webgl2'));
-                  
-                  const oldGetContext = HTMLCanvasElement.prototype.getContext;
-                  HTMLCanvasElement.prototype.getContext = function(type, opts) {
-                      const ctx = oldGetContext.call(this, type, opts);
-                      if (type && type.includes('webgl')) spoofWebGL(ctx);
-                      return ctx;
-                  };
-              }
-
-              if (!('ontouchstart' in window)) { Object.defineProperty(window, 'ontouchstart', { value: null, writable: true }); }
+              // [V5.08 Change] 停止所有主動的偽裝 (Spoofing)
+              // 不修改 platform, vendor, hardwareConcurrency, screen size
+              // 確保 JS 指紋與 Network Stack (TCP/TLS) 保持一致
+              
+              // 這樣無論是 PC 還是 Mobile，網站都會看到一套"合理"的配置
+              // PC: Mac UA + Mac TCP + Mac Screen
+              // Mobile: iPhone UA + iPhone TCP + iPhone Screen
+              
           } catch(e) {}
-          return; 
+          return; // Stop here. No noise injection.
       }
 
+      // =========================================================================
+      // Protection Mode (Green) - Spoofing & Noise Injection
+      // =========================================================================
+      
       const CONFIG = {
         rectNoiseRate: 0.0001, canvasNoiseStep: 2, audioNoiseLevel: 1e-6,
         canvasMinSize: ${CONST.CANVAS_MIN_SIZE}, canvasMaxNoiseArea: ${CONST.CANVAS_MAX_NOISE_AREA},
@@ -355,6 +295,7 @@
       };
       if (RNG.s === 0) RNG.s = 1;
 
+      // Persona 僅用於 Protection Mode
       const Persona = (function() {
         const MAC_TIERS = {
             MID: { cpuPool: [8, 10], ramPool: [16, 24], gpuPool: [{v: 'Apple', r: 'Apple M2', w: 60}, {v: 'Apple', r: 'Apple M2 Pro', w: 40}] },
@@ -365,8 +306,8 @@
         const gpu = RNG.pickWeighted(tier.gpuPool); gpu.topo = 'unified'; gpu.tex = 16384;
         const plugins = [{ name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }, { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }, { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }];
         return { 
-            ua: { ver: "143", platform: "MacIntel" },
-            ch: { brands: [{brand:"Chromium",version:"143"},{brand:"Google Chrome",version:"143"},{brand:"Not(A:Brand",version:"99"}], platform: "macOS", mobile: false, arch: "x86", bitness: "64", model: "", platVer: "15.7.0" },
+            ua: { ver: "124", platform: "MacIntel" },
+            ch: { brands: [{brand:"Chromium",version:"124"},{brand:"Google Chrome",version:"124"},{brand:"Not(A:Brand",version:"99"}], platform: "macOS", mobile: false, arch: "x86", bitness: "64", model: "", platVer: "15.7.0" },
             hw: { cpu, ram }, gpu: gpu, plugins: plugins
         };
       })();
@@ -558,4 +499,3 @@
     $done({ body, headers });
   }
 })();
-
