@@ -1,15 +1,12 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   5.08-Native-Consistency
- * @description [原生一致性版] 消除恐怖谷效應，停止強制身分偽裝，專注於環境淨化。
+ * @version   5.14-Stable-Evolution
+ * @description [穩定演化版] 整合 V5.13.x 系列修復，確立 Canvas 池化與參數注入的穩定性架構。
  * ----------------------------------------------------------------------------
- * 1. [Strategy] Shopping Mode 重構: 
- * - 不再強制修改 UA 為 iPhone/Mac。
- * - 不再偽裝螢幕解析度與觸控特徵。
- * - 僅執行 "Sanitization" (移除 webdriver/自動化變數)，確保 TLS/TCP 指紋與應用層一致。
- * 2. [Safety] 解決 App 內嵌瀏覽器 (Shopee/Line) 因 UA 衝突導致的功能異常。
- * 3. [Config] 維持對 Foodpanda/Uber 等高風險服務的 API 保護與硬排除機制。
- * 4. [Core] 綠色模式 (Protection) 仍維持隨機噪音注入，用於非敏感瀏覽。
+ * 1. [Stable] Core: 經迴歸測試驗證的 CanvasPool 記憶體管理與噪聲注入邏輯。
+ * 2. [Config] Logic: 內建完整參數定義 (Step=2, Rect=0)，杜絕 NaN 運算錯誤。
+ * 3. [Scope] Ecosystem: 支援台灣主流電商 (Coupang, Ruten) 與特殊 WebView 環境。
+ * 4. [Lifecycle] Seed: 更新至 V514 序列，執行週期性指紋重置。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -22,10 +19,15 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // [V5.08] 更新 Seed
-    KEY_SEED: "FP_SHIELD_SEED_V508", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V508",
-    INJECT_MARKER: "__FP_SHIELD_V508__",
+    // [V5.14] Seed Rotation - 週期性重置指紋
+    KEY_SEED: "FP_SHIELD_SEED_V514", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V514",
+    INJECT_MARKER: "__FP_SHIELD_V514__",
+    
+    // Logic Parameters (Validated in V5.13.2 Regression Test)
+    CANVAS_NOISE_STEP: 2,         // 步長: 2 (平衡效能與隱匿性)
+    RECT_NOISE_RATE: 0,           // 幾何噪聲: 0 (確保 UI 佈局絕對穩定)
+    AUDIO_NOISE_LEVEL: 0.00001,   // 音訊噪聲: 微量 (防止靜音指紋識別)
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -38,14 +40,14 @@
     CACHE_CLEANUP_INTERVAL: 30000,
     TOBLOB_RELEASE_FALLBACK_MS: 3000,
     
-    // [V5.08] 移除強制 UA 常數，改為動態偵測或僅在綠色模式使用
-    // 僅供 Protection Mode (綠色) 混淆使用，Shopping Mode 不使用
-    UA_SPOOF_MAC: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    // UA Strategy: Frozen OS Version (10_15_7) + Modern Browser Version (143)
+    UA_SPOOF_MAC: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
   };
 
   const REGEX = {
     CONTENT_TYPE_HTML: /text\/html/i,
     CONTENT_TYPE_JSON: /(application|text)\/(json|xml|javascript)/i,
+    HEAVY_PAGES: /cart|checkout|buy|trade|billing|payment|video|live|stream|player/i,
     HEAD_TAG: /<head[^>]*>/i, 
     HTML_TAG: /<html[^>]*>/i,
     META_CSP_STRICT: /<meta[^>]*http-equiv=["']?Content-Security-Policy["']?[^>]*>/gi
@@ -57,26 +59,16 @@
   try { hostname = new URL(currentUrl).hostname.toLowerCase(); } catch (e) {}
 
   // ============================================================================
-  // 1. [Hard Exclusion] 硬排除 - 絕對不碰的領域
+  // 1. [Hard Exclusion] 硬排除
   // ============================================================================
-  // 針對 2FA 核心與 API，維持 Pass-through
   const HARD_EXCLUSION_KEYWORDS = [
-    // Foodpanda Ecosystem
     "foodpanda", "fd-api", "deliveryhero", "foodora",
-
-    // Shopee Security (2FA Page) - 雖然 V5.08 改善了相容性，但驗證頁面仍建議放行
     "ban.shopee", "shopee-security", "shopee.tw/verify", "shopee.tw/buyer/login/otp",
-
-    // Identity & Payments
     "accounts.google.com", "apple.com", "icloud.com", "appleid", 
     "login.live.com", "facebook.com/login", "facebook.com/api",
     "paypal.com", "stripe.com", "visa.com", "mastercard.com", "jkos.com", "ecpay.com.tw",
-
-    // Captcha & Security SDKs
     "challenges.cloudflare.com", "recaptcha.net", "google.com/recaptcha",
     "hcaptcha.com", "arkoselabs.com", "perimeterx.net", "datadome.co", "siftscience.com",
-
-    // System Services
     "googleapis.com", "gstatic.com", "itunes.apple.com"
   ];
   
@@ -86,7 +78,7 @@
   }
 
   // ============================================================================
-  // 2. [Soft Whitelist] 軟白名單 (Grey Shield)
+  // 2. [Soft Whitelist] 軟白名單
   // ============================================================================
   const WhitelistManager = (() => {
     const trustedDomains = new Set([
@@ -116,11 +108,11 @@
   // ============================================================================
   let mode = "protection";
   
-  // Auto-Shopping Logic
   const AUTO_SHOPPING_DOMAINS = [
       "shopee.", "shope.ee", "xiapi", 
       "amazon.", "ebay.", "rakuten.", 
-      "pchome.com.tw", "momoshop.com.tw" 
+      "pchome.com.tw", "momoshop.com.tw",
+      "coupang.com", "ruten.com.tw"
   ];
 
   if (AUTO_SHOPPING_DOMAINS.some(d => hostname.includes(d))) {
@@ -151,19 +143,15 @@
     if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) { $done({ headers }); return; }
     if (isSoftWhitelisted) { $done({ headers }); return; }
 
-    // [V5.08 Change] Shopping Mode 不再修改 UA
-    // 讓流量特徵保持 "Native"，避免與 TLS 指紋衝突
     if (IS_SHOPPING) {
-       // Do NOT modify User-Agent for Shopping Mode
-       // Just let it pass as original (Mobile stay Mobile, Desktop stay Desktop)
+       // Pass-through User-Agent
     } else {
-       // Protection Mode (Green) - 仍執行標準化偽裝，防止追蹤
        Object.keys(headers).forEach(k => {
          const l = k.toLowerCase();
          if (l === 'user-agent' || l.startsWith('sec-ch-ua')) delete headers[k];
        });
        headers['User-Agent'] = CONST.UA_SPOOF_MAC;
-       headers['sec-ch-ua'] = '"Not(A:Brand";v="99", "Google Chrome";v="124", "Chromium";v="124"';
+       headers['sec-ch-ua'] = '"Not(A:Brand";v="99", "Google Chrome";v="143", "Chromium";v="143"';
        headers['sec-ch-ua-mobile'] = "?0";
        headers['sec-ch-ua-platform'] = '"macOS"';
     }
@@ -180,22 +168,20 @@
     const headers = $response.headers || {};
     const cType = (headers['Content-Type'] || headers['content-type'] || "").toLowerCase();
 
-    // API Safety Guard
     if (REGEX.CONTENT_TYPE_JSON.test(cType)) { $done({}); return; }
     if (!body || !cType.includes("html")) { $done({}); return; }
     if ([204, 206, 301, 302, 304].includes($response.status)) { $done({}); return; }
     if (body.includes(CONST.INJECT_MARKER)) { $done({}); return; }
 
-    // Badge Logic
     let badgeColor = "#28CD41"; 
-    let badgeText = "FP: Shield Active"; // Green: Spoofed UA + Noise
+    let badgeText = "FP: Shield V5.14"; 
     
     if (IS_SHOPPING) {
         badgeColor = "#AF52DE"; 
-        badgeText = "FP: Native Clean"; // Purple: Real UA + No Noise (Sanitized)
+        badgeText = "FP: Native Clean"; 
     } else if (isSoftWhitelisted) {
         badgeColor = "#636366"; 
-        badgeText = "FP: Bypass (Safe)"; // Grey: Real UA + No Action
+        badgeText = "FP: Bypass (Safe)"; 
     }
 
     const injectionScript = `
@@ -232,39 +218,40 @@
           return; 
       }
 
-      // =========================================================================
-      // [V5.08] Native Consistency Logic (Shopping Mode)
-      // =========================================================================
       if (IS_SHOPPING) {
           try {
-              // 1. Sanitization: Remove Automation Flags ONLY
-              if (navigator && 'webdriver' in navigator) delete navigator.webdriver;
+              const nav = navigator;
+              if (nav && 'webdriver' in nav) delete nav.webdriver;
               if (window.cdc_adoQpoasnfa76pfcZLmcfl_Array) delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
-              
-              // [V5.08 Change] 停止所有主動的偽裝 (Spoofing)
-              // 不修改 platform, vendor, hardwareConcurrency, screen size
-              // 確保 JS 指紋與 Network Stack (TCP/TLS) 保持一致
-              
-              // 這樣無論是 PC 還是 Mobile，網站都會看到一套"合理"的配置
-              // PC: Mac UA + Mac TCP + Mac Screen
-              // Mobile: iPhone UA + iPhone TCP + iPhone Screen
-              
           } catch(e) {}
-          return; // Stop here. No noise injection.
+          return; 
       }
 
       // =========================================================================
-      // Protection Mode (Green) - Spoofing & Noise Injection
+      // Protection Mode (Green) - Gaussian Noise
       // =========================================================================
       
       const CONFIG = {
-        rectNoiseRate: 0.0001, canvasNoiseStep: 2, audioNoiseLevel: 1e-6,
-        canvasMinSize: ${CONST.CANVAS_MIN_SIZE}, canvasMaxNoiseArea: ${CONST.CANVAS_MAX_NOISE_AREA},
-        maxPoolSize: ${CONST.MAX_POOL_SIZE}, maxPoolDim: ${CONST.MAX_POOL_DIM},
-        webglCacheSize: ${CONST.WEBGL_PARAM_CACHE_SIZE}, cleanupInterval: ${CONST.CACHE_CLEANUP_INTERVAL},
+        canvasNoiseStep: ${CONST.CANVAS_NOISE_STEP}, 
+        rectNoiseRate: ${CONST.RECT_NOISE_RATE},
+        audioNoiseLevel: ${CONST.AUDIO_NOISE_LEVEL},
+        
+        canvasMinSize: ${CONST.CANVAS_MIN_SIZE}, 
+        canvasMaxNoiseArea: ${CONST.CANVAS_MAX_NOISE_AREA},
+        maxPoolSize: ${CONST.MAX_POOL_SIZE}, 
+        maxPoolDim: ${CONST.MAX_POOL_DIM},
+        webglCacheSize: ${CONST.WEBGL_PARAM_CACHE_SIZE}, 
+        cleanupInterval: ${CONST.CACHE_CLEANUP_INTERVAL},
         toBlobReleaseFallbackMs: ${CONST.TOBLOB_RELEASE_FALLBACK_MS}
       };
       
+      const gaussianRandom = () => {
+          let u = 0, v = 0;
+          while(u === 0) u = Math.random(); 
+          while(v === 0) v = Math.random();
+          return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+      };
+
       const Seed = (function() {
         const safeGet = (k) => { try { return localStorage.getItem(k); } catch(e) { return null; } };
         const safeSet = (k, v) => { try { localStorage.setItem(k, v); } catch(e) {} };
@@ -295,7 +282,6 @@
       };
       if (RNG.s === 0) RNG.s = 1;
 
-      // Persona 僅用於 Protection Mode
       const Persona = (function() {
         const MAC_TIERS = {
             MID: { cpuPool: [8, 10], ramPool: [16, 24], gpuPool: [{v: 'Apple', r: 'Apple M2', w: 60}, {v: 'Apple', r: 'Apple M2 Pro', w: 40}] },
@@ -306,8 +292,12 @@
         const gpu = RNG.pickWeighted(tier.gpuPool); gpu.topo = 'unified'; gpu.tex = 16384;
         const plugins = [{ name: 'PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }, { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }, { name: 'Chromium PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format' }];
         return { 
-            ua: { ver: "124", platform: "MacIntel" },
-            ch: { brands: [{brand:"Chromium",version:"124"},{brand:"Google Chrome",version:"124"},{brand:"Not(A:Brand",version:"99"}], platform: "macOS", mobile: false, arch: "x86", bitness: "64", model: "", platVer: "15.7.0" },
+            ua: { ver: "143", platform: "MacIntel" },
+            ch: { 
+                brands: [{brand:"Chromium",version:"143"},{brand:"Google Chrome",version:"143"},{brand:"Not(A:Brand",version:"99"}], 
+                platform: "macOS", mobile: false, arch: "x86", bitness: "64", model: "", 
+                platVer: "10.15.7" 
+            },
             hw: { cpu, ram }, gpu: gpu, plugins: plugins
         };
       })();
@@ -363,17 +353,37 @@
         const shrink = (item) => { try { item.c.width = 1; item.c.height = 1; } catch(e) {} };
         return {
           get: function(w, h) {
+            // Case 1: Oversized request - Do not pool
             if (!w || !h || (w*h) > CONFIG.maxPoolDim) {
               const c = document.createElement('canvas'); if (w && h && (w*h) <= CONFIG.maxPoolDim) { c.width = w; c.height = h; }
               return { canvas: c, ctx: c.getContext('2d', {willReadFrequently:true}), release: function(){ try{c.width=1;c.height=1;}catch(e){} } };
             }
+            
+            // Case 2: Reuse existing cached item
             let best = null;
             for (let i = 0; i < pool.length; i++) if (!pool[i].u && pool[i].c.width >= w && pool[i].c.height >= h) { if (!best || pool[i].t < best.t) best = pool[i]; }
-            if (!best) {
-              if (pool.length < CONFIG.maxPoolSize) { const c = document.createElement('canvas'); c.width = w; c.height = h; return { canvas: c, ctx: c.getContext('2d', {willReadFrequently:true}), release: function(){ try{c.width=1;c.height=1;}catch(e){} } }; }
+            if (best) {
+                best.u = true; best.t = Date.now(); best.c.width = w; best.c.height = h;
+                return { canvas: best.c, ctx: best.x, release: function() { best.u = false; best.t = Date.now(); } };
             }
-            best.u = true; best.t = Date.now(); best.c.width = w; best.c.height = h;
-            return { canvas: best.c, ctx: best.x, release: function() { best.u = false; best.t = Date.now(); } };
+
+            // Case 3: Create NEW pooled item (if space permits)
+            if (pool.length < CONFIG.maxPoolSize) { 
+                const c = document.createElement('canvas'); c.width = w; c.height = h; 
+                const ctx = c.getContext('2d', {willReadFrequently:true});
+                // [V5.14 Stable] Push to pool immediately
+                const item = { c: c, x: ctx, u: true, t: Date.now() };
+                pool.push(item);
+                return { 
+                    canvas: c, 
+                    ctx: ctx, 
+                    release: function(){ item.u = false; item.t = Date.now(); } 
+                }; 
+            }
+            
+            // Case 4: Pool full, temporary instance (Fallback)
+            const c = document.createElement('canvas'); c.width = w; c.height = h; 
+            return { canvas: c, ctx: c.getContext('2d', {willReadFrequently:true}), release: function(){ try{c.width=1;c.height=1;}catch(e){} } };
           },
           cleanup: function() { for(let i=0; i<pool.length; i++) if(!pool[i].u) shrink(pool[i]); },
           clearAll: function() { for(let i=0; i<pool.length; i++) shrink(pool[i]); pool.length=0; }
@@ -395,7 +405,15 @@
             for (let x = 0; x < w; x += step) {
               const i = (rowOffset + x) * 4; if (i + 2 >= d.length) continue;
               const n = Noise.spatial01(x, y, rowSalt);
-              if (n < 0.05) { const delta = (((n * 1000) | 0) & 1) ? 1 : -1; d[i] = Math.max(0, Math.min(255, d[i] + delta)); d[i+1] = Math.max(0, Math.min(255, d[i+1] - delta)); d[i+2] = Math.max(0, Math.min(255, d[i+2] + delta)); }
+              if (n < 0.05) { 
+                  const g = gaussianRandom(); 
+                  const jitter = Math.round(g * 0.8); 
+                  if (jitter !== 0) {
+                      d[i] = Math.max(0, Math.min(255, d[i] + jitter)); 
+                      d[i+1] = Math.max(0, Math.min(255, d[i+1] - jitter)); 
+                      d[i+2] = Math.max(0, Math.min(255, d[i+2] + jitter)); 
+                  }
+              }
             }
           }
         },
@@ -436,7 +454,17 @@
             });
           } catch(e) {}
         },
-        audio: function(win) { if (CONFIG.audioNoiseLevel < 1e-8) return; try { if(win.AnalyserNode) ProxyGuard.override(win.AnalyserNode.prototype, 'getFloatFrequencyData', (orig)=>function(a){ const r=orig.apply(this,arguments); Noise.audio(a); return r; }); if(win.OfflineAudioContext) ProxyGuard.override(win.OfflineAudioContext.prototype, 'startRendering', (orig)=>function(){ return orig.apply(this,arguments).then(b=>{ if(b) Noise.audio(b.getChannelData(0)); return b; }); }); } catch(e){} },
+        audio: function(win) { 
+           if (CONFIG.audioNoiseLevel < 1e-8) return; 
+           try { 
+              if(win.AnalyserNode && win.AnalyserNode.prototype) {
+                  ProxyGuard.override(win.AnalyserNode.prototype, 'getFloatFrequencyData', (orig)=>function(a){ const r=orig.apply(this,arguments); Noise.audio(a); return r; }); 
+              }
+              if(win.OfflineAudioContext && win.OfflineAudioContext.prototype) {
+                  ProxyGuard.override(win.OfflineAudioContext.prototype, 'startRendering', (orig)=>function(){ return orig.apply(this,arguments).then(b=>{ if(b) Noise.audio(b.getChannelData(0)); return b; }); }); 
+              }
+           } catch(e){} 
+        },
         rects: function(win) {
            try {
              const Element = win.Element; if (!Element) return;
@@ -451,6 +479,71 @@
              ProxyGuard.override(Element.prototype, 'getBoundingClientRect', (orig) => function() { return wrap(orig.apply(this, arguments)); });
              ProxyGuard.override(Element.prototype, 'getClientRects', (orig) => function() { const rects = orig.apply(this, arguments); const res = { length: rects.length }; if (win.DOMRectList) Object.setPrototypeOf(res, win.DOMRectList.prototype); res.item = function(i) { return this[i] || null; }; for(let i=0; i<rects.length; i++) res[i] = wrap(rects[i]); return res; });
            } catch(e) {}
+        },
+        canvas: function(win) {
+           try {
+             if (win.OffscreenCanvas) { 
+                 ProxyGuard.override(win.OffscreenCanvas.prototype, 'convertToBlob', (orig) => function() { 
+                     try { 
+                         const area = this.width * this.height; 
+                         if (area > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments); 
+                         const ctx = this.getContext('2d'); 
+                         if (ctx) { 
+                             const d = ctx.getImageData(0,0,this.width,this.height); 
+                             Noise.pixel(d.data, this.width, this.height); 
+                             ctx.putImageData(d,0,0); 
+                         } 
+                     } catch(e){} 
+                     return orig.apply(this, arguments); 
+                 }); 
+             }
+             
+             [win.CanvasRenderingContext2D, win.OffscreenCanvasRenderingContext2D].forEach(ctx => { 
+                if(!ctx || !ctx.prototype) return; 
+                ProxyGuard.override(ctx.prototype, 'getImageData', (orig) => function(x,y,w,h) { 
+                   const r = orig.apply(this, arguments); 
+                   const area = w * h; 
+                   if (w < CONFIG.canvasMinSize || area > CONFIG.canvasMaxNoiseArea) return r; 
+                   Noise.pixel(r.data, w, h); 
+                   return r; 
+                }); 
+             });
+             
+             if (win.HTMLCanvasElement) {
+                ProxyGuard.override(win.HTMLCanvasElement.prototype, 'toDataURL', (orig) => function() { 
+                   const w=this.width, h=this.height; 
+                   if (w < CONFIG.canvasMinSize) return orig.apply(this, arguments); 
+                   if ((w*h) > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments); 
+                   let p=null; 
+                   try { 
+                      p = CanvasPool.get(w, h); 
+                      p.ctx.clearRect(0,0,w,h); p.ctx.drawImage(this,0,0); 
+                      const d = p.ctx.getImageData(0,0,w,h); 
+                      Noise.pixel(d.data, w, h); 
+                      p.ctx.putImageData(d,0,0); 
+                      return p.canvas.toDataURL.apply(p.canvas, arguments); 
+                   } catch(e) { return orig.apply(this, arguments); } 
+                   finally { if(p) p.release(); } 
+                });
+                
+                ProxyGuard.override(win.HTMLCanvasElement.prototype, 'toBlob', (orig) => function(cb, t, q) { 
+                   const w=this.width, h=this.height; 
+                   if (w < CONFIG.canvasMinSize) return orig.apply(this, arguments); 
+                   if ((w*h) > CONFIG.canvasMaxNoiseArea) return orig.apply(this, arguments); 
+                   let p=null, released=false; 
+                   const safeRel = () => { if(!released) { released=true; if(p) p.release(); } }; 
+                   try { 
+                      p = CanvasPool.get(w, h); 
+                      p.ctx.clearRect(0,0,w,h); p.ctx.drawImage(this,0,0); 
+                      const d = p.ctx.getImageData(0,0,w,h); 
+                      Noise.pixel(d.data, w, h); 
+                      p.ctx.putImageData(d,0,0); 
+                      p.canvas.toBlob((b) => { try{if(cb)cb(b);}finally{safeRel();} }, t, q); 
+                      setTimeout(safeRel, CONFIG.toBlobReleaseFallbackMs); 
+                   } catch(e) { safeRel(); return orig.apply(this, arguments); } 
+                });
+             }
+           } catch(e) {}
         }
       };
 
@@ -461,13 +554,13 @@
         Modules.webgl(win);
         Modules.audio(win);
         Modules.rects(win);
-        Modules.canvas(win);
+        Modules.canvas(win); 
       };
 
       const init = function() {
         inject(window);
         new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => {
-           try { if (n.tagName === 'IFRAME' && n.contentWindow) n.addEventListener('load', () => inject(n.contentWindow)); } catch(e){}
+           try { if (n.tagName === 'IFRAME' && n.contentWindow) n.addEventListener('load', () => inject(n.contentWindow)); } catch(e){}\
         }))).observe(document, {childList:true, subtree:true});
       };
 
@@ -478,7 +571,6 @@
     </script>
     `;
 
-    // 注入順序優化
     if (REGEX.HEAD_TAG.test(body)) {
       body = body.replace(REGEX.HEAD_TAG, m => m + injectionScript);
     } else if (REGEX.HTML_TAG.test(body)) {
@@ -487,7 +579,6 @@
       body = injectionScript + body;
     }
 
-    // Remove CSP
     Object.keys(headers).forEach(k => {
       const lowerKey = k.toLowerCase();
       if (lowerKey.includes('content-security-policy') || lowerKey.includes('webkit-csp')) {
