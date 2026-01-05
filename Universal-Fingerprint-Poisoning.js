@@ -1,12 +1,12 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   5.38-Precision-Reliability
- * @description [精確可靠版] 收束 Nonce 來源至 Script 標籤，WebRTC 採威脅模型過濾 (擋私網/IPv6，放公網V4)。
+ * @version   5.45-Daily-Rhythm-Rotation
+ * @description [每日節奏輪替版] 引入日級動態時間窗參數，瓦解長期時序建模攻擊。
  * ----------------------------------------------------------------------------
- * 1. [Fix] Nonce: 嚴格僅從 <script> 標籤提取 nonce，避免誤用 style/link nonce 導致 CSP 阻擋。
- * 2. [Fix] WebRTC: 阻擋 Private IPv4 與所有 IPv6 Host Candidate，但放行 Public IPv4 (VPN介面) 與 mDNS。
- * 3. [Strategy] CSP: 維持 Read-Only 策略 (不修改 Header)，優先確保流量特徵的隱匿性。
- * 4. [Core] iOS Native: 維持 iOS 設備的 Pass-through 策略。
+ * 1. [Security] Daily Rhythm: 漂移窗口大小不再僅由 ID 決定，而是引入 (ID ^ Date) 
+ * 進行每日輪替。用戶每天的「噪聲更新頻率」皆不同，防止被鎖定「行為心跳」。
+ * 2. [Hardening] OpSec: 移除 SEED_MANAGER 中非必要的 Debug 欄位暴露。
+ * 3. [Core] Persistence: 硬體特徵 30 天鎖定，會話噪聲 20~50 分鐘動態漂移。
  * ----------------------------------------------------------------------------
  * @note 建議在 Surge/Loon/Quantumult X 中啟用「腳本重寫」功能。
  */
@@ -15,63 +15,118 @@
   "use strict";
 
   // ============================================================================
-  // 0. 全域配置 & 種子生成
+  // 0. 全域配置 & 雙重種子管理
   // ============================================================================
   const CONST = {
-    KEY_SEED: "FP_SHIELD_SEED_V538", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V538",
-    INJECT_MARKER: "__FP_SHIELD_V538__",
+    // Keys for Storage
+    KEY_PERSISTENCE: "FP_SHIELD_ID_V545", // Updated for V5.45 logic
+    INJECT_MARKER: "__FP_SHIELD_V545__",
     
-    // Noise Config
+    // Configs
+    PERSONA_TTL_MS: 30 * 24 * 60 * 60 * 1000, // 30 Days Identity
+    
+    // Dynamic Window Config (Daily Rotated)
+    WINDOW_MIN_MS: 20 * 60 * 1000, // 20 Minutes
+    WINDOW_VAR_MS: 30 * 60 * 1000, // +0~30 Minutes variance
+    
+    // Noise Intensity
     CANVAS_NOISE_STEP: 2,
     AUDIO_NOISE_LEVEL: 0.00001,
-    TEXT_METRICS_NOISE: 0.0001
+    TEXT_METRICS_NOISE: 0.0001,
+    RECT_NOISE_LEVEL: 0.000001,
+    DRIFT_INTENSITY: 0.000002 
   };
 
-  // Pre-calculate Seed and Versioning
-  const SEED_DATA = (function() {
+  // Seed Manager: Handles Identity vs Session separation
+  const SEED_MANAGER = (function() {
+      const now = Date.now();
+      
+      // 1. Long-Term Identity Seed (Hardware Specs)
+      let idSeed = 12345;
       try {
-          const now = Date.now();
-          let val = localStorage.getItem(CONST.KEY_SEED);
-          const exp = parseInt(localStorage.getItem(CONST.KEY_EXPIRY) || '0', 10);
-          
-          if (!val || now > exp) {
-              val = ((now ^ (Math.random() * 10000000)) >>> 0).toString();
-              const nextExp = now + (24 * 60 * 60 * 1000); 
-              localStorage.setItem(CONST.KEY_SEED, val);
-              localStorage.setItem(CONST.KEY_EXPIRY, nextExp.toString());
+          const storedId = localStorage.getItem(CONST.KEY_PERSISTENCE);
+          if (storedId) {
+              const [val, expiry] = storedId.split('|');
+              if (now < parseInt(expiry, 10)) {
+                  idSeed = parseInt(val, 10);
+              } else {
+                  // Rotate Identity (Monthly)
+                  idSeed = (now ^ (Math.random() * 100000000)) >>> 0;
+                  localStorage.setItem(CONST.KEY_PERSISTENCE, `${idSeed}|${now + CONST.PERSONA_TTL_MS}`);
+              }
+          } else {
+              // New Identity
+              idSeed = (now ^ (Math.random() * 100000000)) >>> 0;
+              localStorage.setItem(CONST.KEY_PERSISTENCE, `${idSeed}|${now + CONST.PERSONA_TTL_MS}`);
           }
-          const s = parseInt(val, 10) || 12345;
-          
-          const rand = (idx) => { 
-              let x = (s + idx) * 15485863; 
+      } catch(e) {}
+
+      // 2. [V5.45] Daily Rhythm Rotation
+      // Mix Identity with "Day of Year" to ensure Window Size changes every 24h (UTC)
+      const dayBlock = Math.floor(now / (24 * 60 * 60 * 1000));
+      const dailySeed = (idSeed ^ dayBlock) >>> 0;
+
+      // Calculate today's unique window duration (20 ~ 50 mins)
+      // Uses dailySeed instead of static idSeed
+      const dailyWindowSize = CONST.WINDOW_MIN_MS + ((dailySeed % 30000) * (CONST.WINDOW_VAR_MS / 30000));
+      
+      // Determine current Time Block based on today's rhythm
+      const timeBlock = Math.floor(now / dailyWindowSize);
+
+      // 3. Session Seed (Noise Drift)
+      const sessionSeed = (idSeed ^ timeBlock) >>> 0;
+
+      // Deterministic Random Helper
+      const makeRand = (s) => {
+          return (idx) => {
+              let x = (s + idx) * 15485863;
               return ((x * x * x) % 2038074743) / 2038074743; 
           };
+      };
 
-          const major = "143";
-          const build = Math.floor(rand(1) * 5000) + 1000;
-          const patch = Math.floor(rand(2) * 200) + 1;
-          const fullVersion = `${major}.0.${build}.${patch}`;
-
-          return { val: s, fullVersion, major, rand };
-      } catch(e) { return { val: 12345, fullVersion: "143.0.0.0", major: "143", rand: () => 0.5 }; }
+      return {
+          id: idSeed,           // Use for Hardware Config
+          session: sessionSeed, // Use for Noise Generation
+          // [V5.45] Removed 'windowSize' from public exposure for OpSec
+          randId: makeRand(idSeed),
+          randSession: makeRand(sessionSeed)
+      };
   })();
 
+  // Persistent Persona Configuration
   const PERSONA_CONFIG = (function() {
+      const MAC_POOL = [
+          { name: "Air", ua: "Macintosh; Intel Mac OS X 10_15_7", gpuVendor: "Intel Inc.", gpuRenderer: "Intel Iris Plus Graphics 640", concurrency: 4, memory: 8, screen: { depth: 24, pixelRatio: 2 } },
+          { name: "Pro13", ua: "Macintosh; Intel Mac OS X 10_15_7", gpuVendor: "Intel Inc.", gpuRenderer: "Intel Iris Plus Graphics 655", concurrency: 4, memory: 16, screen: { depth: 30, pixelRatio: 2 } },
+          { name: "Pro16", ua: "Macintosh; Intel Mac OS X 10_15_7", gpuVendor: "Google Inc. (AMD)", gpuRenderer: "AMD Radeon Pro 5300M", concurrency: 6, memory: 16, screen: { depth: 30, pixelRatio: 2 } },
+          { name: "iMac", ua: "Macintosh; Intel Mac OS X 10_15_7", gpuVendor: "Google Inc. (AMD)", gpuRenderer: "AMD Radeon Pro 5500M", concurrency: 8, memory: 32, screen: { depth: 30, pixelRatio: 2 } }
+      ];
+
+      // Select Persona based on Long-Term ID Seed
+      const pIndex = Math.floor(SEED_MANAGER.randId(1) * MAC_POOL.length);
+      const selectedMac = MAC_POOL[pIndex];
+
+      // Dynamic Versioning
+      const major = "143";
+      const build = Math.floor(SEED_MANAGER.randId(2) * 5000) + 1000;
+      const patch = Math.floor(SEED_MANAGER.randId(3) * 200) + 1;
+      const fullVersion = `${major}.0.${build}.${patch}`;
+
       return {
           MAC: {
               TYPE: "SPOOF",
-              UA: `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${SEED_DATA.fullVersion} Safari/537.36`,
-              FULL_VERSION: SEED_DATA.fullVersion,
-              MAJOR_VERSION: SEED_DATA.major,
+              UA: `Mozilla/5.0 (${selectedMac.ua}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${fullVersion} Safari/537.36`,
+              FULL_VERSION: fullVersion,
+              MAJOR_VERSION: major,
               PLATFORM: "MacIntel",
-              VENDOR: "Google Inc. (AMD)",
-              RENDERER: "AMD Radeon Pro 5500M",
-              CONCURRENCY: 8,
-              MEMORY: 8,
-              SCREEN_FEATURES: { depth: 30, pixelRatio: 2 },
+              VENDOR: selectedMac.gpuVendor,
+              RENDERER: selectedMac.gpuRenderer,
+              CONCURRENCY: selectedMac.concurrency,
+              MEMORY: selectedMac.memory,
+              SCREEN_FEATURES: selectedMac.screen,
+              AUDIO_LATENCY: { base: 0.0029, output: 0.0058 },
               WEBGL_CAPS: {
-                  3379: 16384, 34047: 32, 34930: 32, 35660: 80, 34024: 16384, 
+                  3379: 16384, 34047: 16, 34930: 16, 35660: 80, 34024: 16384, 
                   34921: 16, 36347: 4096, 36349: 1024, 34076: 16384, 37443: 6408
               }
           },
@@ -89,11 +144,8 @@
     CONTENT_TYPE_HTML: /text\/html/i,
     HEAD_TAG: /<head[^>]*>/i, 
     HTML_TAG: /<html[^>]*>/i,
-    // [V5.38] Strict Script Nonce (Reverted from ANY_NONCE)
     SCRIPT_NONCE_STRICT: /<script[^>]*\snonce=["']?([^"'\s>]+)["']?/i,
-    // [V5.38] WebRTC Filters
-    RTC_PRIVATE_IPV4: /(^| )192\.168\.|(^| )10\.|(^| )172\.(1[6-9]|2[0-9]|3[0-1])\./,
-    RTC_IPV6: /:/
+    RTC_PRIVATE_IPV4: /(^| )192\.168\.|(^| )10\.|(^| )172\.(1[6-9]|2[0-9]|3[0-1])\./
   };
 
   const currentUrl = (typeof $request !== 'undefined') ? ($request.url || "") : "";
@@ -132,7 +184,6 @@
       }
     };
   })();
-  
   const isSoftWhitelisted = WhitelistManager.check(hostname);
   const IS_SHOPPING = (hostname.includes("shopee") || hostname.includes("amazon") || hostname.includes("momo"));
 
@@ -141,7 +192,6 @@
   // ============================================================================
   if (typeof $request !== 'undefined' && typeof $response === 'undefined') {
     const headers = $request.headers;
-    
     if (!isSoftWhitelisted && !IS_SHOPPING && CURRENT_PERSONA.TYPE === "SPOOF") {
        Object.keys(headers).forEach(k => {
          const l = k.toLowerCase();
@@ -153,7 +203,6 @@
        headers['sec-ch-ua-platform'] = '"macOS"';
     }
 
-    // [V5.38] CSP Read-Only: Zero Trust. We accept failure on strict sites to maintain stealth.
     $done({ headers });
     return;
   }
@@ -169,12 +218,21 @@
     if (!body || !cType.includes("html") || IS_SHOPPING || isSoftWhitelisted) { $done({}); return; }
     if (body.includes(CONST.INJECT_MARKER)) { $done({}); return; }
 
-    // 1. Script-Targeted Nonce Discovery
-    // Only search for nonces inside <script> tags to avoid CSS/Style nonce mismatch
     let stolenNonce = "";
     const searchChunk = body.substring(0, 100000); 
-    const nonceMatch = searchChunk.match(REGEX.SCRIPT_NONCE_STRICT);
-    if (nonceMatch) stolenNonce = nonceMatch[1];
+    const scriptMatch = searchChunk.match(REGEX.SCRIPT_NONCE_STRICT);
+    if (scriptMatch) stolenNonce = scriptMatch[1];
+
+    let cspHeader = "";
+    Object.keys(headers).forEach(k => { if(k.toLowerCase() === 'content-security-policy') cspHeader = headers[k]; });
+    const isUnsafeInlineAllowed = cspHeader.includes("'unsafe-inline'");
+    const hasCSP = cspHeader.length > 0;
+    
+    let shouldInject = false;
+    if (stolenNonce) shouldInject = true;
+    else if (!hasCSP || isUnsafeInlineAllowed) shouldInject = true;
+    
+    if (!shouldInject) { $done({}); return; }
 
     const INJECT_CONFIG = {
         env: ENV,
@@ -182,16 +240,17 @@
         noise: {
             canvas: CONST.CANVAS_NOISE_STEP,
             audio: CONST.AUDIO_NOISE_LEVEL,
-            text: CONST.TEXT_METRICS_NOISE
+            text: CONST.TEXT_METRICS_NOISE,
+            rect: CONST.RECT_NOISE_LEVEL,
+            drift: CONST.DRIFT_INTENSITY
         },
-        seed: SEED_DATA.val,
-        randSeed: SEED_DATA.val
+        seed: SEED_MANAGER.session,
+        randSeed: SEED_MANAGER.session
     };
 
     const scriptTag = stolenNonce ? `<script nonce="${stolenNonce}">` : `<script>`;
     
     const injectionScript = `
-    <!-- ${CONST.INJECT_MARKER} -->
     ${scriptTag}
     (function() {
       "use strict";
@@ -250,7 +309,6 @@
                      'userAgent': {get: () => P.UA},
                      'appVersion': {get: () => P.UA.replace("Mozilla/", "")} 
                  });
-
                  if (win.screen && P.SCREEN_FEATURES) {
                      const SF = P.SCREEN_FEATURES;
                      Object.defineProperties(win.screen, {
@@ -268,30 +326,19 @@
                             {brand: "Not(A:Brand", version: "99"}, 
                             {brand: "Google Chrome", version: P.MAJOR_VERSION}, 
                             {brand: "Chromium", version: P.MAJOR_VERSION}
-                         ],
+                        ],
                          mobile: false,
                          platform: "macOS",
                          getHighEntropyValues: function(hints) {
-                            const spoofed = {
-                                architecture: "x86",
-                                bitness: "64",
-                                brands: this.brands,
-                                mobile: false,
-                                model: "",
-                                platform: "macOS",
-                                platformVersion: "10.15.7",
-                                uaFullVersion: P.FULL_VERSION,
-                                fullVersionList: [
-                                    {brand: "Not(A:Brand", version: "99.0.0.0"}, 
-                                    {brand: "Google Chrome", version: P.FULL_VERSION}, 
-                                    {brand: "Chromium", version: P.FULL_VERSION}
-                                ]
-                            };
                             const res = {};
-                            if (Array.isArray(hints)) {
-                                hints.forEach(h => { if (spoofed[h] !== undefined) res[h] = spoofed[h]; });
-                            }
                             res.brands = this.brands; res.mobile = this.mobile; res.platform = this.platform;
+                            if (Array.isArray(hints)) {
+                                if(hints.includes('architecture')) res.architecture = "x86";
+                                if(hints.includes('bitness')) res.bitness = "64";
+                                if(hints.includes('model')) res.model = "";
+                                if(hints.includes('platformVersion')) res.platformVersion = "10.15.7";
+                                if(hints.includes('uaFullVersion')) res.uaFullVersion = P.FULL_VERSION;
+                            }
                             return Promise.resolve(res);
                          }
                      };
@@ -301,34 +348,20 @@
              if ('webdriver' in N) delete N.webdriver;
          },
 
-         // [V5.38] Threat-Model WebRTC Filtering
          webrtc: function(win) {
              if (!win.RTCPeerConnection) return;
              const OrigRTC = win.RTCPeerConnection;
-             
              win.RTCPeerConnection = function(config) {
                  const pc = new OrigRTC(config);
                  const origAddEL = pc.addEventListener;
-                 
                  const isSafeCandidate = (c) => {
                      if (!c || typeof c !== 'string') return true;
-                     
-                     // 1. Allow mDNS (Standard & Safe)
-                     if (/\.local/i.test(c)) return true;
-                     
-                     // 2. Block Private IPv4 (Highest Risk)
+                     // [V5.45] Explicit .local whitelist (mDNS)
+                     if (c.indexOf(".local") !== -1) return true;
+                     // Block Private IPv4
                      if (/(^| )192\.168\.|(^| )10\.|(^| )172\.(1[6-9]|2[0-9]|3[0-1])\./.test(c)) return false;
-                     
-                     // 3. Block IPv6 Host Candidates (High Risk of MAC Leak / Bypass VPN)
-                     // If it's a host candidate containing a colon, it's IPv6.
-                     if (/typ host/i.test(c) && /:/.test(c)) return false;
-                     
-                     // 4. Allow Public IPv4 Host (Usually VPN Interface)
-                     // This restores P2P connectivity for users behind VPNs.
-                     
                      return true; 
                  };
-
                  pc.addEventListener = function(type, listener, options) {
                      if (type !== 'icecandidate') return origAddEL.call(this, type, listener, options);
                      const wrappedListener = (e) => {
@@ -337,7 +370,6 @@
                      };
                      return origAddEL.call(this, type, wrappedListener, options);
                  };
-
                  Object.defineProperty(pc, 'onicecandidate', {
                      set: function(fn) {
                          if (!fn) return;
@@ -348,7 +380,6 @@
                      },
                      get: function() { return this._onicecandidate; }
                  });
-
                  return pc;
              };
              win.RTCPeerConnection.prototype = OrigRTC.prototype;
@@ -356,7 +387,6 @@
 
          media: function(win) {
              if (!SPOOFING || !win.navigator.mediaDevices || !win.navigator.mediaDevices.enumerateDevices) return;
-             
              ProxyGuard.hook(win.navigator.mediaDevices, 'enumerateDevices', (orig) => function() {
                  return orig.apply(this, arguments).then(devices => {
                      const hasPermission = devices.some(d => d.label !== "");
@@ -380,12 +410,49 @@
              });
          },
 
+         rects: function(win) {
+             if (!SPOOFING) return;
+             try {
+                 const Element = win.Element;
+                 if (!Element) return;
+                 const addNoise = (rect) => {
+                     if (!rect) return rect;
+                     const dimSum = Math.floor((rect.width + rect.height) * 100);
+                     const noise = RNG.noise(0, CFG.noise.rect + (dimSum % 10) * 0.0000001);
+                     return {
+                         x: rect.x, y: rect.y,
+                         top: rect.top + noise, bottom: rect.bottom + noise,
+                         left: rect.left + noise, right: rect.right + noise,
+                         width: rect.width + noise, height: rect.height + noise,
+                         toJSON: () => this
+                     };
+                 };
+                 const makeDOMRectList = (rects) => {
+                     let proto = null;
+                     try { proto = win.DOMRectList.prototype; } catch(e) {}
+                     const list = proto ? Object.create(proto) : {};
+                     list.length = rects.length;
+                     for (let i = 0; i < rects.length; i++) list[i] = addNoise(rects[i]);
+                     if (win.Symbol && win.Symbol.iterator && Array.prototype[win.Symbol.iterator]) {
+                         list[win.Symbol.iterator] = Array.prototype[win.Symbol.iterator];
+                     }
+                     list.item = (i) => list[i] || null;
+                     if (typeof Symbol !== 'undefined' && Symbol.toStringTag) {
+                         Object.defineProperty(list, Symbol.toStringTag, { value: 'DOMRectList', configurable: true });
+                     }
+                     return list;
+                 };
+                 ProxyGuard.hook(Element.prototype, 'getBoundingClientRect', (orig) => function() { return addNoise(orig.apply(this, arguments)); });
+                 ProxyGuard.hook(Element.prototype, 'getClientRects', (orig) => function() { return makeDOMRectList(orig.apply(this, arguments)); });
+             } catch(e) {}
+         },
+
          canvas: function(win) {
              const applyNoise = (data, w, h) => {
                  for(let i=0; i<data.length; i+=4) {
                      if (i%CFG.noise.canvas === 0) {
-                        const n = RNG.bool() ? 1 : -1;
-                        data[i] = Math.max(0, Math.min(255, data[i]+n));
+                         const n = RNG.bool() ? 1 : -1;
+                         data[i] = Math.max(0, Math.min(255, data[i]+n));
                      }
                  }
              };
@@ -410,7 +477,6 @@
                     });
                 });
              } catch(e) {}
-             
              try {
                 if (win.HTMLCanvasElement) {
                     ProxyGuard.hook(win.HTMLCanvasElement.prototype, 'toDataURL', (orig) => function() {
@@ -438,13 +504,16 @@
                  const glClasses = [win.WebGLRenderingContext, win.WebGL2RenderingContext];
                  glClasses.forEach(glClass => {
                      if (!glClass || !glClass.prototype) return;
-                     
                      const getParam = glClass.prototype.getParameter;
                      ProxyGuard.hook(glClass.prototype, 'getParameter', (orig) => function(p) {
                          if (p === 37445) return P.VENDOR;
                          if (p === 37446) return P.RENDERER;
                          if (SPOOFING && P.WEBGL_CAPS && (p in P.WEBGL_CAPS)) {
-                             return P.WEBGL_CAPS[p];
+                             let val = P.WEBGL_CAPS[p];
+                             if (typeof val === 'number' && val > 1000) {
+                                 val = Math.floor(RNG.noise(val, val * 0.01));
+                             }
+                             return val;
                          }
                          return orig.apply(this, arguments);
                      });
@@ -461,6 +530,24 @@
                          return r;
                      });
                  }
+                 if (SPOOFING && win.AudioContext && win.AudioContext.prototype) {
+                     if ('outputLatency' in win.AudioContext.prototype) {
+                         try {
+                             Object.defineProperty(win.AudioContext.prototype, 'outputLatency', {
+                                 get: () => RNG.noise(P.AUDIO_LATENCY.output, 0.0001), 
+                                 configurable: true
+                             });
+                         } catch(e) {} 
+                     }
+                     if ('baseLatency' in win.AudioContext.prototype) {
+                         try {
+                             Object.defineProperty(win.AudioContext.prototype, 'baseLatency', {
+                                 get: () => RNG.noise(P.AUDIO_LATENCY.base, 0.0001),
+                                 configurable: true
+                             });
+                         } catch(e) {}
+                     }
+                 }
              } catch(e){}
          }
       };
@@ -470,6 +557,7 @@
           Modules.hardware(win);
           Modules.webrtc(win);
           Modules.media(win);
+          Modules.rects(win);
           Modules.canvas(win);
           Modules.webgl(win);
           Modules.audio(win);
