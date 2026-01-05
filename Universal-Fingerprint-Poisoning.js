@@ -1,15 +1,11 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   5.05-Security-Whitelist-Expansion
- * @description [安全白名單擴充版] 針對高風險實名制服務進行預防性硬排除。
+ * @version   5.06-Final-Stable
+ * @description [最終穩定版] 移除冗餘規則，並針對高風險服務進行精準硬排除。
  * ----------------------------------------------------------------------------
- * 1. [Hard Exclusion] 大幅擴充排除名單:
- * - 核心帳號: Apple, Google Accounts, Microsoft Login.
- * - 金融支付: PayPal, Line Pay, Stripe, Visa/Mastercard.
- * - 驗證服務: Cloudflare Turnstile, hCaptcha, Recaptcha.
- * - 生活服務: Foodpanda, Uber (API).
- * 2. [Strategy] 確立「實名服務不混淆」原則，確保帳號安全與服務可用性。
- * 3. [Core] 維持 V5.04 的自適應效能優化 (Adaptive Performance) 於購物場景。
+ * 1. [Audit] 移除 sentry.io, anthropic.com 等非關鍵項目，精簡規則。
+ * 2. [Safety] 確認 Foodpanda / 支付 / 驗證服務皆在硬排除名單，保障帳號安全。
+ * 3. [Core] 維持 V5.04 的自適應效能優化 (Lite Mode) 於購物場景。
  * ----------------------------------------------------------------------------
  * @note 必須配合 Surge/Quantumult X 配置使用。
  */
@@ -22,10 +18,10 @@
   // ============================================================================
   const CONST = {
     MAX_SIZE: 5000000,
-    // [V5.05] 更新 Seed
-    KEY_SEED: "FP_SHIELD_SEED_V505", 
-    KEY_EXPIRY: "FP_SHIELD_EXP_V505",
-    INJECT_MARKER: "__FP_SHIELD_V505__",
+    // [V5.06] 更新 Seed
+    KEY_SEED: "FP_SHIELD_SEED_V506", 
+    KEY_EXPIRY: "FP_SHIELD_EXP_V506",
+    INJECT_MARKER: "__FP_SHIELD_V506__",
     
     // Core Logic Configs
     BASE_ROTATION_MS: 24 * 60 * 60 * 1000,
@@ -46,7 +42,7 @@
   const REGEX = {
     CONTENT_TYPE_HTML: /text\/html/i,
     CONTENT_TYPE_JSON: /(application|text)\/(json|xml|javascript)/i,
-    // Heavy Pages for Lite Mode
+    // Heavy Pages for Lite Mode (Performance)
     HEAVY_PAGES: /cart|checkout|buy|trade|billing|payment|video|live|stream|player/i,
     HEAD_TAG: /<head[^>]*>/i, 
     HTML_TAG: /<html[^>]*>/i,
@@ -62,8 +58,9 @@
   // 1. [Hard Exclusion] 硬排除 - 絕對不碰的領域
   // ============================================================================
   // 這些服務涉及帳號安全、金流或高強度風控，必須使用真實指紋。
+  // 腳本一旦偵測到這些關鍵字，會直接回傳 $done({})，不修改任何 Header 或 Body。
   const HARD_EXCLUSION_KEYWORDS = [
-    // [Group A] Foodpanda Ecosystem (Priority)
+    // [Group A] Foodpanda Ecosystem (High Risk)
     "foodpanda", "fd-api", "deliveryhero", "foodora",
 
     // [Group B] Identity Providers (帳號核心)
@@ -87,12 +84,12 @@
     "challenges.cloudflare.com", // Cloudflare Turnstile
     "recaptcha.net", "google.com/recaptcha",
     "hcaptcha.com", "arkoselabs.com",
-    "sentry.io", "perimeterx.net", "datadome.co", "siftscience.com",
+    // 風控 SDK (移除 sentry.io, anthropic.com)
+    "perimeterx.net", "datadome.co", "siftscience.com",
 
     // [Group F] System Services
     "googleapis.com", "gstatic.com", "googleusercontent.com", 
-    "mzstatic.com", "itunes.apple.com",
-    "oaistatic.com", "oaiusercontent.com", "anthropic.com"
+    "mzstatic.com", "itunes.apple.com"
   ];
   
   // 偵測到硬排除關鍵字，直接回傳空物件 (Pass-through)
@@ -113,7 +110,9 @@
       "tixcraft.com", // 拓元售票
 
       // AI & Productivity (Web Interface)
-      "gemini.google.com", "bard.google.com", "chatgpt.com", "claude.ai", "perplexity.ai",
+      // Anthropic 移至此處保護
+      "anthropic.com", "claude.ai", 
+      "gemini.google.com", "bard.google.com", "chatgpt.com", "perplexity.ai",
       "docs.google.com", "drive.google.com", "mail.google.com", "meet.google.com", "calendar.google.com",
       "microsoft.com", "office.com", "teams.microsoft.com", "sharepoint.com", "onenote.com",
       
@@ -149,10 +148,11 @@
   let mode = "protection";
   
   // Auto-Shopping Logic (維持電商偽裝)
+  // 這些網站使用 iPhone UA，但會在重度頁面 (Cart) 自動降級為 Lite 模式
   const AUTO_SHOPPING_DOMAINS = [
       "shopee.", "shope.ee", "xiapi", 
       "amazon.", "ebay.", "rakuten.", 
-      "pchome.com.tw", "momoshop.com.tw" // Momo 也加入購物模式嘗試
+      "pchome.com.tw", "momoshop.com.tw" 
   ];
 
   if (AUTO_SHOPPING_DOMAINS.some(d => hostname.includes(d))) {
@@ -180,8 +180,7 @@
   if (typeof $request !== 'undefined' && typeof $response === 'undefined') {
     const headers = $request.headers;
     
-    // [V5.05] Foodpanda & Hard Exclusion Logic
-    // 在 Request 階段再次確認，防止漏網之魚
+    // Hard Exclusion Double Check
     if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) {
         $done({ headers });
         return;
@@ -277,20 +276,17 @@
       }
 
       // =========================================================================
-      // [V5.05] Shopping Mode Logic
+      // [V5.06] Shopping Mode Logic (Adaptive Performance)
       // =========================================================================
       if (IS_SHOPPING) {
           try {
-              // 1. Basic Cleanup
               if (navigator && 'webdriver' in navigator) delete navigator.webdriver;
               if (window.cdc_adoQpoasnfa76pfcZLmcfl_Array) delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
 
-              // 2. Identity Spoofing
               Object.defineProperty(navigator, 'platform', { get: () => 'iPhone', configurable: true });
               Object.defineProperty(navigator, 'vendor', { get: () => 'Apple Computer, Inc.', configurable: true });
               Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5, configurable: true });
               
-              // 3. Hardware Emulation (SKIP on Heavy Pages)
               if (!IS_HEAVY_PAGE) {
                   Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 6, configurable: true });
                   Object.defineProperty(navigator, 'deviceMemory', { get: () => 8, configurable: true });
@@ -533,28 +529,46 @@
 
       const inject = function(win) {
         if (!win) return;
-        Modules.hardware(win); Modules.clientHints(win); Modules.webgl(win); Modules.audio(win); Modules.rects(win); Modules.canvas(win);
+        Modules.hardware(win);
+        Modules.clientHints(win);
+        Modules.webgl(win);
+        Modules.audio(win);
+        Modules.rects(win);
+        Modules.canvas(win);
       };
 
       const init = function() {
         inject(window);
-        new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { try { if (n.tagName === 'IFRAME' && n.contentWindow) n.addEventListener('load', () => inject(n.contentWindow)); } catch(e){}\n        }))).observe(document, {childList:true, subtree:true});
+        new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => {
+           try { if (n.tagName === 'IFRAME' && n.contentWindow) n.addEventListener('load', () => inject(n.contentWindow)); } catch(e){}
+        }))).observe(document, {childList:true, subtree:true});
       };
 
-      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+      else init();
+  
     })();
     </script>
     `;
 
-    if (REGEX.HEAD_TAG.test(body)) body = body.replace(REGEX.HEAD_TAG, m => m + injectionScript);
-    else if (REGEX.HTML_TAG.test(body)) body = body.replace(REGEX.HTML_TAG, m => m + injectionScript);
-    else body = injectionScript + body;
+    // 注入順序優化
+    if (REGEX.HEAD_TAG.test(body)) {
+      body = body.replace(REGEX.HEAD_TAG, m => m + injectionScript);
+    } else if (REGEX.HTML_TAG.test(body)) {
+      body = body.replace(REGEX.HTML_TAG, m => m + injectionScript);
+    } else {
+      body = injectionScript + body;
+    }
 
-    Object.keys(headers).forEach(k => { const lowerKey = k.toLowerCase(); if (lowerKey.includes('content-security-policy') || lowerKey.includes('webkit-csp')) delete headers[k]; });
+    // Remove CSP
+    Object.keys(headers).forEach(k => {
+      const lowerKey = k.toLowerCase();
+      if (lowerKey.includes('content-security-policy') || lowerKey.includes('webkit-csp')) {
+          delete headers[k];
+      }
+    });
     body = body.replace(REGEX.META_CSP_STRICT, "<!-- CSP REMOVED -->");
 
     $done({ body, headers });
   }
 })();
-
-
