@@ -1,32 +1,25 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   5.51-UA-WebGL-ToString-Polished
+ * @version   5.52-Deterministic-Stability
  * ----------------------------------------------------------------------------
- * 修正相對 v5.50 的扣分點：
- * A) UA（Apple Silicon）回到更常見的 "Macintosh; Intel Mac OS X X_Y_Z"
- *    - 仍由 OS_VERSION 推導 X_Y_Z，確保 UA 與 UA-CH platformVersion 對齊
- * B) WebGL 37445/37446 Gate 強化：
- *    - getExtension(DEBUG) 成功後，WeakMap 綁定 ext 物件
- *    - getParameter 僅在該 context 已綁定 ext 時才 spoof
- *    - 同時支援 p === ext.UNMASKED_VENDOR_WEBGL / ext.UNMASKED_RENDERER_WEBGL 的呼叫路徑
- * C) toString 隱匿度強化：
- *    - 取得原生 toString 的 property descriptor，盡量保持一致（enumerable/configurable/writable）
- *    - 仍用 WeakMap 回傳對應的 native code 字串，降低差分特徵
- *
- * @note 這是「兼顧真實世界常見度」與「一致性」的平衡版（比 5.50 更不突兀）。
+ * 相對 v5.51 的扣分點修正：
+ * 1) WebGL caps：改為「每個 context + 每個 parameter」一次性快取，回傳穩定值（不再每次抖動）。
+ * 2) Canvas：改為決定性噪聲（基於 session seed + w/h + index），同條件重取樣結果一致。
+ * 3) toString：toString 本體改為具名 function toString()，並讓 Function.prototype.toString.toString()
+ *    也回原生樣式字串；descriptor 盡量對齊原生。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 0. 全域配置 & 種子管理
+  // 0) Global config & seed
   // ============================================================================
   const CONST = {
-    KEY_PERSISTENCE: "FP_SHIELD_ID_V551",
-    INJECT_MARKER: "__FP_SHIELD_V551__",
+    KEY_PERSISTENCE: "FP_SHIELD_ID_V552",
+    INJECT_MARKER: "__FP_SHIELD_V552__",
 
-    PERSONA_TTL_MS: 30 * 24 * 60 * 60 * 1000, // 30 days
+    PERSONA_TTL_MS: 30 * 24 * 60 * 60 * 1000,
 
     WINDOW_MIN_MS: 20 * 60 * 1000,
     WINDOW_VAR_MS: 30 * 60 * 1000,
@@ -110,8 +103,23 @@
     return { formatMacOsToken };
   })();
 
+  // Small deterministic PRNG (xorshift32)
+  const PRNG = (() => {
+    const xorshift32 = (seed) => {
+      let s = (seed >>> 0) || 1;
+      return () => {
+        s ^= (s << 13) >>> 0;
+        s ^= (s >>> 17) >>> 0;
+        s ^= (s << 5) >>> 0;
+        return (s >>> 0);
+      };
+    };
+    const float01 = (u32) => (u32 >>> 0) / 4294967296;
+    return { xorshift32, float01 };
+  })();
+
   // ============================================================================
-  // Persona Config
+  // Persona config
   // ============================================================================
   const PERSONA_CONFIG = (function () {
     const MAC_POOL = [
@@ -170,7 +178,6 @@
     const pIndex = Math.floor(SEED_MANAGER.randId(1) * MAC_POOL.length);
     const selectedMac = MAC_POOL[pIndex];
 
-    // Dynamic Chrome version (early 2026-ish)
     const majorBase = 138;
     const majorOffset = Math.floor(SEED_MANAGER.randId(2) * 5);
     const major = (majorBase + majorOffset).toString();
@@ -178,8 +185,7 @@
     const patch = Math.floor(SEED_MANAGER.randId(4) * 200) + 1;
     const fullVersion = `${major}.0.${build}.${patch}`;
 
-    // ★修正：arm persona 仍保留 Intel token（更貼近真實世界 Chrome/mac UA 形態）
-    // 同時 OS token 由 OS_VERSION 推導，確保 UA 與 UA-CH platformVersion 對齊
+    // 仍維持「Intel token」以貼近真實世界 Chrome/mac UA 形態，OS token 與 platformVersion 對齊
     const macOsToken = UAHelper.formatMacOsToken(selectedMac.osVer);
     const uaModel = `Macintosh; Intel Mac OS X ${macOsToken}`;
 
@@ -234,7 +240,7 @@
   const CURRENT_PERSONA = PERSONA_CONFIG[ENV];
 
   // ============================================================================
-  // Exclusion & Whitelist
+  // Exclusion & whitelist
   // ============================================================================
   const HARD_EXCLUSION_KEYWORDS = [
     "accounts.google.com", "appleid", "login.live.com", "oauth", "sso",
@@ -261,25 +267,13 @@
 
   const WhitelistManager = (() => {
     const trustedDomains = [
-      "shopee.tw", "shopee.com",
-      "momo.com.tw",
-      "pchome.com.tw",
-      "books.com.tw",
-      "coupang.com",
-      "amazon.com", "amazon.co.jp",
-      "taobao.com", "tmall.com", "jd.com",
-      "pxmart.com.tw",
-      "etmall.com.tw",
-      "rakuten.com", "rakuten.co.jp",
-      "shopback.com.tw", "shopback.com",
-
+      "shopee.tw", "shopee.com", "momo.com.tw", "pchome.com.tw", "books.com.tw",
+      "coupang.com", "amazon.com", "amazon.co.jp", "taobao.com", "tmall.com", "jd.com",
+      "pxmart.com.tw", "etmall.com.tw", "rakuten.com", "rakuten.co.jp", "shopback.com.tw", "shopback.com",
       "netflix.com", "spotify.com", "disneyplus.com", "youtube.com", "twitch.tv", "hulu.com", "iqiyi.com",
       "kktix.com", "tixcraft.com",
-
       "github.com", "gitlab.com", "notion.so", "figma.com", "canva.com", "dropbox.com", "adobe.com",
-
       "cloudflare.com", "fastly.com", "jsdelivr.net", "googleapis.com", "gstatic.com",
-
       "facebook.com", "instagram.com", "twitter.com", "x.com", "linkedin.com", "discord.com", "threads.net"
     ];
     const suffixes = [".bank", ".pay", ".secure", ".gov", ".edu", ".mil"];
@@ -306,7 +300,7 @@
   })();
 
   // ============================================================================
-  // Phase A: Request Header Spoof
+  // Phase A: request headers
   // ============================================================================
   if (typeof $request !== "undefined" && typeof $response === "undefined") {
     const headers = $request.headers || {};
@@ -326,7 +320,7 @@
   }
 
   // ============================================================================
-  // Phase B: HTML Injection
+  // Phase B: HTML injection
   // ============================================================================
   if (typeof $response !== "undefined") {
     let body = $response.body;
@@ -349,7 +343,6 @@
     let shouldInject = false;
     if (stolenNonce) shouldInject = true;
     else if (!hasCSP || isUnsafeInlineAllowed) shouldInject = true;
-
     if (!shouldInject) { $done({}); return; }
 
     const INJECT_CONFIG = {
@@ -376,46 +369,67 @@ ${scriptTag}
   const P = CFG.persona || {};
   const SPOOFING = (P.TYPE === "SPOOF");
 
+  // Session RNG (not used for values that must be stable across repeated reads)
   const RNG = (function(seed) {
-    let s = (seed >>> 0);
+    let s = (seed >>> 0) || 1;
     return {
-      next: function() { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 4294967296; },
-      bool: function() { return this.next() > 0.5; },
-      noise: function(val, range) { return val + (this.next() * range * 2 - range); }
+      nextU32: function() {
+        s ^= (s << 13) >>> 0;
+        s ^= (s >>> 17) >>> 0;
+        s ^= (s << 5) >>> 0;
+        return (s >>> 0);
+      },
+      next01: function() { return (this.nextU32() >>> 0) / 4294967296; },
+      bool: function() { return this.next01() > 0.5; },
+      noise: function(val, range) { return val + (this.next01() * range * 2 - range); }
     };
   })(CFG.seed);
 
+  // Daily micro jitter factor (stable within a day)
   const JITTER = (function(dSeed) {
-    let s = (dSeed >>> 0);
-    const n = () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 4294967296; };
-    return { factor: 1 + (n() * 0.05) };
+    let s = (dSeed >>> 0) || 1;
+    const next01 = () => {
+      s ^= (s << 13) >>> 0;
+      s ^= (s >>> 17) >>> 0;
+      s ^= (s << 5) >>> 0;
+      return (s >>> 0) / 4294967296;
+    };
+    return { factor: 1 + (next01() * 0.05) };
   })(CFG.dailySeed);
 
+  // Deterministic per-call PRNG (stable for same (seed,w,h,tag))
+  const detU32 = (baseSeed, a, b, c) => {
+    let s = (baseSeed ^ ((a|0) * 2654435761) ^ ((b|0) * 2246822519) ^ ((c|0) * 3266489917)) >>> 0;
+    s ^= (s << 13) >>> 0; s ^= (s >>> 17) >>> 0; s ^= (s << 5) >>> 0;
+    return (s >>> 0);
+  };
+
   // ============================================================================
-  // ProxyGuard (toString descriptor polish)
+  // ProxyGuard (toString hardened)
   // ============================================================================
   const ProxyGuard = (function() {
     const toStringMap = new WeakMap();
     const nativeToString = Function.prototype.toString;
 
-    const safeToString = function() {
+    // Use a named function toString() for closer native shape
+    function toString() {
       if (toStringMap.has(this)) return toStringMap.get(this);
       return nativeToString.apply(this, arguments);
-    };
+    }
 
-    // ★修正：盡量保留原生 descriptor（writable/configurable/enumerable）
+    // Make Function.prototype.toString.toString() look native as well
+    toStringMap.set(toString, "function toString() { [native code] }");
+
     try {
       const desc = Object.getOwnPropertyDescriptor(Function.prototype, "toString");
       const newDesc = {
-        value: safeToString,
+        value: toString,
         writable: desc ? !!desc.writable : true,
         enumerable: desc ? !!desc.enumerable : false,
         configurable: desc ? !!desc.configurable : true
       };
       Object.defineProperty(Function.prototype, "toString", newDesc);
     } catch(e) {}
-
-    toStringMap.set(safeToString, "function toString() { [native code] }");
 
     return {
       protect: function(native, custom) {
@@ -571,7 +585,8 @@ ${scriptTag}
         const addNoise = (rect) => {
           if (!rect) return rect;
           const dimSum = Math.floor((rect.width + rect.height) * 100);
-          const noise = RNG.noise(0, CFG.noise.rect + (dimSum % 10) * 0.0000001);
+          const base = detU32(CFG.seed, dimSum, 31, 7);
+          const noise = ((base % 2001) - 1000) / 1000 * (CFG.noise.rect + (dimSum % 10) * 0.0000001);
           return {
             x: rect.x, y: rect.y,
             top: rect.top + noise, bottom: rect.bottom + noise,
@@ -602,14 +617,20 @@ ${scriptTag}
       } catch(e) {}
     },
 
+    // ★Canvas: deterministic noise (stable for same seed + (w,h) + index)
     canvas: function(win) {
-      const applyNoise = (data, w, h) => {
+      const applyNoiseDet = (data, w, h) => {
         const step = Math.max(1, Math.floor(CFG.noise.canvas * JITTER.factor));
+        const baseSeed = (CFG.seed ^ ((w|0) * 1315423911) ^ ((h|0) * 2654435761)) >>> 0;
+
         for (let i = 0; i < data.length; i += 4) {
-          if (i % step === 0) {
-            const n = RNG.bool() ? 1 : -1;
-            data[i] = Math.max(0, Math.min(255, data[i] + n));
-          }
+          if ((i % step) !== 0) continue;
+
+          // deterministic sign from hash(seed, i)
+          const u = detU32(baseSeed, i, 17, 29);
+          const sign = (u & 1) ? 1 : -1;
+          const delta = sign; // +/- 1
+          data[i] = Math.max(0, Math.min(255, data[i] + delta));
         }
       };
 
@@ -624,18 +645,21 @@ ${scriptTag}
           ProxyGuard.hook(ctx.prototype, "getImageData", (orig) => function(x, y, w, h) {
             try {
               const r = orig.apply(this, arguments);
-              if (w > 10 && h > 10 && (w * h) < 640000) applyNoise(r.data, w, h);
+              if (w > 10 && h > 10 && (w * h) < 640000) applyNoiseDet(r.data, w, h);
               return r;
             } catch(e) {
               return orig.apply(this, arguments);
             }
           });
 
+          // measureText: stable per (text length, seed)
           ProxyGuard.hook(ctx.prototype, "measureText", (orig) => function(text) {
             const m = orig.apply(this, arguments);
             if (m && "width" in m) {
               const oldWidth = m.width;
-              const noise = RNG.noise(0, CFG.noise.text);
+              const len = (text == null) ? 0 : String(text).length;
+              const u = detU32(CFG.seed, len, 101, 11);
+              const noise = ((u % 2001) - 1000) / 1000 * CFG.noise.text; // stable
               try { Object.defineProperty(m, "width", { get: () => oldWidth + noise }); } catch(e) {}
             }
             return m;
@@ -654,7 +678,7 @@ ${scriptTag}
                 const ctx = t.getContext("2d");
                 ctx.drawImage(this, 0, 0);
                 const id = ctx.getImageData(0, 0, w, h);
-                applyNoise(id.data, w, h);
+                applyNoiseDet(id.data, w, h);
                 ctx.putImageData(id, 0, 0);
                 return orig.apply(t, arguments);
               } catch(e) {
@@ -667,7 +691,7 @@ ${scriptTag}
       } catch(e) {}
     },
 
-    // ★WebGL gate polished
+    // ★WebGL: deterministic caps cache per-context + debug-extension gated unmasked values
     webgl: function(win) {
       try {
         const glClasses = [win.WebGLRenderingContext, win.WebGL2RenderingContext];
@@ -676,16 +700,20 @@ ${scriptTag}
         glClasses.forEach((glClass) => {
           if (!glClass || !glClass.prototype) return;
 
-          // context -> extObject
-          const extMap = new WeakMap();
+          const extMap = new WeakMap();        // ctx -> ext
+          const capsCache = new WeakMap();     // ctx -> Map(param -> val)
+
+          const getCacheMap = (ctx) => {
+            let m = capsCache.get(ctx);
+            if (!m) { m = new Map(); capsCache.set(ctx, m); }
+            return m;
+          };
 
           ProxyGuard.hook(glClass.prototype, "getExtension", (orig) => function(name) {
             try {
               const extName = String(name || "");
               const ext = orig.apply(this, arguments);
-              if (extName === DEBUG_EXT_NAME && ext) {
-                extMap.set(this, ext);
-              }
+              if (extName === DEBUG_EXT_NAME && ext) extMap.set(this, ext);
               return ext;
             } catch(e) {
               return orig.apply(this, arguments);
@@ -696,21 +724,30 @@ ${scriptTag}
             try {
               const ext = extMap.get(this);
 
-              // 支援：p 直接是 37445/37446 或 ext.UNMASKED_*（部分站點走後者）
+              // Gate unmasked vendor/renderer: only after ext obtained, and support ext.UNMASKED_* path
               if (p === 37445 || p === 37446) {
                 if (!ext) return orig.apply(this, arguments);
                 return (p === 37445) ? P.VENDOR : P.RENDERER;
               }
-
               if (ext && (p === ext.UNMASKED_VENDOR_WEBGL || p === ext.UNMASKED_RENDERER_WEBGL)) {
                 return (p === ext.UNMASKED_VENDOR_WEBGL) ? P.VENDOR : P.RENDERER;
               }
 
+              // Caps: cache once per (ctx, p) to keep stable across repeated reads
               if (SPOOFING && P.WEBGL_CAPS && (p in P.WEBGL_CAPS)) {
+                const cache = getCacheMap(this);
+                if (cache.has(p)) return cache.get(p);
+
                 let val = P.WEBGL_CAPS[p];
+
+                // deterministic ±1% for large numbers, stable by (seed,p)
                 if (typeof val === "number" && val > 1000) {
-                  val = Math.floor(RNG.noise(val, val * 0.01));
+                  const u = detU32(CFG.seed, p | 0, 211, 19);
+                  const ratio = (((u % 2001) - 1000) / 1000) * 0.01; // -1%..+1%
+                  val = Math.floor(val * (1 + ratio));
                 }
+
+                cache.set(p, val);
                 return val;
               }
 
@@ -726,9 +763,15 @@ ${scriptTag}
     audio: function(win) {
       try {
         if (win.AnalyserNode) {
+          // For audio arrays, slight noise, but deterministic per index for stability
           ProxyGuard.hook(win.AnalyserNode.prototype, "getFloatFrequencyData", (orig) => function(arr) {
             const r = orig.apply(this, arguments);
-            for (let i = 0; i < arr.length; i += 10) arr[i] += RNG.noise(0, CFG.noise.audio);
+            const base = (CFG.seed ^ 0xA5A5A5A5) >>> 0;
+            for (let i = 0; i < arr.length; i += 10) {
+              const u = detU32(base, i, 73, 9);
+              const n = (((u % 2001) - 1000) / 1000) * CFG.noise.audio;
+              arr[i] += n;
+            }
             return r;
           });
         }
@@ -737,7 +780,11 @@ ${scriptTag}
           if ("outputLatency" in win.AudioContext.prototype) {
             try {
               Object.defineProperty(win.AudioContext.prototype, "outputLatency", {
-                get: () => RNG.noise(P.AUDIO_LATENCY.output, 0.0001),
+                get: () => {
+                  const u = detU32(CFG.seed, 1, 401, 17);
+                  const n = (((u % 2001) - 1000) / 1000) * 0.0001;
+                  return P.AUDIO_LATENCY.output + n;
+                },
                 configurable: true
               });
             } catch(e) {}
@@ -745,7 +792,11 @@ ${scriptTag}
           if ("baseLatency" in win.AudioContext.prototype) {
             try {
               Object.defineProperty(win.AudioContext.prototype, "baseLatency", {
-                get: () => RNG.noise(P.AUDIO_LATENCY.base, 0.0001),
+                get: () => {
+                  const u = detU32(CFG.seed, 2, 401, 17);
+                  const n = (((u % 2001) - 1000) / 1000) * 0.0001;
+                  return P.AUDIO_LATENCY.base + n;
+                },
                 configurable: true
               });
             } catch(e) {}
