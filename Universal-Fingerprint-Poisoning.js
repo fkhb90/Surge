@@ -1,12 +1,14 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   5.45-Daily-Rhythm-Rotation
- * @description [每日節奏輪替版] 引入日級動態時間窗參數，瓦解長期時序建模攻擊。
+ * @version   5.46-Whitelisted-Sync
+ * @description [V5.46 白名單同步版] 
  * ----------------------------------------------------------------------------
- * 1. [Security] Daily Rhythm: 漂移窗口大小不再僅由 ID 決定，而是引入 (ID ^ Date) 
- * 進行每日輪替。用戶每天的「噪聲更新頻率」皆不同，防止被鎖定「行為心跳」。
- * 2. [Hardening] OpSec: 移除 SEED_MANAGER 中非必要的 Debug 欄位暴露。
- * 3. [Core] Persistence: 硬體特徵 30 天鎖定，會話噪聲 20~50 分鐘動態漂移。
+ * 1. [Sync] Whitelist: 深度整合 URL-Ultimate-Filter V41.57 的硬/軟白名單策略。
+ * - 完整收錄台灣各大銀行 (CTBC, Cathay, E.Sun, Fubon...) 與支付網關。
+ * - 豁免 AI 生產力工具 (ChatGPT, Claude, Perplexity) 防止驗證崩潰。
+ * - [New] 加入 Google 基礎設施 (googleapis.com, gstatic.com) 防止 reCAPTCHA/Maps 異常。
+ * 2. [Security] Daily Rhythm: 延續 V5.45 的日級動態時間窗與硬體特徵鎖定。
+ * 3. [Core] Persistence: 更新儲存鍵值，強制重置舊版噪聲狀態。
  * ----------------------------------------------------------------------------
  * @note 建議在 Surge/Loon/Quantumult X 中啟用「腳本重寫」功能。
  */
@@ -18,9 +20,9 @@
   // 0. 全域配置 & 雙重種子管理
   // ============================================================================
   const CONST = {
-    // Keys for Storage
-    KEY_PERSISTENCE: "FP_SHIELD_ID_V545", // Updated for V5.45 logic
-    INJECT_MARKER: "__FP_SHIELD_V545__",
+    // Keys for Storage (Updated to V546)
+    KEY_PERSISTENCE: "FP_SHIELD_ID_V546", 
+    INJECT_MARKER: "__FP_SHIELD_V546__",
     
     // Configs
     PERSONA_TTL_MS: 30 * 24 * 60 * 60 * 1000, // 30 Days Identity
@@ -61,13 +63,12 @@
           }
       } catch(e) {}
 
-      // 2. [V5.45] Daily Rhythm Rotation
+      // 2. Daily Rhythm Rotation
       // Mix Identity with "Day of Year" to ensure Window Size changes every 24h (UTC)
       const dayBlock = Math.floor(now / (24 * 60 * 60 * 1000));
       const dailySeed = (idSeed ^ dayBlock) >>> 0;
 
       // Calculate today's unique window duration (20 ~ 50 mins)
-      // Uses dailySeed instead of static idSeed
       const dailyWindowSize = CONST.WINDOW_MIN_MS + ((dailySeed % 30000) * (CONST.WINDOW_VAR_MS / 30000));
       
       // Determine current Time Block based on today's rhythm
@@ -87,7 +88,6 @@
       return {
           id: idSeed,           // Use for Hardware Config
           session: sessionSeed, // Use for Noise Generation
-          // [V5.45] Removed 'windowSize' from public exposure for OpSec
           randId: makeRand(idSeed),
           randSession: makeRand(sessionSeed)
       };
@@ -162,30 +162,73 @@
   
   const CURRENT_PERSONA = PERSONA_CONFIG[ENV];
 
-  // Tier 0: Hard Exclusion
+  // ============================================================================
+  // EXCLUSION & WHITELIST LOGIC (Synced with V41.57)
+  // ============================================================================
+  
+  // Tier 0: Hard Exclusion (金融、驗證、AI、核心服務) - 禁止任何注入
   const HARD_EXCLUSION_KEYWORDS = [
-    "foodpanda", "fd-api", "deliveryhero", "shopee.tw/verify", 
-    "accounts.google.com", "appleid", "login.live.com", 
-    "paypal.com", "stripe.com", "recaptcha.net", "hcaptcha.com"
-    "gemini.google.com", "bard.google.com"
+    // [Synced V41.57] Identity & Security
+    "accounts.google.com", "appleid", "login.live.com", "oauth", "sso",
+    "recaptcha", "hcaptcha", "turnstile", "bot-detection",
+    "okta.com", "auth0.com", "duosecurity.com",
+    
+    // [Synced V41.57] Banks (Taiwan Major)
+    "ctbcbank.com", "cathaybk.com.tw", "esunbank.com.tw", "fubon.com", "taishinbank.com.tw",
+    "landbank.com.tw", "megabank.com.tw", "firstbank.com.tw", "hncb.com.tw", "changhwabank.com.tw",
+    "sinopac.com", "bot.com.tw", "post.gov.tw", "citibank", "hsbc", "standardchartered",
+    "twmp.com.tw", "taiwanpay", "richart", "dawho",
+    
+    // [Synced V41.57] Payment Gateways
+    "paypal.com", "stripe.com", "ecpay.com.tw", "jkos.com", "line.me", "jko.com",
+    "braintreegateway.com", "adyen.com",
+    
+    // [Synced V41.57] AI Services (Prevent Canvas Breakage)
+    "chatgpt.com", "claude.ai", "openai.com", "perplexity.ai", "gemini.google.com", 
+    "bard.google.com", "anthropic.com", "bing.com/chat", "monica.im", "felo.ai",
+    
+    // [Synced V41.57] Delivery & Service
+    "foodpanda", "fd-api", "deliveryhero", "uber.com", "ubereats",
+    
+    // [Synced V41.57] Critical Infrastructure
+    "gov.tw", "edu.tw", "microsoft.com", "windowsupdate", "icloud.com"
   ];
+
   if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) { $done({}); return; }
 
-  // Tier 0.5: Whitelist
+  // Tier 0.5: Soft Whitelist (Shopping, Streaming, Tools) - 允許通過但不注入
   const WhitelistManager = (() => {
-    const trusted = new Set(["uber.com","booking.com","openai.com","netflix.com","spotify.com","ctbcbank.com","cathaybk.com.tw","esunbank.com.tw"]);
-    const suffixes = [".gov.tw", ".edu.tw", ".bank"];
+    // [Synced V41.57] Trusted Domains & Wildcards
+    const trustedWildcards = [
+        // Shopping
+        "shopee", "momo", "pchome", "books.com.tw", "coupang", "amazon", "taobao", "tmall", "jd.com",
+        "pxmart", "etmall", "rakuten", "shopback",
+        // Streaming
+        "netflix", "spotify", "disney", "youtube", "twitch", "hulu", "iqiyi", "kktix", "tixcraft",
+        // Tools & CDNs
+        "github.com", "gitlab.com", "notion.so", "figma.com", "canva.com", "dropbox.com",
+        "adobe.com", "cloudflare", "fastly", "jsdelivr", "googleapis.com", "gstatic.com",
+        // Social
+        "facebook.com", "instagram.com", "twitter.com", "x.com", "linkedin.com", "discord.com", "threads.net"
+    ];
+    
+    const suffixes = [".bank", ".pay", ".secure", ".gov", ".edu", ".mil"];
+    
     return {
       check: (h) => {
         if (!h) return false;
-        if (trusted.has(h)) return true;
-        for (const d of trusted) if (h.endsWith('.' + d)) return true;
+        // Check Suffixes
         for (const s of suffixes) if (h.endsWith(s)) return true;
+        // Check Wildcards
+        for (const w of trustedWildcards) if (h.includes(w)) return true;
+        // Check 3D Secure
         return lowerUrl.includes("3dsecure") || lowerUrl.includes("acs");
       }
     };
   })();
+
   const isSoftWhitelisted = WhitelistManager.check(hostname);
+  // Redundant check for safety, though WhitelistManager covers most
   const IS_SHOPPING = (hostname.includes("shopee") || hostname.includes("amazon") || hostname.includes("momo"));
 
   // ============================================================================
@@ -357,9 +400,7 @@
                  const origAddEL = pc.addEventListener;
                  const isSafeCandidate = (c) => {
                      if (!c || typeof c !== 'string') return true;
-                     // [V5.45] Explicit .local whitelist (mDNS)
                      if (c.indexOf(".local") !== -1) return true;
-                     // Block Private IPv4
                      if (/(^| )192\.168\.|(^| )10\.|(^| )172\.(1[6-9]|2[0-9]|3[0-1])\./.test(c)) return false;
                      return true; 
                  };
