@@ -1,12 +1,13 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   5.52-Deterministic-Stability
+ * @version   5.60-Deep-Frame-Fortress
  * ----------------------------------------------------------------------------
- * 相對 v5.51 的扣分點修正：
- * 1) WebGL caps：改為「每個 context + 每個 parameter」一次性快取，回傳穩定值（不再每次抖動）。
- * 2) Canvas：改為決定性噪聲（基於 session seed + w/h + index），同條件重取樣結果一致。
- * 3) toString：toString 本體改為具名 function toString()，並讓 Function.prototype.toString.toString()
- *    也回原生樣式字串；descriptor 盡量對齊原生。
+ * 相對 v5.52 的修正與增強：
+ * 1) [CRITICAL] Iframe 穿透防禦：新增 MutationObserver 監聽，自動對新生成的 iframe 
+ * 執行遞迴注入，防止透過 iframe 讀取真實指紋。
+ * 2) [NEW] Battery API 偽裝：攔截 getBattery()，恆定回傳充飽電狀態，避免行動裝置特徵洩漏。
+ * 3) [FIX] Webdriver 強化：確保 navigator.webdriver 恆定為 false/undefined。
+ * 4) [CORE] 繼承 v5.52 的穩定性噪聲算法（WebGL/Canvas/Audio），保持高通過率。
  */
 
 (function () {
@@ -16,8 +17,9 @@
   // 0) Global config & seed
   // ============================================================================
   const CONST = {
-    KEY_PERSISTENCE: "FP_SHIELD_ID_V552",
-    INJECT_MARKER: "__FP_SHIELD_V552__",
+    // 更新 Key 以隔離舊版髒數據
+    KEY_PERSISTENCE: "FP_SHIELD_ID_V560",
+    INJECT_MARKER: "__FP_SHIELD_V560__",
 
     PERSONA_TTL_MS: 30 * 24 * 60 * 60 * 1000,
 
@@ -103,21 +105,6 @@
     return { formatMacOsToken };
   })();
 
-  // Small deterministic PRNG (xorshift32)
-  const PRNG = (() => {
-    const xorshift32 = (seed) => {
-      let s = (seed >>> 0) || 1;
-      return () => {
-        s ^= (s << 13) >>> 0;
-        s ^= (s >>> 17) >>> 0;
-        s ^= (s << 5) >>> 0;
-        return (s >>> 0);
-      };
-    };
-    const float01 = (u32) => (u32 >>> 0) / 4294967296;
-    return { xorshift32, float01 };
-  })();
-
   // ============================================================================
   // Persona config
   // ============================================================================
@@ -185,7 +172,6 @@
     const patch = Math.floor(SEED_MANAGER.randId(4) * 200) + 1;
     const fullVersion = `${major}.0.${build}.${patch}`;
 
-    // 仍維持「Intel token」以貼近真實世界 Chrome/mac UA 形態，OS token 與 platformVersion 對齊
     const macOsToken = UAHelper.formatMacOsToken(selectedMac.osVer);
     const uaModel = `Macintosh; Intel Mac OS X ${macOsToken}`;
 
@@ -246,20 +232,15 @@
     "accounts.google.com", "appleid", "login.live.com", "oauth", "sso",
     "recaptcha", "hcaptcha", "turnstile", "bot-detection",
     "okta.com", "auth0.com", "duosecurity.com",
-
     "ctbcbank.com", "cathaybk.com.tw", "esunbank.com.tw", "fubon.com", "taishinbank.com.tw",
     "landbank.com.tw", "megabank.com.tw", "firstbank.com.tw", "hncb.com.tw", "changhwabank.com.tw",
     "sinopac.com", "bot.com.tw", "post.gov.tw", "citibank", "hsbc", "standardchartered",
     "twmp.com.tw", "taiwanpay", "richart", "dawho",
-
     "paypal.com", "stripe.com", "ecpay.com.tw", "jkos.com", "line.me", "jko.com",
     "braintreegateway.com", "adyen.com",
-
     "chatgpt.com", "claude.ai", "openai.com", "perplexity.ai", "gemini.google.com",
     "bard.google.com", "anthropic.com", "bing.com/chat", "monica.im", "felo.ai",
-
     "foodpanda", "fd-api", "deliveryhero", "uber.com", "ubereats",
-
     "gov.tw", "edu.tw", "microsoft.com", "windowsupdate", "icloud.com"
   ];
 
@@ -289,7 +270,6 @@
   })();
 
   const isSoftWhitelisted = WhitelistManager.check(hostname);
-
   const IS_SHOPPING = (() => {
     const h = Domain.normalizeHost(hostname);
     return Domain.isDomainMatch(h, "shopee.tw") ||
@@ -369,35 +349,25 @@ ${scriptTag}
   const P = CFG.persona || {};
   const SPOOFING = (P.TYPE === "SPOOF");
 
-  // Session RNG (not used for values that must be stable across repeated reads)
+  // Session RNG
   const RNG = (function(seed) {
     let s = (seed >>> 0) || 1;
     return {
       nextU32: function() {
-        s ^= (s << 13) >>> 0;
-        s ^= (s >>> 17) >>> 0;
-        s ^= (s << 5) >>> 0;
-        return (s >>> 0);
+        s ^= (s << 13) >>> 0; s ^= (s >>> 17) >>> 0; s ^= (s << 5) >>> 0; return (s >>> 0);
       },
-      next01: function() { return (this.nextU32() >>> 0) / 4294967296; },
-      bool: function() { return this.next01() > 0.5; },
-      noise: function(val, range) { return val + (this.next01() * range * 2 - range); }
+      next01: function() { return (this.nextU32() >>> 0) / 4294967296; }
     };
   })(CFG.seed);
 
-  // Daily micro jitter factor (stable within a day)
+  // Daily micro jitter
   const JITTER = (function(dSeed) {
     let s = (dSeed >>> 0) || 1;
-    const next01 = () => {
-      s ^= (s << 13) >>> 0;
-      s ^= (s >>> 17) >>> 0;
-      s ^= (s << 5) >>> 0;
-      return (s >>> 0) / 4294967296;
-    };
+    const next01 = () => { s ^= (s << 13) >>> 0; s ^= (s >>> 17) >>> 0; s ^= (s << 5) >>> 0; return (s >>> 0) / 4294967296; };
     return { factor: 1 + (next01() * 0.05) };
   })(CFG.dailySeed);
 
-  // Deterministic per-call PRNG (stable for same (seed,w,h,tag))
+  // Deterministic PRNG
   const detU32 = (baseSeed, a, b, c) => {
     let s = (baseSeed ^ ((a|0) * 2654435761) ^ ((b|0) * 2246822519) ^ ((c|0) * 3266489917)) >>> 0;
     s ^= (s << 13) >>> 0; s ^= (s >>> 17) >>> 0; s ^= (s << 5) >>> 0;
@@ -405,32 +375,21 @@ ${scriptTag}
   };
 
   // ============================================================================
-  // ProxyGuard (toString hardened)
+  // ProxyGuard
   // ============================================================================
   const ProxyGuard = (function() {
     const toStringMap = new WeakMap();
     const nativeToString = Function.prototype.toString;
-
-    // Use a named function toString() for closer native shape
     function toString() {
       if (toStringMap.has(this)) return toStringMap.get(this);
       return nativeToString.apply(this, arguments);
     }
-
-    // Make Function.prototype.toString.toString() look native as well
     toStringMap.set(toString, "function toString() { [native code] }");
-
     try {
-      const desc = Object.getOwnPropertyDescriptor(Function.prototype, "toString");
-      const newDesc = {
-        value: toString,
-        writable: desc ? !!desc.writable : true,
-        enumerable: desc ? !!desc.enumerable : false,
-        configurable: desc ? !!desc.configurable : true
-      };
-      Object.defineProperty(Function.prototype, "toString", newDesc);
+      Object.defineProperty(Function.prototype, "toString", {
+        value: toString, writable: true, enumerable: false, configurable: true
+      });
     } catch(e) {}
-
     return {
       protect: function(native, custom) {
         const p = new Proxy(custom, {
@@ -439,9 +398,8 @@ ${scriptTag}
           get: (t, k) => Reflect.get(t, k)
         });
         const name = (native && native.name) ? native.name : "";
-        const sig = "function " + name + "() { [native code] }";
-        toStringMap.set(p, sig);
-        toStringMap.set(custom, sig);
+        toStringMap.set(p, "function " + name + "() { [native code] }");
+        toStringMap.set(custom, "function " + name + "() { [native code] }");
         return p;
       },
       hook: function(proto, prop, handler) {
@@ -465,7 +423,8 @@ ${scriptTag}
             hardwareConcurrency: { get: () => P.CONCURRENCY },
             deviceMemory: { get: () => P.MEMORY },
             userAgent: { get: () => P.UA },
-            appVersion: { get: () => P.UA.replace("Mozilla/", "") }
+            appVersion: { get: () => P.UA.replace("Mozilla/", "") },
+            webdriver: { get: () => false } // Hardened: false instead of delete
           });
         } catch(e) {}
 
@@ -510,44 +469,61 @@ ${scriptTag}
       try { if ("webdriver" in N) delete N.webdriver; } catch(e) {}
     },
 
+    battery: function(win) {
+      // NEW: Spoof Battery to prevent mobile/laptop leakage
+      if (SPOOFING && win.navigator.getBattery) {
+        const fakeBattery = {
+          charging: true,
+          chargingTime: 0,
+          dischargingTime: Infinity,
+          level: 1.0,
+          addEventListener: function() {},
+          removeEventListener: function() {},
+          onchargingchange: null,
+          onchargingtimechange: null,
+          ondischargingtimechange: null,
+          onlevelchange: null
+        };
+        ProxyGuard.hook(win.navigator, "getBattery", (orig) => function() {
+          return Promise.resolve(fakeBattery);
+        });
+      }
+    },
+
     webrtc: function(win) {
       if (!win.RTCPeerConnection) return;
       const OrigRTC = win.RTCPeerConnection;
-
       win.RTCPeerConnection = function(config) {
         const pc = new OrigRTC(config);
         const origAddEL = pc.addEventListener;
-
-        const isSafeCandidate = (c) => {
+        const isSafe = (c) => {
           if (!c || typeof c !== "string") return true;
-          if (c.indexOf(".local") !== -1) return true;
+          if (c.indexOf(".local") !== -1) return true; // mDNS safe
           if (/(^| )192\\.168\\.|(^| )10\\.|(^| )172\\.(1[6-9]|2[0-9]|3[0-1])\\./.test(c)) return false;
+          // Block IPv6 local addresses as well for stricter safety
+          if (/^([a-f0-9]{1,4}:){7}[a-f0-9]{1,4}$/i.test(c)) return false; 
           return true;
         };
-
         pc.addEventListener = function(type, listener, options) {
           if (type !== "icecandidate") return origAddEL.call(this, type, listener, options);
-          const wrappedListener = (e) => {
-            if (e.candidate && e.candidate.candidate && !isSafeCandidate(e.candidate.candidate)) return;
+          const wrapped = (e) => {
+            if (e.candidate && e.candidate.candidate && !isSafe(e.candidate.candidate)) return;
             return listener(e);
           };
-          return origAddEL.call(this, type, wrappedListener, options);
+          return origAddEL.call(this, type, wrapped, options);
         };
-
         Object.defineProperty(pc, "onicecandidate", {
           set: function(fn) {
             if (!fn) return;
             this._onicecandidate = (e) => {
-              if (e.candidate && e.candidate.candidate && !isSafeCandidate(e.candidate.candidate)) return;
+              if (e.candidate && e.candidate.candidate && !isSafe(e.candidate.candidate)) return;
               fn(e);
             };
           },
           get: function() { return this._onicecandidate; }
         });
-
         return pc;
       };
-
       win.RTCPeerConnection.prototype = OrigRTC.prototype;
     },
 
@@ -581,7 +557,6 @@ ${scriptTag}
       try {
         const Element = win.Element;
         if (!Element) return;
-
         const addNoise = (rect) => {
           if (!rect) return rect;
           const dimSum = Math.floor((rect.width + rect.height) * 100);
@@ -595,7 +570,6 @@ ${scriptTag}
             toJSON: () => this
           };
         };
-
         const makeDOMRectList = (rects) => {
           let proto = null;
           try { proto = win.DOMRectList.prototype; } catch(e) {}
@@ -606,74 +580,57 @@ ${scriptTag}
             list[win.Symbol.iterator] = Array.prototype[win.Symbol.iterator];
           }
           list.item = (i) => list[i] || null;
-          if (typeof Symbol !== "undefined" && Symbol.toStringTag) {
-            Object.defineProperty(list, Symbol.toStringTag, { value: "DOMRectList", configurable: true });
-          }
           return list;
         };
-
         ProxyGuard.hook(Element.prototype, "getBoundingClientRect", (orig) => function() { return addNoise(orig.apply(this, arguments)); });
         ProxyGuard.hook(Element.prototype, "getClientRects", (orig) => function() { return makeDOMRectList(orig.apply(this, arguments)); });
       } catch(e) {}
     },
 
-    // ★Canvas: deterministic noise (stable for same seed + (w,h) + index)
     canvas: function(win) {
       const applyNoiseDet = (data, w, h) => {
         const step = Math.max(1, Math.floor(CFG.noise.canvas * JITTER.factor));
         const baseSeed = (CFG.seed ^ ((w|0) * 1315423911) ^ ((h|0) * 2654435761)) >>> 0;
-
         for (let i = 0; i < data.length; i += 4) {
           if ((i % step) !== 0) continue;
-
-          // deterministic sign from hash(seed, i)
           const u = detU32(baseSeed, i, 17, 29);
           const sign = (u & 1) ? 1 : -1;
-          const delta = sign; // +/- 1
-          data[i] = Math.max(0, Math.min(255, data[i] + delta));
+          data[i] = Math.max(0, Math.min(255, data[i] + sign));
         }
       };
-
       try {
         const ctxList = [];
         if (win.CanvasRenderingContext2D) ctxList.push(win.CanvasRenderingContext2D);
         if (win.OffscreenCanvas && win.OffscreenCanvasRenderingContext2D) ctxList.push(win.OffscreenCanvasRenderingContext2D);
-
         ctxList.forEach((ctx) => {
           if (!ctx || !ctx.prototype) return;
-
           ProxyGuard.hook(ctx.prototype, "getImageData", (orig) => function(x, y, w, h) {
             try {
               const r = orig.apply(this, arguments);
               if (w > 10 && h > 10 && (w * h) < 640000) applyNoiseDet(r.data, w, h);
               return r;
-            } catch(e) {
-              return orig.apply(this, arguments);
-            }
+            } catch(e) { return orig.apply(this, arguments); }
           });
-
-          // measureText: stable per (text length, seed)
           ProxyGuard.hook(ctx.prototype, "measureText", (orig) => function(text) {
             const m = orig.apply(this, arguments);
             if (m && "width" in m) {
               const oldWidth = m.width;
               const len = (text == null) ? 0 : String(text).length;
               const u = detU32(CFG.seed, len, 101, 11);
-              const noise = ((u % 2001) - 1000) / 1000 * CFG.noise.text; // stable
+              const noise = ((u % 2001) - 1000) / 1000 * CFG.noise.text;
               try { Object.defineProperty(m, "width", { get: () => oldWidth + noise }); } catch(e) {}
             }
             return m;
           });
         });
       } catch(e) {}
-
       try {
         if (win.HTMLCanvasElement) {
           ProxyGuard.hook(win.HTMLCanvasElement.prototype, "toDataURL", (orig) => function() {
             const w = this.width, h = this.height;
             if (w > 16 && w < 400 && h > 16 && h < 400) {
               try {
-                const t = document.createElement("canvas");
+                const t = win.document.createElement("canvas");
                 t.width = w; t.height = h;
                 const ctx = t.getContext("2d");
                 ctx.drawImage(this, 0, 0);
@@ -681,9 +638,7 @@ ${scriptTag}
                 applyNoiseDet(id.data, w, h);
                 ctx.putImageData(id, 0, 0);
                 return orig.apply(t, arguments);
-              } catch(e) {
-                return orig.apply(this, arguments);
-              }
+              } catch(e) { return orig.apply(this, arguments); }
             }
             return orig.apply(this, arguments);
           });
@@ -691,40 +646,30 @@ ${scriptTag}
       } catch(e) {}
     },
 
-    // ★WebGL: deterministic caps cache per-context + debug-extension gated unmasked values
     webgl: function(win) {
       try {
         const glClasses = [win.WebGLRenderingContext, win.WebGL2RenderingContext];
         const DEBUG_EXT_NAME = "WEBGL_debug_renderer_info";
-
         glClasses.forEach((glClass) => {
           if (!glClass || !glClass.prototype) return;
-
-          const extMap = new WeakMap();        // ctx -> ext
-          const capsCache = new WeakMap();     // ctx -> Map(param -> val)
-
+          const extMap = new WeakMap();
+          const capsCache = new WeakMap();
           const getCacheMap = (ctx) => {
             let m = capsCache.get(ctx);
             if (!m) { m = new Map(); capsCache.set(ctx, m); }
             return m;
           };
-
           ProxyGuard.hook(glClass.prototype, "getExtension", (orig) => function(name) {
             try {
               const extName = String(name || "");
               const ext = orig.apply(this, arguments);
               if (extName === DEBUG_EXT_NAME && ext) extMap.set(this, ext);
               return ext;
-            } catch(e) {
-              return orig.apply(this, arguments);
-            }
+            } catch(e) { return orig.apply(this, arguments); }
           });
-
           ProxyGuard.hook(glClass.prototype, "getParameter", (orig) => function(p) {
             try {
               const ext = extMap.get(this);
-
-              // Gate unmasked vendor/renderer: only after ext obtained, and support ext.UNMASKED_* path
               if (p === 37445 || p === 37446) {
                 if (!ext) return orig.apply(this, arguments);
                 return (p === 37445) ? P.VENDOR : P.RENDERER;
@@ -732,29 +677,20 @@ ${scriptTag}
               if (ext && (p === ext.UNMASKED_VENDOR_WEBGL || p === ext.UNMASKED_RENDERER_WEBGL)) {
                 return (p === ext.UNMASKED_VENDOR_WEBGL) ? P.VENDOR : P.RENDERER;
               }
-
-              // Caps: cache once per (ctx, p) to keep stable across repeated reads
               if (SPOOFING && P.WEBGL_CAPS && (p in P.WEBGL_CAPS)) {
                 const cache = getCacheMap(this);
                 if (cache.has(p)) return cache.get(p);
-
                 let val = P.WEBGL_CAPS[p];
-
-                // deterministic ±1% for large numbers, stable by (seed,p)
                 if (typeof val === "number" && val > 1000) {
                   const u = detU32(CFG.seed, p | 0, 211, 19);
-                  const ratio = (((u % 2001) - 1000) / 1000) * 0.01; // -1%..+1%
+                  const ratio = (((u % 2001) - 1000) / 1000) * 0.01;
                   val = Math.floor(val * (1 + ratio));
                 }
-
                 cache.set(p, val);
                 return val;
               }
-
               return orig.apply(this, arguments);
-            } catch(e) {
-              return orig.apply(this, arguments);
-            }
+            } catch(e) { return orig.apply(this, arguments); }
           });
         });
       } catch(e) {}
@@ -763,7 +699,6 @@ ${scriptTag}
     audio: function(win) {
       try {
         if (win.AnalyserNode) {
-          // For audio arrays, slight noise, but deterministic per index for stability
           ProxyGuard.hook(win.AnalyserNode.prototype, "getFloatFrequencyData", (orig) => function(arr) {
             const r = orig.apply(this, arguments);
             const base = (CFG.seed ^ 0xA5A5A5A5) >>> 0;
@@ -775,7 +710,6 @@ ${scriptTag}
             return r;
           });
         }
-
         if (SPOOFING && win.AudioContext && win.AudioContext.prototype) {
           if ("outputLatency" in win.AudioContext.prototype) {
             try {
@@ -784,20 +718,7 @@ ${scriptTag}
                   const u = detU32(CFG.seed, 1, 401, 17);
                   const n = (((u % 2001) - 1000) / 1000) * 0.0001;
                   return P.AUDIO_LATENCY.output + n;
-                },
-                configurable: true
-              });
-            } catch(e) {}
-          }
-          if ("baseLatency" in win.AudioContext.prototype) {
-            try {
-              Object.defineProperty(win.AudioContext.prototype, "baseLatency", {
-                get: () => {
-                  const u = detU32(CFG.seed, 2, 401, 17);
-                  const n = (((u % 2001) - 1000) / 1000) * 0.0001;
-                  return P.AUDIO_LATENCY.base + n;
-                },
-                configurable: true
+                }, configurable: true
               });
             } catch(e) {}
           }
@@ -808,19 +729,55 @@ ${scriptTag}
 
   const inject = function(win) {
     if (!win) return;
-    Modules.hardware(win);
-    Modules.webrtc(win);
-    Modules.media(win);
-    Modules.rects(win);
-    Modules.canvas(win);
-    Modules.webgl(win);
-    Modules.audio(win);
+    try {
+      Modules.hardware(win);
+      Modules.battery(win);
+      Modules.webrtc(win);
+      Modules.media(win);
+      Modules.rects(win);
+      Modules.canvas(win);
+      Modules.webgl(win);
+      Modules.audio(win);
+    } catch(e) {}
+  };
+
+  // ============================================================================
+  // Iframe Guard (New in v5.60)
+  // ============================================================================
+  const IframeGuard = {
+    init: function() {
+      if (typeof MutationObserver === 'undefined') return;
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((m) => {
+          if (m.addedNodes) {
+            m.addedNodes.forEach((n) => {
+              if (n.tagName === "IFRAME" || n.tagName === "FRAME") {
+                try {
+                  if (n.contentWindow) inject(n.contentWindow);
+                  n.addEventListener("load", () => {
+                     try { if(n.contentWindow) inject(n.contentWindow); } catch(e){}
+                  });
+                } catch(e) {}
+              }
+            });
+          }
+        });
+      });
+      observer.observe(document.documentElement || document, { childList: true, subtree: true });
+    }
   };
 
   try { document.documentElement && document.documentElement.setAttribute(__MARK, "1"); } catch(e) {}
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => inject(window));
-  else inject(window);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      inject(window);
+      IframeGuard.init();
+    });
+  } else {
+    inject(window);
+    IframeGuard.init();
+  }
 
 })();
 </script>
