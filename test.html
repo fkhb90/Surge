@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V5.46 指紋防護檢測儀</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f7; color: #333; padding: 20px; max-width: 600px; margin: 0 auto; }
+        .card { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        h1 { font-size: 22px; margin-bottom: 8px; color: #1d1d1f; }
+        h2 { font-size: 16px; margin-bottom: 12px; color: #86868b; text-transform: uppercase; letter-spacing: 0.5px; }
+        .status { font-size: 18px; font-weight: 600; padding: 8px 12px; border-radius: 8px; display: inline-block; margin-bottom: 10px; }
+        .safe { background-color: #e5f9e7; color: #2e7d32; }
+        .danger { background-color: #ffebee; color: #c62828; }
+        .neutral { background-color: #e3f2fd; color: #1565c0; }
+        .metric { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; }
+        .metric:last-child { border-bottom: none; }
+        .label { color: #666; }
+        .value { font-family: monospace; font-weight: 600; }
+        button { background-color: #007aff; color: white; border: none; padding: 12px 24px; border-radius: 12px; font-size: 16px; width: 100%; font-weight: 600; cursor: pointer; }
+        button:active { background-color: #005ecb; }
+        .info { font-size: 13px; color: #888; margin-top: 20px; text-align: center; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+    <h1>🛡️ V5.46 防護狀態檢測</h1>
+    <p>即時分析瀏覽器環境是否受到 Universal-Fingerprint-Poisoning 保護。</p>
+
+    <div class="card">
+        <h2>核心狀態 (Core Status)</h2>
+        <div id="protectionStatus" class="status neutral">檢測中...</div>
+        <div class="metric">
+            <span class="label">腳本注入 (Injection)</span>
+            <span class="value" id="injectVal">-</span>
+        </div>
+        <div class="metric">
+            <span class="label">運作模式 (Persona)</span>
+            <span class="value" id="personaVal">-</span>
+        </div>
+         <div class="metric">
+            <span class="label">Canvas 噪聲 (Noise)</span>
+            <span class="value" id="noiseVal">-</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>指紋特徵 (Fingerprint Specs)</h2>
+        <div class="metric">
+            <span class="label">Platform</span>
+            <span class="value" id="platVal">-</span>
+        </div>
+        <div class="metric">
+            <span class="label">Concurrency</span>
+            <span class="value" id="cpuVal">-</span>
+        </div>
+        <div class="metric">
+            <span class="label">Device Memory</span>
+            <span class="value" id="memVal">-</span>
+        </div>
+        <div class="metric">
+            <span class="label">User Agent</span>
+            <div class="value" style="font-size: 10px; text-align: right; max-width: 60%;" id="uaVal">-</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>時間窗 (Rhythm)</h2>
+        <div class="metric">
+            <span class="label">目前種子 (Session Seed)</span>
+            <span class="value" id="seedVal">隱藏 (Hidden)</span>
+        </div>
+        <div class="metric">
+            <span class="label">穩定性說明</span>
+            <div class="value" style="font-size: 11px; max-width: 60%; text-align: right;">指紋每 20-50 分鐘變更一次，重新整理不會改變雜湊值。</div>
+        </div>
+    </div>
+
+    <button onclick="runCheck()">重新檢測 (Re-Scan)</button>
+
+    <p class="info">請在 Surge 開啟並啟用 V5.46 腳本的環境下執行此頁面。<br>若顯示「未檢測到防護」，請檢查 HTTPS 解密是否啟用。</p>
+
+    <script>
+        function detectNoise() {
+            // V5.46 噪聲檢測邏輯：繪製純色，檢查是否有像素偏移
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 200; // 符合 V5.46 的觸發條件 (16 < w < 400)
+            canvas.height = 50; 
+            
+            // 填滿純黑色 (0,0,0)
+            ctx.fillStyle = "rgb(0,0,0)";
+            ctx.fillRect(0, 0, 200, 50);
+            
+            // 讀取像素數據 (這會觸發 V5.46 的 Proxy)
+            // V5.46 會隨機對部分像素進行 +1/-1 的調整
+            try {
+                const imageData = ctx.getImageData(0, 0, 200, 50);
+                const data = imageData.data;
+                let noiseDetected = false;
+                let noiseCount = 0;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    // 檢查 RGB 是否不等於 0 (如果不等於0，表示被注入了噪聲)
+                    if (data[i] !== 0 || data[i+1] !== 0 || data[i+2] !== 0) {
+                        noiseDetected = true;
+                        noiseCount++;
+                    }
+                }
+                return { detected: noiseDetected, count: noiseCount };
+            } catch(e) {
+                return { detected: false, error: e.message };
+            }
+        }
+
+        function runCheck() {
+            const noiseResult = detectNoise();
+            const ua = navigator.userAgent;
+            const platform = navigator.platform;
+            
+            // 1. 檢測腳本是否注入 (檢查有無全域標記或 Proxy 行為)
+            // 由於 V5.46 隱藏了全域變數，我們依賴噪聲結果與 Platform 特徵
+            
+            const isSpoofedMac = platform === 'MacIntel' && !/iPhone|iPad/i.test(ua);
+            const isNativeIOS = /iPhone|iPad/i.test(ua);
+            
+            // 更新 UI
+            document.getElementById('platVal').textContent = platform;
+            document.getElementById('cpuVal').textContent = navigator.hardwareConcurrency || 'N/A';
+            document.getElementById('memVal').textContent = navigator.deviceMemory || 'N/A';
+            document.getElementById('uaVal').textContent = ua.substring(0, 40) + '...';
+            
+            document.getElementById('noiseVal').textContent = noiseResult.detected ? 
+                `DETECTED (Pix: ${noiseResult.count})` : "None";
+
+            const statusEl = document.getElementById('protectionStatus');
+            const injectEl = document.getElementById('injectVal');
+            const personaEl = document.getElementById('personaVal');
+
+            if (noiseResult.detected) {
+                statusEl.textContent = "✅ 受 V5.46 保護中";
+                statusEl.className = "status safe";
+                injectEl.textContent = "Active";
+                
+                if (isSpoofedMac) {
+                    personaEl.textContent = "macOS Spoofing";
+                } else if (isNativeIOS) {
+                    personaEl.textContent = "iOS Native Enhanced";
+                } else {
+                    personaEl.textContent = "Unknown Persona";
+                }
+            } else {
+                statusEl.textContent = "⚠️ 未檢測到防護";
+                statusEl.className = "status danger";
+                injectEl.textContent = "Inactive";
+                personaEl.textContent = "Original";
+            }
+        }
+
+        // Auto run on load
+        window.onload = runCheck;
+    </script>
+</body>
+</html>
