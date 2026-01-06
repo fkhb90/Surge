@@ -1,14 +1,17 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   6.00-Final-Horizon
+ * @version   7.00-Ultimate-Stealth
  * ----------------------------------------------------------------------------
- * 相對 v5.90 的修正與增強 (集大成終極版)：
- * 1) [CRITICAL] WebGL Shader 精確度偽裝 (Shader Precision Spoofing)：
- * 攔截 getShaderPrecisionFormat，統一回傳標準化精度，消除 GPU 架構特徵。
- * 2) [ADVANCED] 抗時序攻擊 (Anti-Timing Attack)：
- * 對 performance.now() 施加微量抖動，破壞偵測腳本對 Hook 延遲的分析能力。
- * 3) [CORE] 繼承 v5.90 所有功能 (Stack Scrubbing, Extension Shuffling, Worker Blob, 
- * Timezone, Battery, Speech, Iframe Sync)，打造全方位防護網。
+ * V7.00 最終版更新日誌 (滿分修正)：
+ * 1) [CRITICAL] OfflineAudioContext 毒化：
+ * 攔截 startRendering，對渲染結果 (AudioBuffer) 注入確定性噪音，
+ * 防禦 FingerprintJS 等高階音頻指紋追蹤。
+ * 2) [DEEP] WebGL 版本字串清洗：
+ * 過濾 gl.VERSION 中的 "Direct3D", "ANGLE", "Mesa" 等驅動特徵，
+ * 確保底層 API 輸出與偽裝的 OS/GPU 邏輯一致。
+ * 3) [CLEANUP] 插件與過時 API 標準化：
+ * 鎖定 navigator.plugins 與 mimeTypes，移除遺留特徵。
+ * 4) [CORE] 全面繼承 V6.20 功能 (DST-Aware Timezone, Network Spoofing, etc.)。
  */
 
 (function () {
@@ -18,27 +21,29 @@
   // 0) Global config & seed
   // ============================================================================
   const CONST = {
-    KEY_PERSISTENCE: "FP_SHIELD_ID_V600",
-    INJECT_MARKER: "__FP_SHIELD_V600__",
+    KEY_PERSISTENCE: "FP_SHIELD_ID_V700",
+    INJECT_MARKER: "__FP_SHIELD_V700__",
 
-    PERSONA_TTL_MS: 30 * 24 * 60 * 60 * 1000,
+    PERSONA_TTL_MS: 30 * 24 * 60 * 60 * 1000, // 30 Days
 
     WINDOW_MIN_MS: 20 * 60 * 1000,
     WINDOW_VAR_MS: 30 * 60 * 1000,
 
     CANVAS_NOISE_STEP: 2,
-    AUDIO_NOISE_LEVEL: 0.00001,
+    AUDIO_NOISE_LEVEL: 0.00001,      // For AnalyserNode
+    OFFLINE_AUDIO_NOISE: 0.000001,   // For OfflineAudioContext (Low level to keep hashes stable per session)
     TEXT_METRICS_NOISE: 0.0001,
     RECT_NOISE_LEVEL: 0.000001,
     
-    // Timezone Target: New York (matches en-US persona)
+    // Timezone Target: New York
     TARGET_TIMEZONE: "America/New_York",
-    TARGET_LOCALE: "en-US"
+    TARGET_LOCALE: "en-US",
+    TZ_STD: 300,
+    TZ_DST: 240
   };
 
   const SEED_MANAGER = (function () {
     const now = Date.now();
-
     let idSeed = 12345;
     try {
       const storedId = localStorage.getItem(CONST.KEY_PERSISTENCE);
@@ -152,16 +157,6 @@
         gpuRenderer: "Apple M3 Max",
         concurrency: 12,
         memory: 36,
-        screen: { depth: 30, pixelRatio: 2 }
-      },
-      {
-        name: "M3_iMac",
-        ARCH: "arm",
-        osVer: "14.7.1",
-        gpuVendor: "Google Inc. (Apple)",
-        gpuRenderer: "Apple GPU",
-        concurrency: 8,
-        memory: 24,
         screen: { depth: 30, pixelRatio: 2 }
       }
     ];
@@ -293,7 +288,6 @@
         const l = k.toLowerCase();
         if (l === "user-agent" || l.startsWith("sec-ch-ua") || l === "accept-language") delete headers[k];
       });
-
       headers["User-Agent"] = CURRENT_PERSONA.UA;
       headers["sec-ch-ua"] = `"Not(A:Brand";v="99", "Google Chrome";v="${CURRENT_PERSONA.MAJOR_VERSION}", "Chromium";v="${CURRENT_PERSONA.MAJOR_VERSION}"`;
       headers["sec-ch-ua-mobile"] = "?0";
@@ -328,6 +322,7 @@
     let shouldInject = false;
     if (stolenNonce) shouldInject = true;
     else if (!hasCSP || isUnsafeInlineAllowed) shouldInject = true;
+
     if (!shouldInject) { $done({}); return; }
 
     const INJECT_CONFIG = {
@@ -336,17 +331,23 @@
       noise: {
         canvas: CONST.CANVAS_NOISE_STEP,
         audio: CONST.AUDIO_NOISE_LEVEL,
+        offAudio: CONST.OFFLINE_AUDIO_NOISE,
         text: CONST.TEXT_METRICS_NOISE,
         rect: CONST.RECT_NOISE_LEVEL
       },
       seed: SEED_MANAGER.session,
       dailySeed: SEED_MANAGER.daily,
       tz: CONST.TARGET_TIMEZONE,
-      locale: CONST.TARGET_LOCALE
+      locale: CONST.TARGET_LOCALE,
+      tzStd: CONST.TZ_STD,
+      tzDst: CONST.TZ_DST
     };
 
     const scriptTag = stolenNonce ? `<script nonce="${stolenNonce}">` : `<script>`;
-
+    
+    // ==========================================================================
+    // INJECTED SCRIPT (BROWSER CONTEXT)
+    // ==========================================================================
     const injectionScript = `
 ${scriptTag}
 (function() {
@@ -387,6 +388,21 @@ ${scriptTag}
     let s = (baseSeed ^ ((a|0) * 2654435761) ^ ((b|0) * 2246822519) ^ ((c|0) * 3266489917)) >>> 0;
     s ^= (s << 13) >>> 0; s ^= (s >>> 17) >>> 0; s ^= (s << 5) >>> 0;
     return (s >>> 0);
+  };
+  
+  // DST Calculator
+  const getDstOffset = (dateObj) => {
+     try {
+       const y = dateObj.getFullYear();
+       const mar1 = new Date(y, 2, 1);
+       const mar2ndSun = 1 + (14 - mar1.getDay()) % 7; 
+       const dstStart = new Date(y, 2, mar2ndSun, 2, 0, 0);
+       const nov1 = new Date(y, 10, 1);
+       const nov1stSun = 1 + (7 - nov1.getDay()) % 7;
+       const dstEnd = new Date(y, 10, nov1stSun, 2, 0, 0);
+       if (dateObj >= dstStart && dateObj < dstEnd) return CFG.tzDst;
+       return CFG.tzStd;
+     } catch(e) { return CFG.tzStd; }
   };
 
   // ============================================================================
@@ -442,8 +458,12 @@ ${scriptTag}
           appVersion: { get: () => P.UA.replace("Mozilla/", "") },
           webdriver: { get: () => false },
           language: { get: () => CFG.locale },
-          languages: { get: () => [CFG.locale, "en"] }
+          languages: { get: () => [CFG.locale, "en"] },
+          // Clean Plugins & MimeTypes
+          plugins: { get: () => { const a=[]; a.item=()=>null; a.namedItem=()=>null; return a; } },
+          mimeTypes: { get: () => { const a=[]; a.item=()=>null; a.namedItem=()=>null; return a; } }
         });
+        
         if (N.userAgentData) {
           const uaData = {
             brands: [
@@ -465,41 +485,43 @@ ${scriptTag}
           };
           try { Object.defineProperty(N, "userAgentData", { get: () => uaData }); } catch(e) {}
         }
+        
+        // Network Info Spoofing
+        if (N.connection) {
+           const conn = {
+             effectiveType: "4g",
+             rtt: 50,
+             downlink: 10,
+             saveData: false,
+             type: "wifi",
+             addEventListener: function(){},
+             removeEventListener: function(){}
+           };
+           try { Object.defineProperty(N, "connection", { get: () => conn }); } catch(e){}
+        }
       } catch(e) {}
     },
 
-    // Stack Scrubber (Best Effort)
     errors: function(win) {
       if (!SPOOFING || !win.Error) return;
       try {
         const desc = Object.getOwnPropertyDescriptor(win.Error.prototype, "stack");
         if (!desc || !desc.configurable) return;
         Object.defineProperty(win.Error.prototype, "stack", {
-          get: function() {
-            return "Error: Stack trace hidden for privacy."; 
-          },
+          get: function() { return "Error: Stack trace hidden for privacy."; },
           set: function(v) { this._stack = v; }, 
           configurable: true
         });
       } catch(e) {}
     },
 
-    // ★ NEW: Anti-Timing Attack (Micro Jitter)
     timing: function(win) {
       if (!SPOOFING || !win.performance) return;
       try {
-        const origNow = win.performance.now;
-        // Deterministic jitter based on session seed is risky for timing, 
-        // using random micro-jitter is better to destabilize measurements.
-        // We ensure it's monotonic.
-        let lastTime = 0;
+        const shift = Math.random() * 0.02; 
         ProxyGuard.hook(win.performance, "now", (orig) => function() {
           const real = orig.apply(this, arguments);
-          const jitter = (Math.random() * 0.05); // 0.00ms - 0.05ms random drift
-          let faked = real + jitter;
-          if (faked < lastTime) faked = lastTime + 0.0001; // Ensure monotonicity
-          lastTime = faked;
-          return faked;
+          return (Math.floor(real * 10) / 10) + shift;
         });
       } catch(e) {}
     },
@@ -532,6 +554,14 @@ ${scriptTag}
           opts.locale = CFG.locale;
           return opts;
         });
+        
+        if (win.Date && win.Date.prototype) {
+           const oldGTO = win.Date.prototype.getTimezoneOffset;
+           win.Date.prototype.getTimezoneOffset = function() {
+             return getDstOffset(this);
+           };
+           ProxyGuard.protect(oldGTO, win.Date.prototype.getTimezoneOffset);
+        }
       } catch(e) {}
     },
 
@@ -543,7 +573,7 @@ ${scriptTag}
           return [
             { name: "Samantha", lang: "en-US", localService: true, default: true, voiceURI: "Samantha" },
             { name: "Alex", lang: "en-US", localService: true, default: false, voiceURI: "Alex" }
-          ]; 
+          ];
         };
         ProxyGuard.protect(oldGetVoices, win.speechSynthesis.getVoices);
       } catch(e) {}
@@ -568,6 +598,21 @@ ${scriptTag}
           const P = \${JSON.stringify(P)};
           const CFG = \${JSON.stringify(CFG)};
           const SPOOFING = true;
+          
+          const getDstOffset = (dateObj) => {
+             try {
+               const y = dateObj.getFullYear();
+               const mar1 = new Date(y, 2, 1);
+               const mar2ndSun = 1 + (14 - mar1.getDay()) % 7; 
+               const dstStart = new Date(y, 2, mar2ndSun, 2, 0, 0);
+               const nov1 = new Date(y, 10, 1);
+               const nov1stSun = 1 + (7 - nov1.getDay()) % 7;
+               const dstEnd = new Date(y, 10, nov1stSun, 2, 0, 0);
+               if (dateObj >= dstStart && dateObj < dstEnd) return CFG.tzDst;
+               return CFG.tzStd;
+             } catch(e) { return CFG.tzStd; }
+          };
+
           try {
             const N = self.navigator;
             Object.defineProperties(N, {
@@ -577,7 +622,9 @@ ${scriptTag}
               userAgent: { get: () => P.UA },
               webdriver: { get: () => false },
               language: { get: () => CFG.locale },
-              languages: { get: () => [CFG.locale, "en"] }
+              languages: { get: () => [CFG.locale, "en"] },
+              plugins: { get: () => { const a=[]; a.item=()=>null; a.namedItem=()=>null; return a; } },
+              mimeTypes: { get: () => { const a=[]; a.item=()=>null; a.namedItem=()=>null; return a; } }
             });
             try {
                const DTF = self.Intl.DateTimeFormat;
@@ -588,19 +635,18 @@ ${scriptTag}
                  o.locale = CFG.locale;
                  return o;
                };
+               const oldGTO = self.Date.prototype.getTimezoneOffset;
+               self.Date.prototype.getTimezoneOffset = function() {
+                 return getDstOffset(this);
+               };
             } catch(e){}
-            // Inject Timing Jitter in Worker
             try {
               if(self.performance) {
                 const origNow = self.performance.now;
-                let lastTime = 0;
+                const shift = Math.random() * 0.02;
                 self.performance.now = function() {
                   const real = origNow.apply(this, arguments);
-                  const jitter = (Math.random() * 0.05); 
-                  let faked = real + jitter;
-                  if (faked < lastTime) faked = lastTime + 0.0001;
-                  lastTime = faked;
-                  return faked;
+                  return (Math.floor(real * 10) / 10) + shift;
                 };
               }
             } catch(e){}
@@ -700,7 +746,9 @@ ${scriptTag}
             top: rect.top + noise, bottom: rect.bottom + noise,
             left: rect.left + noise, right: rect.right + noise,
             width: rect.width + noise, height: rect.height + noise,
-            toJSON: () => this
+            toJSON: function() { 
+                return { x: this.x, y: this.y, top: this.top, bottom: this.bottom, left: this.left, right: this.right, width: this.width, height: this.height };
+            }
           };
         };
         const makeDOMRectList = (rects) => {
@@ -802,9 +850,8 @@ ${scriptTag}
             } catch(e) { return orig.apply(this, arguments); }
           });
           
-          // Extension Shuffling
           ProxyGuard.hook(glClass.prototype, "getSupportedExtensions", (orig) => function() {
-            try {
+             try {
               const exts = orig.apply(this, arguments);
               if (exts && Array.isArray(exts)) {
                 return RNG.shuffle(Array.from(exts));
@@ -813,19 +860,21 @@ ${scriptTag}
             } catch(e) { return orig.apply(this, arguments); }
           });
 
-          // ★ NEW: Shader Precision Spoofing
+          // Shader Precision
           ProxyGuard.hook(glClass.prototype, "getShaderPrecisionFormat", (orig) => function(shaderType, precisionType) {
-            // Return standard High-Float values to hide GPU architecture specifics
-            // RangeMin: 127, RangeMax: 127, Precision: 23 is a safe common baseline
-            return {
-              rangeMin: 127,
-              rangeMax: 127,
-              precision: 23,
-            };
+            return { rangeMin: 127, rangeMax: 127, precision: 23 }; 
           });
 
           ProxyGuard.hook(glClass.prototype, "getParameter", (orig) => function(p) {
             try {
+              // Version Clean-up (Remove Direct3D/Angle/Mesa/Intel/NVIDIA)
+              if (p === 7938 || p === 35724) { // VERSION, SHADING_LANGUAGE_VERSION
+                  const realStr = orig.apply(this, arguments);
+                  // Standardize to generic WebGL string
+                  if (p === 7938) return "WebGL 2.0 (OpenGL ES 3.0)";
+                  return "WebGL GLSL ES 3.00";
+              }
+
               const ext = extMap.get(this);
               if (p === 37445 || p === 37446) {
                 if (!ext) return orig.apply(this, arguments);
@@ -867,6 +916,27 @@ ${scriptTag}
             return r;
           });
         }
+        
+        // ★ CRITICAL: OfflineAudioContext Poisoning
+        if (win.OfflineAudioContext) {
+            ProxyGuard.hook(win.OfflineAudioContext.prototype, "startRendering", (orig) => function() {
+                return orig.apply(this, arguments).then(buffer => {
+                    try {
+                        // Apply deterministic noise to the rendered buffer
+                        const data = buffer.getChannelData(0);
+                        const base = (CFG.seed ^ 0x5A5A5A5A) >>> 0;
+                        // Modify only sparse samples to keep audio valid but alter hash
+                        for (let i = 0; i < data.length; i += 100) {
+                            const u = detU32(base, i, 41, 7);
+                            const n = (((u % 2001) - 1000) / 1000) * CFG.noise.offAudio;
+                            data[i] += n;
+                        }
+                    } catch(e) {}
+                    return buffer;
+                });
+            });
+        }
+
         if (SPOOFING && win.AudioContext && win.AudioContext.prototype) {
           if ("outputLatency" in win.AudioContext.prototype) {
             try {
@@ -895,7 +965,7 @@ ${scriptTag}
     if (!win) return;
     try {
       Modules.errors(win);
-      Modules.timing(win); // NEW
+      Modules.timing(win);
       Modules.hardware(win);
       Modules.battery(win);
       Modules.timezone(win);
@@ -910,12 +980,8 @@ ${scriptTag}
     } catch(e) {}
   };
 
-  // ============================================================================
-  // Iframe Guard (Sync + Async)
-  // ============================================================================
   const IframeGuard = {
     init: function() {
-      // 1. Sync Guard
       try {
          const ifrDesc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, "contentWindow");
          if(ifrDesc && ifrDesc.get) {
@@ -933,7 +999,6 @@ ${scriptTag}
          }
       } catch(e) {}
 
-      // 2. Async Guard
       if (typeof MutationObserver !== 'undefined') {
         const observer = new MutationObserver((mutations) => {
           mutations.forEach((m) => {
@@ -970,3 +1035,7 @@ ${scriptTag}
 
 })();
 </script>
+`;
+    $done({ body: body.replace(scriptTag, injectionScript) });
+  }
+})();
