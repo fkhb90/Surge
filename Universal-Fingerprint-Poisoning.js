@@ -1,11 +1,12 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   7.01-Final-Release
+ * @version   7.10-Platinum-Release
  * ----------------------------------------------------------------------------
- * V7.01 回歸測試修正版：
- * 1) [FIX] DST 演算法精準化：修正 3 月第 2 個星期日的計算邏輯，確保夏令時切換日零誤差。
- * 2) [SAFE] Audio Buffer 安全性：增加聲道數量檢查，防止特殊情況下的控制台報錯。
- * 3) [CORE] 繼承 V7.00 所有高階防護 (OfflineAudio, WebGL Cleaning, Plugin Zeroing)。
+ * V7.10 最終完整版 (Full Integrity):
+ * 1) [RESTORE] 白名單完整性：100% 還原所有銀行、政府、支付網關的排除清單，確保日常業務不中斷。
+ * 2) [VERIFY] 硬體邏輯校驗：確保 Apple Silicon 與 Intel Mac 的 GPU/CPU 特徵嚴格對應。
+ * 3) [TUNE] 音頻噪聲優化：微調 OfflineAudioContext 噪聲強度，平衡隱匿性與穩定性。
+ * 4) [CORE] 集成所有高階防護 (DST-Aware, WebGL Cleaning, Worker Sync, Network Spoofing).
  */
 
 (function () {
@@ -15,8 +16,8 @@
   // 0) Global config & seed
   // ============================================================================
   const CONST = {
-    KEY_PERSISTENCE: "FP_SHIELD_ID_V701",
-    INJECT_MARKER: "__FP_SHIELD_V701__",
+    KEY_PERSISTENCE: "FP_SHIELD_ID_V710",
+    INJECT_MARKER: "__FP_SHIELD_V710__",
 
     PERSONA_TTL_MS: 30 * 24 * 60 * 60 * 1000, // 30 Days
 
@@ -25,7 +26,7 @@
 
     CANVAS_NOISE_STEP: 2,
     AUDIO_NOISE_LEVEL: 0.00001,      // For AnalyserNode
-    OFFLINE_AUDIO_NOISE: 0.000001,   // For OfflineAudioContext
+    OFFLINE_AUDIO_NOISE: 0.00001,    // Slightly increased for robustness
     TEXT_METRICS_NOISE: 0.0001,
     RECT_NOISE_LEVEL: 0.000001,
     
@@ -109,7 +110,7 @@
   })();
 
   // ============================================================================
-  // Persona config
+  // Persona config (Hardware Whitelist Integrity)
   // ============================================================================
   const PERSONA_CONFIG = (function () {
     const MAC_POOL = [
@@ -151,6 +152,16 @@
         gpuRenderer: "Apple M3 Max",
         concurrency: 12,
         memory: 36,
+        screen: { depth: 30, pixelRatio: 2 }
+      },
+      {
+        name: "M3_iMac",
+        ARCH: "arm",
+        osVer: "14.7.1",
+        gpuVendor: "Google Inc. (Apple)",
+        gpuRenderer: "Apple GPU",
+        concurrency: 8,
+        memory: 24,
         screen: { depth: 30, pixelRatio: 2 }
       }
     ];
@@ -219,19 +230,65 @@
   const CURRENT_PERSONA = PERSONA_CONFIG[ENV];
 
   // ============================================================================
+  // Exclusion & whitelist (Software Whitelist Integrity)
+  // ============================================================================
+  const HARD_EXCLUSION_KEYWORDS = [
+    "accounts.google.com", "appleid", "login.live.com", "oauth", "sso",
+    "recaptcha", "hcaptcha", "turnstile", "bot-detection",
+    "okta.com", "auth0.com", "duosecurity.com",
+    "ctbcbank.com", "cathaybk.com.tw", "esunbank.com.tw", "fubon.com", "taishinbank.com.tw",
+    "landbank.com.tw", "megabank.com.tw", "firstbank.com.tw", "hncb.com.tw", "changhwabank.com.tw",
+    "sinopac.com", "bot.com.tw", "post.gov.tw", "citibank", "hsbc", "standardchartered",
+    "twmp.com.tw", "taiwanpay", "richart", "dawho",
+    "paypal.com", "stripe.com", "ecpay.com.tw", "jkos.com", "line.me", "jko.com",
+    "braintreegateway.com", "adyen.com",
+    "chatgpt.com", "claude.ai", "openai.com", "perplexity.ai", "gemini.google.com",
+    "bard.google.com", "anthropic.com", "bing.com/chat", "monica.im", "felo.ai",
+    "foodpanda", "fd-api", "deliveryhero", "uber.com", "ubereats",
+    "gov.tw", "edu.tw", "microsoft.com", "windowsupdate", "icloud.com"
+  ];
+
+  if (HARD_EXCLUSION_KEYWORDS.some((k) => lowerUrl.includes(k))) { $done({}); return; }
+
+  const WhitelistManager = (() => {
+    const trustedDomains = [
+      "shopee.tw", "shopee.com", "momo.com.tw", "pchome.com.tw", "books.com.tw",
+      "coupang.com", "amazon.com", "amazon.co.jp", "taobao.com", "tmall.com", "jd.com",
+      "pxmart.com.tw", "etmall.com.tw", "rakuten.com", "rakuten.co.jp", "shopback.com.tw", "shopback.com",
+      "netflix.com", "spotify.com", "disneyplus.com", "youtube.com", "twitch.tv", "hulu.com", "iqiyi.com",
+      "kktix.com", "tixcraft.com",
+      "github.com", "gitlab.com", "notion.so", "figma.com", "canva.com", "dropbox.com", "adobe.com",
+      "cloudflare.com", "fastly.com", "jsdelivr.net", "googleapis.com", "gstatic.com",
+      "facebook.com", "instagram.com", "twitter.com", "x.com", "linkedin.com", "discord.com", "threads.net"
+    ];
+    const suffixes = [".bank", ".pay", ".secure", ".gov", ".edu", ".mil"];
+    return {
+      check: (h) => {
+        const host = Domain.normalizeHost(h);
+        if (!host) return false;
+        for (const s of suffixes) if (host.endsWith(s)) return true;
+        for (const d of trustedDomains) if (Domain.isDomainMatch(host, d)) return true;
+        return lowerUrl.includes("3dsecure") || lowerUrl.includes("acs");
+      }
+    };
+  })();
+
+  const isSoftWhitelisted = WhitelistManager.check(hostname);
+  const IS_SHOPPING = (() => {
+    const h = Domain.normalizeHost(hostname);
+    return Domain.isDomainMatch(h, "shopee.tw") ||
+      Domain.isDomainMatch(h, "shopee.com") ||
+      Domain.isDomainMatch(h, "amazon.com") ||
+      Domain.isDomainMatch(h, "amazon.co.jp") ||
+      Domain.isDomainMatch(h, "momo.com.tw");
+  })();
+
+  // ============================================================================
   // Phase A: request headers
   // ============================================================================
   if (typeof $request !== "undefined" && typeof $response === "undefined") {
     const headers = $request.headers || {};
-    // White list check logic (simplified for brevity, assume logic from previous version)
-    // ... (Use same whitelist logic as V7.00)
-    
-    // For full code completeness, reusing minimal whitelist check:
-    const trusted = ["shopee", "amazon", "google", "facebook", "youtube"];
-    const isSafe = trusted.some(d => hostname.includes(d)); 
-    // Note: In full version, use the detailed WhitelistManager from V7.00
-    
-    if (!isSafe && CURRENT_PERSONA && CURRENT_PERSONA.TYPE === "SPOOF") {
+    if (!isSoftWhitelisted && !IS_SHOPPING && CURRENT_PERSONA && CURRENT_PERSONA.TYPE === "SPOOF") {
       Object.keys(headers).forEach((k) => {
         const l = k.toLowerCase();
         if (l === "user-agent" || l.startsWith("sec-ch-ua") || l === "accept-language") delete headers[k];
@@ -254,13 +311,24 @@
     const headers = $response.headers || {};
     const cType = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
 
-    if (!body || !cType.includes("html")) { $done({}); return; }
+    if (!body || !cType.includes("html") || IS_SHOPPING || isSoftWhitelisted) { $done({}); return; }
     if (body.includes(CONST.INJECT_MARKER)) { $done({}); return; }
 
     let stolenNonce = "";
     const searchChunk = body.substring(0, 100000);
     const scriptMatch = searchChunk.match(REGEX.SCRIPT_NONCE_STRICT);
     if (scriptMatch) stolenNonce = scriptMatch[1];
+
+    let cspHeader = "";
+    Object.keys(headers).forEach((k) => { if (k.toLowerCase() === "content-security-policy") cspHeader = headers[k]; });
+    const isUnsafeInlineAllowed = cspHeader.includes("'unsafe-inline'");
+    const hasCSP = cspHeader.length > 0;
+
+    let shouldInject = false;
+    if (stolenNonce) shouldInject = true;
+    else if (!hasCSP || isUnsafeInlineAllowed) shouldInject = true;
+
+    if (!shouldInject) { $done({}); return; }
 
     const INJECT_CONFIG = {
       env: ENV,
@@ -282,6 +350,9 @@
 
     const scriptTag = stolenNonce ? `<script nonce="${stolenNonce}">` : `<script>`;
     
+    // ==========================================================================
+    // INJECTED SCRIPT
+    // ==========================================================================
     const injectionScript = `
 ${scriptTag}
 (function() {
@@ -320,23 +391,17 @@ ${scriptTag}
     return (s >>> 0);
   };
   
-  // FIXED: DST Calculator (Corrected Logic)
+  // DST Calculator (March 2nd Sun - Nov 1st Sun)
   const getDstOffset = (dateObj) => {
      try {
        const y = dateObj.getFullYear();
-       // March 2nd Sunday: Find 1st Sunday, add 7 days
        const mar1 = new Date(y, 2, 1);
-       const dayMar1 = mar1.getDay();
-       const mar1stSun = 1 + (7 - dayMar1) % 7; 
+       const mar1stSun = 1 + (7 - mar1.getDay()) % 7; 
        const mar2ndSun = mar1stSun + 7;
        const dstStart = new Date(y, 2, mar2ndSun, 2, 0, 0);
-       
-       // Nov 1st Sunday
        const nov1 = new Date(y, 10, 1);
-       const dayNov1 = nov1.getDay();
-       const nov1stSun = 1 + (7 - dayNov1) % 7;
+       const nov1stSun = 1 + (7 - nov1.getDay()) % 7;
        const dstEnd = new Date(y, 10, nov1stSun, 2, 0, 0);
-       
        if (dateObj >= dstStart && dateObj < dstEnd) return CFG.tzDst;
        return CFG.tzStd;
      } catch(e) { return CFG.tzStd; }
@@ -793,9 +858,8 @@ ${scriptTag}
 
           ProxyGuard.hook(glClass.prototype, "getParameter", (orig) => function(p) {
             try {
-              // Standardize Version String
-              if (p === 7938) return "WebGL 2.0 (OpenGL ES 3.0)"; // VERSION
-              if (p === 35724) return "WebGL GLSL ES 3.00";       // SHADING_LANGUAGE_VERSION
+              if (p === 7938) return "WebGL 2.0 (OpenGL ES 3.0)"; 
+              if (p === 35724) return "WebGL GLSL ES 3.00";       
 
               const ext = extMap.get(this);
               if (p === 37445 || p === 37446) {
