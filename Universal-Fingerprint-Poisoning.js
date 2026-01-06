@@ -1,14 +1,19 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   5.46-Whitelisted-Sync
- * @description [V5.46 白名單同步版] 
+ * @version   5.47-Modern-Silicon-Ready
+ * @description [V5.47 現代化矽晶片版] 
  * ----------------------------------------------------------------------------
- * 1. [Sync] Whitelist: 深度整合 URL-Ultimate-Filter V41.57 的硬/軟白名單策略。
- * - 完整收錄台灣各大銀行 (CTBC, Cathay, E.Sun, Fubon...) 與支付網關。
- * - 豁免 AI 生產力工具 (ChatGPT, Claude, Perplexity) 防止驗證崩潰。
- * - [New] 加入 Google 基礎設施 (googleapis.com, gstatic.com) 防止 reCAPTCHA/Maps 異常。
- * 2. [Security] Daily Rhythm: 延續 V5.45 的日級動態時間窗與硬體特徵鎖定。
- * 3. [Core] Persistence: 更新儲存鍵值，強制重置舊版噪聲狀態。
+ * 1. [Modernization] Persona Pool Overhaul: 
+ * - 移除過時 macOS Catalina (10.15)。
+ * - 新增 macOS 14 (Sonoma) & 15 (Sequoia) 特徵。
+ * - 引入 Apple Silicon (M2/M3 Max) 晶片模擬 (GPU/Concurrency)。
+ * - Chrome 版本校準至 2026 年初主流區間 (v138-v142)。
+ * 2. [Stealth] Canvas Micro-Jitter: 
+ * - 引入基於日期的微擾動因子，讓 Canvas Hash 每日自然飄移，避免靜態指紋標記。
+ * 3. [Sync] Whitelist V41.57: 
+ * - 保持 V5.46 的完整白名單策略 (台灣金融、支付、AI 工具豁免)。
+ * 4. [Core] Persistence: 
+ * - 升級 Storage Key 至 V547，強制刷新過時的舊版身份。
  * ----------------------------------------------------------------------------
  * @note 建議在 Surge/Loon/Quantumult X 中啟用「腳本重寫」功能。
  */
@@ -20,9 +25,9 @@
   // 0. 全域配置 & 雙重種子管理
   // ============================================================================
   const CONST = {
-    // Keys for Storage (Updated to V546)
-    KEY_PERSISTENCE: "FP_SHIELD_ID_V546", 
-    INJECT_MARKER: "__FP_SHIELD_V546__",
+    // Keys for Storage (Updated to V547 to force refresh)
+    KEY_PERSISTENCE: "FP_SHIELD_ID_V547", 
+    INJECT_MARKER: "__FP_SHIELD_V547__",
     
     // Configs
     PERSONA_TTL_MS: 30 * 24 * 60 * 60 * 1000, // 30 Days Identity
@@ -32,7 +37,7 @@
     WINDOW_VAR_MS: 30 * 60 * 1000, // +0~30 Minutes variance
     
     // Noise Intensity
-    CANVAS_NOISE_STEP: 2,
+    CANVAS_NOISE_STEP: 2,         // Base step, modified by Jitter
     AUDIO_NOISE_LEVEL: 0.00001,
     TEXT_METRICS_NOISE: 0.0001,
     RECT_NOISE_LEVEL: 0.000001,
@@ -87,38 +92,51 @@
 
       return {
           id: idSeed,           // Use for Hardware Config
+          daily: dailySeed,     // Use for Micro-Jitter
           session: sessionSeed, // Use for Noise Generation
           randId: makeRand(idSeed),
           randSession: makeRand(sessionSeed)
       };
   })();
 
-  // Persistent Persona Configuration
+  // Persistent Persona Configuration (Modernized V5.47)
   const PERSONA_CONFIG = (function() {
+      // Updated V5.47 Pool: Silicon Heavy, updated OS
       const MAC_POOL = [
-          { name: "Air", ua: "Macintosh; Intel Mac OS X 10_15_7", gpuVendor: "Intel Inc.", gpuRenderer: "Intel Iris Plus Graphics 640", concurrency: 4, memory: 8, screen: { depth: 24, pixelRatio: 2 } },
-          { name: "Pro13", ua: "Macintosh; Intel Mac OS X 10_15_7", gpuVendor: "Intel Inc.", gpuRenderer: "Intel Iris Plus Graphics 655", concurrency: 4, memory: 16, screen: { depth: 30, pixelRatio: 2 } },
-          { name: "Pro16", ua: "Macintosh; Intel Mac OS X 10_15_7", gpuVendor: "Google Inc. (AMD)", gpuRenderer: "AMD Radeon Pro 5300M", concurrency: 6, memory: 16, screen: { depth: 30, pixelRatio: 2 } },
-          { name: "iMac", ua: "Macintosh; Intel Mac OS X 10_15_7", gpuVendor: "Google Inc. (AMD)", gpuRenderer: "AMD Radeon Pro 5500M", concurrency: 8, memory: 32, screen: { depth: 30, pixelRatio: 2 } }
+          // Classic Intel (High-end retained for variety)
+          { name: "Intel_i9_Pro16", uaModel: "Intel Mac OS X 10_15_7", osVer: "14.7.1", gpuVendor: "Google Inc. (AMD)", gpuRenderer: "AMD Radeon Pro 5500M", concurrency: 8, memory: 32, screen: { depth: 30, pixelRatio: 2 } },
+          
+          // Apple Silicon (Modern Mainstream)
+          { name: "M2_Air", uaModel: "Macintosh; Intel Mac OS X 10_15_7", osVer: "14.7.1", gpuVendor: "Google Inc. (Apple)", gpuRenderer: "Apple GPU", concurrency: 8, memory: 16, screen: { depth: 30, pixelRatio: 2 } },
+          { name: "M2_Pro14", uaModel: "Macintosh; Intel Mac OS X 10_15_7", osVer: "15.2.0", gpuVendor: "Google Inc. (Apple)", gpuRenderer: "Apple M2 Pro", concurrency: 10, memory: 16, screen: { depth: 30, pixelRatio: 2 } },
+          { name: "M3_Pro16", uaModel: "Macintosh; Intel Mac OS X 10_15_7", osVer: "15.2.0", gpuVendor: "Google Inc. (Apple)", gpuRenderer: "Apple M3 Max", concurrency: 12, memory: 36, screen: { depth: 30, pixelRatio: 2 } },
+          { name: "M3_iMac", uaModel: "Macintosh; Intel Mac OS X 10_15_7", osVer: "14.7.1", gpuVendor: "Google Inc. (Apple)", gpuRenderer: "Apple GPU", concurrency: 8, memory: 24, screen: { depth: 30, pixelRatio: 2 } }
       ];
 
       // Select Persona based on Long-Term ID Seed
       const pIndex = Math.floor(SEED_MANAGER.randId(1) * MAC_POOL.length);
       const selectedMac = MAC_POOL[pIndex];
 
-      // Dynamic Versioning
-      const major = "143";
-      const build = Math.floor(SEED_MANAGER.randId(2) * 5000) + 1000;
-      const patch = Math.floor(SEED_MANAGER.randId(3) * 200) + 1;
+      // Dynamic Versioning - Calibrated for Early 2026 (v138 - v142)
+      // Base 138, + 0~4 variance based on ID
+      const majorBase = 138;
+      const majorOffset = Math.floor(SEED_MANAGER.randId(2) * 5); 
+      const major = (majorBase + majorOffset).toString(); 
+      
+      const build = Math.floor(SEED_MANAGER.randId(3) * 5000) + 1000;
+      const patch = Math.floor(SEED_MANAGER.randId(4) * 200) + 1;
       const fullVersion = `${major}.0.${build}.${patch}`;
 
       return {
           MAC: {
               TYPE: "SPOOF",
-              UA: `Mozilla/5.0 (${selectedMac.ua}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${fullVersion} Safari/537.36`,
+              // Note: UA string often freezes OS version at 10_15_7 even on newer OSs for privacy, 
+              // but we rely on Client Hints for the real OS version.
+              UA: `Mozilla/5.0 (${selectedMac.uaModel}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${fullVersion} Safari/537.36`,
               FULL_VERSION: fullVersion,
               MAJOR_VERSION: major,
-              PLATFORM: "MacIntel",
+              OS_VERSION: selectedMac.osVer, // Used for UA Data
+              PLATFORM: "MacIntel", // Standard even on Silicon
               VENDOR: selectedMac.gpuVendor,
               RENDERER: selectedMac.gpuRenderer,
               CONCURRENCY: selectedMac.concurrency,
@@ -163,7 +181,7 @@
   const CURRENT_PERSONA = PERSONA_CONFIG[ENV];
 
   // ============================================================================
-  // EXCLUSION & WHITELIST LOGIC (Synced with V41.57)
+  // EXCLUSION & WHITELIST LOGIC (Synced with V41.57) - UNCHANGED FOR STABILITY
   // ============================================================================
   
   // Tier 0: Hard Exclusion (金融、驗證、AI、核心服務) - 禁止任何注入
@@ -183,7 +201,7 @@
     "paypal.com", "stripe.com", "ecpay.com.tw", "jkos.com", "line.me", "jko.com",
     "braintreegateway.com", "adyen.com",
     
-    // [Synced V41.57] AI Services (Prevent Canvas Breakage)
+    // [Synced V41.57] AI Services
     "chatgpt.com", "claude.ai", "openai.com", "perplexity.ai", "gemini.google.com", 
     "bard.google.com", "anthropic.com", "bing.com/chat", "monica.im", "felo.ai",
     
@@ -196,19 +214,14 @@
 
   if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) { $done({}); return; }
 
-  // Tier 0.5: Soft Whitelist (Shopping, Streaming, Tools) - 允許通過但不注入
+  // Tier 0.5: Soft Whitelist
   const WhitelistManager = (() => {
-    // [Synced V41.57] Trusted Domains & Wildcards
     const trustedWildcards = [
-        // Shopping
         "shopee", "momo", "pchome", "books.com.tw", "coupang", "amazon", "taobao", "tmall", "jd.com",
         "pxmart", "etmall", "rakuten", "shopback",
-        // Streaming
         "netflix", "spotify", "disney", "youtube", "twitch", "hulu", "iqiyi", "kktix", "tixcraft",
-        // Tools & CDNs
         "github.com", "gitlab.com", "notion.so", "figma.com", "canva.com", "dropbox.com",
         "adobe.com", "cloudflare", "fastly", "jsdelivr", "googleapis.com", "gstatic.com",
-        // Social
         "facebook.com", "instagram.com", "twitter.com", "x.com", "linkedin.com", "discord.com", "threads.net"
     ];
     
@@ -217,18 +230,14 @@
     return {
       check: (h) => {
         if (!h) return false;
-        // Check Suffixes
         for (const s of suffixes) if (h.endsWith(s)) return true;
-        // Check Wildcards
         for (const w of trustedWildcards) if (h.includes(w)) return true;
-        // Check 3D Secure
         return lowerUrl.includes("3dsecure") || lowerUrl.includes("acs");
       }
     };
   })();
 
   const isSoftWhitelisted = WhitelistManager.check(hostname);
-  // Redundant check for safety, though WhitelistManager covers most
   const IS_SHOPPING = (hostname.includes("shopee") || hostname.includes("amazon") || hostname.includes("momo"));
 
   // ============================================================================
@@ -289,7 +298,7 @@
             drift: CONST.DRIFT_INTENSITY
         },
         seed: SEED_MANAGER.session,
-        randSeed: SEED_MANAGER.session
+        dailySeed: SEED_MANAGER.daily // For Canvas Micro-Jitter
     };
 
     const scriptTag = stolenNonce ? `<script nonce="${stolenNonce}">` : `<script>`;
@@ -311,6 +320,13 @@
              pick: function(arr) { return arr[Math.floor(this.next() * arr.length)]; }
           };
       })(CFG.seed);
+
+      // Micro-Jitter for Canvas (changes daily)
+      const JITTER = (function(dSeed) {
+         let s = dSeed;
+         const n = () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 4294967296; };
+         return { factor: 1 + (n() * 0.05) }; // 0% ~ 5% variation daily
+      })(CFG.dailySeed);
 
       const ProxyGuard = (function() {
           const toStringMap = new WeakMap();
@@ -377,10 +393,10 @@
                             const res = {};
                             res.brands = this.brands; res.mobile = this.mobile; res.platform = this.platform;
                             if (Array.isArray(hints)) {
-                                if(hints.includes('architecture')) res.architecture = "x86";
+                                if(hints.includes('architecture')) res.architecture = "x86"; // Rosetta 2 spoof or Intel
                                 if(hints.includes('bitness')) res.bitness = "64";
                                 if(hints.includes('model')) res.model = "";
-                                if(hints.includes('platformVersion')) res.platformVersion = "10.15.7";
+                                if(hints.includes('platformVersion')) res.platformVersion = P.OS_VERSION; // Modernized (14.x/15.x)
                                 if(hints.includes('uaFullVersion')) res.uaFullVersion = P.FULL_VERSION;
                             }
                             return Promise.resolve(res);
@@ -490,9 +506,11 @@
          },
 
          canvas: function(win) {
+             // V5.47: Apply Jitter factor to noise calculation
              const applyNoise = (data, w, h) => {
                  for(let i=0; i<data.length; i+=4) {
-                     if (i%CFG.noise.canvas === 0) {
+                     // Use JITTER.factor to shift the noise density slightly per day
+                     if (i % Math.floor(CFG.noise.canvas * JITTER.factor) === 0) {
                          const n = RNG.bool() ? 1 : -1;
                          data[i] = Math.max(0, Math.min(255, data[i]+n));
                      }
@@ -548,6 +566,7 @@
                      if (!glClass || !glClass.prototype) return;
                      const getParam = glClass.prototype.getParameter;
                      ProxyGuard.hook(glClass.prototype, 'getParameter', (orig) => function(p) {
+                         // Unmasked Vendor/Renderer
                          if (p === 37445) return P.VENDOR;
                          if (p === 37446) return P.RENDERER;
                          if (SPOOFING && P.WEBGL_CAPS && (p in P.WEBGL_CAPS)) {
