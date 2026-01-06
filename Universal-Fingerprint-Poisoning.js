@@ -1,15 +1,14 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   5.48-Consistency-Hardened
- * @description [V5.48 一致性強化版]
+ * @version   5.49-UA-WebGL-Hardened
+ * @description [V5.49 UA/WebGL 一致性強化版]
  * ----------------------------------------------------------------------------
- * 修正重點（對應 v5.47 扣分原因）：
- * 1) Persona 一致性：新增 ARCH（arm/intel），Intel Persona 改用 Ventura 13.x，
- *    避免「Apple GPU + x86 + 新版 platformVersion」的高關聯異常。
- * 2) UA-CH architecture：依 Persona ARCH 回傳 arm/x86，降低 Rosetta 強特徵誤傷。
- * 3) Soft whitelist：由 hostname.includes 改為 eTLD+1/子域 endsWith 比對，避免誤放行。
- * 4) OffscreenCanvas：改為存在性檢查後再 hook，提升舊 WebView 相容性。
- * 5) 其他：Shopping 判斷也改為 domain match，降低混淆風險。
+ * 修正重點（在 v5.48-Consistency-Hardened 基礎上）：
+ * 1) UA 與 UA-CH platformVersion 對齊：
+ *    - UA 的 "Mac OS X X_Y_Z" 由 persona OS_VERSION 推導，不再固定 10_15_7。
+ * 2) WebGL 37445/37446 不再「過早暴露」：
+ *    - 僅在取得 WEBGL_debug_renderer_info extension 後，才 spoof UNMASKED_VENDOR/RENDERER。
+ * 3) 同步升級 Storage Key / Inject Marker，強制刷新舊身份與避免重複注入。
  *
  * @note 建議在 Surge/Loon/Quantumult X 中啟用「腳本重寫」功能。
  */
@@ -21,9 +20,9 @@
   // 0. 全域配置 & 雙重種子管理
   // ============================================================================
   const CONST = {
-    // Keys for Storage (Updated to V548 to force refresh)
-    KEY_PERSISTENCE: "FP_SHIELD_ID_V548",
-    INJECT_MARKER: "__FP_SHIELD_V548__",
+    // Keys for Storage (Updated to V549 to force refresh)
+    KEY_PERSISTENCE: "FP_SHIELD_ID_V549",
+    INJECT_MARKER: "__FP_SHIELD_V549__",
 
     // Configs
     PERSONA_TTL_MS: 30 * 24 * 60 * 60 * 1000, // 30 Days Identity
@@ -33,7 +32,7 @@
     WINDOW_VAR_MS: 30 * 60 * 1000, // +0~30 Minutes variance
 
     // Noise Intensity
-    CANVAS_NOISE_STEP: 2,         // Base step, modified by Jitter
+    CANVAS_NOISE_STEP: 2,
     AUDIO_NOISE_LEVEL: 0.00001,
     TEXT_METRICS_NOISE: 0.0001,
     RECT_NOISE_LEVEL: 0.000001,
@@ -44,7 +43,7 @@
   const SEED_MANAGER = (function () {
     const now = Date.now();
 
-    // 1. Long-Term Identity Seed (Hardware Specs)
+    // 1) Long-Term Identity Seed (Hardware Specs)
     let idSeed = 12345;
     try {
       const storedId = localStorage.getItem(CONST.KEY_PERSISTENCE);
@@ -53,28 +52,27 @@
         if (now < parseInt(expiry, 10)) {
           idSeed = parseInt(val, 10);
         } else {
-          // Rotate Identity (Monthly)
           idSeed = (now ^ (Math.random() * 100000000)) >>> 0;
           localStorage.setItem(CONST.KEY_PERSISTENCE, `${idSeed}|${now + CONST.PERSONA_TTL_MS}`);
         }
       } else {
-        // New Identity
         idSeed = (now ^ (Math.random() * 100000000)) >>> 0;
         localStorage.setItem(CONST.KEY_PERSISTENCE, `${idSeed}|${now + CONST.PERSONA_TTL_MS}`);
       }
     } catch (e) { }
 
-    // 2. Daily Rhythm Rotation (UTC day block)
+    // 2) Daily Rhythm Rotation (UTC day block)
     const dayBlock = Math.floor(now / (24 * 60 * 60 * 1000));
     const dailySeed = (idSeed ^ dayBlock) >>> 0;
 
     // Calculate today's unique window duration (20 ~ 50 mins)
-    const dailyWindowSize = CONST.WINDOW_MIN_MS + ((dailySeed % 30000) * (CONST.WINDOW_VAR_MS / 30000));
+    const dailyWindowSize =
+      CONST.WINDOW_MIN_MS + ((dailySeed % 30000) * (CONST.WINDOW_VAR_MS / 30000));
 
     // Determine current Time Block based on today's rhythm
     const timeBlock = Math.floor(now / dailyWindowSize);
 
-    // 3. Session Seed (Noise Drift)
+    // 3) Session Seed (Noise Drift)
     const sessionSeed = (idSeed ^ timeBlock) >>> 0;
 
     // Deterministic Random Helper
@@ -95,7 +93,7 @@
   })();
 
   // ============================================================================
-  // Helpers: Domain match (修正 Soft whitelist includes 風險)
+  // Helpers: Domain match
   // ============================================================================
   const Domain = (() => {
     const normalizeHost = (h) => (h || "").toLowerCase().replace(/^\.+/, "").replace(/\.+$/, "");
@@ -109,17 +107,35 @@
   })();
 
   // ============================================================================
-  // Persistent Persona Configuration (Modernized V5.48)
+  // Helpers: UA macOS token builder (UA 與 UA-CH platformVersion 對齊)
+  // ============================================================================
+  const UAHelper = (() => {
+    const sanitizeParts = (ver) => {
+      const parts = String(ver || "10.15.7")
+        .split(".")
+        .map((x) => (x || "").replace(/\D/g, ""))
+        .filter(Boolean);
+      while (parts.length < 3) parts.push("0");
+      return parts.slice(0, 3);
+    };
+    const formatMacOsToken = (ver) => {
+      const [a, b, c] = sanitizeParts(ver);
+      return `${a}_${b}_${c}`;
+    };
+    return { formatMacOsToken };
+  })();
+
+  // ============================================================================
+  // Persistent Persona Configuration (V5.49)
   // ============================================================================
   const PERSONA_CONFIG = (function () {
     // Pool: Intel (Ventura 13.x) + Apple Silicon (Sonoma/Sequoia 14/15)
     const MAC_POOL = [
-      // Intel (High-end retained for variety, align to Ventura)
+      // Intel
       {
         name: "Intel_i9_Pro16",
         ARCH: "intel",
-        uaModel: "Macintosh; Intel Mac OS X 10_15_7",
-        osVer: "13.6.7", // Ventura line for plausibility
+        osVer: "13.6.7",
         gpuVendor: "Google Inc. (AMD)",
         gpuRenderer: "AMD Radeon Pro 5500M",
         concurrency: 8,
@@ -127,11 +143,10 @@
         screen: { depth: 30, pixelRatio: 2 }
       },
 
-      // Apple Silicon (Modern Mainstream)
+      // Apple Silicon
       {
         name: "M2_Air",
         ARCH: "arm",
-        uaModel: "Macintosh; Intel Mac OS X 10_15_7", // Chrome 常見凍結 UA
         osVer: "14.7.1",
         gpuVendor: "Google Inc. (Apple)",
         gpuRenderer: "Apple GPU",
@@ -142,7 +157,6 @@
       {
         name: "M2_Pro14",
         ARCH: "arm",
-        uaModel: "Macintosh; Intel Mac OS X 10_15_7",
         osVer: "15.2.0",
         gpuVendor: "Google Inc. (Apple)",
         gpuRenderer: "Apple M2 Pro",
@@ -153,7 +167,6 @@
       {
         name: "M3_Pro16",
         ARCH: "arm",
-        uaModel: "Macintosh; Intel Mac OS X 10_15_7",
         osVer: "15.2.0",
         gpuVendor: "Google Inc. (Apple)",
         gpuRenderer: "Apple M3 Max",
@@ -164,7 +177,6 @@
       {
         name: "M3_iMac",
         ARCH: "arm",
-        uaModel: "Macintosh; Intel Mac OS X 10_15_7",
         osVer: "14.7.1",
         gpuVendor: "Google Inc. (Apple)",
         gpuRenderer: "Apple GPU",
@@ -182,19 +194,22 @@
     const majorBase = 138;
     const majorOffset = Math.floor(SEED_MANAGER.randId(2) * 5);
     const major = (majorBase + majorOffset).toString();
-
     const build = Math.floor(SEED_MANAGER.randId(3) * 5000) + 1000;
     const patch = Math.floor(SEED_MANAGER.randId(4) * 200) + 1;
     const fullVersion = `${major}.0.${build}.${patch}`;
+
+    // UA: OS token derived from persona OS_VERSION (一致性修正)
+    const macOsToken = UAHelper.formatMacOsToken(selectedMac.osVer);
+    const uaModel = `Macintosh; Intel Mac OS X ${macOsToken}`;
 
     return {
       MAC: {
         TYPE: "SPOOF",
         ARCH: selectedMac.ARCH,
-        UA: `Mozilla/5.0 (${selectedMac.uaModel}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${fullVersion} Safari/537.36`,
+        UA: `Mozilla/5.0 (${uaModel}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${fullVersion} Safari/537.36`,
         FULL_VERSION: fullVersion,
         MAJOR_VERSION: major,
-        OS_VERSION: selectedMac.osVer, // Used for UA Data (platformVersion)
+        OS_VERSION: selectedMac.osVer, // used for UA-CH platformVersion
         PLATFORM: "MacIntel",
         VENDOR: selectedMac.gpuVendor,
         RENDERER: selectedMac.gpuRenderer,
@@ -218,11 +233,9 @@
   })();
 
   const REGEX = {
-    CONTENT_TYPE_HTML: /text\/html/i,
     HEAD_TAG: /<head[^>]*>/i,
     HTML_TAG: /<html[^>]*>/i,
-    SCRIPT_NONCE_STRICT: /<script[^>]*\snonce=["']?([^"'\s>]+)["']?/i,
-    RTC_PRIVATE_IPV4: /(^| )192\.168\.|(^| )10\.|(^| )172\.(1[6-9]|2[0-9]|3[0-1])\./
+    SCRIPT_NONCE_STRICT: /<script[^>]*\snonce=["']?([^"'\s>]+)["']?/i
   };
 
   const currentUrl = (typeof $request !== "undefined") ? ($request.url || "") : "";
@@ -243,7 +256,6 @@
   // EXCLUSION & WHITELIST LOGIC
   // ============================================================================
 
-  // Tier 0: Hard Exclusion (金融、驗證、AI、核心服務) - 禁止任何注入
   const HARD_EXCLUSION_KEYWORDS = [
     // Identity & Security
     "accounts.google.com", "appleid", "login.live.com", "oauth", "sso",
@@ -271,9 +283,8 @@
     "gov.tw", "edu.tw", "microsoft.com", "windowsupdate", "icloud.com"
   ];
 
-  if (HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k))) { $done({}); return; }
+  if (HARD_EXCLUSION_KEYWORDS.some((k) => lowerUrl.includes(k))) { $done({}); return; }
 
-  // Tier 0.5: Soft Whitelist (修正：domain match，不用 includes)
   const WhitelistManager = (() => {
     const trustedDomains = [
       // Shopping / Marketplace
@@ -341,7 +352,6 @@
 
   const isSoftWhitelisted = WhitelistManager.check(hostname);
 
-  // Shopping 判斷（修正：domain match）
   const IS_SHOPPING = (() => {
     const h = Domain.normalizeHost(hostname);
     return Domain.isDomainMatch(h, "shopee.tw") ||
@@ -357,7 +367,7 @@
   if (typeof $request !== "undefined" && typeof $response === "undefined") {
     const headers = $request.headers || {};
     if (!isSoftWhitelisted && !IS_SHOPPING && CURRENT_PERSONA && CURRENT_PERSONA.TYPE === "SPOOF") {
-      Object.keys(headers).forEach(k => {
+      Object.keys(headers).forEach((k) => {
         const l = k.toLowerCase();
         if (l === "user-agent" || l.startsWith("sec-ch-ua")) delete headers[k];
       });
@@ -389,7 +399,7 @@
     if (scriptMatch) stolenNonce = scriptMatch[1];
 
     let cspHeader = "";
-    Object.keys(headers).forEach(k => { if (k.toLowerCase() === "content-security-policy") cspHeader = headers[k]; });
+    Object.keys(headers).forEach((k) => { if (k.toLowerCase() === "content-security-policy") cspHeader = headers[k]; });
     const isUnsafeInlineAllowed = cspHeader.includes("'unsafe-inline'");
     const hasCSP = cspHeader.length > 0;
 
@@ -425,12 +435,11 @@
       const SPOOFING = (P.TYPE === "SPOOF");
 
       const RNG = (function(seed) {
-          let s = seed >>> 0;
+          let s = (seed >>> 0);
           return {
              next: function() { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 4294967296; },
              bool: function() { return this.next() > 0.5; },
-             noise: function(val, range) { return val + (this.next() * range * 2 - range); },
-             pick: function(arr) { return arr[Math.floor(this.next() * arr.length)]; }
+             noise: function(val, range) { return val + (this.next() * range * 2 - range); }
           };
       })(CFG.seed);
 
@@ -441,7 +450,7 @@
          return { factor: 1 + (n() * 0.05) }; // 0% ~ 5% variation daily
       })(CFG.dailySeed);
 
-      // ProxyGuard: keep toString stealth (降低暴露面：盡量模擬原生描述)
+      // ProxyGuard
       const ProxyGuard = (function() {
           const toStringMap = new WeakMap();
           const nativeToString = Function.prototype.toString;
@@ -452,7 +461,6 @@
           };
 
           try {
-              // 以 defineProperty 降低顯眼度（仍需覆寫以處理 Function.prototype.toString.call(proxyFn)）
               Object.defineProperty(Function.prototype, "toString", {
                 value: safeToString,
                 writable: true,
@@ -489,55 +497,53 @@
              if (SPOOFING) {
                  try {
                    Object.defineProperties(N, {
-                       'platform': {get: () => P.PLATFORM},
-                       'maxTouchPoints': {get: () => 0},
-                       'hardwareConcurrency': {get: () => P.CONCURRENCY},
-                       'deviceMemory': {get: () => P.MEMORY},
-                       'userAgent': {get: () => P.UA},
-                       'appVersion': {get: () => P.UA.replace("Mozilla/", "")}
+                     'platform': {get: () => P.PLATFORM},
+                     'maxTouchPoints': {get: () => 0},
+                     'hardwareConcurrency': {get: () => P.CONCURRENCY},
+                     'deviceMemory': {get: () => P.MEMORY},
+                     'userAgent': {get: () => P.UA},
+                     'appVersion': {get: () => P.UA.replace("Mozilla/", "")}
                    });
                  } catch(e) {}
 
                  if (win.screen && P.SCREEN_FEATURES) {
-                     const SF = P.SCREEN_FEATURES;
-                     try {
-                       Object.defineProperties(win.screen, {
-                           'colorDepth': {get: () => SF.depth},
-                           'pixelDepth': {get: () => SF.depth}
-                       });
-                     } catch(e) {}
-                     if ('devicePixelRatio' in win) {
-                         try { Object.defineProperty(win, 'devicePixelRatio', {get: () => SF.pixelRatio}); } catch(e) {}
-                     }
+                   const SF = P.SCREEN_FEATURES;
+                   try {
+                     Object.defineProperties(win.screen, {
+                       'colorDepth': {get: () => SF.depth},
+                       'pixelDepth': {get: () => SF.depth}
+                     });
+                   } catch(e) {}
+                   if ('devicePixelRatio' in win) {
+                     try { Object.defineProperty(win, 'devicePixelRatio', {get: () => SF.pixelRatio}); } catch(e) {}
+                   }
                  }
 
-                 // UA-CH 修正：architecture 依 Persona ARCH 回傳
                  if (N.userAgentData) {
-                     const uaData = {
-                         brands: [
-                            {brand: "Not(A:Brand", version: "99"},
-                            {brand: "Google Chrome", version: P.MAJOR_VERSION},
-                            {brand: "Chromium", version: P.MAJOR_VERSION}
-                        ],
-                         mobile: false,
-                         platform: "macOS",
-                         getHighEntropyValues: function(hints) {
-                            const res = {};
-                            res.brands = this.brands; res.mobile = this.mobile; res.platform = this.platform;
-                            if (Array.isArray(hints)) {
-                                if (hints.includes('architecture')) res.architecture = (P.ARCH === "arm") ? "arm" : "x86";
-                                if (hints.includes('bitness')) res.bitness = "64";
-                                if (hints.includes('model')) res.model = "";
-                                if (hints.includes('platformVersion')) res.platformVersion = P.OS_VERSION;
-                                if (hints.includes('uaFullVersion')) res.uaFullVersion = P.FULL_VERSION;
-                            }
-                            return Promise.resolve(res);
-                         }
-                     };
-                     try { Object.defineProperty(N, 'userAgentData', {get: () => uaData}); } catch(e) {}
+                   const uaData = {
+                     brands: [
+                       {brand: "Not(A:Brand", version: "99"},
+                       {brand: "Google Chrome", version: P.MAJOR_VERSION},
+                       {brand: "Chromium", version: P.MAJOR_VERSION}
+                     ],
+                     mobile: false,
+                     platform: "macOS",
+                     getHighEntropyValues: function(hints) {
+                       const res = {};
+                       res.brands = this.brands; res.mobile = this.mobile; res.platform = this.platform;
+                       if (Array.isArray(hints)) {
+                         if (hints.includes('architecture')) res.architecture = (P.ARCH === "arm") ? "arm" : "x86";
+                         if (hints.includes('bitness')) res.bitness = "64";
+                         if (hints.includes('model')) res.model = "";
+                         if (hints.includes('platformVersion')) res.platformVersion = P.OS_VERSION;
+                         if (hints.includes('uaFullVersion')) res.uaFullVersion = P.FULL_VERSION;
+                       }
+                       return Promise.resolve(res);
+                     }
+                   };
+                   try { Object.defineProperty(N, 'userAgentData', {get: () => uaData}); } catch(e) {}
                  }
              }
-
              try { if ('webdriver' in N) delete N.webdriver; } catch(e) {}
          },
 
@@ -547,12 +553,14 @@
              win.RTCPeerConnection = function(config) {
                  const pc = new OrigRTC(config);
                  const origAddEL = pc.addEventListener;
+
                  const isSafeCandidate = (c) => {
                      if (!c || typeof c !== 'string') return true;
                      if (c.indexOf(".local") !== -1) return true;
                      if (/(^| )192\\.168\\.|(^| )10\\.|(^| )172\\.(1[6-9]|2[0-9]|3[0-1])\\./.test(c)) return false;
                      return true;
                  };
+
                  pc.addEventListener = function(type, listener, options) {
                      if (type !== 'icecandidate') return origAddEL.call(this, type, listener, options);
                      const wrappedListener = (e) => {
@@ -561,6 +569,7 @@
                      };
                      return origAddEL.call(this, type, wrappedListener, options);
                  };
+
                  Object.defineProperty(pc, 'onicecandidate', {
                      set: function(fn) {
                          if (!fn) return;
@@ -571,6 +580,7 @@
                      },
                      get: function() { return this._onicecandidate; }
                  });
+
                  return pc;
              };
              win.RTCPeerConnection.prototype = OrigRTC.prototype;
@@ -606,6 +616,7 @@
              try {
                  const Element = win.Element;
                  if (!Element) return;
+
                  const addNoise = (rect) => {
                      if (!rect) return rect;
                      const dimSum = Math.floor((rect.width + rect.height) * 100);
@@ -618,6 +629,7 @@
                          toJSON: () => this
                      };
                  };
+
                  const makeDOMRectList = (rects) => {
                      let proto = null;
                      try { proto = win.DOMRectList.prototype; } catch(e) {}
@@ -633,6 +645,7 @@
                      }
                      return list;
                  };
+
                  ProxyGuard.hook(Element.prototype, 'getBoundingClientRect', (orig) => function() { return addNoise(orig.apply(this, arguments)); });
                  ProxyGuard.hook(Element.prototype, 'getClientRects', (orig) => function() { return makeDOMRectList(orig.apply(this, arguments)); });
              } catch(e) {}
@@ -640,7 +653,6 @@
 
          canvas: function(win) {
              const applyNoise = (data, w, h) => {
-                 // JITTER.factor：每日微漂移密度
                  const step = Math.max(1, Math.floor(CFG.noise.canvas * JITTER.factor));
                  for (let i = 0; i < data.length; i += 4) {
                      if (i % step === 0) {
@@ -653,7 +665,6 @@
              try {
                 const ctxList = [];
                 if (win.CanvasRenderingContext2D) ctxList.push(win.CanvasRenderingContext2D);
-                // 修正：OffscreenCanvas 存在性檢查後再 hook
                 if (win.OffscreenCanvas && win.OffscreenCanvasRenderingContext2D) ctxList.push(win.OffscreenCanvasRenderingContext2D);
 
                 ctxList.forEach(ctx => {
@@ -701,25 +712,53 @@
              } catch(e) {}
          },
 
+         // WebGL: 37445/37446 僅在取得 WEBGL_debug_renderer_info 後才 spoof
          webgl: function(win) {
-             try {
-                 const glClasses = [win.WebGLRenderingContext, win.WebGL2RenderingContext];
-                 glClasses.forEach(glClass => {
-                     if (!glClass || !glClass.prototype) return;
-                     ProxyGuard.hook(glClass.prototype, 'getParameter', (orig) => function(p) {
-                         if (p === 37445) return P.VENDOR;   // UNMASKED_VENDOR_WEBGL
-                         if (p === 37446) return P.RENDERER; // UNMASKED_RENDERER_WEBGL
-                         if (SPOOFING && P.WEBGL_CAPS && (p in P.WEBGL_CAPS)) {
-                             let val = P.WEBGL_CAPS[p];
-                             if (typeof val === 'number' && val > 1000) {
-                                 val = Math.floor(RNG.noise(val, val * 0.01));
-                             }
-                             return val;
-                         }
-                         return orig.apply(this, arguments);
-                     });
-                 });
-             } catch(e){}
+           try {
+             const glClasses = [win.WebGLRenderingContext, win.WebGL2RenderingContext];
+             const DEBUG_EXT_NAME = "WEBGL_debug_renderer_info";
+
+             glClasses.forEach(glClass => {
+               if (!glClass || !glClass.prototype) return;
+
+               const debugEnabledMap = new WeakMap();
+
+               ProxyGuard.hook(glClass.prototype, 'getExtension', (orig) => function(name) {
+                 try {
+                   const extName = String(name || "");
+                   const ext = orig.apply(this, arguments);
+                   if (extName === DEBUG_EXT_NAME && ext) {
+                     debugEnabledMap.set(this, true);
+                   }
+                   return ext;
+                 } catch (e) {
+                   return orig.apply(this, arguments);
+                 }
+               });
+
+               ProxyGuard.hook(glClass.prototype, 'getParameter', (orig) => function(p) {
+                 try {
+                   if (p === 37445 || p === 37446) {
+                     const enabled = (debugEnabledMap.get(this) === true);
+                     if (!enabled) return orig.apply(this, arguments);
+                     return (p === 37445) ? P.VENDOR : P.RENDERER;
+                   }
+
+                   if (SPOOFING && P.WEBGL_CAPS && (p in P.WEBGL_CAPS)) {
+                     let val = P.WEBGL_CAPS[p];
+                     if (typeof val === 'number' && val > 1000) {
+                       val = Math.floor(RNG.noise(val, val * 0.01));
+                     }
+                     return val;
+                   }
+
+                   return orig.apply(this, arguments);
+                 } catch (e) {
+                   return orig.apply(this, arguments);
+                 }
+               });
+             });
+           } catch(e){}
          },
 
          audio: function(win) {
@@ -727,10 +766,11 @@
                  if (win.AnalyserNode) {
                      ProxyGuard.hook(win.AnalyserNode.prototype, 'getFloatFrequencyData', (orig)=>function(arr){
                          const r = orig.apply(this, arguments);
-                         for(let i=0; i<arr.length; i+=10) arr[i] += RNG.noise(0, CFG.noise.audio);
+                         for(let i = 0; i < arr.length; i += 10) arr[i] += RNG.noise(0, CFG.noise.audio);
                          return r;
                      });
                  }
+
                  if (SPOOFING && win.AudioContext && win.AudioContext.prototype) {
                      if ('outputLatency' in win.AudioContext.prototype) {
                          try {
@@ -764,7 +804,7 @@
           Modules.audio(win);
       };
 
-      // 注入標記（避免重複注入）
+      // Injection marker (避免重複注入)
       try { document.documentElement && document.documentElement.setAttribute(__MARK, "1"); } catch(e){}
 
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ()=>inject(window));
@@ -775,9 +815,9 @@
     `;
 
     if (REGEX.HEAD_TAG.test(body)) {
-      body = body.replace(REGEX.HEAD_TAG, m => m + injectionScript);
+      body = body.replace(REGEX.HEAD_TAG, (m) => m + injectionScript);
     } else if (REGEX.HTML_TAG.test(body)) {
-      body = body.replace(REGEX.HTML_TAG, m => m + injectionScript);
+      body = body.replace(REGEX.HTML_TAG, (m) => m + injectionScript);
     } else {
       body = injectionScript + body;
     }
