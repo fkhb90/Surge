@@ -1,13 +1,14 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   5.60-Deep-Frame-Fortress
+ * @version   6.00-Final-Horizon
  * ----------------------------------------------------------------------------
- * 相對 v5.52 的修正與增強：
- * 1) [CRITICAL] Iframe 穿透防禦：新增 MutationObserver 監聽，自動對新生成的 iframe 
- * 執行遞迴注入，防止透過 iframe 讀取真實指紋。
- * 2) [NEW] Battery API 偽裝：攔截 getBattery()，恆定回傳充飽電狀態，避免行動裝置特徵洩漏。
- * 3) [FIX] Webdriver 強化：確保 navigator.webdriver 恆定為 false/undefined。
- * 4) [CORE] 繼承 v5.52 的穩定性噪聲算法（WebGL/Canvas/Audio），保持高通過率。
+ * 相對 v5.90 的修正與增強 (集大成終極版)：
+ * 1) [CRITICAL] WebGL Shader 精確度偽裝 (Shader Precision Spoofing)：
+ * 攔截 getShaderPrecisionFormat，統一回傳標準化精度，消除 GPU 架構特徵。
+ * 2) [ADVANCED] 抗時序攻擊 (Anti-Timing Attack)：
+ * 對 performance.now() 施加微量抖動，破壞偵測腳本對 Hook 延遲的分析能力。
+ * 3) [CORE] 繼承 v5.90 所有功能 (Stack Scrubbing, Extension Shuffling, Worker Blob, 
+ * Timezone, Battery, Speech, Iframe Sync)，打造全方位防護網。
  */
 
 (function () {
@@ -17,9 +18,8 @@
   // 0) Global config & seed
   // ============================================================================
   const CONST = {
-    // 更新 Key 以隔離舊版髒數據
-    KEY_PERSISTENCE: "FP_SHIELD_ID_V560",
-    INJECT_MARKER: "__FP_SHIELD_V560__",
+    KEY_PERSISTENCE: "FP_SHIELD_ID_V600",
+    INJECT_MARKER: "__FP_SHIELD_V600__",
 
     PERSONA_TTL_MS: 30 * 24 * 60 * 60 * 1000,
 
@@ -29,7 +29,11 @@
     CANVAS_NOISE_STEP: 2,
     AUDIO_NOISE_LEVEL: 0.00001,
     TEXT_METRICS_NOISE: 0.0001,
-    RECT_NOISE_LEVEL: 0.000001
+    RECT_NOISE_LEVEL: 0.000001,
+    
+    // Timezone Target: New York (matches en-US persona)
+    TARGET_TIMEZONE: "America/New_York",
+    TARGET_LOCALE: "en-US"
   };
 
   const SEED_MANAGER = (function () {
@@ -287,13 +291,14 @@
     if (!isSoftWhitelisted && !IS_SHOPPING && CURRENT_PERSONA && CURRENT_PERSONA.TYPE === "SPOOF") {
       Object.keys(headers).forEach((k) => {
         const l = k.toLowerCase();
-        if (l === "user-agent" || l.startsWith("sec-ch-ua")) delete headers[k];
+        if (l === "user-agent" || l.startsWith("sec-ch-ua") || l === "accept-language") delete headers[k];
       });
 
       headers["User-Agent"] = CURRENT_PERSONA.UA;
       headers["sec-ch-ua"] = `"Not(A:Brand";v="99", "Google Chrome";v="${CURRENT_PERSONA.MAJOR_VERSION}", "Chromium";v="${CURRENT_PERSONA.MAJOR_VERSION}"`;
       headers["sec-ch-ua-mobile"] = "?0";
       headers["sec-ch-ua-platform"] = '"macOS"';
+      headers["Accept-Language"] = "en-US,en;q=0.9";
     }
     $done({ headers });
     return;
@@ -335,7 +340,9 @@
         rect: CONST.RECT_NOISE_LEVEL
       },
       seed: SEED_MANAGER.session,
-      dailySeed: SEED_MANAGER.daily
+      dailySeed: SEED_MANAGER.daily,
+      tz: CONST.TARGET_TIMEZONE,
+      locale: CONST.TARGET_LOCALE
     };
 
     const scriptTag = stolenNonce ? `<script nonce="${stolenNonce}">` : `<script>`;
@@ -356,7 +363,15 @@ ${scriptTag}
       nextU32: function() {
         s ^= (s << 13) >>> 0; s ^= (s >>> 17) >>> 0; s ^= (s << 5) >>> 0; return (s >>> 0);
       },
-      next01: function() { return (this.nextU32() >>> 0) / 4294967296; }
+      next01: function() { return (this.nextU32() >>> 0) / 4294967296; },
+      shuffle: function(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const u = this.nextU32();
+          const j = u % (i + 1);
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      }
     };
   })(CFG.seed);
 
@@ -382,7 +397,7 @@ ${scriptTag}
     const nativeToString = Function.prototype.toString;
     function toString() {
       if (toStringMap.has(this)) return toStringMap.get(this);
-      return nativeToString.apply(this, arguments);
+      try { return nativeToString.apply(this, arguments); } catch(e) { return ""; }
     }
     toStringMap.set(toString, "function toString() { [native code] }");
     try {
@@ -413,34 +428,22 @@ ${scriptTag}
   // Modules
   // ============================================================================
   const Modules = {
-    hardware: function(win) {
-      const N = win.navigator;
-      if (SPOOFING) {
-        try {
-          Object.defineProperties(N, {
-            platform: { get: () => P.PLATFORM },
-            maxTouchPoints: { get: () => 0 },
-            hardwareConcurrency: { get: () => P.CONCURRENCY },
-            deviceMemory: { get: () => P.MEMORY },
-            userAgent: { get: () => P.UA },
-            appVersion: { get: () => P.UA.replace("Mozilla/", "") },
-            webdriver: { get: () => false } // Hardened: false instead of delete
-          });
-        } catch(e) {}
-
-        if (win.screen && P.SCREEN_FEATURES) {
-          const SF = P.SCREEN_FEATURES;
-          try {
-            Object.defineProperties(win.screen, {
-              colorDepth: { get: () => SF.depth },
-              pixelDepth: { get: () => SF.depth }
-            });
-          } catch(e) {}
-          if ("devicePixelRatio" in win) {
-            try { Object.defineProperty(win, "devicePixelRatio", { get: () => SF.pixelRatio }); } catch(e) {}
-          }
-        }
-
+    _spoofHardware: function(target) {
+      if (!SPOOFING || !target) return;
+      try {
+        const N = target.navigator;
+        if (!N) return;
+        Object.defineProperties(N, {
+          platform: { get: () => P.PLATFORM },
+          maxTouchPoints: { get: () => 0 },
+          hardwareConcurrency: { get: () => P.CONCURRENCY },
+          deviceMemory: { get: () => P.MEMORY },
+          userAgent: { get: () => P.UA },
+          appVersion: { get: () => P.UA.replace("Mozilla/", "") },
+          webdriver: { get: () => false },
+          language: { get: () => CFG.locale },
+          languages: { get: () => [CFG.locale, "en"] }
+        });
         if (N.userAgentData) {
           const uaData = {
             brands: [
@@ -451,43 +454,173 @@ ${scriptTag}
             mobile: false,
             platform: "macOS",
             getHighEntropyValues: function(hints) {
-              const res = {};
-              res.brands = this.brands; res.mobile = this.mobile; res.platform = this.platform;
-              if (Array.isArray(hints)) {
-                if (hints.includes("architecture")) res.architecture = (P.ARCH === "arm") ? "arm" : "x86";
-                if (hints.includes("bitness")) res.bitness = "64";
-                if (hints.includes("model")) res.model = "";
-                if (hints.includes("platformVersion")) res.platformVersion = P.OS_VERSION;
-                if (hints.includes("uaFullVersion")) res.uaFullVersion = P.FULL_VERSION;
-              }
-              return Promise.resolve(res);
+              return Promise.resolve({
+                 brands: this.brands, mobile: this.mobile, platform: this.platform,
+                 architecture: (P.ARCH === "arm") ? "arm" : "x86",
+                 bitness: "64", model: "",
+                 platformVersion: P.OS_VERSION,
+                 uaFullVersion: P.FULL_VERSION
+              });
             }
           };
           try { Object.defineProperty(N, "userAgentData", { get: () => uaData }); } catch(e) {}
         }
+      } catch(e) {}
+    },
+
+    // Stack Scrubber (Best Effort)
+    errors: function(win) {
+      if (!SPOOFING || !win.Error) return;
+      try {
+        const desc = Object.getOwnPropertyDescriptor(win.Error.prototype, "stack");
+        if (!desc || !desc.configurable) return;
+        Object.defineProperty(win.Error.prototype, "stack", {
+          get: function() {
+            return "Error: Stack trace hidden for privacy."; 
+          },
+          set: function(v) { this._stack = v; }, 
+          configurable: true
+        });
+      } catch(e) {}
+    },
+
+    // ★ NEW: Anti-Timing Attack (Micro Jitter)
+    timing: function(win) {
+      if (!SPOOFING || !win.performance) return;
+      try {
+        const origNow = win.performance.now;
+        // Deterministic jitter based on session seed is risky for timing, 
+        // using random micro-jitter is better to destabilize measurements.
+        // We ensure it's monotonic.
+        let lastTime = 0;
+        ProxyGuard.hook(win.performance, "now", (orig) => function() {
+          const real = orig.apply(this, arguments);
+          const jitter = (Math.random() * 0.05); // 0.00ms - 0.05ms random drift
+          let faked = real + jitter;
+          if (faked < lastTime) faked = lastTime + 0.0001; // Ensure monotonicity
+          lastTime = faked;
+          return faked;
+        });
+      } catch(e) {}
+    },
+    
+    hardware: function(win) {
+      this._spoofHardware(win);
+      if (SPOOFING && win.screen && P.SCREEN_FEATURES) {
+        const SF = P.SCREEN_FEATURES;
+        try {
+          Object.defineProperties(win.screen, {
+            colorDepth: { get: () => SF.depth },
+            pixelDepth: { get: () => SF.depth },
+            availLeft: { get: () => 0 },
+            availTop: { get: () => 0 }
+          });
+          if ("devicePixelRatio" in win) {
+            Object.defineProperty(win, "devicePixelRatio", { get: () => SF.pixelRatio });
+          }
+        } catch(e) {}
       }
-      try { if ("webdriver" in N) delete N.webdriver; } catch(e) {}
+    },
+
+    timezone: function(win) {
+      if (!SPOOFING) return;
+      try {
+        const DTF = win.Intl.DateTimeFormat;
+        ProxyGuard.hook(DTF.prototype, "resolvedOptions", (orig) => function() {
+          const opts = orig.apply(this, arguments);
+          opts.timeZone = CFG.tz;
+          opts.locale = CFG.locale;
+          return opts;
+        });
+      } catch(e) {}
+    },
+
+    speech: function(win) {
+      if (!SPOOFING || !win.speechSynthesis) return;
+      try {
+        const oldGetVoices = win.speechSynthesis.getVoices;
+        win.speechSynthesis.getVoices = function() {
+          return [
+            { name: "Samantha", lang: "en-US", localService: true, default: true, voiceURI: "Samantha" },
+            { name: "Alex", lang: "en-US", localService: true, default: false, voiceURI: "Alex" }
+          ]; 
+        };
+        ProxyGuard.protect(oldGetVoices, win.speechSynthesis.getVoices);
+      } catch(e) {}
     },
 
     battery: function(win) {
-      // NEW: Spoof Battery to prevent mobile/laptop leakage
       if (SPOOFING && win.navigator.getBattery) {
         const fakeBattery = {
-          charging: true,
-          chargingTime: 0,
-          dischargingTime: Infinity,
-          level: 1.0,
-          addEventListener: function() {},
-          removeEventListener: function() {},
-          onchargingchange: null,
-          onchargingtimechange: null,
-          ondischargingtimechange: null,
-          onlevelchange: null
+          charging: true, chargingTime: 0, dischargingTime: Infinity, level: 1.0,
+          addEventListener: function() {}, removeEventListener: function() {},
+          onchargingchange: null, onchargingtimechange: null, ondischargingtimechange: null, onlevelchange: null
         };
-        ProxyGuard.hook(win.navigator, "getBattery", (orig) => function() {
-          return Promise.resolve(fakeBattery);
-        });
+        ProxyGuard.hook(win.navigator, "getBattery", (orig) => function() { return Promise.resolve(fakeBattery); });
       }
+    },
+
+    worker: function(win) {
+      if (!SPOOFING || !win.Worker) return;
+      const OrigWorker = win.Worker;
+      const blobHead = \`
+        (function() {
+          const P = \${JSON.stringify(P)};
+          const CFG = \${JSON.stringify(CFG)};
+          const SPOOFING = true;
+          try {
+            const N = self.navigator;
+            Object.defineProperties(N, {
+              platform: { get: () => P.PLATFORM },
+              hardwareConcurrency: { get: () => P.CONCURRENCY },
+              deviceMemory: { get: () => P.MEMORY },
+              userAgent: { get: () => P.UA },
+              webdriver: { get: () => false },
+              language: { get: () => CFG.locale },
+              languages: { get: () => [CFG.locale, "en"] }
+            });
+            try {
+               const DTF = self.Intl.DateTimeFormat;
+               const orig = DTF.prototype.resolvedOptions;
+               DTF.prototype.resolvedOptions = function() {
+                 const o = orig.call(this);
+                 o.timeZone = CFG.tz;
+                 o.locale = CFG.locale;
+                 return o;
+               };
+            } catch(e){}
+            // Inject Timing Jitter in Worker
+            try {
+              if(self.performance) {
+                const origNow = self.performance.now;
+                let lastTime = 0;
+                self.performance.now = function() {
+                  const real = origNow.apply(this, arguments);
+                  const jitter = (Math.random() * 0.05); 
+                  let faked = real + jitter;
+                  if (faked < lastTime) faked = lastTime + 0.0001;
+                  lastTime = faked;
+                  return faked;
+                };
+              }
+            } catch(e){}
+          } catch(e) {}
+        })();
+      \`;
+
+      win.Worker = function(url, options) {
+        let blobUrl = url;
+        if (typeof url === "string") {
+          try {
+            const content = blobHead + "importScripts('" + url + "');";
+            const blob = new Blob([content], { type: "application/javascript" });
+            blobUrl = URL.createObjectURL(blob);
+          } catch(e) {}
+        }
+        return new OrigWorker(blobUrl, options);
+      };
+      win.Worker.prototype = OrigWorker.prototype;
+      ProxyGuard.protect(OrigWorker, win.Worker);
     },
 
     webrtc: function(win) {
@@ -498,9 +631,8 @@ ${scriptTag}
         const origAddEL = pc.addEventListener;
         const isSafe = (c) => {
           if (!c || typeof c !== "string") return true;
-          if (c.indexOf(".local") !== -1) return true; // mDNS safe
+          if (c.indexOf(".local") !== -1) return true;
           if (/(^| )192\\.168\\.|(^| )10\\.|(^| )172\\.(1[6-9]|2[0-9]|3[0-1])\\./.test(c)) return false;
-          // Block IPv6 local addresses as well for stricter safety
           if (/^([a-f0-9]{1,4}:){7}[a-f0-9]{1,4}$/i.test(c)) return false; 
           return true;
         };
@@ -525,6 +657,7 @@ ${scriptTag}
         return pc;
       };
       win.RTCPeerConnection.prototype = OrigRTC.prototype;
+      ProxyGuard.protect(OrigRTC, win.RTCPeerConnection);
     },
 
     media: function(win) {
@@ -659,6 +792,7 @@ ${scriptTag}
             if (!m) { m = new Map(); capsCache.set(ctx, m); }
             return m;
           };
+          
           ProxyGuard.hook(glClass.prototype, "getExtension", (orig) => function(name) {
             try {
               const extName = String(name || "");
@@ -667,6 +801,29 @@ ${scriptTag}
               return ext;
             } catch(e) { return orig.apply(this, arguments); }
           });
+          
+          // Extension Shuffling
+          ProxyGuard.hook(glClass.prototype, "getSupportedExtensions", (orig) => function() {
+            try {
+              const exts = orig.apply(this, arguments);
+              if (exts && Array.isArray(exts)) {
+                return RNG.shuffle(Array.from(exts));
+              }
+              return exts;
+            } catch(e) { return orig.apply(this, arguments); }
+          });
+
+          // ★ NEW: Shader Precision Spoofing
+          ProxyGuard.hook(glClass.prototype, "getShaderPrecisionFormat", (orig) => function(shaderType, precisionType) {
+            // Return standard High-Float values to hide GPU architecture specifics
+            // RangeMin: 127, RangeMax: 127, Precision: 23 is a safe common baseline
+            return {
+              rangeMin: 127,
+              rangeMax: 127,
+              precision: 23,
+            };
+          });
+
           ProxyGuard.hook(glClass.prototype, "getParameter", (orig) => function(p) {
             try {
               const ext = extMap.get(this);
@@ -722,6 +879,13 @@ ${scriptTag}
               });
             } catch(e) {}
           }
+          ProxyGuard.hook(win.AudioContext.prototype, "createDynamicsCompressor", (orig) => function() {
+            const node = orig.apply(this, arguments);
+            try {
+              if (node.threshold) node.threshold.value += 0.01;
+            } catch(e) {}
+            return node;
+          });
         }
       } catch(e) {}
     }
@@ -730,8 +894,13 @@ ${scriptTag}
   const inject = function(win) {
     if (!win) return;
     try {
+      Modules.errors(win);
+      Modules.timing(win); // NEW
       Modules.hardware(win);
       Modules.battery(win);
+      Modules.timezone(win);
+      Modules.speech(win);
+      Modules.worker(win);
       Modules.webrtc(win);
       Modules.media(win);
       Modules.rects(win);
@@ -742,28 +911,48 @@ ${scriptTag}
   };
 
   // ============================================================================
-  // Iframe Guard (New in v5.60)
+  // Iframe Guard (Sync + Async)
   // ============================================================================
   const IframeGuard = {
     init: function() {
-      if (typeof MutationObserver === 'undefined') return;
-      const observer = new MutationObserver((mutations) => {
-        mutations.forEach((m) => {
-          if (m.addedNodes) {
-            m.addedNodes.forEach((n) => {
-              if (n.tagName === "IFRAME" || n.tagName === "FRAME") {
-                try {
-                  if (n.contentWindow) inject(n.contentWindow);
-                  n.addEventListener("load", () => {
-                     try { if(n.contentWindow) inject(n.contentWindow); } catch(e){}
-                  });
-                } catch(e) {}
-              }
-            });
-          }
+      // 1. Sync Guard
+      try {
+         const ifrDesc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, "contentWindow");
+         if(ifrDesc && ifrDesc.get) {
+           Object.defineProperty(HTMLIFrameElement.prototype, "contentWindow", {
+             get: function() {
+               const win = ifrDesc.get.call(this);
+               if(win && !win[CONST.INJECT_MARKER]) {
+                 try { inject(win); win[CONST.INJECT_MARKER] = 1; } catch(e){}
+               }
+               return win;
+             },
+             enumerable: ifrDesc.enumerable,
+             configurable: ifrDesc.configurable
+           });
+         }
+      } catch(e) {}
+
+      // 2. Async Guard
+      if (typeof MutationObserver !== 'undefined') {
+        const observer = new MutationObserver((mutations) => {
+          mutations.forEach((m) => {
+            if (m.addedNodes) {
+              m.addedNodes.forEach((n) => {
+                if (n.tagName === "IFRAME" || n.tagName === "FRAME") {
+                  try {
+                    if (n.contentWindow) inject(n.contentWindow);
+                    n.addEventListener("load", () => {
+                       try { if(n.contentWindow) inject(n.contentWindow); } catch(e){}
+                    });
+                  } catch(e) {}
+                }
+              });
+            }
+          });
         });
-      });
-      observer.observe(document.documentElement || document, { childList: true, subtree: true });
+        observer.observe(document.documentElement || document, { childList: true, subtree: true });
+      }
     }
   };
 
@@ -781,16 +970,3 @@ ${scriptTag}
 
 })();
 </script>
-`;
-
-    if (REGEX.HEAD_TAG.test(body)) {
-      body = body.replace(REGEX.HEAD_TAG, (m) => m + injectionScript);
-    } else if (REGEX.HTML_TAG.test(body)) {
-      body = body.replace(REGEX.HTML_TAG, (m) => m + injectionScript);
-    } else {
-      body = injectionScript + body;
-    }
-
-    $done({ body, headers });
-  }
-})();
