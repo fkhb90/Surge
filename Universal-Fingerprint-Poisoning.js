@@ -1,42 +1,35 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.13-The-Switch
+ * @version   10.20-The-Endgame
  * ----------------------------------------------------------------------------
- * V10.13 面板開關版 (Panel Controlled):
- * 1) [CONTROL] 整合 Surge Persistent Store:
- * - 執行前優先讀取 "FP_MODE" 變數。
- * - 若模式為 "shopping"，直接回傳原始流量，停止所有偽裝。
- * 2) [INHERIT] 繼承 V10.12 所有功能 (WebRTC Relay, Notch Logic, Omni-Module)。
+ * V10.20 終局更新 (Consistency & Peripherals):
+ * 1) [GEOMETRY] 幾何約束系統 (Geometric Constraint Solver):
+ * - 強制 window.screenY >= availTop (模擬 macOS Menu Bar 阻擋)。
+ * - 強制 window.outerHeight <= availHeight (模擬 Dock 阻擋)。
+ * - 消除任何「視窗尺寸 > 可用螢幕區域」的邏輯矛盾。
+ * 2) [PERIPHERAL] 媒體設備虛擬化 (Media Device Virtualization):
+ * - 攔截 enumerateDevices，回傳標準 MacBook Pro 三件套 (Mic/Cam/Speaker)。
+ * - 實作 Persistent DeviceID，確保單一會話內 ID 穩定，騙過指紋追蹤的「穩定性檢測」。
+ * 3) [WHITELIST] 企業級白名單 (Restored Whitelist):
+ * - 完整保留 V10.10 的銀行/SSO/支付網關排除邏輯，確保業務可用性。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 0) Mode Check (The Switch Logic)
-  // ============================================================================
-  // 若此腳本運行在 Surge 環境，讀取持久化存儲
-  if (typeof $persistentStore !== "undefined") {
-      const currentMode = $persistentStore.read("FP_MODE");
-      // 如果是購物模式 (shopping)，則直接退出，不做任何處理
-      if (currentMode === "shopping") {
-          // console.log("[FP-Shield] Shopping Mode Active. Bypassing...");
-          if (typeof $done !== "undefined") $done({});
-          return;
-      }
-  }
-
-  // ============================================================================
-  // 1) Global Config & Seed
+  // 0) Global Config & Seed (Session Persistence)
   // ============================================================================
   const CONST = {
-    KEY_PERSISTENCE: "FP_SHIELD_ID_V1013",
-    INJECT_MARKER: "__FP_SHIELD_V1013__",
-    // Noise Levels
+    KEY_PERSISTENCE: "FP_SHIELD_ID_V1020",
+    INJECT_MARKER: "__FP_SHIELD_V1020__",
+    
+    // Noise Configuration
     CANVAS_NOISE_STEP: 2,
     AUDIO_NOISE_LEVEL: 0.00001, 
     OFFLINE_AUDIO_NOISE: 0.00001,
-    // Timezone
+    
+    // Target Locale: New York
     TARGET_TIMEZONE: "America/New_York",
     TARGET_LOCALE: "en-US",
     TZ_STD: 300,
@@ -53,7 +46,7 @@
         if (now < parseInt(expiry, 10)) idSeed = parseInt(val, 10);
         else {
           idSeed = (now ^ (Math.random() * 100000000)) >>> 0;
-          localStorage.setItem(CONST.KEY_PERSISTENCE, `${idSeed}|${now + 2592000000}`);
+          localStorage.setItem(CONST.KEY_PERSISTENCE, `${idSeed}|${now + 2592000000}`); // 30 days
         }
       } else {
         idSeed = (now ^ (Math.random() * 100000000)) >>> 0;
@@ -68,19 +61,20 @@
   })();
 
   // ============================================================================
-  // 2) Hardware Persona
+  // 1) Hardware Whitelist (Expanded Persona Pool)
   // ============================================================================
   const PERSONA = (function() {
     const POOL = [
-      { name: "M1_Ultra_Studio", width: 5120, height: 2880, depth: 30, ratio: 2, render: "Apple M1 Ultra", cores: 20, mem: 64, hasNotch: false },
-      { name: "M3_iMac_24",      width: 4480, height: 2520, depth: 30, ratio: 2, render: "Apple M3",       cores: 8,  mem: 24, hasNotch: false },
-      { name: "M2_Air_13",       width: 2560, height: 1664, depth: 30, ratio: 2, render: "Apple GPU",      cores: 8,  mem: 16, hasNotch: true },
-      { name: "M2_Pro_16",       width: 3456, height: 2234, depth: 30, ratio: 2, render: "Apple M2 Pro",   cores: 12, mem: 32, hasNotch: true },
-      { name: "M3_Max_16",       width: 3456, height: 2234, depth: 30, ratio: 2, render: "Apple M3 Max",   cores: 16, mem: 48, hasNotch: true }
+      { name: "M1_Ultra_Studio", width: 5120, height: 2880, depth: 30, ratio: 2, render: "Apple M1 Ultra", cores: 20, mem: 64 },
+      { name: "M2_Air_13",       width: 2560, height: 1664, depth: 30, ratio: 2, render: "Apple GPU",      cores: 8,  mem: 16 },
+      { name: "M2_Pro_16",       width: 3456, height: 2234, depth: 30, ratio: 2, render: "Apple M2 Pro",   cores: 12, mem: 32 },
+      { name: "M3_iMac_24",      width: 4480, height: 2520, depth: 30, ratio: 2, render: "Apple M3",       cores: 8,  mem: 24 },
+      { name: "M3_Max_16",       width: 3456, height: 2234, depth: 30, ratio: 2, render: "Apple M3 Max",   cores: 16, mem: 48 }
     ];
-    
     const idx = SEED_MANAGER.id % POOL.length;
     const p = POOL[idx];
+    
+    // Robust MacOS Version (Sonoma 14.x)
     const ua = `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36`;
 
     return {
@@ -90,13 +84,12 @@
       RENDERER: p.render,
       CONCURRENCY: p.cores,
       MEMORY: p.mem,
-      SCREEN: { width: p.width, height: p.height, depth: p.depth, ratio: p.ratio, hasNotch: p.hasNotch }
+      SCREEN: { width: p.width, height: p.height, depth: p.depth, ratio: p.ratio }
     };
   })();
 
   // ============================================================================
-  // 3) Software Whitelist (Backup Logic)
-  // Even in protection mode, we still avoid hard-coded critical domains
+  // 2) Software Whitelist (Traffic Filtering)
   // ============================================================================
   const HELPERS = {
     normalizeHost: (h) => (h || "").toLowerCase().replace(/^\.+/, "").replace(/\.+$/, ""),
@@ -113,22 +106,30 @@
   try { hostname = new URL(currentUrl).hostname.toLowerCase(); } catch (e) {}
 
   const HARD_EXCLUSION_KEYWORDS = [
-    "accounts.google.com", "appleid.apple.com", "login.live.com", "oauth", "sso", "okta.com", "auth0.com",
-    "recaptcha", "hcaptcha", "turnstile",
-    "ctbcbank", "cathaybk", "esunbank", "fubon", "taishin", "landbank", "megabank", "firstbank",
-    "citibank", "hsbc", "paypal", "stripe", "ecpay", "line.me", "jkos"
+    "accounts.google.com", "appleid", "login.live.com", "oauth", "sso", "okta.com", "auth0.com", "duosecurity.com",
+    "recaptcha", "hcaptcha", "turnstile", "bot-detection", "challenge",
+    "ctbcbank", "cathaybk", "esunbank", "fubon", "taishin", "landbank", "megabank", "firstbank", "hncb", "sinopac", "bot.com.tw", "post.gov.tw",
+    "citibank", "hsbc", "standardchartered", "jpmorgan", "paypal", "stripe", "wise.com",
+    "ecpay", "newebpay", "line.me", "jkos", "braintree", "adyen", "3dsecure", "acs",
+    "chatgpt.com", "openai.com", "claude.ai", "gemini.google.com",
+    "windowsupdate", "icloud.com", "gov.tw"
   ];
-  
-  // Note: We removed the "Soft Whitelist" here because the user wants FULL CONTROL via the Switch.
-  // Hard exclusions remain to prevent app crashes.
+
+  const TRUSTED_DOMAINS = [
+    "netflix.com", "spotify.com", "disneyplus.com", "youtube.com", "twitch.tv",
+    "shopee.tw", "momo.com.tw", "pchome.com.tw", "amazon.com",
+    "github.com", "gitlab.com", "figma.com", "canva.com",
+    "facebook.com", "instagram.com", "twitter.com", "linkedin.com", "discord.com"
+  ];
 
   const isHardExcluded = HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k));
+  const isWhitelisted = TRUSTED_DOMAINS.some(d => HELPERS.isDomainMatch(hostname, d));
 
   // ============================================================================
   // Phase A: Request Headers
   // ============================================================================
   if (typeof $request !== "undefined" && typeof $response === "undefined") {
-    if (isHardExcluded) { $done({}); return; }
+    if (isHardExcluded || isWhitelisted) { $done({}); return; }
 
     const headers = $request.headers || {};
     Object.keys(headers).forEach(k => {
@@ -150,22 +151,19 @@
   // ============================================================================
   if (typeof $response !== "undefined") {
     const body = $response.body;
-    if (!body || isHardExcluded) { $done({}); return; }
+    if (!body || isHardExcluded || isWhitelisted) { $done({}); return; }
     
     const headers = $response.headers || {};
     const cType = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
     if (!cType.includes("html")) { $done({}); return; }
     if (body.includes(CONST.INJECT_MARKER)) { $done({}); return; }
 
+    // CSP Check & Nonce Extraction
     let csp = "";
     Object.keys(headers).forEach(k => { if(k.toLowerCase() === "content-security-policy") csp = headers[k]; });
     const allowInline = !csp || csp.includes("'unsafe-inline'");
     
-    const REGEX = {
-       HEAD: /<head[^>]*>/i,
-       NONCE: /nonce=["']?([^"'\s>]+)["']?/i
-    };
-    
+    const REGEX = { HEAD: /<head[^>]*>/i, HTML: /<html[^>]*>/i, NONCE: /nonce=["']?([^"'\s>]+)["']?/i };
     let nonce = "";
     const m = body.match(REGEX.NONCE);
     if (m) nonce = m[1];
@@ -179,13 +177,16 @@
       consts: CONST
     };
 
-    // OMNI MODULE (Same as V10.12)
+    // ========================================================================
+    // 3) The OMNI-MODULE (The Brain)
+    // ========================================================================
     const OMNI_MODULE_SOURCE = `
     (function(scope) {
       const CFG = ${JSON.stringify(INJECT_CONFIG)};
       const P = CFG.persona;
       const C = CFG.consts;
       
+      // --- Utils ---
       const detU32 = (seed, salt) => {
         let s = (seed ^ salt) >>> 0; s ^= (s << 13); s ^= (s >>> 17); s ^= (s << 5); return (s >>> 0);
       };
@@ -207,37 +208,15 @@
       };
       const hook = (obj, prop, factory) => { if(obj && obj[prop]) obj[prop] = protect(obj[prop], factory(obj[prop])); };
 
-      const installWebRTC = () => {
-        const rtcNames = ["RTCPeerConnection", "webkitRTCPeerConnection", "mozRTCPeerConnection"];
-        rtcNames.forEach(name => {
-           if (!scope[name]) return;
-           const NativeRTC = scope[name];
-           const SafeRTC = function(config, ...args) {
-              const safeConfig = config ? Object.assign({}, config) : {};
-              safeConfig.iceTransportPolicy = "relay"; 
-              safeConfig.iceCandidatePoolSize = 0;
-              if (!(this instanceof SafeRTC)) return new NativeRTC(safeConfig, ...args);
-              return new NativeRTC(safeConfig, ...args);
-           };
-           SafeRTC.prototype = NativeRTC.prototype;
-           try {
-             Object.getOwnPropertyNames(NativeRTC).forEach(prop => {
-               if (prop !== "prototype" && prop !== "name" && prop !== "length") {
-                 try { SafeRTC[prop] = NativeRTC[prop]; } catch(e) {}
-               }
-             });
-           } catch(e) {}
-           scope[name] = protect(NativeRTC, SafeRTC);
-        });
-      };
-
+      // --- Geometry Constraint Solver (The MacOS Fix) ---
       const installScreen = () => {
         if (!scope.screen) return;
         try {
           const S = P.SCREEN;
           const uDock = detU32(CFG.seed, 777); 
-          const menuBarH = S.hasNotch ? 38 : 24;
-          const dockH = 50 + (uDock % 30); 
+          // MacOS invariants: MenuBar ~25px, Dock variable
+          const menuBarH = 25; 
+          const dockH = 50 + (uDock % 40);
           const availH = S.height - menuBarH - dockH; 
           
           Object.defineProperties(scope.screen, {
@@ -246,34 +225,53 @@
             availLeft: { get: () => 0 }, availTop: { get: () => menuBarH },
             colorDepth: { get: () => S.depth }, pixelDepth: { get: () => S.depth }
           });
+          
+          // Main Thread Window Consistency
           if (scope.window && scope.window === scope) {
-             try {
-                if (scope.outerHeight > S.height) Object.defineProperty(scope, 'outerHeight', { get: () => S.height });
-                if (scope.outerWidth > S.width) Object.defineProperty(scope, 'outerWidth', { get: () => S.width });
-             } catch(e) {}
+             const getD = (k) => Object.getOwnPropertyDescriptor(scope.window, k);
+             
+             // Clamp screenY to always respect Menu Bar
+             const origScreenY = getD('screenY')?.get || (() => 0);
+             Object.defineProperty(scope, 'screenY', { 
+               get: () => Math.max(origScreenY.call(scope), menuBarH) 
+             });
+             
+             // Clamp outerHeight to never exceed available area (Dock collision)
+             const origOH = getD('outerHeight')?.get || (() => 0);
+             Object.defineProperty(scope, 'outerHeight', {
+               get: () => Math.min(origOH.call(scope), availH)
+             });
           }
         } catch(e) {}
       };
 
+      // --- Media Device Virtualization (The Peripheral Fix) ---
       const installMedia = () => {
         if (!scope.navigator || !scope.navigator.mediaDevices || !scope.navigator.mediaDevices.enumerateDevices) return;
+        
         hook(scope.navigator.mediaDevices, "enumerateDevices", (orig) => function() {
           return new Promise((resolve) => {
+             // Generate Consistent Device IDs
              const mkId = (salt) => detU32(CFG.seed, salt).toString(16).padStart(64, '0').substring(0, 44);
              const grpId = mkId(999);
+             
+             // Standard MacBook Pro Profile
              const devices = [
-               { deviceId: mkId(1), kind: "audioinput",  label: "MacBook Pro Microphone", groupId: grpId },
-               { deviceId: mkId(2), kind: "videoinput",  label: "FaceTime HD Camera",     groupId: grpId },
-               { deviceId: mkId(3), kind: "audiooutput", label: "MacBook Pro Speakers",   groupId: grpId }
+               { deviceId: mkId(1), kind: "audioinput", label: "MacBook Pro Microphone", groupId: grpId },
+               { deviceId: mkId(2), kind: "videoinput", label: "FaceTime HD Camera", groupId: grpId },
+               { deviceId: mkId(3), kind: "audiooutput", label: "MacBook Pro Speakers", groupId: grpId }
              ];
+             
+             // Return Mock Objects with toJSON
              resolve(devices.map(d => ({
-                 deviceId: d.deviceId, kind: d.kind, label: d.label, groupId: d.groupId,
-                 toJSON: function() { return { deviceId: this.deviceId, kind: this.kind, label: this.label, groupId: this.groupId }; }
+               deviceId: d.deviceId, kind: d.kind, label: d.label, groupId: d.groupId,
+               toJSON: function() { return { deviceId:this.deviceId, kind:this.kind, label:this.label, groupId:this.groupId }; }
              })));
           });
         });
       };
 
+      // --- Core Hardware ---
       const installNav = () => {
         const N = scope.navigator;
         if(!N) return;
@@ -285,13 +283,20 @@
             userAgent: { get: () => P.UA },
             appVersion: { get: () => P.UA.replace("Mozilla/", "") },
             maxTouchPoints: { get: () => 0 },
+            // Zeroing Plugins to match modern Chrome/Safari
             plugins: { get: () => { const a=[]; a.item=()=>null; a.namedItem=()=>null; a.refresh=()=>{}; return a; } },
             mimeTypes: { get: () => { const a=[]; a.item=()=>null; a.namedItem=()=>null; return a; } }
           });
+          // Gamepad Zeroing
           if ("getGamepads" in N) N.getGamepads = protect(N.getGamepads, () => []);
+          // Network Spoofing
+          if (N.connection) {
+             try { Object.defineProperty(N, "connection", { get: () => ({ effectiveType: "4g", rtt: 50, downlink: 10, saveData: false, type: "wifi" }) }); } catch(e) {}
+          }
         } catch(e) {}
       };
 
+      // --- Timezone (DST) ---
       const installTime = () => {
         try {
           const getOffset = (d) => {
@@ -312,11 +317,13 @@
             const o = orig.apply(this, arguments); o.timeZone = C.TARGET_TIMEZONE; o.locale = C.TARGET_LOCALE; return o;
           });
           if(scope.Date && scope.Date.prototype) {
+             const oldOff = scope.Date.prototype.getTimezoneOffset;
              scope.Date.prototype.getTimezoneOffset = function() { return getOffset(this); };
           }
         } catch(e) {}
       };
 
+      // --- Graphics (Canvas/WebGL) ---
       const installGraphics = () => {
         const noise2D = (data, w, h) => {
            for(let i=0; i<data.length; i+=4) {
@@ -340,13 +347,18 @@
            hook(proto, "getParameter", (orig) => function(p) {
               if (p === 37445) return "Google Inc. (Apple)";
               if (p === 37446) return P.RENDERER;
+              if (p === 7938) return "WebGL 2.0 (OpenGL ES 3.0)";
+              if (p === 35724) return "WebGL GLSL ES 3.00";
+              if (P.WEBGL_CAPS && (p in P.WEBGL_CAPS)) return P.WEBGL_CAPS[p];
               return orig.apply(this, arguments);
            });
+           hook(proto, "getShaderPrecisionFormat", (orig) => function() { return { rangeMin: 127, rangeMax: 127, precision: 23 }; });
         };
         if (scope.WebGLRenderingContext) hookGL(scope.WebGLRenderingContext.prototype);
         if (scope.WebGL2RenderingContext) hookGL(scope.WebGL2RenderingContext.prototype);
       };
 
+      // --- Audio ---
       const installAudio = () => {
          if (scope.OfflineAudioContext) {
             hook(scope.OfflineAudioContext.prototype, "startRendering", (orig) => function() {
@@ -359,12 +371,21 @@
                });
             });
          }
+         if (scope.AnalyserNode) {
+            hook(scope.AnalyserNode.prototype, "getFloatFrequencyData", (orig) => function(arr) {
+               const r = orig.apply(this, arguments);
+               for(let i=0; i<arr.length; i++) arr[i] += getNoise(i, CFG.seed, C.AUDIO_NOISE_LEVEL);
+               return r;
+            });
+         }
       };
 
-      installWebRTC(); installNav(); installScreen(); installTime(); installMedia(); installGraphics(); installAudio();
+      // Execute All Modules
+      installNav(); installScreen(); installTime(); installMedia(); installGraphics(); installAudio();
     })(typeof self !== "undefined" ? self : window);
     `;
 
+    // 4) Worker Injection & Main Exec
     const injectionScript = `
 ${nonce ? `<script nonce="${nonce}">` : `<script>`}
 (function() {
@@ -392,10 +413,12 @@ ${nonce ? `<script nonce="${nonce}">` : `<script>`}
   
   eval(OMNI);
   setupWorkers();
+  
   try { document.documentElement.setAttribute("${CONST.INJECT_MARKER}", "1"); } catch(e){}
 })();
 </script>
 `;
+
     $done({ body: body.replace(REGEX.HEAD, (m) => m + injectionScript) });
   }
 })();
