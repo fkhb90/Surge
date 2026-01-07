@@ -1,34 +1,42 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.12-The-Void
+ * @version   10.13-The-Switch
  * ----------------------------------------------------------------------------
- * V10.12 虛空防漏版 (WebRTC Leak Proof):
- * 1) [NETWORK] WebRTC 阻斷 (Ice-Cold Logic):
- * 強制覆寫 RTCPeerConnection 配置，鎖定 iceTransportPolicy 為 "relay"。
- * - 阻斷 STUN 請求，防止真實 ISP IP 與 Local IP 繞過代理洩漏。
- * - 表現為 "嚴格防火牆網路" 特徵，而非直接禁用 WebRTC，降低被偵測風險。
- * 2) [INHERIT] 繼承 V10.11 完整特性:
- * - Notch-Aware 螢幕幾何 (M2/M3 瀏海模擬)
- * - MediaDevice 設備指紋一致性
- * - Omni-Module 全堆疊注入架構
+ * V10.13 面板開關版 (Panel Controlled):
+ * 1) [CONTROL] 整合 Surge Persistent Store:
+ * - 執行前優先讀取 "FP_MODE" 變數。
+ * - 若模式為 "shopping"，直接回傳原始流量，停止所有偽裝。
+ * 2) [INHERIT] 繼承 V10.12 所有功能 (WebRTC Relay, Notch Logic, Omni-Module)。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 0) Global Config & Seed
+  // 0) Mode Check (The Switch Logic)
+  // ============================================================================
+  // 若此腳本運行在 Surge 環境，讀取持久化存儲
+  if (typeof $persistentStore !== "undefined") {
+      const currentMode = $persistentStore.read("FP_MODE");
+      // 如果是購物模式 (shopping)，則直接退出，不做任何處理
+      if (currentMode === "shopping") {
+          // console.log("[FP-Shield] Shopping Mode Active. Bypassing...");
+          if (typeof $done !== "undefined") $done({});
+          return;
+      }
+  }
+
+  // ============================================================================
+  // 1) Global Config & Seed
   // ============================================================================
   const CONST = {
-    KEY_PERSISTENCE: "FP_SHIELD_ID_V1012",
-    INJECT_MARKER: "__FP_SHIELD_V1012__",
-    
+    KEY_PERSISTENCE: "FP_SHIELD_ID_V1013",
+    INJECT_MARKER: "__FP_SHIELD_V1013__",
     // Noise Levels
     CANVAS_NOISE_STEP: 2,
     AUDIO_NOISE_LEVEL: 0.00001, 
     OFFLINE_AUDIO_NOISE: 0.00001,
-    
-    // Timezone: New York
+    // Timezone
     TARGET_TIMEZONE: "America/New_York",
     TARGET_LOCALE: "en-US",
     TZ_STD: 300,
@@ -45,7 +53,7 @@
         if (now < parseInt(expiry, 10)) idSeed = parseInt(val, 10);
         else {
           idSeed = (now ^ (Math.random() * 100000000)) >>> 0;
-          localStorage.setItem(CONST.KEY_PERSISTENCE, `${idSeed}|${now + 2592000000}`); // 30 days
+          localStorage.setItem(CONST.KEY_PERSISTENCE, `${idSeed}|${now + 2592000000}`);
         }
       } else {
         idSeed = (now ^ (Math.random() * 100000000)) >>> 0;
@@ -60,15 +68,12 @@
   })();
 
   // ============================================================================
-  // 1) Hardware Whitelist (Expanded Persona Pool with Notch Logic)
+  // 2) Hardware Persona
   // ============================================================================
   const PERSONA = (function() {
     const POOL = [
-      // Desktop: No Notch, Standard Menu Bar (24px)
       { name: "M1_Ultra_Studio", width: 5120, height: 2880, depth: 30, ratio: 2, render: "Apple M1 Ultra", cores: 20, mem: 64, hasNotch: false },
       { name: "M3_iMac_24",      width: 4480, height: 2520, depth: 30, ratio: 2, render: "Apple M3",       cores: 8,  mem: 24, hasNotch: false },
-      
-      // Laptop: Notch Models, Taller Menu Bar (~38px)
       { name: "M2_Air_13",       width: 2560, height: 1664, depth: 30, ratio: 2, render: "Apple GPU",      cores: 8,  mem: 16, hasNotch: true },
       { name: "M2_Pro_16",       width: 3456, height: 2234, depth: 30, ratio: 2, render: "Apple M2 Pro",   cores: 12, mem: 32, hasNotch: true },
       { name: "M3_Max_16",       width: 3456, height: 2234, depth: 30, ratio: 2, render: "Apple M3 Max",   cores: 16, mem: 48, hasNotch: true }
@@ -76,8 +81,6 @@
     
     const idx = SEED_MANAGER.id % POOL.length;
     const p = POOL[idx];
-    
-    // MacOS Version Spoofing
     const ua = `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36`;
 
     return {
@@ -87,18 +90,13 @@
       RENDERER: p.render,
       CONCURRENCY: p.cores,
       MEMORY: p.mem,
-      SCREEN: { 
-        width: p.width, 
-        height: p.height, 
-        depth: p.depth, 
-        ratio: p.ratio,
-        hasNotch: p.hasNotch
-      }
+      SCREEN: { width: p.width, height: p.height, depth: p.depth, ratio: p.ratio, hasNotch: p.hasNotch }
     };
   })();
 
   // ============================================================================
-  // 2) Software Whitelist (Exclusion Logic)
+  // 3) Software Whitelist (Backup Logic)
+  // Even in protection mode, we still avoid hard-coded critical domains
   // ============================================================================
   const HELPERS = {
     normalizeHost: (h) => (h || "").toLowerCase().replace(/^\.+/, "").replace(/\.+$/, ""),
@@ -114,33 +112,23 @@
   let hostname = "";
   try { hostname = new URL(currentUrl).hostname.toLowerCase(); } catch (e) {}
 
-  // A. Hard Exclusion
   const HARD_EXCLUSION_KEYWORDS = [
-    "accounts.google.com", "appleid.apple.com", "login.live.com", "oauth", "sso", "okta.com", "auth0.com", "duosecurity.com",
-    "recaptcha", "hcaptcha", "turnstile", "bot-detection", "challenge",
-    "ctbcbank", "cathaybk", "esunbank", "fubon", "taishin", "landbank", "megabank", "firstbank", "hncb", "sinopac", "bot.com.tw", "post.gov.tw",
-    "citibank", "hsbc", "standardchartered", "jpmorgan", "paypal", "stripe", "wise.com",
-    "ecpay", "newebpay", "line.me", "jkos", "braintree", "adyen", "3dsecure", "acs",
-    "chatgpt.com", "openai.com", "claude.ai", "gemini.google.com",
-    "windowsupdate", "icloud.com", "gov.tw"
+    "accounts.google.com", "appleid.apple.com", "login.live.com", "oauth", "sso", "okta.com", "auth0.com",
+    "recaptcha", "hcaptcha", "turnstile",
+    "ctbcbank", "cathaybk", "esunbank", "fubon", "taishin", "landbank", "megabank", "firstbank",
+    "citibank", "hsbc", "paypal", "stripe", "ecpay", "line.me", "jkos"
   ];
-
-  // B. Soft Whitelist
-  const TRUSTED_DOMAINS = [
-    "netflix.com", "spotify.com", "disneyplus.com", "youtube.com", "twitch.tv",
-    "shopee.tw", "momo.com.tw", "pchome.com.tw", "amazon.com",
-    "github.com", "gitlab.com", "figma.com", "canva.com",
-    "facebook.com", "instagram.com", "twitter.com", "linkedin.com", "discord.com"
-  ];
+  
+  // Note: We removed the "Soft Whitelist" here because the user wants FULL CONTROL via the Switch.
+  // Hard exclusions remain to prevent app crashes.
 
   const isHardExcluded = HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k));
-  const isWhitelisted = TRUSTED_DOMAINS.some(d => HELPERS.isDomainMatch(hostname, d));
 
   // ============================================================================
   // Phase A: Request Headers
   // ============================================================================
   if (typeof $request !== "undefined" && typeof $response === "undefined") {
-    if (isHardExcluded || isWhitelisted) { $done({}); return; }
+    if (isHardExcluded) { $done({}); return; }
 
     const headers = $request.headers || {};
     Object.keys(headers).forEach(k => {
@@ -162,7 +150,7 @@
   // ============================================================================
   if (typeof $response !== "undefined") {
     const body = $response.body;
-    if (!body || isHardExcluded || isWhitelisted) { $done({}); return; }
+    if (!body || isHardExcluded) { $done({}); return; }
     
     const headers = $response.headers || {};
     const cType = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
@@ -191,16 +179,13 @@
       consts: CONST
     };
 
-    // ========================================================================
-    // 3) The OMNI-MODULE (V10.12 Core)
-    // ========================================================================
+    // OMNI MODULE (Same as V10.12)
     const OMNI_MODULE_SOURCE = `
     (function(scope) {
       const CFG = ${JSON.stringify(INJECT_CONFIG)};
       const P = CFG.persona;
       const C = CFG.consts;
       
-      // --- Utils ---
       const detU32 = (seed, salt) => {
         let s = (seed ^ salt) >>> 0; s ^= (s << 13); s ^= (s >>> 17); s ^= (s << 5); return (s >>> 0);
       };
@@ -222,27 +207,19 @@
       };
       const hook = (obj, prop, factory) => { if(obj && obj[prop]) obj[prop] = protect(obj[prop], factory(obj[prop])); };
 
-      // --- 1. WebRTC Leak Protection (Ice-Cold Logic) ---
       const installWebRTC = () => {
         const rtcNames = ["RTCPeerConnection", "webkitRTCPeerConnection", "mozRTCPeerConnection"];
-        
         rtcNames.forEach(name => {
            if (!scope[name]) return;
            const NativeRTC = scope[name];
-           
-           // Wrapper to force 'relay' policy
            const SafeRTC = function(config, ...args) {
               const safeConfig = config ? Object.assign({}, config) : {};
-              // FORCE relay: Blocks STUN (Local/Public IP leaks)
               safeConfig.iceTransportPolicy = "relay"; 
               safeConfig.iceCandidatePoolSize = 0;
-              
               if (!(this instanceof SafeRTC)) return new NativeRTC(safeConfig, ...args);
               return new NativeRTC(safeConfig, ...args);
            };
            SafeRTC.prototype = NativeRTC.prototype;
-           
-           // Copy static props
            try {
              Object.getOwnPropertyNames(NativeRTC).forEach(prop => {
                if (prop !== "prototype" && prop !== "name" && prop !== "length") {
@@ -250,12 +227,10 @@
                }
              });
            } catch(e) {}
-           
            scope[name] = protect(NativeRTC, SafeRTC);
         });
       };
 
-      // --- 2. Geometry (Notch-Aware) ---
       const installScreen = () => {
         if (!scope.screen) return;
         try {
@@ -266,16 +241,11 @@
           const availH = S.height - menuBarH - dockH; 
           
           Object.defineProperties(scope.screen, {
-            width: { get: () => S.width }, 
-            height: { get: () => S.height },
-            availWidth: { get: () => S.width },
-            availHeight: { get: () => availH },
-            availLeft: { get: () => 0 }, 
-            availTop: { get: () => menuBarH },
-            colorDepth: { get: () => S.depth }, 
-            pixelDepth: { get: () => S.depth }
+            width: { get: () => S.width }, height: { get: () => S.height },
+            availWidth: { get: () => S.width }, availHeight: { get: () => availH },
+            availLeft: { get: () => 0 }, availTop: { get: () => menuBarH },
+            colorDepth: { get: () => S.depth }, pixelDepth: { get: () => S.depth }
           });
-          
           if (scope.window && scope.window === scope) {
              try {
                 if (scope.outerHeight > S.height) Object.defineProperty(scope, 'outerHeight', { get: () => S.height });
@@ -285,7 +255,6 @@
         } catch(e) {}
       };
 
-      // --- 3. Media (Hardened) ---
       const installMedia = () => {
         if (!scope.navigator || !scope.navigator.mediaDevices || !scope.navigator.mediaDevices.enumerateDevices) return;
         hook(scope.navigator.mediaDevices, "enumerateDevices", (orig) => function() {
@@ -298,17 +267,13 @@
                { deviceId: mkId(3), kind: "audiooutput", label: "MacBook Pro Speakers",   groupId: grpId }
              ];
              resolve(devices.map(d => ({
-                 deviceId: d.deviceId, 
-                 kind: d.kind, 
-                 label: d.label, 
-                 groupId: d.groupId,
+                 deviceId: d.deviceId, kind: d.kind, label: d.label, groupId: d.groupId,
                  toJSON: function() { return { deviceId: this.deviceId, kind: this.kind, label: this.label, groupId: this.groupId }; }
              })));
           });
         });
       };
 
-      // --- 4. Nav/Time/Graphics/Audio ---
       const installNav = () => {
         const N = scope.navigator;
         if(!N) return;
@@ -396,18 +361,10 @@
          }
       };
 
-      // Main Install Sequence
-      installWebRTC(); // <--- PRIORITY 1: Block Leaks
-      installNav(); 
-      installScreen(); 
-      installTime(); 
-      installMedia(); 
-      installGraphics(); 
-      installAudio();
+      installWebRTC(); installNav(); installScreen(); installTime(); installMedia(); installGraphics(); installAudio();
     })(typeof self !== "undefined" ? self : window);
     `;
 
-    // 4) Worker Injection & Main Exec
     const injectionScript = `
 ${nonce ? `<script nonce="${nonce}">` : `<script>`}
 (function() {
@@ -439,7 +396,6 @@ ${nonce ? `<script nonce="${nonce}">` : `<script>`}
 })();
 </script>
 `;
-
     $done({ body: body.replace(REGEX.HEAD, (m) => m + injectionScript) });
   }
 })();
