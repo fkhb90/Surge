@@ -1,35 +1,32 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.20-The-Endgame
+ * @version   10.20.1-Merchant-Hotfix
  * ----------------------------------------------------------------------------
- * V10.20 終局更新 (Consistency & Peripherals):
- * 1) [GEOMETRY] 幾何約束系統 (Geometric Constraint Solver):
- * - 強制 window.screenY >= availTop (模擬 macOS Menu Bar 阻擋)。
- * - 強制 window.outerHeight <= availHeight (模擬 Dock 阻擋)。
- * - 消除任何「視窗尺寸 > 可用螢幕區域」的邏輯矛盾。
- * 2) [PERIPHERAL] 媒體設備虛擬化 (Media Device Virtualization):
- * - 攔截 enumerateDevices，回傳標準 MacBook Pro 三件套 (Mic/Cam/Speaker)。
- * - 實作 Persistent DeviceID，確保單一會話內 ID 穩定，騙過指紋追蹤的「穩定性檢測」。
- * 3) [WHITELIST] 企業級白名單 (Restored Whitelist):
- * - 完整保留 V10.10 的銀行/SSO/支付網關排除邏輯，確保業務可用性。
+ * V10.20.1 緊急修正 (Survival Update):
+ * 1) [FIX] CSP Safe-Mode (CSP 安全模式):
+ * 為 eval() 加上 try-catch 保護。若購物網站禁止 eval，自動降級為標準執行，
+ * 防止因腳本報錯導致購物車、結帳按鈕失效。
+ * 2) [FIX] Whitelist Expansion (支付白名單擴充):
+ * 新增 AirPay, JKO (街口), ECPay (綠界), Line Pay 等動態支付網域，
+ * 解決轉跳第三方支付時的白畫面問題。
+ * 3) [TUNE] Geometry Relaxation (幾何邏輯鬆綁):
+ * 在保留 screen.* 偽裝的同時，放寬 window.* 的強制鎖定，避免干擾滑鼠事件追蹤。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 0) Global Config & Seed (Session Persistence)
+  // 0) Global Config & Seed
   // ============================================================================
   const CONST = {
-    KEY_PERSISTENCE: "FP_SHIELD_ID_V1020",
-    INJECT_MARKER: "__FP_SHIELD_V1020__",
+    KEY_PERSISTENCE: "FP_SHIELD_ID_V1021",
+    INJECT_MARKER: "__FP_SHIELD_V1021__",
     
-    // Noise Configuration
     CANVAS_NOISE_STEP: 2,
     AUDIO_NOISE_LEVEL: 0.00001, 
     OFFLINE_AUDIO_NOISE: 0.00001,
     
-    // Target Locale: New York
     TARGET_TIMEZONE: "America/New_York",
     TARGET_LOCALE: "en-US",
     TZ_STD: 300,
@@ -46,7 +43,7 @@
         if (now < parseInt(expiry, 10)) idSeed = parseInt(val, 10);
         else {
           idSeed = (now ^ (Math.random() * 100000000)) >>> 0;
-          localStorage.setItem(CONST.KEY_PERSISTENCE, `${idSeed}|${now + 2592000000}`); // 30 days
+          localStorage.setItem(CONST.KEY_PERSISTENCE, `${idSeed}|${now + 2592000000}`);
         }
       } else {
         idSeed = (now ^ (Math.random() * 100000000)) >>> 0;
@@ -61,7 +58,7 @@
   })();
 
   // ============================================================================
-  // 1) Hardware Whitelist (Expanded Persona Pool)
+  // 1) Hardware Persona
   // ============================================================================
   const PERSONA = (function() {
     const POOL = [
@@ -73,8 +70,6 @@
     ];
     const idx = SEED_MANAGER.id % POOL.length;
     const p = POOL[idx];
-    
-    // Robust MacOS Version (Sonoma 14.x)
     const ua = `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36`;
 
     return {
@@ -89,7 +84,7 @@
   })();
 
   // ============================================================================
-  // 2) Software Whitelist (Traffic Filtering)
+  // 2) The Whitelist Fortress (Traffic Filtering)
   // ============================================================================
   const HELPERS = {
     normalizeHost: (h) => (h || "").toLowerCase().replace(/^\.+/, "").replace(/\.+$/, ""),
@@ -105,20 +100,29 @@
   let hostname = "";
   try { hostname = new URL(currentUrl).hostname.toLowerCase(); } catch (e) {}
 
+  // 2-1. HARD EXCLUSION (Absolutely NO injection)
   const HARD_EXCLUSION_KEYWORDS = [
-    "accounts.google.com", "appleid", "login.live.com", "oauth", "sso", "okta.com", "auth0.com", "duosecurity.com",
-    "recaptcha", "hcaptcha", "turnstile", "bot-detection", "challenge",
-    "ctbcbank", "cathaybk", "esunbank", "fubon", "taishin", "landbank", "megabank", "firstbank", "hncb", "sinopac", "bot.com.tw", "post.gov.tw",
-    "citibank", "hsbc", "standardchartered", "jpmorgan", "paypal", "stripe", "wise.com",
-    "ecpay", "newebpay", "line.me", "jkos", "braintree", "adyen", "3dsecure", "acs",
-    "chatgpt.com", "openai.com", "claude.ai", "gemini.google.com",
-    "windowsupdate", "icloud.com", "gov.tw"
+    // Identity & Auth
+    "accounts.google.com", "appleid", "login", "oauth", "sso", "okta", "auth0", "duo", "openid",
+    "recaptcha", "hcaptcha", "turnstile", "bot-detection", "challenge", "verify",
+    // Banks & Finance (Taiwan/Global)
+    "ctbc", "cathay", "esun", "fubon", "taishin", "landbank", "mega", "firstbank", "hncb", "sinopac", 
+    "bot.com.tw", "post.gov.tw", "citibank", "hsbc", "jpmorgan", "paypal", "stripe", "wise",
+    // Payment Gateways (The Merchant Fix)
+    "ecpay", "newebpay", "line", "jkos", "braintree", "adyen", "3dsecure", "acs", "airpay", "gopay", "wanpay",
+    // System
+    "windowsupdate", "icloud", "gov.tw", "edu.tw"
   ];
 
+  // 2-2. SOFT WHITELIST (Trusted Apps - UA Spoof ONLY, No JS Injection)
   const TRUSTED_DOMAINS = [
-    "netflix.com", "spotify.com", "disneyplus.com", "youtube.com", "twitch.tv",
-    "shopee.tw", "momo.com.tw", "pchome.com.tw", "amazon.com",
-    "github.com", "gitlab.com", "figma.com", "canva.com",
+    // Streaming
+    "netflix.com", "spotify.com", "disneyplus.com", "youtube.com", "twitch.tv", "hulu.com", "iqiyi.com",
+    // E-Commerce (Enhanced)
+    "shopee.tw", "shopee.com", "momo.com.tw", "pchome.com.tw", "amazon.com", "amazon.co.jp", 
+    "taobao.com", "jd.com", "rakuten.com", "pxmart.com.tw", "family.com.tw", "7-11.com.tw",
+    // Social & Work
+    "github.com", "gitlab.com", "figma.com", "canva.com", "slack.com",
     "facebook.com", "instagram.com", "twitter.com", "linkedin.com", "discord.com"
   ];
 
@@ -129,6 +133,7 @@
   // Phase A: Request Headers
   // ============================================================================
   if (typeof $request !== "undefined" && typeof $response === "undefined") {
+    // Whitelisted sites get NATIVE headers to ensure compatibility
     if (isHardExcluded || isWhitelisted) { $done({}); return; }
 
     const headers = $request.headers || {};
@@ -151,6 +156,7 @@
   // ============================================================================
   if (typeof $response !== "undefined") {
     const body = $response.body;
+    // STOP injection for whitelisted sites
     if (!body || isHardExcluded || isWhitelisted) { $done({}); return; }
     
     const headers = $response.headers || {};
@@ -158,17 +164,11 @@
     if (!cType.includes("html")) { $done({}); return; }
     if (body.includes(CONST.INJECT_MARKER)) { $done({}); return; }
 
-    // CSP Check & Nonce Extraction
-    let csp = "";
-    Object.keys(headers).forEach(k => { if(k.toLowerCase() === "content-security-policy") csp = headers[k]; });
-    const allowInline = !csp || csp.includes("'unsafe-inline'");
-    
+    // CSP Extraction
     const REGEX = { HEAD: /<head[^>]*>/i, HTML: /<html[^>]*>/i, NONCE: /nonce=["']?([^"'\s>]+)["']?/i };
     let nonce = "";
     const m = body.match(REGEX.NONCE);
     if (m) nonce = m[1];
-    
-    if (!allowInline && !nonce) { $done({}); return; }
 
     const INJECT_CONFIG = {
       seed: SEED_MANAGER.id,
@@ -178,7 +178,7 @@
     };
 
     // ========================================================================
-    // 3) The OMNI-MODULE (The Brain)
+    // 3) The OMNI-MODULE (Safe Mode)
     // ========================================================================
     const OMNI_MODULE_SOURCE = `
     (function(scope) {
@@ -186,7 +186,6 @@
       const P = CFG.persona;
       const C = CFG.consts;
       
-      // --- Utils ---
       const detU32 = (seed, salt) => {
         let s = (seed ^ salt) >>> 0; s ^= (s << 13); s ^= (s >>> 17); s ^= (s << 5); return (s >>> 0);
       };
@@ -208,13 +207,12 @@
       };
       const hook = (obj, prop, factory) => { if(obj && obj[prop]) obj[prop] = protect(obj[prop], factory(obj[prop])); };
 
-      // --- Geometry Constraint Solver (The MacOS Fix) ---
+      // --- Geometry (Relaxed) ---
       const installScreen = () => {
         if (!scope.screen) return;
         try {
           const S = P.SCREEN;
           const uDock = detU32(CFG.seed, 777); 
-          // MacOS invariants: MenuBar ~25px, Dock variable
           const menuBarH = 25; 
           const dockH = 50 + (uDock % 40);
           const availH = S.height - menuBarH - dockH; 
@@ -226,43 +224,31 @@
             colorDepth: { get: () => S.depth }, pixelDepth: { get: () => S.depth }
           });
           
-          // Main Thread Window Consistency
+          // [HOTFIX] Relaxed Window Constraints for Shopping Compatibility
+          // Only mask outer dimensions to match screen specs, but allow screenY/X to float
+          // to prevent breaking mouse tracking logic on e-commerce sites.
           if (scope.window && scope.window === scope) {
-             const getD = (k) => Object.getOwnPropertyDescriptor(scope.window, k);
-             
-             // Clamp screenY to always respect Menu Bar
-             const origScreenY = getD('screenY')?.get || (() => 0);
-             Object.defineProperty(scope, 'screenY', { 
-               get: () => Math.max(origScreenY.call(scope), menuBarH) 
-             });
-             
-             // Clamp outerHeight to never exceed available area (Dock collision)
-             const origOH = getD('outerHeight')?.get || (() => 0);
-             Object.defineProperty(scope, 'outerHeight', {
-               get: () => Math.min(origOH.call(scope), availH)
-             });
+             try {
+                if (scope.outerHeight > S.height) Object.defineProperty(scope, 'outerHeight', { get: () => S.height });
+                if (scope.outerWidth > S.width) Object.defineProperty(scope, 'outerWidth', { get: () => S.width });
+                // REMOVED: Strict screenY locking that caused UI issues
+             } catch(e) {}
           }
         } catch(e) {}
       };
 
-      // --- Media Device Virtualization (The Peripheral Fix) ---
+      // --- Media ---
       const installMedia = () => {
         if (!scope.navigator || !scope.navigator.mediaDevices || !scope.navigator.mediaDevices.enumerateDevices) return;
-        
         hook(scope.navigator.mediaDevices, "enumerateDevices", (orig) => function() {
           return new Promise((resolve) => {
-             // Generate Consistent Device IDs
              const mkId = (salt) => detU32(CFG.seed, salt).toString(16).padStart(64, '0').substring(0, 44);
              const grpId = mkId(999);
-             
-             // Standard MacBook Pro Profile
              const devices = [
                { deviceId: mkId(1), kind: "audioinput", label: "MacBook Pro Microphone", groupId: grpId },
                { deviceId: mkId(2), kind: "videoinput", label: "FaceTime HD Camera", groupId: grpId },
                { deviceId: mkId(3), kind: "audiooutput", label: "MacBook Pro Speakers", groupId: grpId }
              ];
-             
-             // Return Mock Objects with toJSON
              resolve(devices.map(d => ({
                deviceId: d.deviceId, kind: d.kind, label: d.label, groupId: d.groupId,
                toJSON: function() { return { deviceId:this.deviceId, kind:this.kind, label:this.label, groupId:this.groupId }; }
@@ -271,7 +257,7 @@
         });
       };
 
-      // --- Core Hardware ---
+      // --- Nav ---
       const installNav = () => {
         const N = scope.navigator;
         if(!N) return;
@@ -283,20 +269,17 @@
             userAgent: { get: () => P.UA },
             appVersion: { get: () => P.UA.replace("Mozilla/", "") },
             maxTouchPoints: { get: () => 0 },
-            // Zeroing Plugins to match modern Chrome/Safari
             plugins: { get: () => { const a=[]; a.item=()=>null; a.namedItem=()=>null; a.refresh=()=>{}; return a; } },
             mimeTypes: { get: () => { const a=[]; a.item=()=>null; a.namedItem=()=>null; return a; } }
           });
-          // Gamepad Zeroing
           if ("getGamepads" in N) N.getGamepads = protect(N.getGamepads, () => []);
-          // Network Spoofing
           if (N.connection) {
              try { Object.defineProperty(N, "connection", { get: () => ({ effectiveType: "4g", rtt: 50, downlink: 10, saveData: false, type: "wifi" }) }); } catch(e) {}
           }
         } catch(e) {}
       };
 
-      // --- Timezone (DST) ---
+      // --- Time ---
       const installTime = () => {
         try {
           const getOffset = (d) => {
@@ -323,7 +306,7 @@
         } catch(e) {}
       };
 
-      // --- Graphics (Canvas/WebGL) ---
+      // --- Graphics ---
       const installGraphics = () => {
         const noise2D = (data, w, h) => {
            for(let i=0; i<data.length; i+=4) {
@@ -380,12 +363,11 @@
          }
       };
 
-      // Execute All Modules
       installNav(); installScreen(); installTime(); installMedia(); installGraphics(); installAudio();
     })(typeof self !== "undefined" ? self : window);
     `;
 
-    // 4) Worker Injection & Main Exec
+    // 4) Worker Injection & Main Exec (CSP Safe)
     const injectionScript = `
 ${nonce ? `<script nonce="${nonce}">` : `<script>`}
 (function() {
@@ -399,6 +381,7 @@ ${nonce ? `<script nonce="${nonce}">` : `<script>`}
         let finalUrl = url;
         if (typeof url === 'string') {
            try {
+             // Try to construct blob; if CSP forbids blobs, fall back to original url
              const content = OMNI + "; importScripts('" + url + "');";
              const blob = new Blob([content], { type: "application/javascript" });
              finalUrl = URL.createObjectURL(blob);
@@ -411,8 +394,15 @@ ${nonce ? `<script nonce="${nonce}">` : `<script>`}
     hookWorker("Worker"); hookWorker("SharedWorker");
   };
   
-  eval(OMNI);
-  setupWorkers();
+  // [HOTFIX] Try-Catch eval to prevent CSP crashes on shopping sites
+  try {
+    eval(OMNI);
+    setupWorkers();
+  } catch(e) {
+    // If eval fails (CSP), we gracefully degrade to no injection
+    // But we still try to run workers if possible (unlikely if eval is blocked)
+    console.warn("FP Shield: CSP blocked injection, running in degraded mode.");
+  }
   
   try { document.documentElement.setAttribute("${CONST.INJECT_MARKER}", "1"); } catch(e){}
 })();
