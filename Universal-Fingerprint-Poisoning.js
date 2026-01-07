@@ -1,17 +1,16 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.11-The-Phantom
+ * @version   10.12-The-Void
  * ----------------------------------------------------------------------------
- * V10.11 像素級精準版 (High-Fidelity Signal Refinement):
- * 1) [GEOMETRY] 瀏海屏感知 (Notch-Aware Screen Geometry):
- * 針對 Apple Silicon MacBook (M2/M3) 修正 availTop 與 availHeight 計算。
- * - Desktop (Mac Studio/iMac): Menu Bar = 24px
- * - Laptop (Notch Models): Menu Bar = 38px (模擬瀏海高度)
- * 解決 "螢幕可用區域存在非標準實作差異" 的邏輯矛盾。
- * 2) [MEDIA] 強化設備枚舉 (Hardened EnumerateDevices):
- * 優化 MediaDeviceInfo 模擬，確保 deviceId/groupId 跨 context 一致性，
- * 並修復原型鏈特徵，降低高敏感訊號的異常評分。
- * 3) [CORE] 繼承 V10.10 完整防禦 (白名單機制、音訊噪聲、WebGL 注入)。
+ * V10.12 虛空防漏版 (WebRTC Leak Proof):
+ * 1) [NETWORK] WebRTC 阻斷 (Ice-Cold Logic):
+ * 強制覆寫 RTCPeerConnection 配置，鎖定 iceTransportPolicy 為 "relay"。
+ * - 阻斷 STUN 請求，防止真實 ISP IP 與 Local IP 繞過代理洩漏。
+ * - 表現為 "嚴格防火牆網路" 特徵，而非直接禁用 WebRTC，降低被偵測風險。
+ * 2) [INHERIT] 繼承 V10.11 完整特性:
+ * - Notch-Aware 螢幕幾何 (M2/M3 瀏海模擬)
+ * - MediaDevice 設備指紋一致性
+ * - Omni-Module 全堆疊注入架構
  */
 
 (function () {
@@ -21,8 +20,8 @@
   // 0) Global Config & Seed
   // ============================================================================
   const CONST = {
-    KEY_PERSISTENCE: "FP_SHIELD_ID_V1011",
-    INJECT_MARKER: "__FP_SHIELD_V1011__",
+    KEY_PERSISTENCE: "FP_SHIELD_ID_V1012",
+    INJECT_MARKER: "__FP_SHIELD_V1012__",
     
     // Noise Levels
     CANVAS_NOISE_STEP: 2,
@@ -64,8 +63,6 @@
   // 1) Hardware Whitelist (Expanded Persona Pool with Notch Logic)
   // ============================================================================
   const PERSONA = (function() {
-    // hasNotch: 決定 Menu Bar 高度 (24px vs 38px)
-    // ratio: 設備像素比
     const POOL = [
       // Desktop: No Notch, Standard Menu Bar (24px)
       { name: "M1_Ultra_Studio", width: 5120, height: 2880, depth: 30, ratio: 2, render: "Apple M1 Ultra", cores: 20, mem: 64, hasNotch: false },
@@ -80,7 +77,7 @@
     const idx = SEED_MANAGER.id % POOL.length;
     const p = POOL[idx];
     
-    // MacOS Version Spoofing (Robust 14.x base)
+    // MacOS Version Spoofing
     const ua = `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36`;
 
     return {
@@ -117,21 +114,14 @@
   let hostname = "";
   try { hostname = new URL(currentUrl).hostname.toLowerCase(); } catch (e) {}
 
-  // A. Hard Exclusion (Do NOT touch)
+  // A. Hard Exclusion
   const HARD_EXCLUSION_KEYWORDS = [
-    // Identity Providers
     "accounts.google.com", "appleid.apple.com", "login.live.com", "oauth", "sso", "okta.com", "auth0.com", "duosecurity.com",
-    // Bot Challenges
     "recaptcha", "hcaptcha", "turnstile", "bot-detection", "challenge",
-    // Banks (Taiwan)
     "ctbcbank", "cathaybk", "esunbank", "fubon", "taishin", "landbank", "megabank", "firstbank", "hncb", "sinopac", "bot.com.tw", "post.gov.tw",
-    // Banks (Intl)
     "citibank", "hsbc", "standardchartered", "jpmorgan", "paypal", "stripe", "wise.com",
-    // Payment Gateways
     "ecpay", "newebpay", "line.me", "jkos", "braintree", "adyen", "3dsecure", "acs",
-    // AI Services
     "chatgpt.com", "openai.com", "claude.ai", "gemini.google.com",
-    // System
     "windowsupdate", "icloud.com", "gov.tw"
   ];
 
@@ -147,7 +137,7 @@
   const isWhitelisted = TRUSTED_DOMAINS.some(d => HELPERS.isDomainMatch(hostname, d));
 
   // ============================================================================
-  // Phase A: Request Headers (Traffic Layer)
+  // Phase A: Request Headers
   // ============================================================================
   if (typeof $request !== "undefined" && typeof $response === "undefined") {
     if (isHardExcluded || isWhitelisted) { $done({}); return; }
@@ -168,7 +158,7 @@
   }
 
   // ============================================================================
-  // Phase B: HTML Injection (DOM Layer)
+  // Phase B: HTML Injection
   // ============================================================================
   if (typeof $response !== "undefined") {
     const body = $response.body;
@@ -202,7 +192,7 @@
     };
 
     // ========================================================================
-    // 3) The OMNI-MODULE (V10.11 Core)
+    // 3) The OMNI-MODULE (V10.12 Core)
     // ========================================================================
     const OMNI_MODULE_SOURCE = `
     (function(scope) {
@@ -232,14 +222,45 @@
       };
       const hook = (obj, prop, factory) => { if(obj && obj[prop]) obj[prop] = protect(obj[prop], factory(obj[prop])); };
 
-      // --- Geometry (Notch-Aware) ---
+      // --- 1. WebRTC Leak Protection (Ice-Cold Logic) ---
+      const installWebRTC = () => {
+        const rtcNames = ["RTCPeerConnection", "webkitRTCPeerConnection", "mozRTCPeerConnection"];
+        
+        rtcNames.forEach(name => {
+           if (!scope[name]) return;
+           const NativeRTC = scope[name];
+           
+           // Wrapper to force 'relay' policy
+           const SafeRTC = function(config, ...args) {
+              const safeConfig = config ? Object.assign({}, config) : {};
+              // FORCE relay: Blocks STUN (Local/Public IP leaks)
+              safeConfig.iceTransportPolicy = "relay"; 
+              safeConfig.iceCandidatePoolSize = 0;
+              
+              if (!(this instanceof SafeRTC)) return new NativeRTC(safeConfig, ...args);
+              return new NativeRTC(safeConfig, ...args);
+           };
+           SafeRTC.prototype = NativeRTC.prototype;
+           
+           // Copy static props
+           try {
+             Object.getOwnPropertyNames(NativeRTC).forEach(prop => {
+               if (prop !== "prototype" && prop !== "name" && prop !== "length") {
+                 try { SafeRTC[prop] = NativeRTC[prop]; } catch(e) {}
+               }
+             });
+           } catch(e) {}
+           
+           scope[name] = protect(NativeRTC, SafeRTC);
+        });
+      };
+
+      // --- 2. Geometry (Notch-Aware) ---
       const installScreen = () => {
         if (!scope.screen) return;
         try {
           const S = P.SCREEN;
           const uDock = detU32(CFG.seed, 777); 
-          
-          // Logic: 38px if Notch, 24px if Standard
           const menuBarH = S.hasNotch ? 38 : 24;
           const dockH = 50 + (uDock % 30); 
           const availH = S.height - menuBarH - dockH; 
@@ -264,7 +285,7 @@
         } catch(e) {}
       };
 
-      // --- Media (High-Fidelity) ---
+      // --- 3. Media (Hardened) ---
       const installMedia = () => {
         if (!scope.navigator || !scope.navigator.mediaDevices || !scope.navigator.mediaDevices.enumerateDevices) return;
         hook(scope.navigator.mediaDevices, "enumerateDevices", (orig) => function() {
@@ -287,7 +308,7 @@
         });
       };
 
-      // --- Nav ---
+      // --- 4. Nav/Time/Graphics/Audio ---
       const installNav = () => {
         const N = scope.navigator;
         if(!N) return;
@@ -306,7 +327,6 @@
         } catch(e) {}
       };
 
-      // --- Time ---
       const installTime = () => {
         try {
           const getOffset = (d) => {
@@ -332,7 +352,6 @@
         } catch(e) {}
       };
 
-      // --- Graphics ---
       const installGraphics = () => {
         const noise2D = (data, w, h) => {
            for(let i=0; i<data.length; i+=4) {
@@ -363,7 +382,6 @@
         if (scope.WebGL2RenderingContext) hookGL(scope.WebGL2RenderingContext.prototype);
       };
 
-      // --- Audio ---
       const installAudio = () => {
          if (scope.OfflineAudioContext) {
             hook(scope.OfflineAudioContext.prototype, "startRendering", (orig) => function() {
@@ -378,7 +396,14 @@
          }
       };
 
-      installNav(); installScreen(); installTime(); installMedia(); installGraphics(); installAudio();
+      // Main Install Sequence
+      installWebRTC(); // <--- PRIORITY 1: Block Leaks
+      installNav(); 
+      installScreen(); 
+      installTime(); 
+      installMedia(); 
+      installGraphics(); 
+      installAudio();
     })(typeof self !== "undefined" ? self : window);
     `;
 
