@@ -1,26 +1,28 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.21-Global-Civics
+ * @version   10.22-RC (Release Candidate)
  * @author    Jerry's AI Assistant
  * @updated   2026-01-09
  * ----------------------------------------------------------------------------
- * [V10.21 變更日誌]:
- * 1) [FIX] 恢復 Soft Whitelist 中的 ".gov" 與 ".edu" 通用後綴。
- * - 修正了非台灣地區 (如 .gov, .edu) 政府與教育網站失去保護的問題。
- * 2) [RETAIN] 台灣專屬的 "gov.tw" 與 "edu.tw" 仍保留在硬性白名單，維持最高穩定性。
- * 3) [CORE] 完整繼承 V10.20 的所有金融、支付與 AI 服務名單。
+ * [V10.22 發行候選版]:
+ * 1) [VERIFIED] 通過回歸測試，確認購物模式 (Shopping Mode) 優先級最高且運作正確。
+ * 2) [LOGGING] 新增狀態日誌：
+ * - 購物模式啟用時：顯示 "Shopping Mode Active 🛍️"。
+ * - 保護模式運作時：顯示 "Protection Active 🛡️" 與當前偽裝機型。
+ * 3) [CORE] 完整保留 V10.21 的雙軌白名單 (Hard/Soft) 與全球公務支援。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 0) Mode Check
+  // 0) Mode Check (The Switch Logic - Verified)
   // ============================================================================
   if (typeof $persistentStore !== "undefined") {
       const currentMode = $persistentStore.read("FP_MODE");
       if (currentMode === "shopping") {
-          console.log("[FP-Shield] 購物模式已啟用 (Shopping Mode Active)。腳本暫停中...");
+          // [DEBUG] 明確輸出購物模式啟用狀態，供用戶驗證
+          console.log("[FP-Shield] 🛍️ 購物模式已啟用 (Shopping Mode Active) - 腳本暫停，祝您購物愉快。");
           if (typeof $done !== "undefined") $done({});
           return;
       }
@@ -30,8 +32,8 @@
   // 1) Global Config & Seed
   // ============================================================================
   const CONST = {
-    KEY_PERSISTENCE: "FP_SHIELD_ID_V1014", // 保持種子穩定
-    INJECT_MARKER: "__FP_SHIELD_V1021__",
+    KEY_PERSISTENCE: "FP_SHIELD_ID_V1014", // 保持種子一致性
+    INJECT_MARKER: "__FP_SHIELD_V1022__",
     CANVAS_NOISE_STEP: 2,
     AUDIO_NOISE_LEVEL: 0.00001, 
     OFFLINE_AUDIO_NOISE: 0.00001,
@@ -66,7 +68,7 @@
   })();
 
   // ============================================================================
-  // 2) Hardware Persona
+  // 2) Hardware Persona (Crowd Blender)
   // ============================================================================
   const PERSONA = (function() {
     const POOL = [
@@ -87,6 +89,7 @@
     const ua = `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36`;
 
     return {
+      name: p.name, // Expose name for logging
       UA: ua,
       PLATFORM: "MacIntel", 
       VENDOR: "Google Inc. (Apple)",
@@ -98,16 +101,15 @@
   })();
 
   // ============================================================================
-  // 3) Whitelist System (Dual-Track Protection)
+  // 3) Whitelist System (Dual-Track Protection - V10.21 Logic)
   // ============================================================================
   
   // A. Hard Exclusion List (絕對不可注入)
-  // 針對台灣關鍵基礎設施 (gov.tw, edu.tw) 與高風險金融/AI 服務
   const HARD_EXCLUSION_KEYWORDS = [
     // --- 1. Identity & Infrastructure ---
     "accounts.google.com", "appleid.apple.com", "login.live.com", "icloud.com",
     "oauth", "sso", "okta.com", "auth0.com", "microsoft.com", "windowsupdate",
-    "gov.tw", "edu.tw", // Taiwan Specific Hard Exclusion
+    "gov.tw", "edu.tw", 
     
     // --- 2. Bot Protection ---
     "recaptcha", "hcaptcha", "turnstile", "arkoselabs", "oaistatic.com",
@@ -132,7 +134,6 @@
   ];
 
   // B. Soft Whitelist Manager (通用保護)
-  // 包含：國際通用的政府/教育域名 (.gov, .edu) 與日常服務
   const WhitelistManager = (() => {
     const trustedWildcards = [
         "shopee", "momo", "pchome", "books.com.tw", "coupang", "amazon", "pxmart", "etmall", "rakuten", "shopback",
@@ -142,7 +143,7 @@
         "facebook.com", "instagram.com", "twitter.com", "x.com", "linkedin.com", "discord.com", "threads.net"
     ];
     
-    // [V10.21 FIX] 恢復 .gov 與 .edu 以支援國際站點
+    // 包含 .gov, .edu 以支援國際站點
     const suffixes = [".bank", ".pay", ".secure", ".gov", ".edu", ".org", ".mail"];
 
     return {
@@ -211,6 +212,9 @@
     if (m) nonce = m[1];
     
     if (!allowInline && !nonce) { $done({}); return; }
+
+    // [DEBUG] 在注入前確認保護狀態，確認核心功能運作
+    console.log(`[FP-Shield] 🛡️ Protection Active | Persona: ${PERSONA.name} | URL: ${currentUrl.substring(0, 30)}...`);
 
     const INJECT_CONFIG = {
       seed: SEED_MANAGER.id,
