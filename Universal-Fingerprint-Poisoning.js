@@ -1,27 +1,24 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.14-Crowd-Blender
+ * @version   10.21-Global-Civics
  * @author    Jerry's AI Assistant
+ * @updated   2026-01-09
  * ----------------------------------------------------------------------------
- * V10.14 大眾混淆版 (Crowd Blender):
- * 1) [EXPANSION] 硬體池擴充至 10 組，引入 "Common Man" (Air/14") 與 "External Display" 策略。
- * 2) [CONTROL] 繼承 V10.13 的面板開關邏輯 (Shopping Mode)。
- * 3) [CORE] 繼承 V10.12 的核心防護 (WebRTC Relay, Notch Logic, Omni-Module)。
- * * 使用說明:
- * - 配合 Surge 面板切換 "FP_MODE" 為 "shopping" 可暫停腳本。
- * - 預設為保護模式 (當 FP_MODE 不存在或為其他值時)。
+ * [V10.21 變更日誌]:
+ * 1) [FIX] 恢復 Soft Whitelist 中的 ".gov" 與 ".edu" 通用後綴。
+ * - 修正了非台灣地區 (如 .gov, .edu) 政府與教育網站失去保護的問題。
+ * 2) [RETAIN] 台灣專屬的 "gov.tw" 與 "edu.tw" 仍保留在硬性白名單，維持最高穩定性。
+ * 3) [CORE] 完整繼承 V10.20 的所有金融、支付與 AI 服務名單。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 0) Mode Check (The Switch Logic)
+  // 0) Mode Check
   // ============================================================================
-  // 若此腳本運行在 Surge 環境，讀取持久化存儲
   if (typeof $persistentStore !== "undefined") {
       const currentMode = $persistentStore.read("FP_MODE");
-      // 如果是購物模式 (shopping)，則直接退出，不做任何處理
       if (currentMode === "shopping") {
           console.log("[FP-Shield] 購物模式已啟用 (Shopping Mode Active)。腳本暫停中...");
           if (typeof $done !== "undefined") $done({});
@@ -33,20 +30,17 @@
   // 1) Global Config & Seed
   // ============================================================================
   const CONST = {
-    KEY_PERSISTENCE: "FP_SHIELD_ID_V1014", // 更新 Key 以重新洗牌用戶的隨機特徵
-    INJECT_MARKER: "__FP_SHIELD_V1014__",
-    // Noise Levels
+    KEY_PERSISTENCE: "FP_SHIELD_ID_V1014", // 保持種子穩定
+    INJECT_MARKER: "__FP_SHIELD_V1021__",
     CANVAS_NOISE_STEP: 2,
     AUDIO_NOISE_LEVEL: 0.00001, 
     OFFLINE_AUDIO_NOISE: 0.00001,
-    // Timezone & Locale (可視需求調整)
     TARGET_TIMEZONE: "America/New_York",
     TARGET_LOCALE: "en-US",
     TZ_STD: 300,
     TZ_DST: 240
   };
 
-  // 生成每日固定的隨機種子
   const SEED_MANAGER = (function () {
     const now = Date.now();
     let idSeed = 12345;
@@ -72,47 +66,29 @@
   })();
 
   // ============================================================================
-  // 2) Hardware Persona (Expanded to 10 Profiles)
+  // 2) Hardware Persona
   // ============================================================================
   const PERSONA = (function() {
     const POOL = [
-      // --- High-End Workstations (高階工作站) ---
       { name: "M1_Ultra_Studio", width: 5120, height: 2880, depth: 30, ratio: 2, render: "Apple M1 Ultra", cores: 20, mem: 64, hasNotch: false },
       { name: "M3_Max_16",       width: 3456, height: 2234, depth: 30, ratio: 2, render: "Apple M3 Max",   cores: 16, mem: 48, hasNotch: true },
-
-      // --- The "Common Man" (國民機型 - 銷量最大) ---
-      // M1 Air: 市場存量最大，無瀏海，最安全的偽裝
       { name: "M1_Air_13",       width: 2560, height: 1600, depth: 30, ratio: 2, render: "Apple M1",       cores: 8,  mem: 8,  hasNotch: false },
-      // M2 Air: 主流新款 Air
       { name: "M2_Air_13",       width: 2560, height: 1664, depth: 30, ratio: 2, render: "Apple M2",       cores: 8,  mem: 16, hasNotch: true },
-      // M3 Air 15: 逐漸普及的大螢幕 Air
       { name: "M3_Air_15",       width: 2880, height: 1864, depth: 30, ratio: 2, render: "Apple M3",       cores: 8,  mem: 16, hasNotch: true },
-
-      // --- The "Pro" Standard (主流開發機型) ---
-      // 14吋 Pro: 開發者最愛
       { name: "M1_Pro_14",       width: 3024, height: 1964, depth: 30, ratio: 2, render: "Apple M1 Pro",   cores: 10, mem: 16, hasNotch: true },
       { name: "M2_Pro_14",       width: 3024, height: 1964, depth: 30, ratio: 2, render: "Apple M2 Pro",   cores: 12, mem: 32, hasNotch: true },
-      
-      // --- Desktop / iMac ---
       { name: "M3_iMac_24",      width: 4480, height: 2520, depth: 30, ratio: 2, render: "Apple M3",       cores: 8,  mem: 24, hasNotch: false },
-
-      // --- External Display Simulation (外接螢幕偽裝) ---
-      // 模擬 Mac 接上外接螢幕 (Clamshell Mode)，這是極佳的隱匿手段
-      // 4K Monitor: ratio=2 (Retina), hasNotch=false
       { name: "M2_Pro_Ext_4K",   width: 3840, height: 2160, depth: 24, ratio: 2, render: "Apple M2 Pro",   cores: 12, mem: 32, hasNotch: false },
-      // 2K Monitor: ratio=1 (Non-Retina), hasNotch=false
       { name: "M1_Max_Ext_2K",   width: 2560, height: 1440, depth: 24, ratio: 1, render: "Apple M1 Max",   cores: 10, mem: 32, hasNotch: false }
     ];
     
     const idx = SEED_MANAGER.id % POOL.length;
     const p = POOL[idx];
-    
-    // User-Agent Freezing 策略: 始終保持 10_15_7 與 Intel，以符合 Chrome 的真實行為
     const ua = `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36`;
 
     return {
       UA: ua,
-      PLATFORM: "MacIntel", // 即使是 M1/M3，此值在瀏覽器中仍為 MacIntel
+      PLATFORM: "MacIntel", 
       VENDOR: "Google Inc. (Apple)",
       RENDERER: p.render,
       CONCURRENCY: p.cores,
@@ -122,48 +98,88 @@
   })();
 
   // ============================================================================
-  // 3) Software Whitelist (Hard Exclusions)
+  // 3) Whitelist System (Dual-Track Protection)
   // ============================================================================
-  const HELPERS = {
-    normalizeHost: (h) => (h || "").toLowerCase().replace(/^\.+/, "").replace(/\.+$/, ""),
-    isDomainMatch: (host, domain) => {
-      const hh = HELPERS.normalizeHost(host);
-      const dd = HELPERS.normalizeHost(domain);
-      return hh === dd || hh.endsWith("." + dd);
-    }
-  };
+  
+  // A. Hard Exclusion List (絕對不可注入)
+  // 針對台灣關鍵基礎設施 (gov.tw, edu.tw) 與高風險金融/AI 服務
+  const HARD_EXCLUSION_KEYWORDS = [
+    // --- 1. Identity & Infrastructure ---
+    "accounts.google.com", "appleid.apple.com", "login.live.com", "icloud.com",
+    "oauth", "sso", "okta.com", "auth0.com", "microsoft.com", "windowsupdate",
+    "gov.tw", "edu.tw", // Taiwan Specific Hard Exclusion
+    
+    // --- 2. Bot Protection ---
+    "recaptcha", "hcaptcha", "turnstile", "arkoselabs", "oaistatic.com",
 
+    // --- 3. Banking & Finance (Taiwan Major) ---
+    "ctbcbank", "cathaybk", "esunbank", "fubon", "taishin", 
+    "landbank", "megabank", "firstbank", "citibank", "hsbc", 
+    "hncb", "changhwabank", "sinopac", "bot.com.tw", "post.gov.tw", 
+    "standardchartered", "richart", "dawho",
+
+    // --- 4. Payment Gateways ---
+    "paypal", "stripe", "ecpay", "line.me", "jkos", "jko.com",
+    "twmp.com.tw", "taiwanpay", "braintreegateway", "adyen",
+
+    // --- 5. AI Services ---
+    "openai.com", "chatgpt.com", "anthropic.com", "claude.ai",
+    "gemini.google.com", "bard.google.com", "perplexity.ai", 
+    "bing.com", "copilot.microsoft.com", "monica.im", "felo.ai",
+
+    // --- 6. Delivery & Service ---
+    "foodpanda", "fd-api", "deliveryhero", "uber.com", "ubereats"
+  ];
+
+  // B. Soft Whitelist Manager (通用保護)
+  // 包含：國際通用的政府/教育域名 (.gov, .edu) 與日常服務
+  const WhitelistManager = (() => {
+    const trustedWildcards = [
+        "shopee", "momo", "pchome", "books.com.tw", "coupang", "amazon", "pxmart", "etmall", "rakuten", "shopback",
+        "netflix", "spotify", "disney", "youtube", "twitch", "hulu", "iqiyi", "kktix", "tixcraft",
+        "github.com", "gitlab.com", "notion.so", "figma.com", "canva.com", "dropbox.com",
+        "adobe.com", "cloudflare", "fastly", "jsdelivr", "googleapis.com", "gstatic.com",
+        "facebook.com", "instagram.com", "twitter.com", "x.com", "linkedin.com", "discord.com", "threads.net"
+    ];
+    
+    // [V10.21 FIX] 恢復 .gov 與 .edu 以支援國際站點
+    const suffixes = [".bank", ".pay", ".secure", ".gov", ".edu", ".org", ".mail"];
+
+    return {
+      isTrusted: (url) => {
+        const u = (url || "").toLowerCase();
+        if (trustedWildcards.some(kw => u.includes(kw))) return true;
+        try {
+            const hostname = u.split('//')[1].split('/')[0].split('?')[0];
+            if (suffixes.some(s => hostname.endsWith(s))) return true;
+        } catch(e) {}
+        return false;
+      }
+    };
+  })();
+
+  // C. Combined Check
   const currentUrl = (typeof $request !== "undefined") ? ($request.url || "") : "";
   const lowerUrl = currentUrl.toLowerCase();
   
-  // 硬性排除列表：確保關鍵服務不崩潰
-  const HARD_EXCLUSION_KEYWORDS = [
-    "accounts.google.com", "appleid.apple.com", "login.live.com", "oauth", "sso", "okta.com", "auth0.com",
-    "recaptcha", "hcaptcha", "turnstile",
-    "ctbcbank", "cathaybk", "esunbank", "fubon", "taishin", "landbank", "megabank", "firstbank",
-    "citibank", "hsbc", "paypal", "stripe", "ecpay", "line.me", "jkos"
-  ];
-  
-  const isHardExcluded = HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k));
+  const isExcluded = HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k)) || WhitelistManager.isTrusted(lowerUrl);
 
   // ============================================================================
   // Phase A: Request Headers Modification
   // ============================================================================
   if (typeof $request !== "undefined" && typeof $response === "undefined") {
-    if (isHardExcluded) { $done({}); return; }
+    if (isExcluded) { $done({}); return; }
 
     const headers = $request.headers || {};
-    // 移除原始 UA 與 Client Hints
     Object.keys(headers).forEach(k => {
         const l = k.toLowerCase();
         if (l === "user-agent" || l.startsWith("sec-ch-ua")) delete headers[k];
     });
     
-    // 注入偽裝 Header (符合 Chrome 標準行為)
     headers["User-Agent"] = PERSONA.UA;
     headers["sec-ch-ua"] = `"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"`;
-    headers["sec-ch-ua-mobile"] = "?0"; // ?0 代表 Desktop
-    headers["sec-ch-ua-platform"] = '"macOS"'; // 這是現代瀏覽器識別 OS 的主要方式
+    headers["sec-ch-ua-mobile"] = "?0";
+    headers["sec-ch-ua-platform"] = '"macOS"';
     
     $done({ headers });
     return;
@@ -174,14 +190,13 @@
   // ============================================================================
   if (typeof $response !== "undefined") {
     const body = $response.body;
-    if (!body || isHardExcluded) { $done({}); return; }
+    if (!body || isExcluded) { $done({}); return; }
     
     const headers = $response.headers || {};
     const cType = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
     if (!cType.includes("html")) { $done({}); return; }
     if (body.includes(CONST.INJECT_MARKER)) { $done({}); return; }
 
-    // CSP 檢查
     let csp = "";
     Object.keys(headers).forEach(k => { if(k.toLowerCase() === "content-security-policy") csp = headers[k]; });
     const allowInline = !csp || csp.includes("'unsafe-inline'");
@@ -195,7 +210,6 @@
     const m = body.match(REGEX.NONCE);
     if (m) nonce = m[1];
     
-    // 如果 CSP 嚴格禁止且無 Nonce，則放棄注入以防白屏
     if (!allowInline && !nonce) { $done({}); return; }
 
     const INJECT_CONFIG = {
@@ -205,14 +219,12 @@
       consts: CONST
     };
 
-    // --- 瀏覽器端執行的注入代碼 ---
     const OMNI_MODULE_SOURCE = `
     (function(scope) {
       const CFG = ${JSON.stringify(INJECT_CONFIG)};
       const P = CFG.persona;
       const C = CFG.consts;
       
-      // Deterministic Random Generator
       const detU32 = (seed, salt) => {
         let s = (seed ^ salt) >>> 0; s ^= (s << 13); s ^= (s >>> 17); s ^= (s << 5); return (s >>> 0);
       };
@@ -221,7 +233,6 @@
         return (((u % 2001) - 1000) / 1000) * scale;
       };
       
-      // Proxy Protection Helper
       const protect = (native, custom) => {
         try {
           const p = new Proxy(custom, {
@@ -244,7 +255,7 @@
            const NativeRTC = scope[name];
            const SafeRTC = function(config, ...args) {
               const safeConfig = config ? Object.assign({}, config) : {};
-              safeConfig.iceTransportPolicy = "relay"; // 強制 Relay，隱藏真實 IP
+              safeConfig.iceTransportPolicy = "relay"; 
               safeConfig.iceCandidatePoolSize = 0;
               if (!(this instanceof SafeRTC)) return new NativeRTC(safeConfig, ...args);
               return new NativeRTC(safeConfig, ...args);
@@ -267,7 +278,7 @@
         try {
           const S = P.SCREEN;
           const uDock = detU32(CFG.seed, 777); 
-          const menuBarH = S.hasNotch ? 38 : 24; // 瀏海機型 Menu Bar 較高
+          const menuBarH = S.hasNotch ? 38 : 24; 
           const dockH = 50 + (uDock % 30); 
           const availH = S.height - menuBarH - dockH; 
           
@@ -286,14 +297,13 @@
         } catch(e) {}
       };
 
-      // 3. Media Devices (Hardware Enumeration)
+      // 3. Media Devices
       const installMedia = () => {
         if (!scope.navigator || !scope.navigator.mediaDevices || !scope.navigator.mediaDevices.enumerateDevices) return;
         hook(scope.navigator.mediaDevices, "enumerateDevices", (orig) => function() {
           return new Promise((resolve) => {
              const mkId = (salt) => detU32(CFG.seed, salt).toString(16).padStart(64, '0').substring(0, 44);
              const grpId = mkId(999);
-             // 模擬標準 Mac 設備列表
              const devices = [
                { deviceId: mkId(1), kind: "audioinput",  label: "MacBook Pro Microphone", groupId: grpId },
                { deviceId: mkId(2), kind: "videoinput",  label: "FaceTime HD Camera",     groupId: grpId },
@@ -313,13 +323,12 @@
         if(!N) return;
         try {
           Object.defineProperties(N, {
-            platform: { get: () => P.PLATFORM }, // Always MacIntel
+            platform: { get: () => P.PLATFORM }, 
             hardwareConcurrency: { get: () => P.CONCURRENCY },
             deviceMemory: { get: () => P.MEMORY },
             userAgent: { get: () => P.UA },
             appVersion: { get: () => P.UA.replace("Mozilla/", "") },
             maxTouchPoints: { get: () => 0 },
-            // 隱藏插件列表
             plugins: { get: () => { const a=[]; a.item=()=>null; a.namedItem=()=>null; a.refresh=()=>{}; return a; } },
             mimeTypes: { get: () => { const a=[]; a.item=()=>null; a.namedItem=()=>null; return a; } }
           });
@@ -333,7 +342,6 @@
           const getOffset = (d) => {
              try {
                const y = d.getFullYear();
-               // 簡單的美東 DST 計算邏輯
                const mar1 = new Date(y, 2, 1);
                const mar2ndSun = 1 + (14 - mar1.getDay()) % 7 + 7;
                const dstStart = new Date(y, 2, mar2ndSun, 2, 0, 0);
@@ -358,7 +366,6 @@
       const installGraphics = () => {
         const noise2D = (data, w, h) => {
            for(let i=0; i<data.length; i+=4) {
-              // 每 400 像素注入一次微量噪聲
               if(i % 400 === 0) {
                  const n = detU32(CFG.seed, i) % 2 === 0 ? 1 : -1;
                  data[i] = Math.min(255, Math.max(0, data[i] + n));
@@ -377,7 +384,6 @@
 
         const hookGL = (proto) => {
            hook(proto, "getParameter", (orig) => function(p) {
-              // 37445: UNMASKED_VENDOR_WEBGL, 37446: UNMASKED_RENDERER_WEBGL
               if (p === 37445) return "Google Inc. (Apple)";
               if (p === 37446) return P.RENDERER;
               return orig.apply(this, arguments);
@@ -419,7 +425,6 @@ ${nonce ? `<script nonce="${nonce}">` : `<script>`}
         let finalUrl = url;
         if (typeof url === 'string') {
            try {
-             // 嘗試為 Worker 注入保護代碼
              const content = OMNI + "; importScripts('" + url + "');";
              const blob = new Blob([content], { type: "application/javascript" });
              finalUrl = URL.createObjectURL(blob);
