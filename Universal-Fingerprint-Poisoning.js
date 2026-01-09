@@ -1,22 +1,17 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.23-Debug-Trace
+ * @version   10.24-Silent-Guardian
  * @author    Jerry's AI Assistant
  * @updated   2026-01-09
  * ----------------------------------------------------------------------------
- * [V10.23 變更日誌]:
- * 1) [DEBUG] 引入 "Deep Trace" 日誌系統，追蹤腳本是否被執行、在哪一行退出。
- * 2) [CORE] 邏輯與 V10.22-RC 完全一致，確保測試結果可信。
+ * [V10.24 變更日誌]:
+ * 1) [CLEAN] 移除 V10.23 的所有偵錯日誌，還原純淨的瀏覽體驗。
+ * 2) [FINAL] 鎖定 "Request + Response" 雙重執行架構，確保 iPhone Header 必被修改。
+ * 3) [CORE] 繼承 V10.22 的核心防護與 V10.21 的雙軌白名單。
  */
 
 (function () {
   "use strict";
-  
-  // [DEBUG] 0. 腳本啟動確認
-  // 如果你在 Surge 日誌看不到這行，代表腳本根本沒被加載 (配置錯誤/QUIC穿透)
-  const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
-  const urlSnippet = (typeof $request !== "undefined" && $request.url) ? $request.url.substring(0, 40) : "Unknown URL";
-  console.log(`[FP-Trace] ${timestamp} 🟢 Script Started on: ${urlSnippet}`);
 
   // ============================================================================
   // 0) Mode Check
@@ -24,7 +19,8 @@
   if (typeof $persistentStore !== "undefined") {
       const currentMode = $persistentStore.read("FP_MODE");
       if (currentMode === "shopping") {
-          console.log(`[FP-Trace] 🔴 STOP: Shopping Mode Active.`);
+          // 僅在購物模式保留一條提示，確保用戶知道腳本為何暫停
+          console.log("[FP-Shield] 🛍️ 購物模式已啟用 (Shopping Mode Active) - 腳本暫停。");
           if (typeof $done !== "undefined") $done({});
           return;
       }
@@ -35,7 +31,7 @@
   // ============================================================================
   const CONST = {
     KEY_PERSISTENCE: "FP_SHIELD_ID_V1014",
-    INJECT_MARKER: "__FP_SHIELD_V1023__",
+    INJECT_MARKER: "__FP_SHIELD_V1024__",
     CANVAS_NOISE_STEP: 2,
     AUDIO_NOISE_LEVEL: 0.00001, 
     OFFLINE_AUDIO_NOISE: 0.00001,
@@ -147,21 +143,14 @@
 
   const currentUrl = (typeof $request !== "undefined") ? ($request.url || "") : "";
   const lowerUrl = currentUrl.toLowerCase();
-  
   const isExcluded = HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k)) || WhitelistManager.isTrusted(lowerUrl);
-
-  if (isExcluded) {
-      console.log(`[FP-Trace] 🟠 SKIP: URL in Whitelist. (${currentUrl})`);
-      if (typeof $done !== "undefined") $done({});
-      return;
-  }
 
   // ============================================================================
   // Phase A: Request Headers Modification
   // ============================================================================
   if (typeof $request !== "undefined" && typeof $response === "undefined") {
-    console.log(`[FP-Trace] ⚡ ACTION: Modifying Request Headers for ${PERSONA.name}`);
-    
+    if (isExcluded) { $done({}); return; }
+
     const headers = $request.headers || {};
     Object.keys(headers).forEach(k => {
         const l = k.toLowerCase();
@@ -182,17 +171,11 @@
   // ============================================================================
   if (typeof $response !== "undefined") {
     const body = $response.body;
-    if (!body) {
-         console.log(`[FP-Trace] 🟡 SKIP: Response has no body.`);
-         $done({}); return; 
-    }
+    if (!body || isExcluded) { $done({}); return; }
     
     const headers = $response.headers || {};
     const cType = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
-    if (!cType.includes("html")) { 
-        console.log(`[FP-Trace] 🟡 SKIP: Content-Type is not HTML (${cType}).`);
-        $done({}); return; 
-    }
+    if (!cType.includes("html")) { $done({}); return; }
     if (body.includes(CONST.INJECT_MARKER)) { $done({}); return; }
 
     let csp = "";
@@ -208,12 +191,8 @@
     const m = body.match(REGEX.NONCE);
     if (m) nonce = m[1];
     
-    if (!allowInline && !nonce) { 
-        console.log(`[FP-Trace] 🔴 FAIL: CSP Blocked Injection.`);
-        $done({}); return; 
-    }
+    if (!allowInline && !nonce) { $done({}); return; }
 
-    console.log(`[FP-Trace] 💉 ACTION: Injecting JS Omni-Module.`);
     const INJECT_CONFIG = {
       seed: SEED_MANAGER.id,
       daily: SEED_MANAGER.daily,
@@ -281,6 +260,7 @@
           const menuBarH = S.hasNotch ? 38 : 24; 
           const dockH = 50 + (uDock % 30); 
           const availH = S.height - menuBarH - dockH; 
+          
           Object.defineProperties(scope.screen, {
             width: { get: () => S.width }, height: { get: () => S.height },
             availWidth: { get: () => S.width }, availHeight: { get: () => availH },
@@ -419,6 +399,7 @@ ${nonce ? `<script nonce="${nonce}">` : `<script>`}
         let finalUrl = url;
         if (typeof url === 'string') {
            try {
+             // 嘗試為 Worker 注入保護代碼
              const content = OMNI + "; importScripts('" + url + "');";
              const blob = new Blob([content], { type: "application/javascript" });
              finalUrl = URL.createObjectURL(blob);
@@ -440,3 +421,5 @@ ${nonce ? `<script nonce="${nonce}">` : `<script>`}
     $done({ body: body.replace(REGEX.HEAD, (m) => m + injectionScript) });
   }
 })();
+
+
