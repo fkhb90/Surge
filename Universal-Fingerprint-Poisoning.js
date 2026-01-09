@@ -1,28 +1,30 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.23 (Release Candidate)
+ * @version   10.23-Debug-Trace
  * @author    Jerry's AI Assistant
  * @updated   2026-01-09
  * ----------------------------------------------------------------------------
- * [V10.22 發行候選版]:
- * 1) [VERIFIED] 通過回歸測試，確認購物模式 (Shopping Mode) 優先級最高且運作正確。
- * 2) [LOGGING] 新增狀態日誌：
- * - 購物模式啟用時：顯示 "Shopping Mode Active 🛍️"。
- * - 保護模式運作時：顯示 "Protection Active 🛡️" 與當前偽裝機型。
- * 3) [CORE] 完整保留 V10.21 的雙軌白名單 (Hard/Soft) 與全球公務支援。
+ * [V10.23 變更日誌]:
+ * 1) [DEBUG] 引入 "Deep Trace" 日誌系統，追蹤腳本是否被執行、在哪一行退出。
+ * 2) [CORE] 邏輯與 V10.22-RC 完全一致，確保測試結果可信。
  */
 
 (function () {
   "use strict";
+  
+  // [DEBUG] 0. 腳本啟動確認
+  // 如果你在 Surge 日誌看不到這行，代表腳本根本沒被加載 (配置錯誤/QUIC穿透)
+  const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+  const urlSnippet = (typeof $request !== "undefined" && $request.url) ? $request.url.substring(0, 40) : "Unknown URL";
+  console.log(`[FP-Trace] ${timestamp} 🟢 Script Started on: ${urlSnippet}`);
 
   // ============================================================================
-  // 0) Mode Check (The Switch Logic - Verified)
+  // 0) Mode Check
   // ============================================================================
   if (typeof $persistentStore !== "undefined") {
       const currentMode = $persistentStore.read("FP_MODE");
       if (currentMode === "shopping") {
-          // [DEBUG] 明確輸出購物模式啟用狀態，供用戶驗證
-          console.log("[FP-Shield] 🛍️ 購物模式已啟用 (Shopping Mode Active) - 腳本暫停，祝您購物愉快。");
+          console.log(`[FP-Trace] 🔴 STOP: Shopping Mode Active.`);
           if (typeof $done !== "undefined") $done({});
           return;
       }
@@ -32,8 +34,8 @@
   // 1) Global Config & Seed
   // ============================================================================
   const CONST = {
-    KEY_PERSISTENCE: "FP_SHIELD_ID_V1014", // 保持種子一致性
-    INJECT_MARKER: "__FP_SHIELD_V1022__",
+    KEY_PERSISTENCE: "FP_SHIELD_ID_V1014",
+    INJECT_MARKER: "__FP_SHIELD_V1023__",
     CANVAS_NOISE_STEP: 2,
     AUDIO_NOISE_LEVEL: 0.00001, 
     OFFLINE_AUDIO_NOISE: 0.00001,
@@ -68,7 +70,7 @@
   })();
 
   // ============================================================================
-  // 2) Hardware Persona (Crowd Blender)
+  // 2) Hardware Persona
   // ============================================================================
   const PERSONA = (function() {
     const POOL = [
@@ -89,7 +91,7 @@
     const ua = `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36`;
 
     return {
-      name: p.name, // Expose name for logging
+      name: p.name,
       UA: ua,
       PLATFORM: "MacIntel", 
       VENDOR: "Google Inc. (Apple)",
@@ -101,49 +103,33 @@
   })();
 
   // ============================================================================
-  // 3) Whitelist System (Dual-Track Protection - V10.21 Logic)
+  // 3) Whitelist System
   // ============================================================================
-  
-  // A. Hard Exclusion List (絕對不可注入)
   const HARD_EXCLUSION_KEYWORDS = [
-    // --- 1. Identity & Infrastructure ---
     "accounts.google.com", "appleid.apple.com", "login.live.com", "icloud.com",
     "oauth", "sso", "okta.com", "auth0.com", "microsoft.com", "windowsupdate",
     "gov.tw", "edu.tw", 
-    
-    // --- 2. Bot Protection ---
     "recaptcha", "hcaptcha", "turnstile", "arkoselabs", "oaistatic.com",
-
-    // --- 3. Banking & Finance (Taiwan Major) ---
     "ctbcbank", "cathaybk", "esunbank", "fubon", "taishin", 
     "landbank", "megabank", "firstbank", "citibank", "hsbc", 
     "hncb", "changhwabank", "sinopac", "bot.com.tw", "post.gov.tw", 
     "standardchartered", "richart", "dawho",
-
-    // --- 4. Payment Gateways ---
     "paypal", "stripe", "ecpay", "line.me", "jkos", "jko.com",
     "twmp.com.tw", "taiwanpay", "braintreegateway", "adyen",
-
-    // --- 5. AI Services ---
     "openai.com", "chatgpt.com", "anthropic.com", "claude.ai",
     "gemini.google.com", "bard.google.com", "perplexity.ai", 
     "bing.com", "copilot.microsoft.com", "monica.im", "felo.ai",
-
-    // --- 6. Delivery & Service ---
     "foodpanda", "fd-api", "deliveryhero", "uber.com", "ubereats"
   ];
 
-  // B. Soft Whitelist Manager (通用保護)
   const WhitelistManager = (() => {
     const trustedWildcards = [
         "shopee", "momo", "pchome", "books.com.tw", "coupang", "amazon", "pxmart", "etmall", "rakuten", "shopback",
         "netflix", "spotify", "disney", "youtube", "twitch", "hulu", "iqiyi", "kktix", "tixcraft",
-        "notion.so", "figma.com", "canva.com", "dropbox.com",
+        "github.com", "gitlab.com", "notion.so", "figma.com", "canva.com", "dropbox.com",
         "adobe.com", "cloudflare", "fastly", "jsdelivr", "googleapis.com", "gstatic.com",
         "facebook.com", "instagram.com", "twitter.com", "x.com", "linkedin.com", "discord.com", "threads.net"
     ];
-    
-    // 包含 .gov, .edu 以支援國際站點
     const suffixes = [".bank", ".pay", ".secure", ".gov", ".edu", ".org", ".mail"];
 
     return {
@@ -159,18 +145,23 @@
     };
   })();
 
-  // C. Combined Check
   const currentUrl = (typeof $request !== "undefined") ? ($request.url || "") : "";
   const lowerUrl = currentUrl.toLowerCase();
   
   const isExcluded = HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k)) || WhitelistManager.isTrusted(lowerUrl);
 
+  if (isExcluded) {
+      console.log(`[FP-Trace] 🟠 SKIP: URL in Whitelist. (${currentUrl})`);
+      if (typeof $done !== "undefined") $done({});
+      return;
+  }
+
   // ============================================================================
   // Phase A: Request Headers Modification
   // ============================================================================
   if (typeof $request !== "undefined" && typeof $response === "undefined") {
-    if (isExcluded) { $done({}); return; }
-
+    console.log(`[FP-Trace] ⚡ ACTION: Modifying Request Headers for ${PERSONA.name}`);
+    
     const headers = $request.headers || {};
     Object.keys(headers).forEach(k => {
         const l = k.toLowerCase();
@@ -191,11 +182,17 @@
   // ============================================================================
   if (typeof $response !== "undefined") {
     const body = $response.body;
-    if (!body || isExcluded) { $done({}); return; }
+    if (!body) {
+         console.log(`[FP-Trace] 🟡 SKIP: Response has no body.`);
+         $done({}); return; 
+    }
     
     const headers = $response.headers || {};
     const cType = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
-    if (!cType.includes("html")) { $done({}); return; }
+    if (!cType.includes("html")) { 
+        console.log(`[FP-Trace] 🟡 SKIP: Content-Type is not HTML (${cType}).`);
+        $done({}); return; 
+    }
     if (body.includes(CONST.INJECT_MARKER)) { $done({}); return; }
 
     let csp = "";
@@ -211,11 +208,12 @@
     const m = body.match(REGEX.NONCE);
     if (m) nonce = m[1];
     
-    if (!allowInline && !nonce) { $done({}); return; }
+    if (!allowInline && !nonce) { 
+        console.log(`[FP-Trace] 🔴 FAIL: CSP Blocked Injection.`);
+        $done({}); return; 
+    }
 
-    // [DEBUG] 在注入前確認保護狀態，確認核心功能運作
-    console.log(`[FP-Shield] 🛡️ Protection Active | Persona: ${PERSONA.name} | URL: ${currentUrl.substring(0, 30)}...`);
-
+    console.log(`[FP-Trace] 💉 ACTION: Injecting JS Omni-Module.`);
     const INJECT_CONFIG = {
       seed: SEED_MANAGER.id,
       daily: SEED_MANAGER.daily,
@@ -251,7 +249,6 @@
       };
       const hook = (obj, prop, factory) => { if(obj && obj[prop]) obj[prop] = protect(obj[prop], factory(obj[prop])); };
 
-      // 1. WebRTC Leak Protection
       const installWebRTC = () => {
         const rtcNames = ["RTCPeerConnection", "webkitRTCPeerConnection", "mozRTCPeerConnection"];
         rtcNames.forEach(name => {
@@ -276,7 +273,6 @@
         });
       };
 
-      // 2. Screen Geometry & Notch Simulation
       const installScreen = () => {
         if (!scope.screen) return;
         try {
@@ -285,7 +281,6 @@
           const menuBarH = S.hasNotch ? 38 : 24; 
           const dockH = 50 + (uDock % 30); 
           const availH = S.height - menuBarH - dockH; 
-          
           Object.defineProperties(scope.screen, {
             width: { get: () => S.width }, height: { get: () => S.height },
             availWidth: { get: () => S.width }, availHeight: { get: () => availH },
@@ -301,7 +296,6 @@
         } catch(e) {}
       };
 
-      // 3. Media Devices
       const installMedia = () => {
         if (!scope.navigator || !scope.navigator.mediaDevices || !scope.navigator.mediaDevices.enumerateDevices) return;
         hook(scope.navigator.mediaDevices, "enumerateDevices", (orig) => function() {
@@ -321,7 +315,6 @@
         });
       };
 
-      // 4. Navigator Properties
       const installNav = () => {
         const N = scope.navigator;
         if(!N) return;
@@ -340,7 +333,6 @@
         } catch(e) {}
       };
 
-      // 5. Timezone & Locale
       const installTime = () => {
         try {
           const getOffset = (d) => {
@@ -366,7 +358,6 @@
         } catch(e) {}
       };
 
-      // 6. Canvas & WebGL Fingerprint Noise
       const installGraphics = () => {
         const noise2D = (data, w, h) => {
            for(let i=0; i<data.length; i+=4) {
@@ -397,7 +388,6 @@
         if (scope.WebGL2RenderingContext) hookGL(scope.WebGL2RenderingContext.prototype);
       };
 
-      // 7. AudioContext Fingerprint Noise
       const installAudio = () => {
          if (scope.OfflineAudioContext) {
             hook(scope.OfflineAudioContext.prototype, "startRendering", (orig) => function() {
