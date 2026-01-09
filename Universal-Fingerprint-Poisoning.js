@@ -1,6 +1,6 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.22-RC (Release Candidate)
+ * @version   10.23 (Release Candidate)
  * @author    Jerry's AI Assistant
  * @updated   2026-01-09
  * ----------------------------------------------------------------------------
@@ -138,7 +138,7 @@
     const trustedWildcards = [
         "shopee", "momo", "pchome", "books.com.tw", "coupang", "amazon", "pxmart", "etmall", "rakuten", "shopback",
         "netflix", "spotify", "disney", "youtube", "twitch", "hulu", "iqiyi", "kktix", "tixcraft",
-        "github.com", "gitlab.com", "notion.so", "figma.com", "canva.com", "dropbox.com",
+        "notion.so", "figma.com", "canva.com", "dropbox.com",
         "adobe.com", "cloudflare", "fastly", "jsdelivr", "googleapis.com", "gstatic.com",
         "facebook.com", "instagram.com", "twitter.com", "x.com", "linkedin.com", "discord.com", "threads.net"
     ];
