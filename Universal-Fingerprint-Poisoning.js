@@ -1,32 +1,28 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.26-Regression-Verified
+ * @version   10.27-Shopee-Hardened
  * @author    Jerry's AI Assistant
  * @updated   2026-01-09
  * ----------------------------------------------------------------------------
- * [V10.26 回歸驗證版]:
- * 1) [PASSED] 購物模式 (Shopping Mode) 邏輯驗證通過：
- * - 確認在 Script 最前端 (Layer 0) 立即攔截並放行，保障 100% 原生環境。
- * 2) [PASSED] 向下相容性 (Backward Compatibility)：
- * - 繼承 V10.14 的種子算法，確保指紋 ID 在升級過程中保持穩定。
- * 3) [STRATEGY] iPhone 最佳化策略 (Crowd Blending)：
- * - 僅毒化 Canvas/Audio/WebRTC，保留原生 UA 與視窗參數，完美支援 RWD 與觸控。
+ * [V10.27 蝦皮強化版]:
+ * 1) [WHITELIST] 將蝦皮 (Shopee) 全系網域從軟性名單升級至硬性白名單。
+ * - 包含: shopee.tw, shopeemobile.com (App API), spx.tw (物流), cdn 節點。
+ * - 目的: 解決直播、結帳、賣家後台可能因 Canvas 噪聲導致的驗證失敗。
+ * 2) [CORE] 維持 V10.26 的回歸驗證邏輯 (Shopping Mode 優先, iPhone 原生混淆)。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 0) Mode Check (Critical Logic: The Kill Switch)
+  // 0) Mode Check (The Kill Switch)
   // ============================================================================
-  // [邏輯驗證]: 這是腳本的第一道閘門。
-  // 若 FP_MODE 為 shopping，直接 return $done({})，確保後續任何注入代碼都不會執行。
   if (typeof $persistentStore !== "undefined") {
       const currentMode = $persistentStore.read("FP_MODE");
       if (currentMode === "shopping") {
-          console.log("[FP-Shield] 🛍️ 購物模式已啟用 (Shopping Mode) - 腳本已暫停，環境純淨。");
+          console.log("[FP-Shield] 🛍️ 購物模式已啟用 (Shopping Mode) - 腳本暫停。");
           if (typeof $done !== "undefined") $done({});
-          return; // [EXIT POINT] 確保完全退出
+          return;
       }
   }
 
@@ -34,14 +30,13 @@
   // 1) Global Config & Seed
   // ============================================================================
   const CONST = {
-    KEY_PERSISTENCE: "FP_SHIELD_ID_V1014", // [COMPATIBILITY] 保持 Key 不變
-    INJECT_MARKER: "__FP_SHIELD_V1026__",
+    KEY_PERSISTENCE: "FP_SHIELD_ID_V1014", // 保持 Key 不變
+    INJECT_MARKER: "__FP_SHIELD_V1027__",
     CANVAS_NOISE_STEP: 2,
     AUDIO_NOISE_LEVEL: 0.00001, 
     OFFLINE_AUDIO_NOISE: 0.00001
   };
 
-  // 生成每日固定的隨機種子
   const SEED_MANAGER = (function () {
     const now = Date.now();
     let idSeed = 12345;
@@ -67,35 +62,51 @@
   })();
 
   // ============================================================================
-  // 2) Whitelist System (Hybrid Database from V10.24)
+  // 2) Whitelist System (Updated V10.27)
   // ============================================================================
   const HARD_EXCLUSION_KEYWORDS = [
-    // Identity & Infra
+    // --- 1. Identity & Infra ---
     "accounts.google.com", "appleid.apple.com", "login.live.com", "icloud.com",
     "oauth", "sso", "okta.com", "auth0.com", "microsoft.com", "windowsupdate",
     "gov.tw", "edu.tw", 
-    // Bot Protection
+    
+    // --- 2. Bot Protection ---
     "recaptcha", "hcaptcha", "turnstile", "arkoselabs", "oaistatic.com",
-    // Banking (Taiwan)
+
+    // --- 3. Banking & Finance (Taiwan) ---
     "ctbcbank", "cathaybk", "esunbank", "fubon", "taishin", 
     "landbank", "megabank", "firstbank", "citibank", "hsbc", 
     "hncb", "changhwabank", "sinopac", "bot.com.tw", "post.gov.tw", 
     "standardchartered", "richart", "dawho",
-    // Payment
+
+    // --- 4. Payment Gateways ---
     "paypal", "stripe", "ecpay", "line.me", "jkos", "jko.com",
     "twmp.com.tw", "taiwanpay", "braintreegateway", "adyen",
-    // AI Services
+
+    // --- 5. AI Services ---
     "openai.com", "chatgpt.com", "anthropic.com", "claude.ai",
     "gemini.google.com", "bard.google.com", "perplexity.ai", 
     "bing.com", "copilot.microsoft.com", "monica.im", "felo.ai",
-    // Delivery
-    "foodpanda", "fd-api", "deliveryhero", "uber.com", "ubereats"
+
+    // --- 6. Delivery & Service ---
+    "foodpanda", "fd-api", "deliveryhero", "uber.com", "ubereats",
+
+    // --- 7. Shopee Ecosystem (V10.27 Added) ---
+    // Core Domains
+    "shopee", "xiapi", 
+    // Infrastructure & API
+    "shopeemobile.com", "shopeeusercontent.com", 
+    // Logistics & Payment
+    "spx.tw", "airpay" 
   ];
 
   const WhitelistManager = (() => {
     const trustedWildcards = [
-        "shopee", "momo", "pchome", "books.com.tw", "coupang", "amazon", "pxmart", "etmall", "rakuten", "shopback",
+        // E-Commerce (Shopee moved to Hard List, others remain)
+        "momo", "pchome", "books.com.tw", "coupang", "amazon", "pxmart", "etmall", "rakuten", "shopback",
+        // Streaming
         "netflix", "spotify", "disney", "youtube", "twitch", "hulu", "iqiyi", "kktix", "tixcraft",
+        // Tools & Social
         "github.com", "gitlab.com", "notion.so", "figma.com", "canva.com", "dropbox.com",
         "adobe.com", "cloudflare", "fastly", "jsdelivr", "googleapis.com", "gstatic.com",
         "facebook.com", "instagram.com", "twitter.com", "x.com", "linkedin.com", "discord.com", "threads.net"
@@ -118,16 +129,14 @@
   const currentUrl = (typeof $request !== "undefined") ? ($request.url || "") : "";
   const lowerUrl = currentUrl.toLowerCase();
   
-  // [邏輯驗證]: 白名單檢查
-  // 若命中，後續注入將被跳過 (Skip Poisoning)，但仍保持腳本運作 (Monitor Mode)
+  // Unified Exclusion Check
   const isExcluded = HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k)) || WhitelistManager.isTrusted(lowerUrl);
 
   // ============================================================================
   // Phase A: Request Headers Modification
   // ============================================================================
   if (typeof $request !== "undefined" && typeof $response === "undefined") {
-    // [邏輯驗證]: iPhone Optimized 策略
-    // 直接放行，不修改 UA。確保 RWD 排版與觸控事件正常。
+    // iPhone Optimized: No Header Modification
     $done({}); 
     return;
   }
@@ -137,7 +146,6 @@
   // ============================================================================
   if (typeof $response !== "undefined") {
     const body = $response.body;
-    // [邏輯驗證]: 排除檢查
     if (!body || isExcluded) { $done({}); return; }
     
     const headers = $response.headers || {};
@@ -166,8 +174,7 @@
       consts: CONST
     };
 
-    // [邏輯驗證]: 輕量化注入模組 (針對 iPhone 優化)
-    // 僅保留 WebRTC, Graphics, Audio。移除了 Navigator 與 Screen 偽裝，避免精神分裂。
+    // Omni Module (iPhone Optimized)
     const OMNI_MODULE_SOURCE = `
     (function(scope) {
       const CFG = ${JSON.stringify(INJECT_CONFIG)};
@@ -195,7 +202,7 @@
       };
       const hook = (obj, prop, factory) => { if(obj && obj[prop]) obj[prop] = protect(obj[prop], factory(obj[prop])); };
 
-      // 1. WebRTC (Privacy)
+      // 1. WebRTC
       const installWebRTC = () => {
         const rtcNames = ["RTCPeerConnection", "webkitRTCPeerConnection", "mozRTCPeerConnection"];
         rtcNames.forEach(name => {
@@ -220,7 +227,7 @@
         });
       };
 
-      // 2. Canvas & WebGL (Anti-Fingerprinting)
+      // 2. Canvas & WebGL
       const installGraphics = () => {
         const noise2D = (data, w, h) => {
            for(let i=0; i<data.length; i+=4) {
@@ -241,7 +248,7 @@
         if (scope.OffscreenCanvasRenderingContext2D) hookContext(scope.OffscreenCanvasRenderingContext2D.prototype);
       };
 
-      // 3. AudioContext (Anti-Fingerprinting)
+      // 3. Audio
       const installAudio = () => {
          if (scope.OfflineAudioContext) {
             hook(scope.OfflineAudioContext.prototype, "startRendering", (orig) => function() {
@@ -294,3 +301,5 @@ ${nonce ? `<script nonce="${nonce}">` : `<script>`}
     $done({ body: body.replace(REGEX.HEAD, (m) => m + injectionScript) });
   }
 })();
+
+
