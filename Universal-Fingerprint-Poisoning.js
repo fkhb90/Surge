@@ -1,22 +1,19 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.30-Dual-Lock-Whitelist
+ * @version   10.28-Whitelist-Hardened
  * @author    Jerry's AI Assistant
  * @updated   2026-01-10
  * ----------------------------------------------------------------------------
- * [V10.30 雙重鎖定白名單版]:
- * 1) [CRITICAL FIX] 解決 Feedly App 依然無法開啟的問題。
- * - 新增 User-Agent (UA) 檢測層。只要 UA 包含 "feedly"，無論請求哪個網域，一律強制放行。
- * 2) [LOGIC] 引入「雙重鎖定 (Dual-Lock)」機制：同時檢查 URL 與 User-Agent。
- * 3) [PERF] 維持 V10.27 的核心效能優化 (Chunk Scan + MurmurHash3)。
+ * [V10.28 回退版]:
+ * 1) [ROLLBACK] 已回退至 V10.28 穩定版本。
+ * 2) [LOGIC] 採用 `includes()` 模糊匹配白名單，涵蓋所有子網域。
+ * 3) [NOTE] 此版本未包含針對 Feedly 的特殊 UA 處理。
  */
 
 (function () {
   "use strict";
 
-  // ============================================================================
-  // 0) Mode Check (The Kill Switch)
-  // ============================================================================
+  // --- Layer 0: The Kill Switch (Shopping Mode) ---
   if (typeof $persistentStore !== "undefined") {
       const currentMode = $persistentStore.read("FP_MODE");
       if (currentMode === "shopping") {
@@ -25,9 +22,7 @@
       }
   }
 
-  // ============================================================================
-  // 1) Config & Seed
-  // ============================================================================
+  // --- Layer 1: Config & Seed ---
   const CONST = {
     KEY: "FP_SHIELD_ID_V1014", 
     MARKER: "__FP_SHIELD_INJECTED__",
@@ -54,64 +49,42 @@
     return s;
   })();
 
-  // ============================================================================
-  // 2) Dual-Lock Whitelist System (URL + User-Agent)
-  // ============================================================================
-  
-  // A. URL 關鍵字排除列表
-  const URL_EXCLUDES = [
+  // --- Layer 2: Hardened Whitelist ---
+  const EXCLUDES = [
+    // 1. Identity & Cloud Infra
     "accounts.google", "appleid.apple", "icloud.com", 
     "login.live.com", "microsoft.com", "sso", "oauth", 
     "recaptcha", "turnstile", "hcaptcha", "arkoselabs",
+    
+    // 2. Taiwan Banking & Gov
     "ctbc", "cathay", "esun", "fubon", "taishin", "megabank", 
     "landbank", "firstbank", "sinopac", "post.gov", "gov.tw",
+    
+    // 3. Payment Gateways
     "paypal", "stripe", "ecpay", "line.me", "jkos", "opay",
-    "feedly", // 針對 URL 包含 feedly 的情況
-    "discord", "telegram", "slack",
+    
+    // 4. E-Commerce & Services
     "shopee", "momo", "pchome", "books.com", "coupang", 
     "uber", "foodpanda", "netflix", "spotify", "youtube",
+    
+    // 5. AI Services
     "openai", "chatgpt", "claude", "gemini", "bing", "perplexity"
   ];
 
-  // B. User-Agent 關鍵字排除列表 (針對 App 優化)
-  // 只要 App 的 User-Agent 包含這些字串，該 App 發出的所有流量都不注入
-  const UA_EXCLUDES = [
-    "feedly",   // [V10.30 KEY FIX] 識別 Feedly App
-    "shopee",   // 蝦皮 App
-    "uber",     // Uber App
-    "line",     // Line App (In-App Browser)
-    "facebook", // FB In-App Browser (避免相容性問題)
-    "instagram" // IG In-App Browser
-  ];
-
-  // 獲取當前環境資訊
-  const currentUrl = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
-  const currentUA = (typeof $request !== "undefined") ? ($request.headers["User-Agent"] || $request.headers["user-agent"] || "").toLowerCase() : "";
-
-  // 執行雙重檢查
-  // Check 1: URL
-  if (URL_EXCLUDES.some(k => currentUrl.includes(k))) {
-      if (typeof $done !== "undefined") $done({});
-      return;
-  }
-  // Check 2: User-Agent (New in V10.30)
-  if (UA_EXCLUDES.some(k => currentUA.includes(k))) {
-      // console.log(`[FP-Shield] Whitelisted App detected: ${currentUA}`); // Debug
+  const url = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
+  
+  if (EXCLUDES.some(k => url.includes(k))) {
       if (typeof $done !== "undefined") $done({});
       return;
   }
 
-  // ============================================================================
-  // Phase 3: Request Phase Skip
-  // ============================================================================
+  // --- Layer 3: Request Phase Skip ---
   if (typeof $request !== "undefined" && typeof $response === "undefined") {
     $done({});
     return;
   }
 
-  // ============================================================================
-  // Phase 4: HTML Injection
-  // ============================================================================
+  // --- Layer 4: HTML Injection ---
   if (typeof $response !== "undefined") {
     const body = $response.body;
     if (!body) { $done({}); return; }
