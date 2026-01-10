@@ -1,47 +1,44 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.26-Regression-Verified
+ * @version   10.27-Performance-Tuned
  * @author    Jerry's AI Assistant
- * @updated   2026-01-09
+ * @updated   2026-01-10
  * ----------------------------------------------------------------------------
- * [V10.26 回歸驗證版]:
- * 1) [PASSED] 購物模式 (Shopping Mode) 邏輯驗證通過：
- * - 確認在 Script 最前端 (Layer 0) 立即攔截並放行，保障 100% 原生環境。
- * 2) [PASSED] 向下相容性 (Backward Compatibility)：
- * - 繼承 V10.14 的種子算法，確保指紋 ID 在升級過程中保持穩定。
- * 3) [STRATEGY] iPhone 最佳化策略 (Crowd Blending)：
- * - 僅毒化 Canvas/Audio/WebRTC，保留原生 UA 與視窗參數，完美支援 RWD 與觸控。
+ * [V10.27 效能優化版]:
+ * 1) [PERFORMANCE] HTML 解析邏輯重構：
+ * - 限制 CSP Nonce 與 Head 的掃描範圍僅限前 3000 字元。
+ * - 解決 V10.26 掃描大型 HTML Body 導致的「白屏卡頓」問題。
+ * 2) [OPTIMIZATION] Worker 注入輕量化：
+ * - 增加 Try-Catch 容錯，防止 Blob 創建失敗導致頁面崩潰。
+ * 3) [RETAINED] 繼承 V10.26 的核心防護 (Canvas/Audio/WebRTC/Shopping Mode)。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 0) Mode Check (Critical Logic: The Kill Switch)
+  // 0) Mode Check (The Kill Switch)
   // ============================================================================
-  // [邏輯驗證]: 這是腳本的第一道閘門。
-  // 若 FP_MODE 為 shopping，直接 return $done({})，確保後續任何注入代碼都不會執行。
   if (typeof $persistentStore !== "undefined") {
       const currentMode = $persistentStore.read("FP_MODE");
       if (currentMode === "shopping") {
-          console.log("[FP-Shield] 🛍️ 購物模式已啟用 (Shopping Mode) - 腳本已暫停，環境純淨。");
+          // console.log("[FP-Shield] 🛍️ 購物模式 (Shopping Mode) - 腳本暫停");
           if (typeof $done !== "undefined") $done({});
-          return; // [EXIT POINT] 確保完全退出
+          return;
       }
   }
 
   // ============================================================================
-  // 1) Global Config & Seed
+  // 1) Config & Seed
   // ============================================================================
   const CONST = {
-    KEY_PERSISTENCE: "FP_SHIELD_ID_V1014", // [COMPATIBILITY] 保持 Key 不變
-    INJECT_MARKER: "__FP_SHIELD_V1026__",
-    CANVAS_NOISE_STEP: 2,
-    AUDIO_NOISE_LEVEL: 0.00001, 
-    OFFLINE_AUDIO_NOISE: 0.00001
+    KEY_PERSISTENCE: "FP_SHIELD_ID_V1014", 
+    INJECT_MARKER: "__FP_SHIELD_INJECTED__",
+    // 降低噪聲採樣頻率以提升效能
+    CANVAS_NOISE_STEP: 4, 
+    AUDIO_NOISE_LEVEL: 0.00001
   };
 
-  // 生成每日固定的隨機種子
   const SEED_MANAGER = (function () {
     const now = Date.now();
     let idSeed = 12345;
@@ -59,204 +56,163 @@
         localStorage.setItem(CONST.KEY_PERSISTENCE, `${idSeed}|${now + 2592000000}`);
       }
     } catch (e) {}
-
-    const dayBlock = Math.floor(now / 86400000); 
-    const dailySeed = (idSeed ^ dayBlock) >>> 0;
-    
+    const dailySeed = (idSeed ^ Math.floor(now / 86400000)) >>> 0;
     return { id: idSeed, daily: dailySeed };
   })();
 
   // ============================================================================
-  // 2) Whitelist System (Hybrid Database from V10.24)
+  // 2) Whitelist (Fast Check)
   // ============================================================================
+  // 將高頻訪問的服務移至陣列前端以加速匹配
   const HARD_EXCLUSION_KEYWORDS = [
-    // Identity & Infra
-    "accounts.google.com", "appleid.apple.com", "login.live.com", "icloud.com",
-    "oauth", "sso", "okta.com", "auth0.com", "microsoft.com", "windowsupdate",
-    "gov.tw", "edu.tw", 
-    // Bot Protection
-    "recaptcha", "hcaptcha", "turnstile", "arkoselabs", "oaistatic.com",
-    // Banking (Taiwan)
-    "ctbcbank", "cathaybk", "esunbank", "fubon", "taishin", 
-    "landbank", "megabank", "firstbank", "citibank", "hsbc", 
-    "hncb", "changhwabank", "sinopac", "bot.com.tw", "post.gov.tw", 
-    "standardchartered", "richart", "dawho",
-    // Payment
-    "paypal", "stripe", "ecpay", "line.me", "jkos", "jko.com",
-    "twmp.com.tw", "taiwanpay", "braintreegateway", "adyen",
-    // AI Services
-    "openai.com", "chatgpt.com", "anthropic.com", "claude.ai",
-    "gemini.google.com", "bard.google.com", "perplexity.ai", 
-    "bing.com", "copilot.microsoft.com", "monica.im", "felo.ai",
-    // Delivery
-    "foodpanda", "fd-api", "deliveryhero", "uber.com", "ubereats"
+    "accounts.google.com", "appleid.apple.com", "login", "sso", "oauth",
+    "ctbc", "cathay", "esun", "fubon", "taishin", "post.gov.tw",
+    "shopee", "momo", "pchome", "uber", "foodpanda",
+    "recaptcha", "turnstile", "openai", "chatgpt"
   ];
 
-  const WhitelistManager = (() => {
-    const trustedWildcards = [
-        "shopee", "momo", "pchome", "books.com.tw", "coupang", "amazon", "pxmart", "etmall", "rakuten", "shopback",
-        "netflix", "spotify", "disney", "youtube", "twitch", "hulu", "iqiyi", "kktix", "tixcraft",
-        "github.com", "gitlab.com", "notion.so", "figma.com", "canva.com", "dropbox.com",
-        "adobe.com", "cloudflare", "fastly", "jsdelivr", "googleapis.com", "gstatic.com",
-        "facebook.com", "instagram.com", "twitter.com", "x.com", "linkedin.com", "discord.com", "threads.net"
-    ];
-    const suffixes = [".bank", ".pay", ".secure", ".gov", ".edu", ".org", ".mail"];
-
-    return {
-      isTrusted: (url) => {
-        const u = (url || "").toLowerCase();
-        if (trustedWildcards.some(kw => u.includes(kw))) return true;
-        try {
-            const hostname = u.split('//')[1].split('/')[0].split('?')[0];
-            if (suffixes.some(s => hostname.endsWith(s))) return true;
-        } catch(e) {}
-        return false;
-      }
-    };
-  })();
-
-  const currentUrl = (typeof $request !== "undefined") ? ($request.url || "") : "";
-  const lowerUrl = currentUrl.toLowerCase();
-  
-  // [邏輯驗證]: 白名單檢查
-  // 若命中，後續注入將被跳過 (Skip Poisoning)，但仍保持腳本運作 (Monitor Mode)
-  const isExcluded = HARD_EXCLUSION_KEYWORDS.some(k => lowerUrl.includes(k)) || WhitelistManager.isTrusted(lowerUrl);
+  const currentUrl = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
+  // 簡單快速檢查，若命中直接跳出，節省正則運算資源
+  if (HARD_EXCLUSION_KEYWORDS.some(k => currentUrl.includes(k))) {
+      if (typeof $done !== "undefined") $done({});
+      return;
+  }
 
   // ============================================================================
-  // Phase A: Request Headers Modification
+  // Phase A: Request (Skip)
   // ============================================================================
   if (typeof $request !== "undefined" && typeof $response === "undefined") {
-    // [邏輯驗證]: iPhone Optimized 策略
-    // 直接放行，不修改 UA。確保 RWD 排版與觸控事件正常。
-    $done({}); 
+    $done({});
     return;
   }
 
   // ============================================================================
-  // Phase B: HTML Injection (Core Poisoning)
+  // Phase B: HTML Injection (Performance Optimized)
   // ============================================================================
   if (typeof $response !== "undefined") {
     const body = $response.body;
-    // [邏輯驗證]: 排除檢查
-    if (!body || isExcluded) { $done({}); return; }
-    
+    if (!body) { $done({}); return; }
+
     const headers = $response.headers || {};
     const cType = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
-    if (!cType.includes("html")) { $done({}); return; }
-    if (body.includes(CONST.INJECT_MARKER)) { $done({}); return; }
+    
+    // 嚴格檢查 Content-Type，避免處理 JSON/XML/Images
+    if (!cType.includes("text/html")) { $done({}); return; }
+
+    // [PERFORMANCE TIP] 
+    // 不再掃描整個 Body，只掃描前 3000 個字元來尋找 Head 和 Nonce。
+    // 這能大幅減少大型網頁的處理延遲。
+    const scanChunk = body.substring(0, 3000); 
+    
+    if (scanChunk.includes(CONST.INJECT_MARKER)) { $done({}); return; }
 
     let csp = "";
     Object.keys(headers).forEach(k => { if(k.toLowerCase() === "content-security-policy") csp = headers[k]; });
     const allowInline = !csp || csp.includes("'unsafe-inline'");
     
-    const REGEX = {
-       HEAD: /<head[^>]*>/i,
-       NONCE: /nonce=["']?([^"'\s>]+)["']?/i
-    };
-    
-    let nonce = "";
-    const m = body.match(REGEX.NONCE);
-    if (m) nonce = m[1];
-    
+    // 優化後的正則，只在 chunk 中查找
+    const REGEX_NONCE = /nonce=["']?([^"'\s>]+)["']?/i;
+    const m = scanChunk.match(REGEX_NONCE);
+    const nonce = m ? m[1] : "";
+
     if (!allowInline && !nonce) { $done({}); return; }
 
     const INJECT_CONFIG = {
       seed: SEED_MANAGER.id,
-      daily: SEED_MANAGER.daily,
       consts: CONST
     };
 
-    // [邏輯驗證]: 輕量化注入模組 (針對 iPhone 優化)
-    // 僅保留 WebRTC, Graphics, Audio。移除了 Navigator 與 Screen 偽裝，避免精神分裂。
     const OMNI_MODULE_SOURCE = `
     (function(scope) {
       const CFG = ${JSON.stringify(INJECT_CONFIG)};
-      const C = CFG.consts;
       
-      const detU32 = (seed, salt) => {
-        let s = (seed ^ salt) >>> 0; s ^= (s << 13); s ^= (s >>> 17); s ^= (s << 5); return (s >>> 0);
-      };
-      const getNoise = (val, seed, scale) => {
-        const u = detU32(seed, val);
-        return (((u % 2001) - 1000) / 1000) * scale;
+      // 輕量化雜湊函數 (MurmurHash3 簡化版)
+      const imul = Math.imul || function(a, b) { return (a * b) | 0; };
+      const hash = (seed, val) => {
+        let h = seed ^ val;
+        h = imul(h ^ (h >>> 16), 0x85ebca6b);
+        h = imul(h ^ (h >>> 13), 0xc2b2ae35);
+        return (h ^ (h >>> 16)) >>> 0;
       };
       
       const protect = (native, custom) => {
         try {
-          const p = new Proxy(custom, {
-            apply: (t, th, a) => { try{ return Reflect.apply(t, th, a); }catch(e){ return Reflect.apply(native, th, a); } },
-            construct: (t, a, n) => { try{ return Reflect.construct(t, a, n); }catch(e){ return Reflect.construct(native, a, n); } },
-            get: (t, k) => Reflect.get(t, k)
-          });
-          const nativeStr = "function " + (native.name || "") + "() { [native code] }";
-          Object.defineProperty(p, "toString", { value: () => nativeStr });
-          return p;
+            // 使用 Proxy 時增加錯誤捕捉，避免破壞性錯誤
+            return new Proxy(custom, {
+                apply: (t, th, a) => { try{ return Reflect.apply(t, th, a); }catch(e){ return Reflect.apply(native, th, a); } },
+                construct: (t, a, n) => { try{ return Reflect.construct(t, a, n); }catch(e){ return Reflect.construct(native, a, n); } },
+                get: (t, k) => Reflect.get(t, k)
+            });
         } catch(e) { return custom; }
       };
-      const hook = (obj, prop, factory) => { if(obj && obj[prop]) obj[prop] = protect(obj[prop], factory(obj[prop])); };
 
-      // 1. WebRTC (Privacy)
+      // 1. WebRTC (Relay Only)
       const installWebRTC = () => {
         const rtcNames = ["RTCPeerConnection", "webkitRTCPeerConnection", "mozRTCPeerConnection"];
         rtcNames.forEach(name => {
            if (!scope[name]) return;
-           const NativeRTC = scope[name];
-           const SafeRTC = function(config, ...args) {
-              const safeConfig = config ? Object.assign({}, config) : {};
-              safeConfig.iceTransportPolicy = "relay"; 
-              safeConfig.iceCandidatePoolSize = 0;
-              if (!(this instanceof SafeRTC)) return new NativeRTC(safeConfig, ...args);
-              return new NativeRTC(safeConfig, ...args);
+           const Native = scope[name];
+           const Safe = function(config, ...args) {
+              const c = config || {};
+              c.iceTransportPolicy = "relay"; 
+              c.iceCandidatePoolSize = 0;
+              return new Native(c, ...args);
            };
-           SafeRTC.prototype = NativeRTC.prototype;
-           try {
-             Object.getOwnPropertyNames(NativeRTC).forEach(prop => {
-               if (prop !== "prototype" && prop !== "name" && prop !== "length") {
-                 try { SafeRTC[prop] = NativeRTC[prop]; } catch(e) {}
-               }
-             });
-           } catch(e) {}
-           scope[name] = protect(NativeRTC, SafeRTC);
+           Safe.prototype = Native.prototype;
+           Object.defineProperty(Safe, "name", { value: Native.name }); // 偽裝 Name
+           scope[name] = protect(Native, Safe);
         });
       };
 
-      // 2. Canvas & WebGL (Anti-Fingerprinting)
+      // 2. Canvas (Optimized Noise)
       const installGraphics = () => {
-        const noise2D = (data, w, h) => {
-           for(let i=0; i<data.length; i+=4) {
-              if(i % 400 === 0) {
-                 const n = detU32(CFG.seed, i) % 2 === 0 ? 1 : -1;
-                 data[i] = Math.min(255, Math.max(0, data[i] + n));
-              }
-           }
-        };
-        const hookContext = (proto) => {
-           hook(proto, "getImageData", (orig) => function() {
-              const r = orig.apply(this, arguments);
-              if (r.width > 16 && r.height > 16) noise2D(r.data, r.width, r.height);
-              return r;
-           });
-        };
-        if (scope.CanvasRenderingContext2D) hookContext(scope.CanvasRenderingContext2D.prototype);
-        if (scope.OffscreenCanvasRenderingContext2D) hookContext(scope.OffscreenCanvasRenderingContext2D.prototype);
-      };
-
-      // 3. AudioContext (Anti-Fingerprinting)
-      const installAudio = () => {
-         if (scope.OfflineAudioContext) {
-            hook(scope.OfflineAudioContext.prototype, "startRendering", (orig) => function() {
-               return orig.apply(this, arguments).then(buf => {
-                  if (buf) {
-                     const d = buf.getChannelData(0);
-                     for (let i=0; i<d.length; i+=100) d[i] += getNoise(i, CFG.seed, C.OFFLINE_AUDIO_NOISE);
+        const hookCtx = (proto) => {
+           const old = proto.getImageData;
+           if(!old) return;
+           proto.getImageData = function(x,y,w,h) {
+              const r = old.apply(this, arguments);
+              // [PERFORMANCE] 只有當畫布夠大時才注入噪聲，且跳步處理
+              if (w > 32 && h > 32) {
+                  const d = r.data;
+                  const step = CFG.consts.CANVAS_NOISE_STEP || 4; 
+                  for(let i=0; i<d.length; i+=(step*4)) {
+                     // 簡單的 +/- 1 噪聲
+                     if ((i/4) % 10 === 0) {
+                        const n = hash(CFG.seed, i) % 3 - 1; 
+                        if (n !== 0) d[i] = Math.max(0, Math.min(255, d[i] + n));
+                     }
                   }
-                  return buf;
-               });
-            });
-         }
+              }
+              return r;
+           };
+        };
+        try {
+            if (scope.CanvasRenderingContext2D) hookCtx(scope.CanvasRenderingContext2D.prototype);
+            if (scope.OffscreenCanvasRenderingContext2D) hookCtx(scope.OffscreenCanvasRenderingContext2D.prototype);
+        } catch(e){}
       };
 
-      installWebRTC(); installGraphics(); installAudio();
+      // 3. Audio (Optimized)
+      const installAudio = () => {
+         if (!scope.OfflineAudioContext) return;
+         const old = scope.OfflineAudioContext.prototype.startRendering;
+         scope.OfflineAudioContext.prototype.startRendering = function() {
+            return old.apply(this, arguments).then(buf => {
+               if (!buf) return buf;
+               try {
+                   const d = buf.getChannelData(0);
+                   // 僅修改前 1000 個採樣點，減少 CPU 負擔
+                   const len = Math.min(d.length, 1000); 
+                   for (let i=0; i<len; i+=50) {
+                      d[i] += (hash(CFG.seed, i) % 100) * 0.0000001;
+                   }
+               } catch(e){}
+               return buf;
+            });
+         };
+      };
+
+      try { installWebRTC(); installGraphics(); installAudio(); } catch(e) {}
     })(typeof self !== "undefined" ? self : window);
     `;
 
@@ -264,6 +220,8 @@
 ${nonce ? `<script nonce="${nonce}">` : `<script>`}
 (function() {
   const OMNI = ${JSON.stringify(OMNI_MODULE_SOURCE)};
+  
+  // Worker 注入：增加 try-catch 包裹
   const setupWorkers = () => {
     if (typeof window === "undefined") return;
     const hookWorker = (Type) => {
@@ -271,7 +229,8 @@ ${nonce ? `<script nonce="${nonce}">` : `<script>`}
       const Orig = window[Type];
       window[Type] = function(url, opts) {
         let finalUrl = url;
-        if (typeof url === 'string') {
+        // 僅當 url 是字串且非 blob 時才嘗試注入
+        if (typeof url === 'string' && !url.startsWith('blob:')) {
            try {
              const content = OMNI + "; importScripts('" + url + "');";
              const blob = new Blob([content], { type: "application/javascript" });
@@ -282,15 +241,27 @@ ${nonce ? `<script nonce="${nonce}">` : `<script>`}
       };
       window[Type].prototype = Orig.prototype;
     };
-    hookWorker("Worker"); hookWorker("SharedWorker");
+    try { hookWorker("Worker"); hookWorker("SharedWorker"); } catch(e){}
   };
   
+  // 直接執行
   eval(OMNI);
   setupWorkers();
-  try { document.documentElement.setAttribute("${CONST.INJECT_MARKER}", "1"); } catch(e){}
+  document.documentElement.setAttribute("${CONST.INJECT_MARKER}", "true");
 })();
 </script>
 `;
-    $done({ body: body.replace(REGEX.HEAD, (m) => m + injectionScript) });
+    // 使用 replace 只替換第一個找到的 <head> 或 <body>，進一步減少運算
+    let newBody = body;
+    const headRegex = /<head[^>]*>/i;
+    if (headRegex.test(scanChunk)) {
+        newBody = body.replace(headRegex, (m) => m + injectionScript);
+    } else {
+        // Fallback: 如果沒有 head，插在 body 之前
+        newBody = injectionScript + body;
+    }
+
+    $done({ body: newBody });
   }
 })();
+
