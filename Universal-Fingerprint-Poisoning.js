@@ -1,267 +1,231 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.27-Performance-Tuned
+ * @version   10.28-Whitelist-Hardened
  * @author    Jerry's AI Assistant
  * @updated   2026-01-10
  * ----------------------------------------------------------------------------
- * [V10.27 效能優化版]:
- * 1) [PERFORMANCE] HTML 解析邏輯重構：
- * - 限制 CSP Nonce 與 Head 的掃描範圍僅限前 3000 字元。
- * - 解決 V10.26 掃描大型 HTML Body 導致的「白屏卡頓」問題。
- * 2) [OPTIMIZATION] Worker 注入輕量化：
- * - 增加 Try-Catch 容錯，防止 Blob 創建失敗導致頁面崩潰。
- * 3) [RETAINED] 繼承 V10.26 的核心防護 (Canvas/Audio/WebRTC/Shopping Mode)。
+ * [V10.28 白名單加固版]:
+ * 1) [LOGIC] 確認採用 `includes()` 模糊匹配，自動涵蓋所有子網域與地區分站 (次版本)。
+ * 2) [FIX] 補回 V10.27 遺漏的關鍵支付與驗證服務 (PayPal, Stripe, Line, Microsoft)。
+ * 3) [PERF] 維持 V10.27 的高效架構 (前 3KB 掃描 + MurmurHash3)。
  */
 
 (function () {
   "use strict";
 
-  // ============================================================================
-  // 0) Mode Check (The Kill Switch)
-  // ============================================================================
+  // --- Layer 0: The Kill Switch (Shopping Mode) ---
   if (typeof $persistentStore !== "undefined") {
       const currentMode = $persistentStore.read("FP_MODE");
       if (currentMode === "shopping") {
-          // console.log("[FP-Shield] 🛍️ 購物模式 (Shopping Mode) - 腳本暫停");
           if (typeof $done !== "undefined") $done({});
           return;
       }
   }
 
-  // ============================================================================
-  // 1) Config & Seed
-  // ============================================================================
+  // --- Layer 1: Config & Seed ---
   const CONST = {
-    KEY_PERSISTENCE: "FP_SHIELD_ID_V1014", 
-    INJECT_MARKER: "__FP_SHIELD_INJECTED__",
-    // 降低噪聲採樣頻率以提升效能
-    CANVAS_NOISE_STEP: 4, 
-    AUDIO_NOISE_LEVEL: 0.00001
+    KEY: "FP_SHIELD_ID_V1014", 
+    MARKER: "__FP_SHIELD_INJECTED__",
+    NOISE_STEP: 4 
   };
 
-  const SEED_MANAGER = (function () {
+  const SEED = (function () {
     const now = Date.now();
-    let idSeed = 12345;
+    let s = 12345;
     try {
-      const stored = localStorage.getItem(CONST.KEY_PERSISTENCE);
+      const stored = localStorage.getItem(CONST.KEY);
       if (stored) {
-        const [val, expiry] = stored.split("|");
-        if (now < parseInt(expiry, 10)) idSeed = parseInt(val, 10);
+        const [val, exp] = stored.split("|");
+        if (now < parseInt(exp, 10)) s = parseInt(val, 10);
         else {
-          idSeed = (now ^ (Math.random() * 100000000)) >>> 0;
-          localStorage.setItem(CONST.KEY_PERSISTENCE, `${idSeed}|${now + 2592000000}`);
+          s = (now ^ (Math.random() * 1e8)) >>> 0;
+          localStorage.setItem(CONST.KEY, `${s}|${now + 2592000000}`);
         }
       } else {
-        idSeed = (now ^ (Math.random() * 100000000)) >>> 0;
-        localStorage.setItem(CONST.KEY_PERSISTENCE, `${idSeed}|${now + 2592000000}`);
+        s = (now ^ (Math.random() * 1e8)) >>> 0;
+        localStorage.setItem(CONST.KEY, `${s}|${now + 2592000000}`);
       }
     } catch (e) {}
-    const dailySeed = (idSeed ^ Math.floor(now / 86400000)) >>> 0;
-    return { id: idSeed, daily: dailySeed };
+    return s;
   })();
 
-  // ============================================================================
-  // 2) Whitelist (Fast Check)
-  // ============================================================================
-  // 將高頻訪問的服務移至陣列前端以加速匹配
-  const HARD_EXCLUSION_KEYWORDS = [
-    "accounts.google.com", "appleid.apple.com", "login", "sso", "oauth",
-    "ctbc", "cathay", "esun", "fubon", "taishin", "post.gov.tw",
-    "shopee", "momo", "pchome", "uber", "foodpanda",
-    "recaptcha", "turnstile", "openai", "chatgpt"
+  // --- Layer 2: Hardened Whitelist (Sub-version Inclusive) ---
+  // [Jerry's Note]: 這裡的關鍵字會自動匹配所有子網域 (Subdomains)
+  // 例如 "shopee" 會同時匹配 "shopee.tw" 和 "mall.shopee.ph"
+  const EXCLUDES = [
+    // 1. Identity & Cloud Infra
+    "accounts.google", "appleid.apple", "icloud.com", 
+    "login.live.com", "microsoft.com", "sso", "oauth", 
+    "recaptcha", "turnstile", "hcaptcha", "arkoselabs",
+    
+    // 2. Taiwan Banking & Gov (Local Critical)
+    "ctbc", "cathay", "esun", "fubon", "taishin", "megabank", 
+    "landbank", "firstbank", "sinopac", "post.gov", "gov.tw",
+    
+    // 3. Payment Gateways (Global & Local)
+    "paypal", "stripe", "ecpay", "line.me", "jkos", "opay",
+    
+    // 4. E-Commerce & Services (High Performance Required)
+    "shopee", "momo", "pchome", "books.com", "coupang", 
+    "uber", "foodpanda", "netflix", "spotify", "youtube",
+    
+    // 5. AI Services (Avoid Conflict)
+    "openai", "chatgpt", "claude", "gemini", "bing", "perplexity"
   ];
 
-  const currentUrl = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
-  // 簡單快速檢查，若命中直接跳出，節省正則運算資源
-  if (HARD_EXCLUSION_KEYWORDS.some(k => currentUrl.includes(k))) {
+  const url = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
+  
+  // 極速匹配：只要 URL 包含任一關鍵字，即視為命中白名單
+  if (EXCLUDES.some(k => url.includes(k))) {
       if (typeof $done !== "undefined") $done({});
       return;
   }
 
-  // ============================================================================
-  // Phase A: Request (Skip)
-  // ============================================================================
+  // --- Layer 3: Request Phase Skip ---
   if (typeof $request !== "undefined" && typeof $response === "undefined") {
     $done({});
     return;
   }
 
-  // ============================================================================
-  // Phase B: HTML Injection (Performance Optimized)
-  // ============================================================================
+  // --- Layer 4: HTML Injection (Performance Optimized) ---
   if (typeof $response !== "undefined") {
     const body = $response.body;
     if (!body) { $done({}); return; }
 
     const headers = $response.headers || {};
-    const cType = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
-    
-    // 嚴格檢查 Content-Type，避免處理 JSON/XML/Images
-    if (!cType.includes("text/html")) { $done({}); return; }
+    const ct = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
+    if (!ct.includes("text/html")) { $done({}); return; }
 
-    // [PERFORMANCE TIP] 
-    // 不再掃描整個 Body，只掃描前 3000 個字元來尋找 Head 和 Nonce。
-    // 這能大幅減少大型網頁的處理延遲。
-    const scanChunk = body.substring(0, 3000); 
-    
-    if (scanChunk.includes(CONST.INJECT_MARKER)) { $done({}); return; }
+    // [Optimization] Only scan the first 3KB
+    const chunk = body.substring(0, 3000);
+    if (chunk.includes(CONST.MARKER)) { $done({}); return; }
 
     let csp = "";
     Object.keys(headers).forEach(k => { if(k.toLowerCase() === "content-security-policy") csp = headers[k]; });
-    const allowInline = !csp || csp.includes("'unsafe-inline'");
     
-    // 優化後的正則，只在 chunk 中查找
-    const REGEX_NONCE = /nonce=["']?([^"'\s>]+)["']?/i;
-    const m = scanChunk.match(REGEX_NONCE);
+    const m = chunk.match(/nonce=["']?([^"'\s>]+)["']?/i);
     const nonce = m ? m[1] : "";
+    
+    if ((csp && !csp.includes("'unsafe-inline'")) && !nonce) { $done({}); return; }
 
-    if (!allowInline && !nonce) { $done({}); return; }
+    const INJECT_CFG = { s: SEED, step: CONST.NOISE_STEP };
 
-    const INJECT_CONFIG = {
-      seed: SEED_MANAGER.id,
-      consts: CONST
-    };
-
-    const OMNI_MODULE_SOURCE = `
-    (function(scope) {
-      const CFG = ${JSON.stringify(INJECT_CONFIG)};
-      
-      // 輕量化雜湊函數 (MurmurHash3 簡化版)
+    const MODULE = `
+    (function(w) {
+      const C = ${JSON.stringify(INJECT_CFG)};
       const imul = Math.imul || function(a, b) { return (a * b) | 0; };
-      const hash = (seed, val) => {
-        let h = seed ^ val;
+      const hash = (s, v) => {
+        let h = s ^ v;
         h = imul(h ^ (h >>> 16), 0x85ebca6b);
         h = imul(h ^ (h >>> 13), 0xc2b2ae35);
         return (h ^ (h >>> 16)) >>> 0;
       };
       
-      const protect = (native, custom) => {
+      const p = (n, c) => {
         try {
-            // 使用 Proxy 時增加錯誤捕捉，避免破壞性錯誤
-            return new Proxy(custom, {
-                apply: (t, th, a) => { try{ return Reflect.apply(t, th, a); }catch(e){ return Reflect.apply(native, th, a); } },
-                construct: (t, a, n) => { try{ return Reflect.construct(t, a, n); }catch(e){ return Reflect.construct(native, a, n); } },
-                get: (t, k) => Reflect.get(t, k)
-            });
-        } catch(e) { return custom; }
+          return new Proxy(c, {
+            apply:(t,th,a)=>{try{return Reflect.apply(t,th,a)}catch(e){return Reflect.apply(n,th,a)}},
+            construct:(t,a,nm)=>{try{return Reflect.construct(t,a,nm)}catch(e){return Reflect.construct(n,a,nm)}},
+            get:(t,k)=>Reflect.get(t,k)
+          });
+        } catch(e){return c;}
       };
 
-      // 1. WebRTC (Relay Only)
-      const installWebRTC = () => {
-        const rtcNames = ["RTCPeerConnection", "webkitRTCPeerConnection", "mozRTCPeerConnection"];
-        rtcNames.forEach(name => {
-           if (!scope[name]) return;
-           const Native = scope[name];
-           const Safe = function(config, ...args) {
-              const c = config || {};
-              c.iceTransportPolicy = "relay"; 
-              c.iceCandidatePoolSize = 0;
-              return new Native(c, ...args);
-           };
-           Safe.prototype = Native.prototype;
-           Object.defineProperty(Safe, "name", { value: Native.name }); // 偽裝 Name
-           scope[name] = protect(Native, Safe);
-        });
-      };
-
-      // 2. Canvas (Optimized Noise)
-      const installGraphics = () => {
-        const hookCtx = (proto) => {
-           const old = proto.getImageData;
-           if(!old) return;
-           proto.getImageData = function(x,y,w,h) {
-              const r = old.apply(this, arguments);
-              // [PERFORMANCE] 只有當畫布夠大時才注入噪聲，且跳步處理
-              if (w > 32 && h > 32) {
-                  const d = r.data;
-                  const step = CFG.consts.CANVAS_NOISE_STEP || 4; 
-                  for(let i=0; i<d.length; i+=(step*4)) {
-                     // 簡單的 +/- 1 噪聲
-                     if ((i/4) % 10 === 0) {
-                        const n = hash(CFG.seed, i) % 3 - 1; 
-                        if (n !== 0) d[i] = Math.max(0, Math.min(255, d[i] + n));
-                     }
-                  }
-              }
-              return r;
-           };
+      // WebRTC
+      const rtcs = ["RTCPeerConnection", "webkitRTCPeerConnection", "mozRTCPeerConnection"];
+      rtcs.forEach(n => {
+        if(!w[n]) return;
+        const N = w[n];
+        const S = function(c,...a) { 
+            const cfg = c || {}; 
+            cfg.iceTransportPolicy = "relay"; 
+            cfg.iceCandidatePoolSize = 0; 
+            return new N(cfg,...a); 
         };
-        try {
-            if (scope.CanvasRenderingContext2D) hookCtx(scope.CanvasRenderingContext2D.prototype);
-            if (scope.OffscreenCanvasRenderingContext2D) hookCtx(scope.OffscreenCanvasRenderingContext2D.prototype);
-        } catch(e){}
-      };
+        S.prototype = N.prototype;
+        Object.defineProperty(S, "name", { value: N.name });
+        w[n] = p(N, S);
+      });
 
-      // 3. Audio (Optimized)
-      const installAudio = () => {
-         if (!scope.OfflineAudioContext) return;
-         const old = scope.OfflineAudioContext.prototype.startRendering;
-         scope.OfflineAudioContext.prototype.startRendering = function() {
-            return old.apply(this, arguments).then(buf => {
-               if (!buf) return buf;
-               try {
-                   const d = buf.getChannelData(0);
-                   // 僅修改前 1000 個採樣點，減少 CPU 負擔
-                   const len = Math.min(d.length, 1000); 
-                   for (let i=0; i<len; i+=50) {
-                      d[i] += (hash(CFG.seed, i) % 100) * 0.0000001;
-                   }
-               } catch(e){}
-               return buf;
+      // Canvas
+      try {
+        const hC = (P) => {
+            const old = P.getImageData;
+            P.getImageData = function(x,y,w,h) {
+                const r = old.apply(this, arguments);
+                if (w > 32 && h > 32) {
+                    const d = r.data;
+                    for(let i=0; i<d.length; i+=(C.step*4)) {
+                        if ((i/4)%10===0) {
+                            const n = hash(C.s, i)%3 - 1;
+                            if(n!==0) d[i] = Math.max(0, Math.min(255, d[i]+n));
+                        }
+                    }
+                }
+                return r;
+            };
+        };
+        if(w.CanvasRenderingContext2D) hC(w.CanvasRenderingContext2D.prototype);
+        if(w.OffscreenCanvasRenderingContext2D) hC(w.OffscreenCanvasRenderingContext2D.prototype);
+      } catch(e){}
+
+      // Audio
+      if(w.OfflineAudioContext) {
+        const oldA = w.OfflineAudioContext.prototype.startRendering;
+        w.OfflineAudioContext.prototype.startRendering = function() {
+            return oldA.apply(this, arguments).then(b => {
+                if(!b) return b;
+                try {
+                    const d = b.getChannelData(0);
+                    const l = Math.min(d.length, 1000);
+                    for(let i=0; i<l; i+=50) d[i] += (hash(C.s, i)%100)*1e-7;
+                } catch(e){}
+                return b;
             });
-         };
-      };
-
-      try { installWebRTC(); installGraphics(); installAudio(); } catch(e) {}
-    })(typeof self !== "undefined" ? self : window);
+        };
+      }
+    })(typeof self!=='undefined'?self:window);
     `;
 
-    const injectionScript = `
+    const INJECT = `
 ${nonce ? `<script nonce="${nonce}">` : `<script>`}
-(function() {
-  const OMNI = ${JSON.stringify(OMNI_MODULE_SOURCE)};
-  
-  // Worker 注入：增加 try-catch 包裹
-  const setupWorkers = () => {
-    if (typeof window === "undefined") return;
-    const hookWorker = (Type) => {
-      if (!window[Type]) return;
-      const Orig = window[Type];
-      window[Type] = function(url, opts) {
-        let finalUrl = url;
-        // 僅當 url 是字串且非 blob 時才嘗試注入
-        if (typeof url === 'string' && !url.startsWith('blob:')) {
-           try {
-             const content = OMNI + "; importScripts('" + url + "');";
-             const blob = new Blob([content], { type: "application/javascript" });
-             finalUrl = URL.createObjectURL(blob);
-           } catch(e) {}
+(function(){
+  const M = ${JSON.stringify(MODULE)};
+  const SW = () => {
+    if(typeof window==='undefined') return;
+    const HW = (T) => {
+      if(!window[T]) return;
+      const O = window[T];
+      window[T] = function(u, o) {
+        let fu = u;
+        if(typeof u==='string' && !u.startsWith('blob:')) {
+          try {
+            const b = new Blob([M+";importScripts('"+u+"');"], {type:"application/javascript"});
+            fu = URL.createObjectURL(b);
+          } catch(e){}
         }
-        return new Orig(finalUrl, opts);
+        return new O(fu, o);
       };
-      window[Type].prototype = Orig.prototype;
+      window[T].prototype = O.prototype;
     };
-    try { hookWorker("Worker"); hookWorker("SharedWorker"); } catch(e){}
+    try { HW("Worker"); HW("SharedWorker"); } catch(e){}
   };
-  
-  // 直接執行
-  eval(OMNI);
-  setupWorkers();
-  document.documentElement.setAttribute("${CONST.INJECT_MARKER}", "true");
+  eval(M);
+  SW();
+  document.documentElement.setAttribute("${CONST.MARKER}", "true");
 })();
 </script>
 `;
-    // 使用 replace 只替換第一個找到的 <head> 或 <body>，進一步減少運算
+    
     let newBody = body;
-    const headRegex = /<head[^>]*>/i;
-    if (headRegex.test(scanChunk)) {
-        newBody = body.replace(headRegex, (m) => m + injectionScript);
+    const tag = /<head[^>]*>/i;
+    if (tag.test(chunk)) {
+        newBody = body.replace(tag, (m) => m + INJECT);
     } else {
-        // Fallback: 如果沒有 head，插在 body 之前
-        newBody = injectionScript + body;
+        newBody = INJECT + body;
     }
-
     $done({ body: newBody });
   }
 })();
+
 
