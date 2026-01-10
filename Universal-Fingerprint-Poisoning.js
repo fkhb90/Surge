@@ -1,13 +1,14 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.28-Whitelist-Hardened
+ * @version   10.29-Hotfix-Feedly
  * @author    Jerry's AI Assistant
  * @updated   2026-01-10
  * ----------------------------------------------------------------------------
- * [V10.28 白名單加固版]:
- * 1) [LOGIC] 確認採用 `includes()` 模糊匹配，自動涵蓋所有子網域與地區分站 (次版本)。
- * 2) [FIX] 補回 V10.27 遺漏的關鍵支付與驗證服務 (PayPal, Stripe, Line, Microsoft)。
- * 3) [PERF] 維持 V10.27 的高效架構 (前 3KB 掃描 + MurmurHash3)。
+ * [V10.29 緊急修復版]:
+ * 1) [FIX] 針對 Feedly 無法開啟 (Stuck on Loading) 問題進行修復。
+ * - 新增 "feedly" 至白名單，防止 Worker 注入導致應用程式死鎖。
+ * 2) [MAINTENANCE] 預防性加入部分高敏感 SPA 服務 (Discord, Telegram Web)。
+ * 3) [CORE] 維持 V10.28 的全字串匹配邏輯與效能優化核心。
  */
 
 (function () {
@@ -49,33 +50,33 @@
     return s;
   })();
 
-  // --- Layer 2: Hardened Whitelist (Sub-version Inclusive) ---
-  // [Jerry's Note]: 這裡的關鍵字會自動匹配所有子網域 (Subdomains)
-  // 例如 "shopee" 會同時匹配 "shopee.tw" 和 "mall.shopee.ph"
+  // --- Layer 2: Hardened Whitelist (Includes Feedly Hotfix) ---
   const EXCLUDES = [
     // 1. Identity & Cloud Infra
     "accounts.google", "appleid.apple", "icloud.com", 
     "login.live.com", "microsoft.com", "sso", "oauth", 
     "recaptcha", "turnstile", "hcaptcha", "arkoselabs",
     
-    // 2. Taiwan Banking & Gov (Local Critical)
+    // 2. Taiwan Banking & Gov
     "ctbc", "cathay", "esun", "fubon", "taishin", "megabank", 
     "landbank", "firstbank", "sinopac", "post.gov", "gov.tw",
     
-    // 3. Payment Gateways (Global & Local)
+    // 3. Payment Gateways
     "paypal", "stripe", "ecpay", "line.me", "jkos", "opay",
     
-    // 4. E-Commerce & Services (High Performance Required)
+    // 4. Content & Social Apps (Complex SPA)
+    "feedly", // [HOTFIX V10.29]
+    "discord", "telegram", "slack", // [PREVENTIVE]
     "shopee", "momo", "pchome", "books.com", "coupang", 
     "uber", "foodpanda", "netflix", "spotify", "youtube",
     
-    // 5. AI Services (Avoid Conflict)
+    // 5. AI Services
     "openai", "chatgpt", "claude", "gemini", "bing", "perplexity"
   ];
 
   const url = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
   
-  // 極速匹配：只要 URL 包含任一關鍵字，即視為命中白名單
+  // O(1) Fast Check
   if (EXCLUDES.some(k => url.includes(k))) {
       if (typeof $done !== "undefined") $done({});
       return;
@@ -87,7 +88,7 @@
     return;
   }
 
-  // --- Layer 4: HTML Injection (Performance Optimized) ---
+  // --- Layer 4: HTML Injection ---
   if (typeof $response !== "undefined") {
     const body = $response.body;
     if (!body) { $done({}); return; }
@@ -96,7 +97,6 @@
     const ct = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
     if (!ct.includes("text/html")) { $done({}); return; }
 
-    // [Optimization] Only scan the first 3KB
     const chunk = body.substring(0, 3000);
     if (chunk.includes(CONST.MARKER)) { $done({}); return; }
 
