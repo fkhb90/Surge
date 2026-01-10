@@ -1,30 +1,35 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.28-Whitelist-Hardened
+ * @version   10.31-Final-Stable
  * @author    Jerry's AI Assistant
  * @updated   2026-01-10
  * ----------------------------------------------------------------------------
- * [V10.28 回退版]:
- * 1) [ROLLBACK] 已回退至 V10.28 穩定版本。
- * 2) [LOGIC] 採用 `includes()` 模糊匹配白名單，涵蓋所有子網域。
- * 3) [NOTE] 此版本未包含針對 Feedly 的特殊 UA 處理。
+ * [V10.31 最終穩定版]:
+ * 1) [BASELINE] 以 V10.28 為架構基底 (最穩定的效能版)。
+ * 2) [WHITELIST] 顯式加入 "feedly" 至白名單，防止未來快取中毒或 500 Error 復發。
+ * 3) [PERF] 保留前 3KB 極速掃描與 MurmurHash3 演算法。
  */
 
 (function () {
   "use strict";
 
-  // --- Layer 0: The Kill Switch (Shopping Mode) ---
+  // ============================================================================
+  // 0) Mode Check (The Kill Switch)
+  // ============================================================================
   if (typeof $persistentStore !== "undefined") {
       const currentMode = $persistentStore.read("FP_MODE");
       if (currentMode === "shopping") {
+          // console.log("🛍️ Shopping Mode Active - Script Skipped");
           if (typeof $done !== "undefined") $done({});
           return;
       }
   }
 
-  // --- Layer 1: Config & Seed ---
+  // ============================================================================
+  // 1) Config & Seed
+  // ============================================================================
   const CONST = {
-    KEY: "FP_SHIELD_ID_V1014", 
+    KEY: "FP_SHIELD_ID_V1014", // 保持 ID 連貫性
     MARKER: "__FP_SHIELD_INJECTED__",
     NOISE_STEP: 4 
   };
@@ -49,7 +54,9 @@
     return s;
   })();
 
-  // --- Layer 2: Hardened Whitelist ---
+  // ============================================================================
+  // 2) Hardened Whitelist (Includes Feedly Fix)
+  // ============================================================================
   const EXCLUDES = [
     // 1. Identity & Cloud Infra
     "accounts.google", "appleid.apple", "icloud.com", 
@@ -63,7 +70,8 @@
     // 3. Payment Gateways
     "paypal", "stripe", "ecpay", "line.me", "jkos", "opay",
     
-    // 4. E-Commerce & Services
+    // 4. E-Commerce & Services (High Sensitivity)
+    "feedly", // [V10.31 FIXED] 永久白名單，防止 500/Loading 復發
     "shopee", "momo", "pchome", "books.com", "coupang", 
     "uber", "foodpanda", "netflix", "spotify", "youtube",
     
@@ -73,26 +81,34 @@
 
   const url = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
   
+  // Fast Check: 只要 URL 包含關鍵字，立即放行 (O(1) 複雜度)
   if (EXCLUDES.some(k => url.includes(k))) {
       if (typeof $done !== "undefined") $done({});
       return;
   }
 
-  // --- Layer 3: Request Phase Skip ---
+  // ============================================================================
+  // Phase 3: Request Phase Skip
+  // ============================================================================
   if (typeof $request !== "undefined" && typeof $response === "undefined") {
     $done({});
     return;
   }
 
-  // --- Layer 4: HTML Injection ---
+  // ============================================================================
+  // Phase 4: HTML Injection (Performance Optimized)
+  // ============================================================================
   if (typeof $response !== "undefined") {
     const body = $response.body;
     if (!body) { $done({}); return; }
 
     const headers = $response.headers || {};
     const ct = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
+    
+    // Strict HTML Check
     if (!ct.includes("text/html")) { $done({}); return; }
 
+    // [Optimization] Only scan the first 3KB for markers & nonce
     const chunk = body.substring(0, 3000);
     if (chunk.includes(CONST.MARKER)) { $done({}); return; }
 
@@ -102,6 +118,7 @@
     const m = chunk.match(/nonce=["']?([^"'\s>]+)["']?/i);
     const nonce = m ? m[1] : "";
     
+    // Fail-safe: Skip if CSP blocks inline scripts and no nonce is found
     if ((csp && !csp.includes("'unsafe-inline'")) && !nonce) { $done({}); return; }
 
     const INJECT_CFG = { s: SEED, step: CONST.NOISE_STEP };
@@ -127,7 +144,7 @@
         } catch(e){return c;}
       };
 
-      // WebRTC
+      // 1. WebRTC (Relay Mode)
       const rtcs = ["RTCPeerConnection", "webkitRTCPeerConnection", "mozRTCPeerConnection"];
       rtcs.forEach(n => {
         if(!w[n]) return;
@@ -143,7 +160,7 @@
         w[n] = p(N, S);
       });
 
-      // Canvas
+      // 2. Canvas (Optimized Noise)
       try {
         const hC = (P) => {
             const old = P.getImageData;
@@ -152,6 +169,7 @@
                 if (w > 32 && h > 32) {
                     const d = r.data;
                     for(let i=0; i<d.length; i+=(C.step*4)) {
+                        // Apply noise to 1 in every 10 sampled pixels
                         if ((i/4)%10===0) {
                             const n = hash(C.s, i)%3 - 1;
                             if(n!==0) d[i] = Math.max(0, Math.min(255, d[i]+n));
@@ -165,7 +183,7 @@
         if(w.OffscreenCanvasRenderingContext2D) hC(w.OffscreenCanvasRenderingContext2D.prototype);
       } catch(e){}
 
-      // Audio
+      // 3. Audio (Optimized Noise)
       if(w.OfflineAudioContext) {
         const oldA = w.OfflineAudioContext.prototype.startRendering;
         w.OfflineAudioContext.prototype.startRendering = function() {
@@ -173,6 +191,7 @@
                 if(!b) return b;
                 try {
                     const d = b.getChannelData(0);
+                    // Only modify first 1000 samples for performance
                     const l = Math.min(d.length, 1000);
                     for(let i=0; i<l; i+=50) d[i] += (hash(C.s, i)%100)*1e-7;
                 } catch(e){}
@@ -183,6 +202,7 @@
     })(typeof self!=='undefined'?self:window);
     `;
 
+    // Worker Blob Injection (With Try-Catch Safety)
     const INJECT = `
 ${nonce ? `<script nonce="${nonce}">` : `<script>`}
 (function(){
@@ -215,6 +235,7 @@ ${nonce ? `<script nonce="${nonce}">` : `<script>`}
     
     let newBody = body;
     const tag = /<head[^>]*>/i;
+    // Inject at the beginning of HEAD for maximum priority
     if (tag.test(chunk)) {
         newBody = body.replace(tag, (m) => m + INJECT);
     } else {
