@@ -1,13 +1,15 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.34-VPN-Compatibility
+ * @version   10.35-Zero-Trust-Patch
  * @author    Jerry's AI Assistant
  * @updated   2026-01-12
  * ----------------------------------------------------------------------------
- * [V10.34 VPN 相容性修復版]:
- * 1) [FIX] 針對 VPN 軟體 (Nord, Surfshark, Express, Proton) 的 Web 登入驗證進行白名單放行。
- * - 防止因指紋注入導致 VPN App 登入時出現 CAPTCHA 迴圈或 "Suspicious Activity" 錯誤。
- * 2) [BASELINE] 繼承 V10.33 的企業考勤與政府服務防護架構。
+ * [V10.35 零信任架構修復版]:
+ * 1) [CRITICAL] 新增 "cloudflareaccess.com" 至白名單。
+ * - 解決 Cloudflare Zero Trust (Team Login) 因裝置姿態檢測失敗導致無法登入的問題。
+ * - 自動覆蓋所有子網域 (例如: my-company.cloudflareaccess.com)。
+ * 2) [INFRA] 預防性加入 GitHub 與 GitLab 登入頁面，防止 2FA/SAML 驗證失敗。
+ * 3) [BASELINE] 繼承 V10.34 的 VPN 與企業考勤防護架構。
  */
 
 (function () {
@@ -54,13 +56,15 @@
   })();
 
   // ============================================================================
-  // 2) Hardened Whitelist (VPN Services Added)
+  // 2) Hardened Whitelist (Zero Trust Added)
   // ============================================================================
   const EXCLUDES = [
     // 1. Identity & Cloud Infra
     "accounts.google", "appleid.apple", "icloud.com", 
     "login.live.com", "microsoft.com", "sso", "oauth", 
     "recaptcha", "turnstile", "hcaptcha", "arkoselabs",
+    "github.com", "gitlab.com", // [V10.35] Code Hosting Auth
+    "cloudflareaccess.com", // [V10.35] Cloudflare Zero Trust
     
     // 2. Taiwan Banking & Gov
     "ctbc", "cathay", "esun", "fubon", "taishin", "megabank", 
@@ -75,13 +79,11 @@
     "workday", "mayhr", "apollo", 
     "slack", "discord", "telegram",
 
-    // 5. VPN & Security Services [V10.34 ADDED]
-    "nordaccount", "nordvpn", // NordVPN
-    "surfshark", // Surfshark
-    "expressvpn", // ExpressVPN
-    "proton", "protonvpn", "proton.me", // ProtonVPN
-    "mullvad", // Mullvad
-    "ivpn", // IVPN
+    // 5. VPN & Security Services
+    "nordaccount", "nordvpn", 
+    "surfshark", 
+    "expressvpn", 
+    "proton", "mullvad", "ivpn",
     
     // 6. E-Commerce & Content
     "feedly", 
