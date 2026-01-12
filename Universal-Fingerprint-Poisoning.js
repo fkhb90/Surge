@@ -1,13 +1,13 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.34-VPN-Compatibility
+ * @version   10.31-Final-Stable
  * @author    Jerry's AI Assistant
- * @updated   2026-01-12
+ * @updated   2026-01-10
  * ----------------------------------------------------------------------------
- * [V10.34 VPN 相容性修復版]:
- * 1) [FIX] 針對 VPN 軟體 (Nord, Surfshark, Express, Proton) 的 Web 登入驗證進行白名單放行。
- * - 防止因指紋注入導致 VPN App 登入時出現 CAPTCHA 迴圈或 "Suspicious Activity" 錯誤。
- * 2) [BASELINE] 繼承 V10.33 的企業考勤與政府服務防護架構。
+ * [V10.31 最終穩定版]:
+ * 1) [BASELINE] 以 V10.28 為架構基底 (最穩定的效能版)。
+ * 2) [WHITELIST] 顯式加入 "feedly" 至白名單，防止未來快取中毒或 500 Error 復發。
+ * 3) [PERF] 保留前 3KB 極速掃描與 MurmurHash3 演算法。
  */
 
 (function () {
@@ -19,6 +19,7 @@
   if (typeof $persistentStore !== "undefined") {
       const currentMode = $persistentStore.read("FP_MODE");
       if (currentMode === "shopping") {
+          // console.log("🛍️ Shopping Mode Active - Script Skipped");
           if (typeof $done !== "undefined") $done({});
           return;
       }
@@ -54,7 +55,7 @@
   })();
 
   // ============================================================================
-  // 2) Hardened Whitelist (VPN Services Added)
+  // 2) Hardened Whitelist (Includes Feedly Fix)
   // ============================================================================
   const EXCLUDES = [
     // 1. Identity & Cloud Infra
@@ -65,36 +66,22 @@
     // 2. Taiwan Banking & Gov
     "ctbc", "cathay", "esun", "fubon", "taishin", "megabank", 
     "landbank", "firstbank", "sinopac", "post.gov", "gov.tw",
-    "nhi.gov.tw", "ris.gov.tw", "fido.gov.tw",
     
     // 3. Payment Gateways
     "paypal", "stripe", "ecpay", "line.me", "jkos", "opay",
     
-    // 4. Enterprise & HR
-    "104.com.tw", "larksuite", "lark.com", "dingtalk", 
-    "workday", "mayhr", "apollo", 
-    "slack", "discord", "telegram",
-
-    // 5. VPN & Security Services [V10.34 ADDED]
-    "nordaccount", "nordvpn", // NordVPN
-    "surfshark", // Surfshark
-    "expressvpn", // ExpressVPN
-    "proton", "protonvpn", "proton.me", // ProtonVPN
-    "mullvad", // Mullvad
-    "ivpn", // IVPN
-    
-    // 6. E-Commerce & Content
-    "feedly", 
+    // 4. E-Commerce & Services (High Sensitivity)
+    "feedly", // [V10.31 FIXED] 永久白名單，防止 500/Loading 復發
     "shopee", "momo", "pchome", "books.com", "coupang", 
     "uber", "foodpanda", "netflix", "spotify", "youtube",
     
-    // 7. AI Services
+    // 5. AI Services
     "openai", "chatgpt", "claude", "gemini", "bing", "perplexity"
   ];
 
   const url = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
   
-  // Fast Check: O(1) 複雜度
+  // Fast Check: 只要 URL 包含關鍵字，立即放行 (O(1) 複雜度)
   if (EXCLUDES.some(k => url.includes(k))) {
       if (typeof $done !== "undefined") $done({});
       return;
@@ -118,8 +105,10 @@
     const headers = $response.headers || {};
     const ct = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
     
+    // Strict HTML Check
     if (!ct.includes("text/html")) { $done({}); return; }
 
+    // [Optimization] Only scan the first 3KB for markers & nonce
     const chunk = body.substring(0, 3000);
     if (chunk.includes(CONST.MARKER)) { $done({}); return; }
 
@@ -129,6 +118,7 @@
     const m = chunk.match(/nonce=["']?([^"'\s>]+)["']?/i);
     const nonce = m ? m[1] : "";
     
+    // Fail-safe: Skip if CSP blocks inline scripts and no nonce is found
     if ((csp && !csp.includes("'unsafe-inline'")) && !nonce) { $done({}); return; }
 
     const INJECT_CFG = { s: SEED, step: CONST.NOISE_STEP };
@@ -179,6 +169,7 @@
                 if (w > 32 && h > 32) {
                     const d = r.data;
                     for(let i=0; i<d.length; i+=(C.step*4)) {
+                        // Apply noise to 1 in every 10 sampled pixels
                         if ((i/4)%10===0) {
                             const n = hash(C.s, i)%3 - 1;
                             if(n!==0) d[i] = Math.max(0, Math.min(255, d[i]+n));
@@ -200,6 +191,7 @@
                 if(!b) return b;
                 try {
                     const d = b.getChannelData(0);
+                    // Only modify first 1000 samples for performance
                     const l = Math.min(d.length, 1000);
                     for(let i=0; i<l; i+=50) d[i] += (hash(C.s, i)%100)*1e-7;
                 } catch(e){}
@@ -210,6 +202,7 @@
     })(typeof self!=='undefined'?self:window);
     `;
 
+    // Worker Blob Injection (With Try-Catch Safety)
     const INJECT = `
 ${nonce ? `<script nonce="${nonce}">` : `<script>`}
 (function(){
@@ -242,6 +235,7 @@ ${nonce ? `<script nonce="${nonce}">` : `<script>`}
     
     let newBody = body;
     const tag = /<head[^>]*>/i;
+    // Inject at the beginning of HEAD for maximum priority
     if (tag.test(chunk)) {
         newBody = body.replace(tag, (m) => m + INJECT);
     } else {
