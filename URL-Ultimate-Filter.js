@@ -1,10 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.61.js
- * @version   41.61 (Financial App Compatibility Patch)
- * @description [V41.61] 金融應用修復版：
- * 1. [Fix] 強制放行國泰證券 (Cathay Sec) 及其依賴的第三方資訊源 (Systex, MoneyDJ, Mitake)。
- * 2. [Feat] 新增台灣主流看盤軟體後端白名單，解決個股資訊/技術線圖空白問題。
- * 3. [Core] 維持 V41.60 的白金架構與所有 P0/ChatGPT 防護規則。
+ * @file      URL-Ultimate-Filter-Surge-V41.63.js
+ * @version   41.63 (Feedly API Fix)
+ * @description [V41.63] Feedly 修復版：
+ * 1. [Fix] 放行 Feedly API 關鍵參數 (ct, cv)，解決行動版無法載入訂閱列表問題。
+ * 2. [Core] 包含 V41.62 的所有金融 App 修復與 P0/ChatGPT 防護規則。
  * @author    Claude & Gemini & Acterus
  * @lastUpdated 2026-01-12
  */
@@ -64,16 +63,11 @@ const RULES = {
             'graph.threads.net', 'i.instagram.com', 'iappapi.investing.com', 'today.line.me', 't.uber.com', 'gov.tw'
         ]),
         WILDCARDS: [
-            // [V41.61 New] Financial & Trading Critical Whitelist
-            'cathaysec.com.tw', // 國泰證券
-            'systex.com.tw',    // 精誠資訊 (後端數據源)
-            'mitake.com.tw',    // 三竹資訊 (行動看盤後端)
-            'moneydj.com',      // 嘉實資訊 (技術分析圖表)
-            'cmoney.tw',        // CMoney (籌碼分析)
-            'xq.com.tw',        // XQ 全球贏家 (報價源)
-            'fugle.tw',         // 玉山富果
-            'sinotrade.com.tw', // 永豐金證券
-            'capital.com.tw',   // 群益證券
+            // Financial & Trading Critical Whitelist
+            'cathaysec.com.tw', 'systex.com.tw', 'mitake.com.tw', 'moneydj.com',
+            'cmoney.tw', 'xq.com.tw', 'money-link.com.tw', 'x-quote.com.tw',
+            'fugle.tw', 'sinotrade.com.tw', 'capital.com.tw', 'kgi.com.tw',
+            'yuanta.com.tw', 'masterlink.com.tw',
             
             // Existing Wildcards
             'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw',
@@ -81,7 +75,7 @@ const RULES = {
             'whatsapp.net', 'update.microsoft.com', 'windowsupdate.com', 'bot.com.tw', 'chb.com.tw', 
             'citibank.com.tw', 'dawho.tw', 'dbs.com.tw', 'firstbank.com.tw', 'hncb.com.tw',
             'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw', 'megabank.com.tw', 'megatime.com.tw', 
-            'money-link.com.tw', 'momopay.com.tw', 'mymobibank.com.tw', 'paypal.com', 'scsb.com.tw', 'sinopac.com',
+            'momopay.com.tw', 'mymobibank.com.tw', 'paypal.com', 'scsb.com.tw', 'sinopac.com',
             'standardchartered.com.tw', 'stripe.com', 'taipeifubon.com.tw', 'taiwanpay.com.tw',
             'tcb-bank.com.tw', 'org.tw', 'pay.taipei', 'tdcc.com.tw', 'twca.com.tw', 'twmp.com.tw', 'app.goo.gl',
             'goo.gl', 'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io', 'linksyssmartwifi.com', 'archive.is',
@@ -96,7 +90,7 @@ const RULES = {
             'shopee.tw', 'shopee.com', 'api.openai.com', 'www.momoshop.com.tw',
             'm.momoshop.com.tw', 'gateway.shopback.com.tw', 'a-api.anthropic.com', 'api.anthropic.com',
             'api.cohere.ai', 'api.digitalocean.com', 'api.fastly.com', 'api.feedly.com', 'api.github.com',
-            'api.heroku.com', 'api.hubapi.com', 'api.mailgun.com', 'api.netlify.com', 'api.openai.com', 'api.pagerduty.com',
+            'api.heroku.com', 'api.hubapi.com', 'api.mailgun.com', 'api.netlify.com', 'api.pagerduty.com',
             'api.sendgrid.com', 'api.telegram.org', 'api.vercel.com', 'api.zendesk.com', 'duckduckgo.com',
             'legy.line-apps.com', 'obs.line-scdn.net', 'secure.gravatar.com', 'api.asana.com',
             'api.dropboxapi.com', 'api.figma.com', 'api.notion.com', 'api.trello.com', 'api.cloudflare.com',
@@ -444,7 +438,9 @@ const RULES = {
             'timestamp', 'type', 'withStats', 'access_token', 'client_assertion', 'client_id', 'device_id',
             'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope', 'direction', 'limit', 'offset',
             'order', 'page_number', 'size', 'sort', 'sort_by', 'aff_sub', 'click_id', 'deal_id', 'offer_id',
-            'cancel_url', 'error_url', 'return_url', 'success_url'
+            'cancel_url', 'error_url', 'return_url', 'success_url', 
+            // [V41.63 Fix] Feedly API params
+            'ct', 'cv'
         ]),
         EXEMPTIONS: new Map([['www.google.com', new Set(['/maps/'])]])
     }
@@ -475,7 +471,7 @@ class HighPerformanceLRUCache {
         if (!this.cache.has(key)) return null;
         const entry = this.cache.get(key);
         if (Date.now() > entry.expiry) { this.cache.delete(key); return null; }
-        this.cache.delete(key); this.cache.set(key, entry);
+        this.cache.delete(key); this.cache.set(key, entry); // Refresh
         return entry.value;
     }
     set(key, value, ttl = 300000) {
@@ -651,7 +647,5 @@ if (typeof $request !== 'undefined') {
     initialize();
     $done(processRequest($request));
 } else {
-    $done({ title: "URL Ultimate Filter", content: `V41.61 Active\n${stats.toString()}` });
+    $done({ title: "URL Ultimate Filter", content: `V41.63 Active\n${stats.toString()}` });
 }
-
-
