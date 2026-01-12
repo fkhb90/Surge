@@ -1,22 +1,20 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.59.js
- * @version   41.59 (Final Architecture - Regression Passed)
- * @description [V41.59] 架構重構最終版：
- * 1. [Verified] 通過所有 8 項邏輯回歸測試，保證與 V41.57 行為一致且更高效。
- * 2. [Fixed] 修復了 Scripts 集合在 AC 自動機初始化時的合併邏輯。
- * 3. [Optimized] 實作 Regex 惰性編譯 (Lazy Compilation) 以降低冷啟動延遲。
+ * @file      URL-Ultimate-Filter-Surge-V41.60.js
+ * @version   41.60 (Platinum Architecture)
+ * @description [V41.60] 架構重構與優化最終版：
+ * 1. [Core] 恢復四層過濾漏斗架構 (P0 Path -> P0 Domain -> Whitelist -> Standard)。
+ * 2. [Refactor] 邏輯完全封裝，主流程精簡化。
+ * 3. [Perf] 實作 Regex 惰性編譯與多級 LRU 快取。
  * @author    Claude & Gemini & Acterus
  * @lastUpdated 2026-01-12
  */
 
 // #################################################################################################
-// #  ⚙️ RULES CONFIGURATION (Complete Set)
+// #  ⚙️ RULES CONFIGURATION
 // #################################################################################################
 
 const RULES = {
-    // ------------------------------------------------------------------------
-    // 1. Priority Block (Safety Valve)
-    // ------------------------------------------------------------------------
+    // [1] P0 Priority Block (Safety Valve)
     PRIORITY_BLOCK_DOMAINS: new Set([
         'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'admob.com', 'ads.google.com',
         'appsflyer.com', 'adjust.com', 'kochava.com', 'branch.io', 'app-measurement.com', 'singular.net',
@@ -44,9 +42,7 @@ const RULES = {
         'zegtrends.com'
     ]),
 
-    // ------------------------------------------------------------------------
-    // 2. Whitelists (Intelligent Routing)
-    // ------------------------------------------------------------------------
+    // [2] Intelligent Whitelists
     HARD_WHITELIST: {
         EXACT: new Set([
             '175.99.79.153', // NHIA
@@ -118,9 +114,7 @@ const RULES = {
         ]
     },
 
-    // ------------------------------------------------------------------------
-    // 3. Standard Blocking (Domain Level)
-    // ------------------------------------------------------------------------
+    // [3] Standard Blocking
     BLOCK_DOMAINS: new Set([
         'openfpcdn.io', 'fingerprintjs.com', 'fundingchoicesmessages.google.com', 'hotjar.com', 'segment.io',
         'mixpanel.com', 'amplitude.com', 'crazyegg.com', 'bugsnag.com', 'sentry.io', 'newrelic.com',
@@ -196,9 +190,7 @@ const RULES = {
         /^ad[s]?\d*\.(ettoday\.net|ltn\.com\.tw)$/
     ],
 
-    // ------------------------------------------------------------------------
-    // 4. Critical Path (L1 Blocking)
-    // ------------------------------------------------------------------------
+    // [4] Critical Path Blocking
     CRITICAL_PATH: {
         GENERIC: [
             '/api/stats/ads', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback',
@@ -311,9 +303,7 @@ const RULES = {
         ])
     },
 
-    // ------------------------------------------------------------------------
-    // 5. Keyword & Regex (L4 Inspection)
-    // ------------------------------------------------------------------------
+    // [5] Keyword & Regex Blocking
     KEYWORDS: {
         PATH_BLOCK: [
             '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/banner/',
@@ -378,9 +368,7 @@ const RULES = {
         ])
     },
 
-    // ------------------------------------------------------------------------
-    // 6. Exceptions (Prevent False Positives)
-    // ------------------------------------------------------------------------
+    // [6] Exceptions
     EXCEPTIONS: {
         PREFIXES: new Set(['/.well-known/']),
         SUFFIXES: new Set([
@@ -404,9 +392,7 @@ const RULES = {
         ])
     },
 
-    // ------------------------------------------------------------------------
-    // 7. Regex Rules (Advanced)
-    // ------------------------------------------------------------------------
+    // [7] Regex Rules
     REGEX: {
         PATH_BLOCK: [
             /^\/(?!_next\/static\/|static\/|assets\/|dist\/|build\/|public\/)[a-z0-9]{12,}\.js$/i,
@@ -419,9 +405,7 @@ const RULES = {
         HEURISTIC: [/^[a-z0-9]{32,}\.(js|mjs)$/i]
     },
 
-    // ------------------------------------------------------------------------
-    // 8. Parameter Cleaning (Privacy)
-    // ------------------------------------------------------------------------
+    // [8] Parameter Cleaning
     PARAMS: {
         GLOBAL: new Set([
             'gclid', 'fbclid', 'ttclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
@@ -489,9 +473,7 @@ class HighPerformanceLRUCache {
 }
 
 const pathScanner = new ACScanner(RULES.KEYWORDS.PATH_BLOCK);
-// [Fix]: Combine Generic Paths + Scripts for Critical Path Scanner
 const criticalPathScanner = new ACScanner([...RULES.CRITICAL_PATH.GENERIC, ...Array.from(RULES.CRITICAL_PATH.SCRIPTS)]);
-
 const multiLevelCache = new HighPerformanceLRUCache(512);
 const stats = { blocks: 0, allows: 0, toString: () => `Blocked: ${stats.blocks}, Allowed: ${stats.allows}` };
 
@@ -653,5 +635,5 @@ if (typeof $request !== 'undefined') {
     initialize();
     $done(processRequest($request));
 } else {
-    $done({ title: "URL Ultimate Filter", content: `V41.59 Active\n${stats.toString()}` });
+    $done({ title: "URL Ultimate Filter", content: `V41.60 Active\n${stats.toString()}` });
 }
