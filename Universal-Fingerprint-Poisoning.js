@@ -1,15 +1,13 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.38-Remote-Control-Patch
+ * @version   10.39-MegaTime-Patch
  * @author    Jerry's AI Assistant
  * @updated   2026-01-12
  * ----------------------------------------------------------------------------
- * [V10.38 遠端桌面效能優化版]:
- * 1) [RDP] 新增 "remotedesktop.google.com", "anydesk.com", "teamviewer.com"。
- * - 解決遠端桌面網頁版因 Canvas 注入導致的畫面延遲與編碼卡頓。
- * 2) [VDI] 新增 "guacamole" (Apache Guacamole) 關鍵字。
- * - 覆蓋大多數自建的無依賴遠端桌面閘道 (Clientless RDP)。
- * 3) [BASELINE] 繼承 V10.37 的開發者(Localhost)與會議(Zoom/Meet)防護架構。
+ * [V10.39 考勤系統擴充版]:
+ * 1) [HR] 新增 "megatime.com.tw" (梅迦科技/Mangor) 至白名單。
+ * - 解決雲端人資系統線上打卡時，因指紋防護導致的地圖定位失敗或裝置驗證錯誤。
+ * 2) [BASELINE] 繼承 V10.38 的遠端桌面 (RDP) 與開發者環境優化架構。
  */
 
 (function () {
@@ -56,19 +54,19 @@
   })();
 
   // ============================================================================
-  // 2) Hardened Whitelist (Remote Desktop Added)
+  // 2) Hardened Whitelist (MegaTime Added)
   // ============================================================================
   const EXCLUDES = [
     // 1. Local Development
     "localhost", "127.0.0.1", "0.0.0.0", "::1",
 
-    // 2. Remote Desktop & VDI [V10.38 NEW]
-    "remotedesktop.google.com", // Chrome Remote Desktop
-    "anydesk.com", // AnyDesk Web
-    "teamviewer.com", // TeamViewer Web
-    "realvnc.com", // RealVNC
-    "guacamole", // Apache Guacamole (Keyword match for path/domain)
-    "amazonworkspaces.com", // AWS WorkSpaces
+    // 2. Remote Desktop & VDI
+    "remotedesktop.google.com", 
+    "anydesk.com", 
+    "teamviewer.com", 
+    "realvnc.com", 
+    "guacamole", 
+    "amazonworkspaces.com", 
 
     // 3. Identity & Cloud Infra
     "accounts.google", "appleid.apple", "icloud.com", 
@@ -93,7 +91,9 @@
     "paypal", "stripe", "ecpay", "line.me", "jkos", "opay",
     
     // 7. Enterprise, HR & Productivity
-    "104.com.tw", "larksuite", "lark.com", "dingtalk", 
+    "104.com.tw", 
+    "megatime.com.tw", // [V10.39 ADDED] 梅迦科技/Mangor HR
+    "larksuite", "lark.com", "dingtalk", 
     "workday", "mayhr", "apollo", 
     "slack", "discord", "telegram",
     "notion.so", "notion.site", "figma.com",
@@ -269,3 +269,5 @@ ${nonce ? `<script nonce="${nonce}">` : `<script>`}
     $done({ body: newBody });
   }
 })();
+
+
