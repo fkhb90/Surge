@@ -1,13 +1,13 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.31-Final-Stable
+ * @version   10.32-Hotfix-104
  * @author    Jerry's AI Assistant
- * @updated   2026-01-10
+ * @updated   2026-01-12
  * ----------------------------------------------------------------------------
- * [V10.31 最終穩定版]:
- * 1) [BASELINE] 以 V10.28 為架構基底 (最穩定的效能版)。
- * 2) [WHITELIST] 顯式加入 "feedly" 至白名單，防止未來快取中毒或 500 Error 復發。
- * 3) [PERF] 保留前 3KB 極速掃描與 MurmurHash3 演算法。
+ * [V10.32 104人力銀行修復版]:
+ * 1) [FIX] 將 "104.com.tw" 加入白名單，解決企業版 (pro) 線上打卡功能異常問題。
+ * - 此關鍵字同時覆蓋 accounts/pro/pda 等子網域，確保求職與考勤功能正常。
+ * 2) [BASELINE] 繼承 V10.31 的穩定架構 (Feedly Fix + MurmurHash3)。
  */
 
 (function () {
@@ -19,7 +19,6 @@
   if (typeof $persistentStore !== "undefined") {
       const currentMode = $persistentStore.read("FP_MODE");
       if (currentMode === "shopping") {
-          // console.log("🛍️ Shopping Mode Active - Script Skipped");
           if (typeof $done !== "undefined") $done({});
           return;
       }
@@ -55,7 +54,7 @@
   })();
 
   // ============================================================================
-  // 2) Hardened Whitelist (Includes Feedly Fix)
+  // 2) Hardened Whitelist (Includes 104 Fix)
   // ============================================================================
   const EXCLUDES = [
     // 1. Identity & Cloud Infra
@@ -71,7 +70,8 @@
     "paypal", "stripe", "ecpay", "line.me", "jkos", "opay",
     
     // 4. E-Commerce & Services (High Sensitivity)
-    "feedly", // [V10.31 FIXED] 永久白名單，防止 500/Loading 復發
+    "feedly", // V10.31 Fix
+    "104.com.tw", // [V10.32 ADDED] 104 人力銀行/企業大師打卡修復
     "shopee", "momo", "pchome", "books.com", "coupang", 
     "uber", "foodpanda", "netflix", "spotify", "youtube",
     
@@ -244,5 +244,3 @@ ${nonce ? `<script nonce="${nonce}">` : `<script>`}
     $done({ body: newBody });
   }
 })();
-
-
