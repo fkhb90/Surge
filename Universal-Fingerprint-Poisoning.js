@@ -1,22 +1,22 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.49-Financial-Nuclear-Option
+ * @version   10.50-Financial-Zero-Touch
  * @author    Jerry's AI Assistant
  * @updated   2026-01-12
  * ----------------------------------------------------------------------------
- * [V10.49 金融核選項修復版]:
- * 1) [STRATEGY] 啟用「廣域金融關鍵字 (Broad Financial Keywords)」豁免。
- * - 只要 URL 包含 "chart", "quote", "stock", "finance", "trading" 等字眼，一律放行。
- * - 這能覆蓋所有未知的第三方看盤套件與 API。
- * 2) [FIX] 新增 "sysjust" (嘉實/XQ), "yimg" (Yahoo CDN) 等遺漏的供應商。
- * 3) [SAFETY] 針對金融類請求，自動降級防護策略，優先確保交易功能運作。
+ * [V10.50 金融零接觸最終版]:
+ * 1) [CORE] 實施「Zero-Touch (零接觸)」策略。
+ * - 針對金融類請求，在腳本最頂層立即放行，完全不讀取 response.body。
+ * - 解決即時報價串流 (Streaming/SSE) 因腳本緩衝而被截斷導致的圖表空白。
+ * 2) [FIX] 新增 "cathaysec" (國泰證券 App UA), "iwow" (精誠資訊 API)。
+ * 3) [BASELINE] 繼承 V10.49 的所有防護架構，但大幅提升金融 App 相容性。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 0) Mode Check (The Kill Switch)
+  // 1) Pre-Check: Kill Switch & Shopping Mode
   // ============================================================================
   if (typeof $persistentStore !== "undefined") {
       const currentMode = $persistentStore.read("FP_MODE");
@@ -27,106 +27,72 @@
   }
 
   // ============================================================================
-  // 1) Config & Seed
+  // 2) Zero-Touch Whitelist (Immediate Exit)
   // ============================================================================
-  const CONST = {
-    KEY: "FP_SHIELD_ID_V1014", 
-    MARKER: "__FP_SHIELD_INJECTED__",
-    NOISE_STEP: 4 
-  };
-
-  const SEED = (function () {
-    const now = Date.now();
-    let s = 12345;
-    try {
-      const stored = localStorage.getItem(CONST.KEY);
-      if (stored) {
-        const [val, exp] = stored.split("|");
-        if (now < parseInt(exp, 10)) s = parseInt(val, 10);
-        else {
-          s = (now ^ (Math.random() * 1e8)) >>> 0;
-          localStorage.setItem(CONST.KEY, `${s}|${now + 2592000000}`);
-        }
-      } else {
-        s = (now ^ (Math.random() * 1e8)) >>> 0;
-        localStorage.setItem(CONST.KEY, `${s}|${now + 2592000000}`);
-      }
-    } catch (e) {}
-    return s;
-  })();
-
-  // ============================================================================
-  // 2) Dual-Lock Whitelist System
-  // ============================================================================
+  // 這些檢查必須在任何耗時操作前執行，以保護即時串流
   
-  // A. URL 白名單 (含廣域關鍵字)
+  const currentUrl = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
+  const currentUA = (typeof $request !== "undefined") ? ($request.headers["User-Agent"] || $request.headers["user-agent"] || "").toLowerCase() : "";
+
+  // A. App User-Agent Whitelist (App Immunity)
+  const UA_EXCLUDES = [
+    "cathay", "cathaysec", "treegenie", // 國泰體系
+    "mitake", "iwow", "systex",         // 底層看盤引擎 (三竹/精誠)
+    "sinopac", "sinotrade",             // 永豐
+    "tradingview", "feedly", "megatime", "104app",
+    "fubon", "esun", "ctbc", "landbank", // 其他銀行
+    "teamviewer", "anydesk", "splashtop", // 遠端
+    "cfnetwork", "darwin", "okhttp",      // 系統底層
+    "applewebkit" // 寬容模式：保護內嵌 WebView
+  ];
+
+  if (UA_EXCLUDES.some(k => currentUA.includes(k))) {
+      // console.log(`[FP-Shield] UA Whitelisted (Zero-Touch): ${currentUA}`);
+      if (typeof $done !== "undefined") $done({});
+      return;
+  }
+
+  // B. URL Keyword Whitelist (Broad Financial Protection)
   const URL_EXCLUDES = [
-    // [V10.49 NEW] Broad Financial Keywords (The Nuclear Option)
-    // 只要網址裡有這些字，我們就假設它是金融相關功能，直接放行
-    "chart", "quote", "stock", "finance", "trading", "market", "kline", "technical", "analysis",
-    "mobile-web", // 常見的 App 內嵌網頁路徑
+    // Financial Streaming & API Keywords (The Nuclear Option)
+    "quote", "chart", "tick", "finance", "stock", "trading", "market", 
+    "kline", "technical", "analysis", "price", "realtime",
     
-    // [V10.49 NEW] Missing Vendors
-    "sysjust", "justaca", // 嘉實資訊 (XQ)
-    "yimg", "yahoo",      // Yahoo 股市資源
-    "hinet",              // 中華電信 CDN (金融業常用)
+    // Core Financial Vendors
+    "sysjust", "justaca", "xq",         // 嘉實/XQ
+    "iwow", "systex",                   // 精誠
+    "mitake",                           // 三竹
+    "cmoney", "moneydj", "cnyes",       // 財經網
+    "yahoo", "yimg", "bloomberg", "investing", "tdcc", "wantgoo",
 
-    // Security Infra
-    "hitrust", "twca", "verisign", "symcd", "digicert", "globalsign", "entrust",
-    "cloudfront", "akamai", "azureedge", "googleapis", "gstatic",
+    // Security & Infrastructure
+    "hitrust", "twca", "verisign", "symcd", "digicert", "globalsign",
+    "cloudfront", "akamai", "azureedge", "googleapis", "gstatic", "hinet",
 
-    // Financial Providers
-    "mitake", "systex", "cmoney", "moneydj", "bloomberg", "investing", "cnyes", "wantgoo", "goodinfo", "pchome", "tdcc",
+    // Remote & Dev
+    "localhost", "127.0.0.1", "::1", "remotedesktop", "guacamole", "amazonworkspaces",
 
-    // Remote/Dev
-    "localhost", "127.0.0.1", "::1", "remotedesktop", "anydesk", "teamviewer", "realvnc", "guacamole", "amazonworkspaces",
-
-    // Identity
-    "accounts", "appleid", "icloud", "login", "microsoft", "sso", "oauth", "okta", "auth0", "cloudflareaccess", 
-    "github", "gitlab", "atlassian", "jira", "trello", "recaptcha", "turnstile", "hcaptcha", "arkoselabs",
+    // Identity & SaaS
+    "accounts", "login", "sso", "oauth", "okta", "auth0", "cloudflareaccess",
+    "github", "gitlab", "atlassian", "jira", "trello", "recaptcha", "turnstile",
 
     // Conference
     "zoom", "meet.google", "teams", "webex",
 
-    // Brokers & Banks (Taiwan)
-    "ctbc", "cathay", "esun", "fubon", "taishin", "megabank", "landbank", "firstbank", "sinopac", "sinotrade", "post.gov", "gov.tw", "nhi.gov",
-
-    // Payment
-    "paypal", "stripe", "ecpay", "line.me", "jkos", "opay",
-    
-    // HR & Enterprise
-    "104.com", "megatime", "lark", "dingtalk", "workday", "mayhr", "apollo", "slack", "discord", "telegram", "notion", "figma",
-
-    // VPN
-    "nord", "surfshark", "expressvpn", "proton", "mullvad", "ivpn",
-    
-    // Content
-    "feedly", "shopee", "momo", "books.com", "coupang", "uber", "foodpanda", "netflix", "spotify", "youtube", "openai", "chatgpt", "claude", "gemini", "bing", "perplexity"
+    // Specific Domains (Banking/HR/VPN)
+    "cathay", "cathaysec", "sinopac", "sinotrade", "post.gov", "gov.tw",
+    "104.com", "megatime", "lark", "dingtalk", "workday",
+    "nord", "surfshark", "expressvpn", "proton"
   ];
 
-  // B. User-Agent 白名單
-  const UA_EXCLUDES = [
-    "feedly", "treegenie", "mitake", "cathay", "sinopac", "sinotrade", "tradingview",  
-    "line", "facebook", "instagram", "shopee", "uber", "ctbc", "esun", "fubon", "megatime",     
-    "teamviewer", "anydesk", "cfnetwork", "darwin", "flipper", "okhttp", "applewebkit"
-  ];
-
-  const currentUrl = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
-  const currentUA = (typeof $request !== "undefined") ? ($request.headers["User-Agent"] || $request.headers["user-agent"] || "").toLowerCase() : "";
-
-  // Check 1: UA
-  if (UA_EXCLUDES.some(k => currentUA.includes(k))) {
-      if (typeof $done !== "undefined") $done({});
-      return;
-  }
-  // Check 2: URL
   if (URL_EXCLUDES.some(k => currentUrl.includes(k))) {
+      // console.log(`[FP-Shield] URL Whitelisted (Zero-Touch): ${currentUrl}`);
       if (typeof $done !== "undefined") $done({});
       return;
   }
 
   // ============================================================================
-  // Phase 3: Request Phase Skip
+  // 3) Request Phase Skip
   // ============================================================================
   if (typeof $request !== "undefined" && typeof $response === "undefined") {
     $done({});
@@ -134,27 +100,58 @@
   }
 
   // ============================================================================
-  // Phase 4: HTML Injection
+  // 4) HTML Injection (Core Logic)
   // ============================================================================
   if (typeof $response !== "undefined") {
-    const body = $response.body;
-    if (!body) { $done({}); return; }
-
+    // [SAFETY] Check content type first to avoid reading body of binary/stream
     const headers = $response.headers || {};
     const ct = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
     
-    if (!ct.includes("text/html")) { $done({}); return; }
+    if (!ct.includes("text/html")) { 
+        $done({}); 
+        return; 
+    }
 
+    const body = $response.body;
+    if (!body) { $done({}); return; }
+
+    const CONST = {
+        KEY: "FP_SHIELD_ID_V1014", 
+        MARKER: "__FP_SHIELD_INJECTED__",
+        NOISE_STEP: 4 
+    };
+
+    // Optimization: Chunk Scan
     const chunk = body.substring(0, 3000);
     if (chunk.includes(CONST.MARKER)) { $done({}); return; }
 
     let csp = "";
     Object.keys(headers).forEach(k => { if(k.toLowerCase() === "content-security-policy") csp = headers[k]; });
-    
     const m = chunk.match(/nonce=["']?([^"'\s>]+)["']?/i);
     const nonce = m ? m[1] : "";
     
     if ((csp && !csp.includes("'unsafe-inline'")) && !nonce) { $done({}); return; }
+
+    // Seed Generation (On Demand)
+    const SEED = (function () {
+        const now = Date.now();
+        let s = 12345;
+        try {
+            const stored = localStorage.getItem(CONST.KEY);
+            if (stored) {
+                const [val, exp] = stored.split("|");
+                if (now < parseInt(exp, 10)) s = parseInt(val, 10);
+                else {
+                    s = (now ^ (Math.random() * 1e8)) >>> 0;
+                    localStorage.setItem(CONST.KEY, `${s}|${now + 2592000000}`);
+                }
+            } else {
+                s = (now ^ (Math.random() * 1e8)) >>> 0;
+                localStorage.setItem(CONST.KEY, `${s}|${now + 2592000000}`);
+            }
+        } catch (e) {}
+        return s;
+    })();
 
     const INJECT_CFG = { s: SEED, step: CONST.NOISE_STEP };
 
