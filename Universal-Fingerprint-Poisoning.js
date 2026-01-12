@@ -1,15 +1,15 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.35-Zero-Trust-Patch
+ * @version   10.38-Remote-Control-Patch
  * @author    Jerry's AI Assistant
  * @updated   2026-01-12
  * ----------------------------------------------------------------------------
- * [V10.35 零信任架構修復版]:
- * 1) [CRITICAL] 新增 "cloudflareaccess.com" 至白名單。
- * - 解決 Cloudflare Zero Trust (Team Login) 因裝置姿態檢測失敗導致無法登入的問題。
- * - 自動覆蓋所有子網域 (例如: my-company.cloudflareaccess.com)。
- * 2) [INFRA] 預防性加入 GitHub 與 GitLab 登入頁面，防止 2FA/SAML 驗證失敗。
- * 3) [BASELINE] 繼承 V10.34 的 VPN 與企業考勤防護架構。
+ * [V10.38 遠端桌面效能優化版]:
+ * 1) [RDP] 新增 "remotedesktop.google.com", "anydesk.com", "teamviewer.com"。
+ * - 解決遠端桌面網頁版因 Canvas 注入導致的畫面延遲與編碼卡頓。
+ * 2) [VDI] 新增 "guacamole" (Apache Guacamole) 關鍵字。
+ * - 覆蓋大多數自建的無依賴遠端桌面閘道 (Clientless RDP)。
+ * 3) [BASELINE] 繼承 V10.37 的開發者(Localhost)與會議(Zoom/Meet)防護架構。
  */
 
 (function () {
@@ -56,41 +56,58 @@
   })();
 
   // ============================================================================
-  // 2) Hardened Whitelist (Zero Trust Added)
+  // 2) Hardened Whitelist (Remote Desktop Added)
   // ============================================================================
   const EXCLUDES = [
-    // 1. Identity & Cloud Infra
+    // 1. Local Development
+    "localhost", "127.0.0.1", "0.0.0.0", "::1",
+
+    // 2. Remote Desktop & VDI [V10.38 NEW]
+    "remotedesktop.google.com", // Chrome Remote Desktop
+    "anydesk.com", // AnyDesk Web
+    "teamviewer.com", // TeamViewer Web
+    "realvnc.com", // RealVNC
+    "guacamole", // Apache Guacamole (Keyword match for path/domain)
+    "amazonworkspaces.com", // AWS WorkSpaces
+
+    // 3. Identity & Cloud Infra
     "accounts.google", "appleid.apple", "icloud.com", 
     "login.live.com", "microsoft.com", "sso", "oauth", 
+    "okta.com", "okta-emea.com", "auth0.com",
+    "cloudflareaccess.com", 
+    "github.com", "gitlab.com",
+    "atlassian.net", "jira.com", "trello.com",
     "recaptcha", "turnstile", "hcaptcha", "arkoselabs",
-    "github.com", "gitlab.com", // [V10.35] Code Hosting Auth
-    "cloudflareaccess.com", // [V10.35] Cloudflare Zero Trust
-    
-    // 2. Taiwan Banking & Gov
+
+    // 4. Video Conference (WebRTC P2P)
+    "zoom.us", "zoom.com", 
+    "meet.google", "hangouts.google", "teams.live", "teams.microsoft",
+    "webex.com",
+
+    // 5. Taiwan Banking & Gov
     "ctbc", "cathay", "esun", "fubon", "taishin", "megabank", 
     "landbank", "firstbank", "sinopac", "post.gov", "gov.tw",
     "nhi.gov.tw", "ris.gov.tw", "fido.gov.tw",
     
-    // 3. Payment Gateways
+    // 6. Payment Gateways
     "paypal", "stripe", "ecpay", "line.me", "jkos", "opay",
     
-    // 4. Enterprise & HR
+    // 7. Enterprise, HR & Productivity
     "104.com.tw", "larksuite", "lark.com", "dingtalk", 
     "workday", "mayhr", "apollo", 
     "slack", "discord", "telegram",
+    "notion.so", "notion.site", "figma.com",
 
-    // 5. VPN & Security Services
-    "nordaccount", "nordvpn", 
-    "surfshark", 
-    "expressvpn", 
+    // 8. VPN & Security Services
+    "nordaccount", "nordvpn", "surfshark", "expressvpn", 
     "proton", "mullvad", "ivpn",
     
-    // 6. E-Commerce & Content
+    // 9. E-Commerce & Content
     "feedly", 
     "shopee", "momo", "pchome", "books.com", "coupang", 
     "uber", "foodpanda", "netflix", "spotify", "youtube",
     
-    // 7. AI Services
+    // 10. AI Services
     "openai", "chatgpt", "claude", "gemini", "bing", "perplexity"
   ];
 
