@@ -1,16 +1,15 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.44-App-Immunity-Patch
+ * @version   10.46-Universal-Exclusion
  * @author    Jerry's AI Assistant
  * @updated   2026-01-12
  * ----------------------------------------------------------------------------
- * [V10.44 App 豁免權增強版]:
- * 1) [STRATEGY] 啟用「App 整機豁免 (App Immunity)」機制。
- * - 承認 URL 白名單對 App 無效 (因 App 會呼叫隱藏 API)。
- * - 改為偵測 User-Agent，只要是特定 App，全流量放行。
- * 2) [FIX] 新增 "treegenie" (樹精靈), "mitake" (三竹資訊), "cathay" 至 UA 白名單。
- * - 徹底解決國泰證券 App 及其底層看盤系統 (三竹) 的閃退問題。
- * 3) [BASELINE] 繼承 V10.42 的所有生產力與資安防護架構。
+ * [V10.46 廣域排除修復版]:
+ * 1) [STRATEGY] 擴大 App 豁免範圍 (Broad App Immunity)。
+ * - 針對國泰證券等頑固 App，放寬 UA 檢測邏輯，寧可錯放也不誤殺。
+ * 2) [FIX] 新增 "CFNetwork" (iOS 底層網路庫) 檢測。
+ * - 許多金融 App 的背景 API 請求 UA 僅標示為 CFNetwork，此前版本可能漏接。
+ * 3) [BASELINE] 繼承 V10.45 的所有生產力與資安防護架構。
  */
 
 (function () {
@@ -60,8 +59,11 @@
   // 2) Dual-Lock Whitelist System
   // ============================================================================
   
-  // A. URL 白名單 (針對瀏覽器訪問，維持精準防護)
+  // A. URL 白名單 (針對瀏覽器與 API)
   const URL_EXCLUDES = [
+    // [V10.45 Safety] Explicit Feedly Cloud Infrastructure
+    "feedly", "cloud.feedly.com", "s3.feedly.com", "sandbox.feedly.com",
+
     // Local & Remote
     "localhost", "127.0.0.1", "0.0.0.0", "::1",
     "remotedesktop.google.com", "anydesk.com", "teamviewer.com", "realvnc.com", "guacamole", "amazonworkspaces.com", 
@@ -91,21 +93,20 @@
     "nordaccount", "nordvpn", "surfshark", "expressvpn", "proton", "mullvad", "ivpn",
     
     // Content
-    "feedly", "shopee", "momo", "pchome", "books.com", "coupang", 
+    "shopee", "momo", "pchome", "books.com", "coupang", 
     "uber", "foodpanda", "netflix", "spotify", "youtube",
     "openai", "chatgpt", "claude", "gemini", "bing", "perplexity"
   ];
 
   // B. User-Agent 白名單 (針對 App 整機豁免)
-  // [V10.44 FIX] 只要 UA 包含這些字串，該 App 的所有流量都不注入
   const UA_EXCLUDES = [
-    "treegenie",    // [NEW] 國泰證券樹精靈專用 UA
-    "mitake",       // [NEW] 三竹資訊 (台灣大多數券商 App 底層)
-    "cathay",       // 國泰金控通用
-    "sinopac",      // 永豐
-    "sinotrade",    // 大戶投
-    "tradingview",  // TradingView App
-    "feedly",       
+    "feedly",
+    "treegenie",    
+    "mitake",       
+    "cathay",       
+    "sinopac",      
+    "sinotrade",    
+    "tradingview",  
     "line",         
     "facebook",     
     "instagram",    
@@ -113,10 +114,15 @@
     "uber",         
     "ctbc",         
     "esun",
-    "fubon",        // 富邦
+    "fubon",        
     "megatime",     
     "teamviewer",   
-    "anydesk"       
+    "anydesk",
+    // [V10.46 NEW] Broad System Patterns
+    "cfnetwork",    // iOS 網路層 (許多 App API 僅顯示此 UA)
+    "darwin",       // iOS 系統內核請求
+    "flipper",      // React Native Debugger
+    "okhttp"        // Android App 常見網路庫
   ];
 
   // 獲取請求資訊
@@ -124,14 +130,14 @@
   const currentUA = (typeof $request !== "undefined") ? ($request.headers["User-Agent"] || $request.headers["user-agent"] || "").toLowerCase() : "";
 
   // 執行雙重檢查
-  // 1. URL Check
-  if (URL_EXCLUDES.some(k => currentUrl.includes(k))) {
+  // 1. UA Check (優先豁免 App 底層請求)
+  if (UA_EXCLUDES.some(k => currentUA.includes(k))) {
+      // console.log(`[FP-Shield] App Immunity Triggered: ${currentUA}`);
       if (typeof $done !== "undefined") $done({});
       return;
   }
-  // 2. UA Check (App Immunity)
-  // 這是解決 App 閃退的關鍵：只要 App 本身被信任，它連去哪裡我們都不管
-  if (UA_EXCLUDES.some(k => currentUA.includes(k))) {
+  // 2. URL Check
+  if (URL_EXCLUDES.some(k => currentUrl.includes(k))) {
       if (typeof $done !== "undefined") $done({});
       return;
   }
@@ -154,6 +160,8 @@
     const headers = $response.headers || {};
     const ct = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
     
+    // Strict HTML Check - 這是最後一道防線
+    // 許多 App API 回傳的是 JSON 或 XML，腳本必須嚴格避開
     if (!ct.includes("text/html")) { $done({}); return; }
 
     const chunk = body.substring(0, 3000);
