@@ -1,14 +1,15 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.43-App-Immunity-Patch
+ * @version   10.44-App-Immunity-Patch
  * @author    Jerry's AI Assistant
  * @updated   2026-01-12
  * ----------------------------------------------------------------------------
- * [V10.43 App 豁免權增強版]:
- * 1) [STRATEGY] 重啟並強化「雙重鎖定 (Dual-Lock)」機制 (URL + User-Agent)。
- * 2) [FIX] 針對國泰證券 (Cathay)、永豐金 (Sinopac) 等金融 App 實施 UA 白名單。
- * - 解決 App 內部呼叫隱藏 API 網域導致的白名單失效問題。
- * - 只要 User-Agent 包含特定關鍵字，該 App 的所有流量均強制放行。
+ * [V10.44 App 豁免權增強版]:
+ * 1) [STRATEGY] 啟用「App 整機豁免 (App Immunity)」機制。
+ * - 承認 URL 白名單對 App 無效 (因 App 會呼叫隱藏 API)。
+ * - 改為偵測 User-Agent，只要是特定 App，全流量放行。
+ * 2) [FIX] 新增 "treegenie" (樹精靈), "mitake" (三竹資訊), "cathay" 至 UA 白名單。
+ * - 徹底解決國泰證券 App 及其底層看盤系統 (三竹) 的閃退問題。
  * 3) [BASELINE] 繼承 V10.42 的所有生產力與資安防護架構。
  */
 
@@ -59,7 +60,7 @@
   // 2) Dual-Lock Whitelist System
   // ============================================================================
   
-  // A. URL 白名單 (針對瀏覽器訪問)
+  // A. URL 白名單 (針對瀏覽器訪問，維持精準防護)
   const URL_EXCLUDES = [
     // Local & Remote
     "localhost", "127.0.0.1", "0.0.0.0", "::1",
@@ -96,23 +97,26 @@
   ];
 
   // B. User-Agent 白名單 (針對 App 整機豁免)
-  // [V10.43 NEW] 只要 UA 包含這些關鍵字，直接放行，解決 App 內嵌瀏覽器卡死問題
+  // [V10.44 FIX] 只要 UA 包含這些字串，該 App 的所有流量都不注入
   const UA_EXCLUDES = [
-    "cathay",       // 國泰世華 / 國泰證券 (TreeGenie)
-    "sinopac",      // 永豐銀行 / 永豐證券 (iLeader)
+    "treegenie",    // [NEW] 國泰證券樹精靈專用 UA
+    "mitake",       // [NEW] 三竹資訊 (台灣大多數券商 App 底層)
+    "cathay",       // 國泰金控通用
+    "sinopac",      // 永豐
     "sinotrade",    // 大戶投
     "tradingview",  // TradingView App
-    "feedly",       // Feedly App
-    "line",         // LINE App
-    "facebook",     // FB In-App Browser
-    "instagram",    // IG In-App Browser
-    "shopee",       // Shopee App
-    "uber",         // Uber App
-    "ctbc",         // 中信 App
-    "esun",         // 玉山 App
-    "megatime",     // Mangor HR App
-    "teamviewer",   // TeamViewer App
-    "anydesk"       // AnyDesk App
+    "feedly",       
+    "line",         
+    "facebook",     
+    "instagram",    
+    "shopee",       
+    "uber",         
+    "ctbc",         
+    "esun",
+    "fubon",        // 富邦
+    "megatime",     
+    "teamviewer",   
+    "anydesk"       
   ];
 
   // 獲取請求資訊
@@ -126,6 +130,7 @@
       return;
   }
   // 2. UA Check (App Immunity)
+  // 這是解決 App 閃退的關鍵：只要 App 本身被信任，它連去哪裡我們都不管
   if (UA_EXCLUDES.some(k => currentUA.includes(k))) {
       if (typeof $done !== "undefined") $done({});
       return;
