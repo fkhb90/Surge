@@ -1,16 +1,15 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.51-API-Heuristics-Patch
+ * @version   10.52-Direct-IP-Patch
  * @author    Jerry's AI Assistant
  * @updated   2026-01-12
  * ----------------------------------------------------------------------------
- * [V10.51 API 啟發式豁免版]:
- * 1) [STRATEGY] 引入「API 啟發式 (Heuristics)」檢測。
- * - 針對金融業常用的 Legacy 網頁架構 (ASPX, JSP, DJHTM) 進行寬容放行。
- * - 解決國泰/永豐等券商 App 個股頁面因網址特徵不明顯而被誤注入的問題。
- * 2) [FIX] 放寬 User-Agent 檢測邏輯。
- * - 針對 iOS App 內嵌 WebView (通常顯示為 Mobile Safari) 增加防禦性豁免。
- * 3) [BASELINE] 繼承 V10.50 的金融零接觸架構。
+ * [V10.52 直連 IP 修復版]:
+ * 1) [CRITICAL] 新增 "Direct IP (直連 IP)" 豁免機制。
+ * - 針對國泰/三竹等券商繞過 DNS 直接使用 IP (如 175.99.xx.xx) 連線的情況進行放行。
+ * - 解決因 URL 無域名特徵導致的白名單失效與報價協議崩潰。
+ * 2) [FIX] 明確加入 "175.99." (中華電信/三竹網段) 與 "210.61." (常見金融網段)。
+ * 3) [BASELINE] 繼承 V10.51 的 API 啟發式與 App 零接觸架構。
  */
 
 (function () {
@@ -34,7 +33,23 @@
   const currentUrl = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
   const currentUA = (typeof $request !== "undefined") ? ($request.headers["User-Agent"] || $request.headers["user-agent"] || "").toLowerCase() : "";
 
-  // A. App User-Agent Whitelist
+  // A. Direct IP Whitelist (Financial Subnets) [V10.52 NEW]
+  // 檢查 URL 是否包含已知的金融服務 IP 網段
+  const IP_EXCLUDES = [
+    "175.99.", // 三竹資訊/國泰報價伺服器 (User Reported: 175.99.79.152)
+    "210.61.", // 精誠/三竹 常見網段
+    "203.66.", // 中華電信金融專線
+    "211.23.", // 另一個常見金融區段
+    "203.69."  // 企業簡訊與 API 網關
+  ];
+
+  if (IP_EXCLUDES.some(ip => currentUrl.includes(ip))) {
+      // console.log(`[FP-Shield] Direct IP Whitelisted: ${currentUrl}`);
+      if (typeof $done !== "undefined") $done({});
+      return;
+  }
+
+  // B. App User-Agent Whitelist
   const UA_EXCLUDES = [
     "cathay", "cathaysec", "treegenie", 
     "mitake", "iwow", "systex",         
@@ -43,8 +58,8 @@
     "fubon", "esun", "ctbc", "landbank", 
     "teamviewer", "anydesk", "splashtop", 
     "cfnetwork", "darwin", "okhttp",      
-    "applewebkit", // 內核保護
-    "mobile/15e148" // 特殊版本號豁免 (常見於 iOS 內嵌瀏覽器)
+    "applewebkit", 
+    "mobile/15e148"
   ];
 
   if (UA_EXCLUDES.some(k => currentUA.includes(k))) {
@@ -52,18 +67,21 @@
       return;
   }
 
-  // B. URL Keyword Whitelist (Broad & Legacy)
+  // C. URL Keyword Whitelist (Broad & Legacy)
   const URL_EXCLUDES = [
-    // [V10.51 NEW] Legacy Financial Web Extensions & Patterns
-    ".djhtm", ".aspx", ".jsp", ".php", ".ashx", // 常見金融後端
-    "webapi", "mobileapi", "app_service", "ws_service", // API 路徑
-    "gw.cathay", "sap.cathay", // 國泰特有網關
+    // [V10.52 Refined] Specific Paths for Direct IP fallback
+    "/z/zc/", "/djhtm", "/api/", // MoneyDJ/XQ patterns
+    
+    // Legacy
+    ".djhtm", ".aspx", ".jsp", ".php", ".ashx",
+    "webapi", "mobileapi", "app_service", "ws_service",
+    "gw.cathay", "sap.cathay", 
     
     // Financial Keywords
     "quote", "chart", "tick", "finance", "stock", "trading", "market", 
     "kline", "technical", "analysis", "price", "realtime", "overview", "detail",
     
-    // Core Vendors
+    // Vendors
     "sysjust", "justaca", "xq", "iwow", "systex", "mitake",
     "cmoney", "moneydj", "cnyes", "yahoo", "yimg", "bloomberg", "investing", "tdcc", "wantgoo",
 
@@ -89,8 +107,7 @@
       return;
   }
 
-  // [V10.51 NEW] API Heuristics (最後一道防線)
-  // 如果 URL 看起來像是資料接口而非網頁，強制跳過
+  // API Heuristics
   if (currentUrl.includes("/api/") || currentUrl.includes("/service/") || currentUrl.includes("/data/")) {
       if (typeof $done !== "undefined") $done({});
       return;
@@ -111,7 +128,6 @@
     const headers = $response.headers || {};
     const ct = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
     
-    // Strict HTML Check
     if (!ct.includes("text/html")) { 
         $done({}); 
         return; 
