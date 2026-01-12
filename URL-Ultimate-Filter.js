@@ -1,9 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.63.js
- * @version   41.63 (Feedly API Fix)
- * @description [V41.63] Feedly 修復版：
- * 1. [Fix] 放行 Feedly API 關鍵參數 (ct, cv)，解決行動版無法載入訂閱列表問題。
- * 2. [Core] 包含 V41.62 的所有金融 App 修復與 P0/ChatGPT 防護規則。
+ * @file      URL-Ultimate-Filter-Surge-V41.60.js
+ * @version   41.60 (Platinum Architecture)
+ * @description [V41.60] 架構重構與優化最終版：
+ * 1. [Core] 恢復四層過濾漏斗架構 (P0 Path -> P0 Domain -> Whitelist -> Standard)。
+ * 2. [Refactor] 邏輯完全封裝，主流程精簡化。
+ * 3. [Perf] 實作 Regex 惰性編譯與多級 LRU 快取。
  * @author    Claude & Gemini & Acterus
  * @lastUpdated 2026-01-12
  */
@@ -63,20 +64,13 @@ const RULES = {
             'graph.threads.net', 'i.instagram.com', 'iappapi.investing.com', 'today.line.me', 't.uber.com', 'gov.tw'
         ]),
         WILDCARDS: [
-            // Financial & Trading Critical Whitelist
-            'cathaysec.com.tw', 'systex.com.tw', 'mitake.com.tw', 'moneydj.com',
-            'cmoney.tw', 'xq.com.tw', 'money-link.com.tw', 'x-quote.com.tw',
-            'fugle.tw', 'sinotrade.com.tw', 'capital.com.tw', 'kgi.com.tw',
-            'yuanta.com.tw', 'masterlink.com.tw',
-            
-            // Existing Wildcards
             'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw',
             'richart.tw', 'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'icloud.com', 'apple.com',
-            'whatsapp.net', 'update.microsoft.com', 'windowsupdate.com', 'bot.com.tw', 'chb.com.tw', 
-            'citibank.com.tw', 'dawho.tw', 'dbs.com.tw', 'firstbank.com.tw', 'hncb.com.tw',
-            'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw', 'megabank.com.tw', 'megatime.com.tw', 
-            'momopay.com.tw', 'mymobibank.com.tw', 'paypal.com', 'scsb.com.tw', 'sinopac.com',
-            'standardchartered.com.tw', 'stripe.com', 'taipeifubon.com.tw', 'taiwanpay.com.tw',
+            'whatsapp.net', 'update.microsoft.com', 'windowsupdate.com', 'bot.com.tw', 'cathaysec.com.tw',
+            'chb.com.tw', 'citibank.com.tw', 'dawho.tw', 'dbs.com.tw', 'firstbank.com.tw', 'hncb.com.tw',
+            'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw', 'megabank.com.tw', 'megatime.com.tw', 'mitake.com.tw',
+            'money-link.com.tw', 'momopay.com.tw', 'mymobibank.com.tw', 'paypal.com', 'scsb.com.tw', 'sinopac.com',
+            'sinotrade.com.tw', 'standardchartered.com.tw', 'stripe.com', 'taipeifubon.com.tw', 'taiwanpay.com.tw',
             'tcb-bank.com.tw', 'org.tw', 'pay.taipei', 'tdcc.com.tw', 'twca.com.tw', 'twmp.com.tw', 'app.goo.gl',
             'goo.gl', 'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io', 'linksyssmartwifi.com', 'archive.is',
             'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com', 'perma.cc',
@@ -438,9 +432,7 @@ const RULES = {
             'timestamp', 'type', 'withStats', 'access_token', 'client_assertion', 'client_id', 'device_id',
             'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope', 'direction', 'limit', 'offset',
             'order', 'page_number', 'size', 'sort', 'sort_by', 'aff_sub', 'click_id', 'deal_id', 'offer_id',
-            'cancel_url', 'error_url', 'return_url', 'success_url', 
-            // [V41.63 Fix] Feedly API params
-            'ct', 'cv'
+            'cancel_url', 'error_url', 'return_url', 'success_url'
         ]),
         EXEMPTIONS: new Map([['www.google.com', new Set(['/maps/'])]])
     }
@@ -471,16 +463,12 @@ class HighPerformanceLRUCache {
         if (!this.cache.has(key)) return null;
         const entry = this.cache.get(key);
         if (Date.now() > entry.expiry) { this.cache.delete(key); return null; }
-        this.cache.delete(key); this.cache.set(key, entry); // Refresh
+        this.cache.delete(key); this.cache.set(key, entry);
         return entry.value;
     }
     set(key, value, ttl = 300000) {
         if (this.cache.size >= this.limit) this.cache.delete(this.cache.keys().next().value);
         this.cache.set(key, { value, expiry: Date.now() + ttl });
-    }
-    seed() {
-        CONFIG.HARD_WHITELIST_EXACT.forEach(domain => this.set(domain, 'ALLOW', 86400000));
-        CONFIG.PRIORITY_BLOCK_DOMAINS.forEach(domain => this.set(domain, 'BLOCK', 86400000));
     }
 }
 
@@ -647,5 +635,5 @@ if (typeof $request !== 'undefined') {
     initialize();
     $done(processRequest($request));
 } else {
-    $done({ title: "URL Ultimate Filter", content: `V41.63 Active\n${stats.toString()}` });
+    $done({ title: "URL Ultimate Filter", content: `V41.60 Active\n${stats.toString()}` });
 }
