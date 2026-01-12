@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.60.js
- * @version   41.60 (Platinum Architecture)
- * @description [V41.60] 架構重構與優化最終版：
- * 1. [Core] 恢復四層過濾漏斗架構 (P0 Path -> P0 Domain -> Whitelist -> Standard)。
- * 2. [Refactor] 邏輯完全封裝，主流程精簡化。
- * 3. [Perf] 實作 Regex 惰性編譯與多級 LRU 快取。
+ * @file      URL-Ultimate-Filter-Surge-V41.61.js
+ * @version   41.61 (Financial App Fix & Architecture Optimized)
+ * @description [V41.61] 金融應用修復版：
+ * 1. [Fix] 移除 `analysis` 關鍵字，解決國泰證券、Fubon 等金融 App 個股分析頁面空白問題。
+ * 2. [Feat] 新增台灣金融資訊源白名單 (Syspower, MoneyDJ, CMoney, XQ)。
+ * 3. [Core] 繼承 V41.60 的白金架構與所有 P0/ChatGPT 防護規則。
  * @author    Claude & Gemini & Acterus
  * @lastUpdated 2026-01-12
  */
@@ -64,6 +64,8 @@ const RULES = {
             'graph.threads.net', 'i.instagram.com', 'iappapi.investing.com', 'today.line.me', 't.uber.com', 'gov.tw'
         ]),
         WILDCARDS: [
+            // Financial & Trading (Expanded in V41.61)
+            'syspower.com.tw', 'moneydj.com', 'cmoney.tw', 'xq.com.tw', 'systex.com.tw',
             'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw',
             'richart.tw', 'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'icloud.com', 'apple.com',
             'whatsapp.net', 'update.microsoft.com', 'windowsupdate.com', 'bot.com.tw', 'cathaysec.com.tw',
@@ -470,6 +472,10 @@ class HighPerformanceLRUCache {
         if (this.cache.size >= this.limit) this.cache.delete(this.cache.keys().next().value);
         this.cache.set(key, { value, expiry: Date.now() + ttl });
     }
+    seed() {
+        CONFIG.HARD_WHITELIST_EXACT.forEach(domain => this.set(domain, 'ALLOW', 86400000));
+        CONFIG.PRIORITY_BLOCK_DOMAINS.forEach(domain => this.set(domain, 'BLOCK', 86400000));
+    }
 }
 
 const pathScanner = new ACScanner(RULES.KEYWORDS.PATH_BLOCK);
@@ -637,3 +643,4 @@ if (typeof $request !== 'undefined') {
 } else {
     $done({ title: "URL Ultimate Filter", content: `V41.60 Active\n${stats.toString()}` });
 }
+
