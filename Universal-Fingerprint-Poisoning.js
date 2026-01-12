@@ -1,22 +1,69 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.52-Direct-IP-Patch
+ * @version   10.54-Cathay-Pattern-Hardening
  * @author    Jerry's AI Assistant
  * @updated   2026-01-12
  * ----------------------------------------------------------------------------
- * [V10.52 直連 IP 修復版]:
- * 1) [CRITICAL] 新增 "Direct IP (直連 IP)" 豁免機制。
- * - 針對國泰/三竹等券商繞過 DNS 直接使用 IP (如 175.99.xx.xx) 連線的情況進行放行。
- * - 解決因 URL 無域名特徵導致的白名單失效與報價協議崩潰。
- * 2) [FIX] 明確加入 "175.99." (中華電信/三竹網段) 與 "210.61." (常見金融網段)。
- * 3) [BASELINE] 繼承 V10.51 的 API 啟發式與 App 零接觸架構。
+ * [V10.54 國泰網址特徵加固版]:
+ * 1) [STRATEGY] 實施「國泰體系暴力排除 (Cathay Pattern Hardening)」。
+ * - 不依賴通用關鍵字，直接窮舉國泰證券/銀行/樹精靈的所有已知網域變體。
+ * - 確保 cathaysec, cathay-sec, cathaybk 等特徵在腳本啟動瞬間即觸發放行。
+ * 2) [FIX] 針對 "175.99." 等直連 IP 維持最高優先級豁免。
+ * 3) [BASELINE] 繼承 V10.53 的安全模式架構。
  */
 
 (function () {
   "use strict";
 
   // ============================================================================
-  // 1) Pre-Check: Kill Switch & Shopping Mode
+  // 1) Extreme Pre-Check (Cathay Patterns Priority)
+  // ============================================================================
+  
+  const u = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
+  const ua = (typeof $request !== "undefined") ? ($request.headers["User-Agent"] || $request.headers["user-agent"] || "").toLowerCase() : "";
+
+  // [V10.54 NEW] Cathay Specific Patterns (The "Hardcoded" List)
+  if (
+      // Domain Patterns
+      u.includes("cathaysec") || 
+      u.includes("cathay-sec") || 
+      u.includes("cathaybk") || 
+      u.includes("cathayholdings") || 
+      u.includes("cathaylife") ||
+      u.includes("kokobank") ||
+      u.includes("treegenie") ||
+      // Broad Match (Risk Accepted for Stability)
+      u.includes("cathay") ||
+      
+      // Known IPs (Mitake/Cathay Quote Servers)
+      u.includes("175.99.") || 
+      u.includes("210.61.") || 
+      u.includes("203.66.") ||
+      
+      // App Specific UAs
+      ua.includes("treegenie") || 
+      ua.includes("cathay") || 
+      ua.includes("mitake")
+  ) {
+      if (typeof $done !== "undefined") $done({});
+      return;
+  }
+
+  // ============================================================================
+  // 2) Financial & Infrastructure Broad Check
+  // ============================================================================
+  if (
+      // Broker Domains & Keywords
+      u.includes("sinopac") || u.includes("sinotrade") || u.includes("mitake") ||
+      u.includes("djhtm") || u.includes("quote") || u.includes("chart") ||
+      u.includes("api/v") || u.includes("mobileapi") // Common API paths
+  ) {
+      if (typeof $done !== "undefined") $done({});
+      return;
+  }
+
+  // ============================================================================
+  // 3) Mode Check
   // ============================================================================
   if (typeof $persistentStore !== "undefined") {
       const currentMode = $persistentStore.read("FP_MODE");
@@ -27,94 +74,27 @@
   }
 
   // ============================================================================
-  // 2) Zero-Touch Whitelist (Immediate Exit)
+  // 4) General Whitelist
   // ============================================================================
-  
-  const currentUrl = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
-  const currentUA = (typeof $request !== "undefined") ? ($request.headers["User-Agent"] || $request.headers["user-agent"] || "").toLowerCase() : "";
-
-  // A. Direct IP Whitelist (Financial Subnets) [V10.52 NEW]
-  // 檢查 URL 是否包含已知的金融服務 IP 網段
-  const IP_EXCLUDES = [
-    "175.99.", // 三竹資訊/國泰報價伺服器 (User Reported: 175.99.79.152)
-    "210.61.", // 精誠/三竹 常見網段
-    "203.66.", // 中華電信金融專線
-    "211.23.", // 另一個常見金融區段
-    "203.69."  // 企業簡訊與 API 網關
-  ];
-
-  if (IP_EXCLUDES.some(ip => currentUrl.includes(ip))) {
-      // console.log(`[FP-Shield] Direct IP Whitelisted: ${currentUrl}`);
-      if (typeof $done !== "undefined") $done({});
-      return;
-  }
-
-  // B. App User-Agent Whitelist
-  const UA_EXCLUDES = [
-    "cathay", "cathaysec", "treegenie", 
-    "mitake", "iwow", "systex",         
-    "sinopac", "sinotrade",             
-    "tradingview", "feedly", "megatime", "104app",
-    "fubon", "esun", "ctbc", "landbank", 
-    "teamviewer", "anydesk", "splashtop", 
-    "cfnetwork", "darwin", "okhttp",      
-    "applewebkit", 
-    "mobile/15e148"
-  ];
-
-  if (UA_EXCLUDES.some(k => currentUA.includes(k))) {
-      if (typeof $done !== "undefined") $done({});
-      return;
-  }
-
-  // C. URL Keyword Whitelist (Broad & Legacy)
-  const URL_EXCLUDES = [
-    // [V10.52 Refined] Specific Paths for Direct IP fallback
-    "/z/zc/", "/djhtm", "/api/", // MoneyDJ/XQ patterns
-    
-    // Legacy
-    ".djhtm", ".aspx", ".jsp", ".php", ".ashx",
-    "webapi", "mobileapi", "app_service", "ws_service",
-    "gw.cathay", "sap.cathay", 
-    
-    // Financial Keywords
-    "quote", "chart", "tick", "finance", "stock", "trading", "market", 
-    "kline", "technical", "analysis", "price", "realtime", "overview", "detail",
-    
-    // Vendors
-    "sysjust", "justaca", "xq", "iwow", "systex", "mitake",
-    "cmoney", "moneydj", "cnyes", "yahoo", "yimg", "bloomberg", "investing", "tdcc", "wantgoo",
-
-    // Security & Infra
-    "hitrust", "twca", "verisign", "symcd", "digicert", "globalsign",
-    "cloudfront", "akamai", "azureedge", "googleapis", "gstatic", "hinet",
-
-    // Remote & SaaS
-    "localhost", "127.0.0.1", "::1", "remotedesktop", "guacamole", "amazonworkspaces",
-    "accounts", "login", "sso", "oauth", "okta", "auth0", "cloudflareaccess",
-    "github", "gitlab", "atlassian", "jira", "trello", 
+  const EXCLUDES = [
+    "tradingview", "feedly", "megatime", "104.com",
+    "shopee", "momo", "pchome", "books.com", "coupang", 
+    "uber", "foodpanda", "netflix", "spotify", "youtube",
+    "line", "facebook", "instagram", "telegram", "discord", "slack",
     "zoom", "meet.google", "teams", "webex",
-
-    // Specific Domains
-    "cathay", "cathaysec", "sinopac", "sinotrade", "post.gov", "gov.tw",
-    "104.com", "megatime", "lark", "dingtalk", "workday",
-    "nord", "surfshark", "expressvpn", "proton",
-    "shopee", "momo", "feedly"
+    "localhost", "127.0.0.1", "::1",
+    "accounts", "login", "sso", "oauth", "okta", "auth0",
+    "appleid", "icloud", "microsoft", "google",
+    "cfnetwork", "darwin"
   ];
 
-  if (URL_EXCLUDES.some(k => currentUrl.includes(k))) {
-      if (typeof $done !== "undefined") $done({});
-      return;
-  }
-
-  // API Heuristics
-  if (currentUrl.includes("/api/") || currentUrl.includes("/service/") || currentUrl.includes("/data/")) {
+  if (EXCLUDES.some(k => u.includes(k) || ua.includes(k))) {
       if (typeof $done !== "undefined") $done({});
       return;
   }
 
   // ============================================================================
-  // 3) Request Phase Skip
+  // 5) Request Phase Skip
   // ============================================================================
   if (typeof $request !== "undefined" && typeof $response === "undefined") {
     $done({});
@@ -122,16 +102,13 @@
   }
 
   // ============================================================================
-  // 4) HTML Injection (Core Logic)
+  // 6) HTML Injection
   // ============================================================================
   if (typeof $response !== "undefined") {
     const headers = $response.headers || {};
     const ct = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
     
-    if (!ct.includes("text/html")) { 
-        $done({}); 
-        return; 
-    }
+    if (!ct.includes("text/html")) { $done({}); return; }
 
     const body = $response.body;
     if (!body) { $done({}); return; }
@@ -145,35 +122,27 @@
     const chunk = body.substring(0, 3000);
     if (chunk.includes(CONST.MARKER)) { $done({}); return; }
 
-    let csp = "";
-    Object.keys(headers).forEach(k => { if(k.toLowerCase() === "content-security-policy") csp = headers[k]; });
-    const m = chunk.match(/nonce=["']?([^"'\s>]+)["']?/i);
-    const nonce = m ? m[1] : "";
-    
-    if ((csp && !csp.includes("'unsafe-inline'")) && !nonce) { $done({}); return; }
-
-    const INJECT_CFG = { 
-        s: (function () {
-            const now = Date.now();
-            let s = 12345;
-            try {
-                const stored = localStorage.getItem(CONST.KEY);
-                if (stored) {
-                    const [val, exp] = stored.split("|");
-                    if (now < parseInt(exp, 10)) s = parseInt(val, 10);
-                    else {
-                        s = (now ^ (Math.random() * 1e8)) >>> 0;
-                        localStorage.setItem(CONST.KEY, `${s}|${now + 2592000000}`);
-                    }
-                } else {
+    const SEED = (function () {
+        const now = Date.now();
+        let s = 12345;
+        try {
+            const stored = localStorage.getItem(CONST.KEY);
+            if (stored) {
+                const [val, exp] = stored.split("|");
+                if (now < parseInt(exp, 10)) s = parseInt(val, 10);
+                else {
                     s = (now ^ (Math.random() * 1e8)) >>> 0;
                     localStorage.setItem(CONST.KEY, `${s}|${now + 2592000000}`);
                 }
-            } catch (e) {}
-            return s;
-        })(), 
-        step: CONST.NOISE_STEP 
-    };
+            } else {
+                s = (now ^ (Math.random() * 1e8)) >>> 0;
+                localStorage.setItem(CONST.KEY, `${s}|${now + 2592000000}`);
+            }
+        } catch (e) {}
+        return s;
+    })();
+
+    const INJECT_CFG = { s: SEED, step: CONST.NOISE_STEP };
 
     const MODULE = `
     (function(w) {
