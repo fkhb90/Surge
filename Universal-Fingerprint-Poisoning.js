@@ -1,13 +1,14 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.39-MegaTime-Patch
+ * @version   10.42-SinopacSec-Patch
  * @author    Jerry's AI Assistant
  * @updated   2026-01-12
  * ----------------------------------------------------------------------------
- * [V10.39 考勤系統擴充版]:
- * 1) [HR] 新增 "megatime.com.tw" (梅迦科技/Mangor) 至白名單。
- * - 解決雲端人資系統線上打卡時，因指紋防護導致的地圖定位失敗或裝置驗證錯誤。
- * 2) [BASELINE] 繼承 V10.38 的遠端桌面 (RDP) 與開發者環境優化架構。
+ * [V10.42 永豐證券修復版]:
+ * 1) [FIX] 新增 "sinotrade.com.tw" (永豐金證券) 至白名單。
+ * - 解決大戶投與理財網因 Canvas/Worker 注入導致的報價延遲或下單功能異常。
+ * - 配合既有的 "sinopac" 關鍵字，完整覆蓋永豐金控 (銀行+證券) 生態系。
+ * 2) [BASELINE] 繼承 V10.41 的 TradingView 技術分析與集保資產防護架構。
  */
 
 (function () {
@@ -54,7 +55,7 @@
   })();
 
   // ============================================================================
-  // 2) Hardened Whitelist (MegaTime Added)
+  // 2) Hardened Whitelist (Sinopac Securities Added)
   // ============================================================================
   const EXCLUDES = [
     // 1. Local Development
@@ -82,32 +83,41 @@
     "meet.google", "hangouts.google", "teams.live", "teams.microsoft",
     "webex.com",
 
-    // 5. Taiwan Banking & Gov
-    "ctbc", "cathay", "esun", "fubon", "taishin", "megabank", 
-    "landbank", "firstbank", "sinopac", "post.gov", "gov.tw",
+    // 5. Financial & Trading Tools [V10.42 Expanded]
+    "tradingview.com", 
+    "tdcc.com.tw", 
+    "cnyes.com", 
+    "wantgoo.com", 
+    
+    // 6. Taiwan Banking & Securities [V10.42 Expanded]
+    "ctbc", 
+    "cathay", "cathaysec.com.tw", 
+    "esun", "fubon", "taishin", "megabank", 
+    "landbank", "firstbank", 
+    "sinopac", "sinotrade.com.tw", // [V10.42 ADDED] 永豐金證券/大戶投
+    "post.gov", "gov.tw",
     "nhi.gov.tw", "ris.gov.tw", "fido.gov.tw",
     
-    // 6. Payment Gateways
+    // 7. Payment Gateways
     "paypal", "stripe", "ecpay", "line.me", "jkos", "opay",
     
-    // 7. Enterprise, HR & Productivity
-    "104.com.tw", 
-    "megatime.com.tw", // [V10.39 ADDED] 梅迦科技/Mangor HR
+    // 8. Enterprise, HR & Productivity
+    "104.com.tw", "megatime.com.tw",
     "larksuite", "lark.com", "dingtalk", 
     "workday", "mayhr", "apollo", 
     "slack", "discord", "telegram",
     "notion.so", "notion.site", "figma.com",
 
-    // 8. VPN & Security Services
+    // 9. VPN & Security Services
     "nordaccount", "nordvpn", "surfshark", "expressvpn", 
     "proton", "mullvad", "ivpn",
     
-    // 9. E-Commerce & Content
+    // 10. E-Commerce & Content
     "feedly", 
     "shopee", "momo", "pchome", "books.com", "coupang", 
     "uber", "foodpanda", "netflix", "spotify", "youtube",
     
-    // 10. AI Services
+    // 11. AI Services
     "openai", "chatgpt", "claude", "gemini", "bing", "perplexity"
   ];
 
@@ -269,5 +279,3 @@ ${nonce ? `<script nonce="${nonce}">` : `<script>`}
     $done({ body: newBody });
   }
 })();
-
-
