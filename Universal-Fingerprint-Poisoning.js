@@ -1,14 +1,15 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.42-SinopacSec-Patch
+ * @version   10.43-App-Immunity-Patch
  * @author    Jerry's AI Assistant
  * @updated   2026-01-12
  * ----------------------------------------------------------------------------
- * [V10.42 永豐證券修復版]:
- * 1) [FIX] 新增 "sinotrade.com.tw" (永豐金證券) 至白名單。
- * - 解決大戶投與理財網因 Canvas/Worker 注入導致的報價延遲或下單功能異常。
- * - 配合既有的 "sinopac" 關鍵字，完整覆蓋永豐金控 (銀行+證券) 生態系。
- * 2) [BASELINE] 繼承 V10.41 的 TradingView 技術分析與集保資產防護架構。
+ * [V10.43 App 豁免權增強版]:
+ * 1) [STRATEGY] 重啟並強化「雙重鎖定 (Dual-Lock)」機制 (URL + User-Agent)。
+ * 2) [FIX] 針對國泰證券 (Cathay)、永豐金 (Sinopac) 等金融 App 實施 UA 白名單。
+ * - 解決 App 內部呼叫隱藏 API 網域導致的白名單失效問題。
+ * - 只要 User-Agent 包含特定關鍵字，該 App 的所有流量均強制放行。
+ * 3) [BASELINE] 繼承 V10.42 的所有生產力與資安防護架構。
  */
 
 (function () {
@@ -29,7 +30,7 @@
   // 1) Config & Seed
   // ============================================================================
   const CONST = {
-    KEY: "FP_SHIELD_ID_V1014", // 保持 ID 連貫性
+    KEY: "FP_SHIELD_ID_V1014", 
     MARKER: "__FP_SHIELD_INJECTED__",
     NOISE_STEP: 4 
   };
@@ -55,76 +56,77 @@
   })();
 
   // ============================================================================
-  // 2) Hardened Whitelist (Sinopac Securities Added)
+  // 2) Dual-Lock Whitelist System
   // ============================================================================
-  const EXCLUDES = [
-    // 1. Local Development
+  
+  // A. URL 白名單 (針對瀏覽器訪問)
+  const URL_EXCLUDES = [
+    // Local & Remote
     "localhost", "127.0.0.1", "0.0.0.0", "::1",
+    "remotedesktop.google.com", "anydesk.com", "teamviewer.com", "realvnc.com", "guacamole", "amazonworkspaces.com", 
 
-    // 2. Remote Desktop & VDI
-    "remotedesktop.google.com", 
-    "anydesk.com", 
-    "teamviewer.com", 
-    "realvnc.com", 
-    "guacamole", 
-    "amazonworkspaces.com", 
-
-    // 3. Identity & Cloud Infra
-    "accounts.google", "appleid.apple", "icloud.com", 
-    "login.live.com", "microsoft.com", "sso", "oauth", 
-    "okta.com", "okta-emea.com", "auth0.com",
-    "cloudflareaccess.com", 
-    "github.com", "gitlab.com",
-    "atlassian.net", "jira.com", "trello.com",
+    // Identity
+    "accounts.google", "appleid.apple", "icloud.com", "login.live.com", "microsoft.com", 
+    "sso", "oauth", "okta.com", "okta-emea.com", "auth0.com", "cloudflareaccess.com", 
+    "github.com", "gitlab.com", "atlassian.net", "jira.com", "trello.com",
     "recaptcha", "turnstile", "hcaptcha", "arkoselabs",
 
-    // 4. Video Conference (WebRTC P2P)
-    "zoom.us", "zoom.com", 
-    "meet.google", "hangouts.google", "teams.live", "teams.microsoft",
-    "webex.com",
+    // Conference
+    "zoom.us", "zoom.com", "meet.google", "hangouts.google", "teams.live", "teams.microsoft", "webex.com",
 
-    // 5. Financial & Trading Tools [V10.42 Expanded]
-    "tradingview.com", 
-    "tdcc.com.tw", 
-    "cnyes.com", 
-    "wantgoo.com", 
-    
-    // 6. Taiwan Banking & Securities [V10.42 Expanded]
-    "ctbc", 
-    "cathay", "cathaysec.com.tw", 
-    "esun", "fubon", "taishin", "megabank", 
-    "landbank", "firstbank", 
-    "sinopac", "sinotrade.com.tw", // [V10.42 ADDED] 永豐金證券/大戶投
-    "post.gov", "gov.tw",
+    // Financial & Trading
+    "tradingview.com", "tdcc.com.tw", "cnyes.com", "wantgoo.com", 
+    "ctbc", "cathay", "cathaysec.com.tw", "esun", "fubon", "taishin", "megabank", 
+    "landbank", "firstbank", "sinopac", "sinotrade.com.tw", "post.gov", "gov.tw",
     "nhi.gov.tw", "ris.gov.tw", "fido.gov.tw",
-    
-    // 7. Payment Gateways
     "paypal", "stripe", "ecpay", "line.me", "jkos", "opay",
     
-    // 8. Enterprise, HR & Productivity
-    "104.com.tw", "megatime.com.tw",
-    "larksuite", "lark.com", "dingtalk", 
-    "workday", "mayhr", "apollo", 
-    "slack", "discord", "telegram",
+    // Enterprise & HR
+    "104.com.tw", "megatime.com.tw", "larksuite", "lark.com", "dingtalk", 
+    "workday", "mayhr", "apollo", "slack", "discord", "telegram",
     "notion.so", "notion.site", "figma.com",
 
-    // 9. VPN & Security Services
-    "nordaccount", "nordvpn", "surfshark", "expressvpn", 
-    "proton", "mullvad", "ivpn",
+    // VPN & Security
+    "nordaccount", "nordvpn", "surfshark", "expressvpn", "proton", "mullvad", "ivpn",
     
-    // 10. E-Commerce & Content
-    "feedly", 
-    "shopee", "momo", "pchome", "books.com", "coupang", 
+    // Content
+    "feedly", "shopee", "momo", "pchome", "books.com", "coupang", 
     "uber", "foodpanda", "netflix", "spotify", "youtube",
-    
-    // 11. AI Services
     "openai", "chatgpt", "claude", "gemini", "bing", "perplexity"
   ];
 
-  const url = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
-  
-  // Fast Check: O(1) 複雜度
-  if (EXCLUDES.some(k => url.includes(k))) {
+  // B. User-Agent 白名單 (針對 App 整機豁免)
+  // [V10.43 NEW] 只要 UA 包含這些關鍵字，直接放行，解決 App 內嵌瀏覽器卡死問題
+  const UA_EXCLUDES = [
+    "cathay",       // 國泰世華 / 國泰證券 (TreeGenie)
+    "sinopac",      // 永豐銀行 / 永豐證券 (iLeader)
+    "sinotrade",    // 大戶投
+    "tradingview",  // TradingView App
+    "feedly",       // Feedly App
+    "line",         // LINE App
+    "facebook",     // FB In-App Browser
+    "instagram",    // IG In-App Browser
+    "shopee",       // Shopee App
+    "uber",         // Uber App
+    "ctbc",         // 中信 App
+    "esun",         // 玉山 App
+    "megatime",     // Mangor HR App
+    "teamviewer",   // TeamViewer App
+    "anydesk"       // AnyDesk App
+  ];
+
+  // 獲取請求資訊
+  const currentUrl = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
+  const currentUA = (typeof $request !== "undefined") ? ($request.headers["User-Agent"] || $request.headers["user-agent"] || "").toLowerCase() : "";
+
+  // 執行雙重檢查
+  // 1. URL Check
+  if (URL_EXCLUDES.some(k => currentUrl.includes(k))) {
+      if (typeof $done !== "undefined") $done({});
+      return;
+  }
+  // 2. UA Check (App Immunity)
+  if (UA_EXCLUDES.some(k => currentUA.includes(k))) {
       if (typeof $done !== "undefined") $done({});
       return;
   }
