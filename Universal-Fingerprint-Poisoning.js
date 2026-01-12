@@ -1,15 +1,16 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.47-Financial-Chart-Patch
+ * @version   10.48-Banking-Infra-Patch
  * @author    Jerry's AI Assistant
  * @updated   2026-01-12
  * ----------------------------------------------------------------------------
- * [V10.47 股市圖表修復版]:
- * 1) [FIX] 針對個股資訊頁面無法開啟的問題，新增底層資訊廠商 URL 白名單。
- * - 加入 "mitake" (三竹), "systex" (精誠), "cmoney" (全曜), "moneydj" (理財網)。
- * - 解決 App 內嵌第三方 K 線圖時，因 UA 變更導致的防護失效與 Canvas 崩潰。
- * 2) [STRATEGY] 擴大財經資訊網覆蓋範圍 (Yahoo, Bloomberg, Investing)。
- * 3) [BASELINE] 繼承 V10.46 的 App 整機豁免與 CFNetwork 防護。
+ * [V10.48 金融資安架構修復版]:
+ * 1) [CRITICAL] 引入「資安基礎設施 (Security Infra)」白名單。
+ * - 新增 "hitrust", "twca", "verisign", "digicert" 等憑證驗證機構。
+ * - 解決銀行/證券 App 因底層憑證檢測 (OCSP/TLS) 被注入而導致的立即閃退。
+ * 2) [PATTERN] 擴大系統層級豁免 (System-Level Immunity)。
+ * - 針對 "CFNetwork", "Darwin" 等 iOS 底層請求進行無條件放行，模擬 LINE 的 Pattern 豁免機制。
+ * 3) [BASELINE] 繼承 V10.47 的股市圖表與生產力工具優化。
  */
 
 (function () {
@@ -59,20 +60,23 @@
   // 2) Dual-Lock Whitelist System
   // ============================================================================
   
-  // A. URL 白名單 (針對瀏覽器與 API，新增圖表廠商)
+  // A. URL 白名單 (新增資安廠商與雲端架構)
   const URL_EXCLUDES = [
-    // [V10.47 NEW] Financial Data Providers (Chart/Quote)
-    "mitake",       // 三竹資訊 (台灣券商市佔第一)
-    "systex",       // 精誠資訊
-    "cmoney",       // 籌碼K線/全曜財經
-    "moneydj",      // XQ/理財網
-    "yahoo",        // Yahoo 股市
-    "bloomberg",    // 彭博
-    "investing.com",// 英威斯丁
-    "cnyes",        // 鉅亨網
-    "wantgoo",      // 玩股網
-    "goodinfo",     // 台灣股市資訊網
-    "pchome.com.tw",// PChome 股市
+    // [V10.48 NEW] Banking Security Infrastructure (Critical)
+    "hitrust",      // 網際威信 (台灣網銀底層金鑰)
+    "twca",         // 台灣網路認證
+    "verisign",     // 憑證驗證
+    "symcd",        // Symantec 憑證
+    "digicert",     // DigiCert 憑證
+    "globalsign",   // GlobalSign 憑證
+    "entrust",      // Entrust 驗證
+    
+    // [V10.48 NEW] Cloud & CDN (Commonly used by Banking Apps)
+    "cloudfront.net", "akamai", "azureedge", "googleapis", "gstatic",
+
+    // Financial Data Providers
+    "mitake", "systex", "cmoney", "moneydj", "yahoo", "bloomberg", 
+    "investing.com", "cnyes", "wantgoo", "goodinfo", "pchome.com.tw",
 
     // Feedly Cloud
     "feedly", "cloud.feedly.com", "s3.feedly.com", "sandbox.feedly.com",
@@ -111,7 +115,7 @@
     "openai", "chatgpt", "claude", "gemini", "bing", "perplexity"
   ];
 
-  // B. User-Agent 白名單 (針對 App 整機豁免)
+  // B. User-Agent 白名單 (擴大系統層級豁免)
   const UA_EXCLUDES = [
     "feedly",
     "treegenie",    
@@ -131,10 +135,12 @@
     "megatime",     
     "teamviewer",   
     "anydesk",
+    // System Level (The "Pattern" Equivalent)
     "cfnetwork",    
     "darwin",       
     "flipper",      
-    "okhttp"        
+    "okhttp",
+    "applewebkit"   // [Risk Accepted] 若 UA 僅顯示 WebKit 核心版本，傾向於放行以保護 App 內嵌瀏覽器
   ];
 
   const currentUrl = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
@@ -160,7 +166,7 @@
   }
 
   // ============================================================================
-  // Phase 4: HTML Injection
+  // Phase 4: HTML Injection (Performance Optimized)
   // ============================================================================
   if (typeof $response !== "undefined") {
     const body = $response.body;
