@@ -1,13 +1,13 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.33-Enterprise-Gov-Whitelist
+ * @version   10.34-VPN-Compatibility
  * @author    Jerry's AI Assistant
  * @updated   2026-01-12
  * ----------------------------------------------------------------------------
- * [V10.33 企業與政府服務加固版]:
- * 1) [PREVENTIVE] 針對高敏感的企業考勤 (Lark/Workday) 與政府服務 (NHI/Gov) 預先加入白名單。
- * - 避免因 Canvas 指紋注入導致的「虛擬定位」誤判或裝置綁定失效。
- * 2) [BASELINE] 繼承 V10.32 的 104 PRO 修復與 V10.31 的 Feedly 修復。
+ * [V10.34 VPN 相容性修復版]:
+ * 1) [FIX] 針對 VPN 軟體 (Nord, Surfshark, Express, Proton) 的 Web 登入驗證進行白名單放行。
+ * - 防止因指紋注入導致 VPN App 登入時出現 CAPTCHA 迴圈或 "Suspicious Activity" 錯誤。
+ * 2) [BASELINE] 繼承 V10.33 的企業考勤與政府服務防護架構。
  */
 
 (function () {
@@ -54,7 +54,7 @@
   })();
 
   // ============================================================================
-  // 2) Hardened Whitelist (Enterprise & Gov Added)
+  // 2) Hardened Whitelist (VPN Services Added)
   // ============================================================================
   const EXCLUDES = [
     // 1. Identity & Cloud Infra
@@ -62,30 +62,33 @@
     "login.live.com", "microsoft.com", "sso", "oauth", 
     "recaptcha", "turnstile", "hcaptcha", "arkoselabs",
     
-    // 2. Taiwan Banking & Gov [V10.33 Expanded]
+    // 2. Taiwan Banking & Gov
     "ctbc", "cathay", "esun", "fubon", "taishin", "megabank", 
     "landbank", "firstbank", "sinopac", "post.gov", "gov.tw",
-    "nhi.gov.tw", // 健保署
-    "ris.gov.tw", // 戶政司
-    "fido.gov.tw", // 行動自然人憑證
+    "nhi.gov.tw", "ris.gov.tw", "fido.gov.tw",
     
     // 3. Payment Gateways
     "paypal", "stripe", "ecpay", "line.me", "jkos", "opay",
     
-    // 4. Enterprise & HR (High Sensitivity) [V10.33 Expanded]
-    "104.com.tw", // 104 PRO
-    "larksuite", "lark.com", // 飛書 Lark
-    "dingtalk", // 釘釘
-    "workday", // Workday HR
-    "mayhr", "apollo", // 雲端人資/Apollo
-    "slack", "discord", "telegram", // Collaboration
+    // 4. Enterprise & HR
+    "104.com.tw", "larksuite", "lark.com", "dingtalk", 
+    "workday", "mayhr", "apollo", 
+    "slack", "discord", "telegram",
+
+    // 5. VPN & Security Services [V10.34 ADDED]
+    "nordaccount", "nordvpn", // NordVPN
+    "surfshark", // Surfshark
+    "expressvpn", // ExpressVPN
+    "proton", "protonvpn", "proton.me", // ProtonVPN
+    "mullvad", // Mullvad
+    "ivpn", // IVPN
     
-    // 5. E-Commerce & Content
+    // 6. E-Commerce & Content
     "feedly", 
     "shopee", "momo", "pchome", "books.com", "coupang", 
     "uber", "foodpanda", "netflix", "spotify", "youtube",
     
-    // 6. AI Services
+    // 7. AI Services
     "openai", "chatgpt", "claude", "gemini", "bing", "perplexity"
   ];
 
