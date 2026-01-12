@@ -1,15 +1,16 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.50-Financial-Zero-Touch
+ * @version   10.51-API-Heuristics-Patch
  * @author    Jerry's AI Assistant
  * @updated   2026-01-12
  * ----------------------------------------------------------------------------
- * [V10.50 金融零接觸最終版]:
- * 1) [CORE] 實施「Zero-Touch (零接觸)」策略。
- * - 針對金融類請求，在腳本最頂層立即放行，完全不讀取 response.body。
- * - 解決即時報價串流 (Streaming/SSE) 因腳本緩衝而被截斷導致的圖表空白。
- * 2) [FIX] 新增 "cathaysec" (國泰證券 App UA), "iwow" (精誠資訊 API)。
- * 3) [BASELINE] 繼承 V10.49 的所有防護架構，但大幅提升金融 App 相容性。
+ * [V10.51 API 啟發式豁免版]:
+ * 1) [STRATEGY] 引入「API 啟發式 (Heuristics)」檢測。
+ * - 針對金融業常用的 Legacy 網頁架構 (ASPX, JSP, DJHTM) 進行寬容放行。
+ * - 解決國泰/永豐等券商 App 個股頁面因網址特徵不明顯而被誤注入的問題。
+ * 2) [FIX] 放寬 User-Agent 檢測邏輯。
+ * - 針對 iOS App 內嵌 WebView (通常顯示為 Mobile Safari) 增加防禦性豁免。
+ * 3) [BASELINE] 繼承 V10.50 的金融零接觸架構。
  */
 
 (function () {
@@ -29,64 +30,68 @@
   // ============================================================================
   // 2) Zero-Touch Whitelist (Immediate Exit)
   // ============================================================================
-  // 這些檢查必須在任何耗時操作前執行，以保護即時串流
   
   const currentUrl = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
   const currentUA = (typeof $request !== "undefined") ? ($request.headers["User-Agent"] || $request.headers["user-agent"] || "").toLowerCase() : "";
 
-  // A. App User-Agent Whitelist (App Immunity)
+  // A. App User-Agent Whitelist
   const UA_EXCLUDES = [
-    "cathay", "cathaysec", "treegenie", // 國泰體系
-    "mitake", "iwow", "systex",         // 底層看盤引擎 (三竹/精誠)
-    "sinopac", "sinotrade",             // 永豐
+    "cathay", "cathaysec", "treegenie", 
+    "mitake", "iwow", "systex",         
+    "sinopac", "sinotrade",             
     "tradingview", "feedly", "megatime", "104app",
-    "fubon", "esun", "ctbc", "landbank", // 其他銀行
-    "teamviewer", "anydesk", "splashtop", // 遠端
-    "cfnetwork", "darwin", "okhttp",      // 系統底層
-    "applewebkit" // 寬容模式：保護內嵌 WebView
+    "fubon", "esun", "ctbc", "landbank", 
+    "teamviewer", "anydesk", "splashtop", 
+    "cfnetwork", "darwin", "okhttp",      
+    "applewebkit", // 內核保護
+    "mobile/15e148" // 特殊版本號豁免 (常見於 iOS 內嵌瀏覽器)
   ];
 
   if (UA_EXCLUDES.some(k => currentUA.includes(k))) {
-      // console.log(`[FP-Shield] UA Whitelisted (Zero-Touch): ${currentUA}`);
       if (typeof $done !== "undefined") $done({});
       return;
   }
 
-  // B. URL Keyword Whitelist (Broad Financial Protection)
+  // B. URL Keyword Whitelist (Broad & Legacy)
   const URL_EXCLUDES = [
-    // Financial Streaming & API Keywords (The Nuclear Option)
-    "quote", "chart", "tick", "finance", "stock", "trading", "market", 
-    "kline", "technical", "analysis", "price", "realtime",
+    // [V10.51 NEW] Legacy Financial Web Extensions & Patterns
+    ".djhtm", ".aspx", ".jsp", ".php", ".ashx", // 常見金融後端
+    "webapi", "mobileapi", "app_service", "ws_service", // API 路徑
+    "gw.cathay", "sap.cathay", // 國泰特有網關
     
-    // Core Financial Vendors
-    "sysjust", "justaca", "xq",         // 嘉實/XQ
-    "iwow", "systex",                   // 精誠
-    "mitake",                           // 三竹
-    "cmoney", "moneydj", "cnyes",       // 財經網
-    "yahoo", "yimg", "bloomberg", "investing", "tdcc", "wantgoo",
+    // Financial Keywords
+    "quote", "chart", "tick", "finance", "stock", "trading", "market", 
+    "kline", "technical", "analysis", "price", "realtime", "overview", "detail",
+    
+    // Core Vendors
+    "sysjust", "justaca", "xq", "iwow", "systex", "mitake",
+    "cmoney", "moneydj", "cnyes", "yahoo", "yimg", "bloomberg", "investing", "tdcc", "wantgoo",
 
-    // Security & Infrastructure
+    // Security & Infra
     "hitrust", "twca", "verisign", "symcd", "digicert", "globalsign",
     "cloudfront", "akamai", "azureedge", "googleapis", "gstatic", "hinet",
 
-    // Remote & Dev
+    // Remote & SaaS
     "localhost", "127.0.0.1", "::1", "remotedesktop", "guacamole", "amazonworkspaces",
-
-    // Identity & SaaS
     "accounts", "login", "sso", "oauth", "okta", "auth0", "cloudflareaccess",
-    "github", "gitlab", "atlassian", "jira", "trello", "recaptcha", "turnstile",
-
-    // Conference
+    "github", "gitlab", "atlassian", "jira", "trello", 
     "zoom", "meet.google", "teams", "webex",
 
-    // Specific Domains (Banking/HR/VPN)
+    // Specific Domains
     "cathay", "cathaysec", "sinopac", "sinotrade", "post.gov", "gov.tw",
     "104.com", "megatime", "lark", "dingtalk", "workday",
-    "nord", "surfshark", "expressvpn", "proton"
+    "nord", "surfshark", "expressvpn", "proton",
+    "shopee", "momo", "feedly"
   ];
 
   if (URL_EXCLUDES.some(k => currentUrl.includes(k))) {
-      // console.log(`[FP-Shield] URL Whitelisted (Zero-Touch): ${currentUrl}`);
+      if (typeof $done !== "undefined") $done({});
+      return;
+  }
+
+  // [V10.51 NEW] API Heuristics (最後一道防線)
+  // 如果 URL 看起來像是資料接口而非網頁，強制跳過
+  if (currentUrl.includes("/api/") || currentUrl.includes("/service/") || currentUrl.includes("/data/")) {
       if (typeof $done !== "undefined") $done({});
       return;
   }
@@ -103,10 +108,10 @@
   // 4) HTML Injection (Core Logic)
   // ============================================================================
   if (typeof $response !== "undefined") {
-    // [SAFETY] Check content type first to avoid reading body of binary/stream
     const headers = $response.headers || {};
     const ct = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
     
+    // Strict HTML Check
     if (!ct.includes("text/html")) { 
         $done({}); 
         return; 
@@ -121,7 +126,6 @@
         NOISE_STEP: 4 
     };
 
-    // Optimization: Chunk Scan
     const chunk = body.substring(0, 3000);
     if (chunk.includes(CONST.MARKER)) { $done({}); return; }
 
@@ -132,28 +136,28 @@
     
     if ((csp && !csp.includes("'unsafe-inline'")) && !nonce) { $done({}); return; }
 
-    // Seed Generation (On Demand)
-    const SEED = (function () {
-        const now = Date.now();
-        let s = 12345;
-        try {
-            const stored = localStorage.getItem(CONST.KEY);
-            if (stored) {
-                const [val, exp] = stored.split("|");
-                if (now < parseInt(exp, 10)) s = parseInt(val, 10);
-                else {
+    const INJECT_CFG = { 
+        s: (function () {
+            const now = Date.now();
+            let s = 12345;
+            try {
+                const stored = localStorage.getItem(CONST.KEY);
+                if (stored) {
+                    const [val, exp] = stored.split("|");
+                    if (now < parseInt(exp, 10)) s = parseInt(val, 10);
+                    else {
+                        s = (now ^ (Math.random() * 1e8)) >>> 0;
+                        localStorage.setItem(CONST.KEY, `${s}|${now + 2592000000}`);
+                    }
+                } else {
                     s = (now ^ (Math.random() * 1e8)) >>> 0;
                     localStorage.setItem(CONST.KEY, `${s}|${now + 2592000000}`);
                 }
-            } else {
-                s = (now ^ (Math.random() * 1e8)) >>> 0;
-                localStorage.setItem(CONST.KEY, `${s}|${now + 2592000000}`);
-            }
-        } catch (e) {}
-        return s;
-    })();
-
-    const INJECT_CFG = { s: SEED, step: CONST.NOISE_STEP };
+            } catch (e) {}
+            return s;
+        })(), 
+        step: CONST.NOISE_STEP 
+    };
 
     const MODULE = `
     (function(w) {
