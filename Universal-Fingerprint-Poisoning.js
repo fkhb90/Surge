@@ -1,13 +1,13 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.32-Hotfix-104
+ * @version   10.33-Enterprise-Gov-Whitelist
  * @author    Jerry's AI Assistant
  * @updated   2026-01-12
  * ----------------------------------------------------------------------------
- * [V10.32 104人力銀行修復版]:
- * 1) [FIX] 將 "104.com.tw" 加入白名單，解決企業版 (pro) 線上打卡功能異常問題。
- * - 此關鍵字同時覆蓋 accounts/pro/pda 等子網域，確保求職與考勤功能正常。
- * 2) [BASELINE] 繼承 V10.31 的穩定架構 (Feedly Fix + MurmurHash3)。
+ * [V10.33 企業與政府服務加固版]:
+ * 1) [PREVENTIVE] 針對高敏感的企業考勤 (Lark/Workday) 與政府服務 (NHI/Gov) 預先加入白名單。
+ * - 避免因 Canvas 指紋注入導致的「虛擬定位」誤判或裝置綁定失效。
+ * 2) [BASELINE] 繼承 V10.32 的 104 PRO 修復與 V10.31 的 Feedly 修復。
  */
 
 (function () {
@@ -54,7 +54,7 @@
   })();
 
   // ============================================================================
-  // 2) Hardened Whitelist (Includes 104 Fix)
+  // 2) Hardened Whitelist (Enterprise & Gov Added)
   // ============================================================================
   const EXCLUDES = [
     // 1. Identity & Cloud Infra
@@ -62,26 +62,36 @@
     "login.live.com", "microsoft.com", "sso", "oauth", 
     "recaptcha", "turnstile", "hcaptcha", "arkoselabs",
     
-    // 2. Taiwan Banking & Gov
+    // 2. Taiwan Banking & Gov [V10.33 Expanded]
     "ctbc", "cathay", "esun", "fubon", "taishin", "megabank", 
     "landbank", "firstbank", "sinopac", "post.gov", "gov.tw",
+    "nhi.gov.tw", // 健保署
+    "ris.gov.tw", // 戶政司
+    "fido.gov.tw", // 行動自然人憑證
     
     // 3. Payment Gateways
     "paypal", "stripe", "ecpay", "line.me", "jkos", "opay",
     
-    // 4. E-Commerce & Services (High Sensitivity)
-    "feedly", // V10.31 Fix
-    "104.com.tw", // [V10.32 ADDED] 104 人力銀行/企業大師打卡修復
+    // 4. Enterprise & HR (High Sensitivity) [V10.33 Expanded]
+    "104.com.tw", // 104 PRO
+    "larksuite", "lark.com", // 飛書 Lark
+    "dingtalk", // 釘釘
+    "workday", // Workday HR
+    "mayhr", "apollo", // 雲端人資/Apollo
+    "slack", "discord", "telegram", // Collaboration
+    
+    // 5. E-Commerce & Content
+    "feedly", 
     "shopee", "momo", "pchome", "books.com", "coupang", 
     "uber", "foodpanda", "netflix", "spotify", "youtube",
     
-    // 5. AI Services
+    // 6. AI Services
     "openai", "chatgpt", "claude", "gemini", "bing", "perplexity"
   ];
 
   const url = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
   
-  // Fast Check: 只要 URL 包含關鍵字，立即放行 (O(1) 複雜度)
+  // Fast Check: O(1) 複雜度
   if (EXCLUDES.some(k => url.includes(k))) {
       if (typeof $done !== "undefined") $done({});
       return;
@@ -105,10 +115,8 @@
     const headers = $response.headers || {};
     const ct = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
     
-    // Strict HTML Check
     if (!ct.includes("text/html")) { $done({}); return; }
 
-    // [Optimization] Only scan the first 3KB for markers & nonce
     const chunk = body.substring(0, 3000);
     if (chunk.includes(CONST.MARKER)) { $done({}); return; }
 
@@ -118,7 +126,6 @@
     const m = chunk.match(/nonce=["']?([^"'\s>]+)["']?/i);
     const nonce = m ? m[1] : "";
     
-    // Fail-safe: Skip if CSP blocks inline scripts and no nonce is found
     if ((csp && !csp.includes("'unsafe-inline'")) && !nonce) { $done({}); return; }
 
     const INJECT_CFG = { s: SEED, step: CONST.NOISE_STEP };
@@ -169,7 +176,6 @@
                 if (w > 32 && h > 32) {
                     const d = r.data;
                     for(let i=0; i<d.length; i+=(C.step*4)) {
-                        // Apply noise to 1 in every 10 sampled pixels
                         if ((i/4)%10===0) {
                             const n = hash(C.s, i)%3 - 1;
                             if(n!==0) d[i] = Math.max(0, Math.min(255, d[i]+n));
@@ -191,7 +197,6 @@
                 if(!b) return b;
                 try {
                     const d = b.getChannelData(0);
-                    // Only modify first 1000 samples for performance
                     const l = Math.min(d.length, 1000);
                     for(let i=0; i<l; i+=50) d[i] += (hash(C.s, i)%100)*1e-7;
                 } catch(e){}
@@ -202,7 +207,6 @@
     })(typeof self!=='undefined'?self:window);
     `;
 
-    // Worker Blob Injection (With Try-Catch Safety)
     const INJECT = `
 ${nonce ? `<script nonce="${nonce}">` : `<script>`}
 (function(){
@@ -235,7 +239,6 @@ ${nonce ? `<script nonce="${nonce}">` : `<script>`}
     
     let newBody = body;
     const tag = /<head[^>]*>/i;
-    // Inject at the beginning of HEAD for maximum priority
     if (tag.test(chunk)) {
         newBody = body.replace(tag, (m) => m + INJECT);
     } else {
