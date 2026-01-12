@@ -1,15 +1,15 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.46-Universal-Exclusion
+ * @version   10.47-Financial-Chart-Patch
  * @author    Jerry's AI Assistant
  * @updated   2026-01-12
  * ----------------------------------------------------------------------------
- * [V10.46 廣域排除修復版]:
- * 1) [STRATEGY] 擴大 App 豁免範圍 (Broad App Immunity)。
- * - 針對國泰證券等頑固 App，放寬 UA 檢測邏輯，寧可錯放也不誤殺。
- * 2) [FIX] 新增 "CFNetwork" (iOS 底層網路庫) 檢測。
- * - 許多金融 App 的背景 API 請求 UA 僅標示為 CFNetwork，此前版本可能漏接。
- * 3) [BASELINE] 繼承 V10.45 的所有生產力與資安防護架構。
+ * [V10.47 股市圖表修復版]:
+ * 1) [FIX] 針對個股資訊頁面無法開啟的問題，新增底層資訊廠商 URL 白名單。
+ * - 加入 "mitake" (三竹), "systex" (精誠), "cmoney" (全曜), "moneydj" (理財網)。
+ * - 解決 App 內嵌第三方 K 線圖時，因 UA 變更導致的防護失效與 Canvas 崩潰。
+ * 2) [STRATEGY] 擴大財經資訊網覆蓋範圍 (Yahoo, Bloomberg, Investing)。
+ * 3) [BASELINE] 繼承 V10.46 的 App 整機豁免與 CFNetwork 防護。
  */
 
 (function () {
@@ -59,9 +59,22 @@
   // 2) Dual-Lock Whitelist System
   // ============================================================================
   
-  // A. URL 白名單 (針對瀏覽器與 API)
+  // A. URL 白名單 (針對瀏覽器與 API，新增圖表廠商)
   const URL_EXCLUDES = [
-    // [V10.45 Safety] Explicit Feedly Cloud Infrastructure
+    // [V10.47 NEW] Financial Data Providers (Chart/Quote)
+    "mitake",       // 三竹資訊 (台灣券商市佔第一)
+    "systex",       // 精誠資訊
+    "cmoney",       // 籌碼K線/全曜財經
+    "moneydj",      // XQ/理財網
+    "yahoo",        // Yahoo 股市
+    "bloomberg",    // 彭博
+    "investing.com",// 英威斯丁
+    "cnyes",        // 鉅亨網
+    "wantgoo",      // 玩股網
+    "goodinfo",     // 台灣股市資訊網
+    "pchome.com.tw",// PChome 股市
+
+    // Feedly Cloud
     "feedly", "cloud.feedly.com", "s3.feedly.com", "sandbox.feedly.com",
 
     // Local & Remote
@@ -77,8 +90,8 @@
     // Conference
     "zoom.us", "zoom.com", "meet.google", "hangouts.google", "teams.live", "teams.microsoft", "webex.com",
 
-    // Financial & Trading
-    "tradingview.com", "tdcc.com.tw", "cnyes.com", "wantgoo.com", 
+    // Financial & Trading (Brokers)
+    "tradingview.com", "tdcc.com.tw", 
     "ctbc", "cathay", "cathaysec.com.tw", "esun", "fubon", "taishin", "megabank", 
     "landbank", "firstbank", "sinopac", "sinotrade.com.tw", "post.gov", "gov.tw",
     "nhi.gov.tw", "ris.gov.tw", "fido.gov.tw",
@@ -93,7 +106,7 @@
     "nordaccount", "nordvpn", "surfshark", "expressvpn", "proton", "mullvad", "ivpn",
     
     // Content
-    "shopee", "momo", "pchome", "books.com", "coupang", 
+    "shopee", "momo", "books.com", "coupang", 
     "uber", "foodpanda", "netflix", "spotify", "youtube",
     "openai", "chatgpt", "claude", "gemini", "bing", "perplexity"
   ];
@@ -118,21 +131,17 @@
     "megatime",     
     "teamviewer",   
     "anydesk",
-    // [V10.46 NEW] Broad System Patterns
-    "cfnetwork",    // iOS 網路層 (許多 App API 僅顯示此 UA)
-    "darwin",       // iOS 系統內核請求
-    "flipper",      // React Native Debugger
-    "okhttp"        // Android App 常見網路庫
+    "cfnetwork",    
+    "darwin",       
+    "flipper",      
+    "okhttp"        
   ];
 
-  // 獲取請求資訊
   const currentUrl = (typeof $request !== "undefined") ? ($request.url || "").toLowerCase() : "";
   const currentUA = (typeof $request !== "undefined") ? ($request.headers["User-Agent"] || $request.headers["user-agent"] || "").toLowerCase() : "";
 
-  // 執行雙重檢查
-  // 1. UA Check (優先豁免 App 底層請求)
+  // 1. UA Check
   if (UA_EXCLUDES.some(k => currentUA.includes(k))) {
-      // console.log(`[FP-Shield] App Immunity Triggered: ${currentUA}`);
       if (typeof $done !== "undefined") $done({});
       return;
   }
@@ -151,7 +160,7 @@
   }
 
   // ============================================================================
-  // Phase 4: HTML Injection (Performance Optimized)
+  // Phase 4: HTML Injection
   // ============================================================================
   if (typeof $response !== "undefined") {
     const body = $response.body;
@@ -160,8 +169,6 @@
     const headers = $response.headers || {};
     const ct = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
     
-    // Strict HTML Check - 這是最後一道防線
-    // 許多 App API 回傳的是 JSON 或 XML，腳本必須嚴格避開
     if (!ct.includes("text/html")) { $done({}); return; }
 
     const chunk = body.substring(0, 3000);
@@ -198,7 +205,6 @@
         } catch(e){return c;}
       };
 
-      // 1. WebRTC (Relay Mode)
       const rtcs = ["RTCPeerConnection", "webkitRTCPeerConnection", "mozRTCPeerConnection"];
       rtcs.forEach(n => {
         if(!w[n]) return;
@@ -214,7 +220,6 @@
         w[n] = p(N, S);
       });
 
-      // 2. Canvas (Optimized Noise)
       try {
         const hC = (P) => {
             const old = P.getImageData;
@@ -236,7 +241,6 @@
         if(w.OffscreenCanvasRenderingContext2D) hC(w.OffscreenCanvasRenderingContext2D.prototype);
       } catch(e){}
 
-      // 3. Audio (Optimized Noise)
       if(w.OfflineAudioContext) {
         const oldA = w.OfflineAudioContext.prototype.startRendering;
         w.OfflineAudioContext.prototype.startRendering = function() {
