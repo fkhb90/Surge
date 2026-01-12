@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge-V41.61.js
- * @version   41.61 (Financial App Fix & Architecture Optimized)
+ * @version   41.61 (Financial App Compatibility Patch)
  * @description [V41.61] 金融應用修復版：
- * 1. [Fix] 移除 `analysis` 關鍵字，解決國泰證券、Fubon 等金融 App 個股分析頁面空白問題。
- * 2. [Feat] 新增台灣金融資訊源白名單 (Syspower, MoneyDJ, CMoney, XQ)。
- * 3. [Core] 繼承 V41.60 的白金架構與所有 P0/ChatGPT 防護規則。
+ * 1. [Fix] 強制放行國泰證券 (Cathay Sec) 及其依賴的第三方資訊源 (Systex, MoneyDJ, Mitake)。
+ * 2. [Feat] 新增台灣主流看盤軟體後端白名單，解決個股資訊/技術線圖空白問題。
+ * 3. [Core] 維持 V41.60 的白金架構與所有 P0/ChatGPT 防護規則。
  * @author    Claude & Gemini & Acterus
  * @lastUpdated 2026-01-12
  */
@@ -64,15 +64,25 @@ const RULES = {
             'graph.threads.net', 'i.instagram.com', 'iappapi.investing.com', 'today.line.me', 't.uber.com', 'gov.tw'
         ]),
         WILDCARDS: [
-            // Financial & Trading (Expanded in V41.61)
-            'syspower.com.tw', 'moneydj.com', 'cmoney.tw', 'xq.com.tw', 'systex.com.tw',
+            // [V41.61 New] Financial & Trading Critical Whitelist
+            'cathaysec.com.tw', // 國泰證券
+            'systex.com.tw',    // 精誠資訊 (後端數據源)
+            'mitake.com.tw',    // 三竹資訊 (行動看盤後端)
+            'moneydj.com',      // 嘉實資訊 (技術分析圖表)
+            'cmoney.tw',        // CMoney (籌碼分析)
+            'xq.com.tw',        // XQ 全球贏家 (報價源)
+            'fugle.tw',         // 玉山富果
+            'sinotrade.com.tw', // 永豐金證券
+            'capital.com.tw',   // 群益證券
+            
+            // Existing Wildcards
             'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw',
             'richart.tw', 'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'icloud.com', 'apple.com',
-            'whatsapp.net', 'update.microsoft.com', 'windowsupdate.com', 'bot.com.tw', 'cathaysec.com.tw',
-            'chb.com.tw', 'citibank.com.tw', 'dawho.tw', 'dbs.com.tw', 'firstbank.com.tw', 'hncb.com.tw',
-            'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw', 'megabank.com.tw', 'megatime.com.tw', 'mitake.com.tw',
+            'whatsapp.net', 'update.microsoft.com', 'windowsupdate.com', 'bot.com.tw', 'chb.com.tw', 
+            'citibank.com.tw', 'dawho.tw', 'dbs.com.tw', 'firstbank.com.tw', 'hncb.com.tw',
+            'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw', 'megabank.com.tw', 'megatime.com.tw', 
             'money-link.com.tw', 'momopay.com.tw', 'mymobibank.com.tw', 'paypal.com', 'scsb.com.tw', 'sinopac.com',
-            'sinotrade.com.tw', 'standardchartered.com.tw', 'stripe.com', 'taipeifubon.com.tw', 'taiwanpay.com.tw',
+            'standardchartered.com.tw', 'stripe.com', 'taipeifubon.com.tw', 'taiwanpay.com.tw',
             'tcb-bank.com.tw', 'org.tw', 'pay.taipei', 'tdcc.com.tw', 'twca.com.tw', 'twmp.com.tw', 'app.goo.gl',
             'goo.gl', 'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io', 'linksyssmartwifi.com', 'archive.is',
             'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com', 'perma.cc',
@@ -86,7 +96,7 @@ const RULES = {
             'shopee.tw', 'shopee.com', 'api.openai.com', 'www.momoshop.com.tw',
             'm.momoshop.com.tw', 'gateway.shopback.com.tw', 'a-api.anthropic.com', 'api.anthropic.com',
             'api.cohere.ai', 'api.digitalocean.com', 'api.fastly.com', 'api.feedly.com', 'api.github.com',
-            'api.heroku.com', 'api.hubapi.com', 'api.mailgun.com', 'api.netlify.com', 'api.pagerduty.com',
+            'api.heroku.com', 'api.hubapi.com', 'api.mailgun.com', 'api.netlify.com', 'api.openai.com', 'api.pagerduty.com',
             'api.sendgrid.com', 'api.telegram.org', 'api.vercel.com', 'api.zendesk.com', 'duckduckgo.com',
             'legy.line-apps.com', 'obs.line-scdn.net', 'secure.gravatar.com', 'api.asana.com',
             'api.dropboxapi.com', 'api.figma.com', 'api.notion.com', 'api.trello.com', 'api.cloudflare.com',
@@ -641,6 +651,7 @@ if (typeof $request !== 'undefined') {
     initialize();
     $done(processRequest($request));
 } else {
-    $done({ title: "URL Ultimate Filter", content: `V41.60 Active\n${stats.toString()}` });
+    $done({ title: "URL Ultimate Filter", content: `V41.61 Active\n${stats.toString()}` });
 }
+
 
