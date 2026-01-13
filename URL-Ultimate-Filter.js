@@ -1,10 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.73.js
- * @version   41.73 (Platinum - Stable - Search Fix)
- * @description [V41.73] 針對 Shopee 搜尋功能的緊急修復：
- * 1) [Fix] 顯式放行 Shopee 搜尋 API (/api/v4/search/)，防止因參數含敏感詞被誤殺
- * 2) [Rollback] 暫時將 dem.shopee.com 移出黑名單，以排除其導致頁面崩潰的可能性
- * 3) [Keep] 保留 V41.72 的其他 APM 與 RUM 阻擋規則
+ * @file      URL-Ultimate-Filter-Surge-V41.74.js
+ * @version   41.74 (Platinum - Stable - Search & Infra Final)
+ * @description [V41.74] 針對 Shopee 搜尋與基礎設施的最終極修復：
+ * 1) [Fix] 新增 'search', 'recommend' 至 SEGMENTS 例外名單，徹底解決因參數含敏感詞導致的搜尋/推薦空白問題
+ * 2) [Block] 新增 ubta.tracking.shopee.tw (行為分析) 至 BLOCK_DOMAINS
+ * 3) [Keep] 保留 Shopee 基礎設施 IP (143.92.88.1) 與 Config (shopee.io) 的放行設定
+ * 4) [Keep] 保留 Anti-Bot 驗證 (/verify/traffic) 的路徑豁免
  * @lastUpdated 2026-01-13
  */
 
@@ -140,9 +141,9 @@ const RULES = {
 
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
-    // Shopee Tracking & RUM
-    'apm.tracking.shopee.tw', 'live-apm.shopee.tw',
-    // [V41.73 Rollback] dem.shopee.com 暫時移除，避免影響搜尋功能
+    // Shopee Tracking & RUM [V41.74 Updated]
+    'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'ubta.tracking.shopee.tw',
+    // dem.shopee.com removed to ensure search stability
 
     // RUM & Session Replay & Error Tracking
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
@@ -234,6 +235,7 @@ const RULES = {
 
   BLOCK_DOMAINS_REGEX: [
     /^ad[s]?\d*\.(ettoday\.net|ltn\.com\.tw)$/i,
+    // [Anti-RUM] Wildcards for Monitoring Services
     /^(.+\.)?sentry\.io$/i,
     /^(.+\.)?browser-intake-datadoghq\.(com|eu|us)$/i,
     /^(.+\.)?lr-ingest\.io$/i
@@ -344,7 +346,7 @@ const RULES = {
       ['vk.com', new Set(['/rtrg'])],
       ['instagram.com', new Set(['/logging_client_events'])],
       
-      // [V41.72 Added] Shopee Mall/Live Statistics (Explicit Blocking)
+      // [V41.72/74] Explicit Blocking for Shopee RUM
       ['mall.shopee.tw', new Set(['/userstats_record/batchrecord'])],
       ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch'])]
     ])
@@ -433,14 +435,15 @@ const RULES = {
     SUBSTRINGS: new Set([
       '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/js/', 'static/media/'
     ]),
-    SEGMENTS: new Set(['admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login']),
+    SEGMENTS: new Set([
+      'admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login',
+      // [V41.74] Universal Exemption for Search and Recommendation
+      'search', 'recommend'
+    ]),
     PATH_EXEMPTIONS: new Map([
       ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])],
       // [V41.69] Shopee Anti-Bot Verification Exception
-      ['shopee.tw', new Set(['/verify/traffic'])],
-      // [V41.73] Shopee Search API Exception (Fix for "search results not loading")
-      ['shopee.tw', new Set(['/api/v4/search/'])],
-      ['shopee.com', new Set(['/api/v4/search/'])]
+      ['shopee.tw', new Set(['/verify/traffic'])]
     ])
   },
 
@@ -817,6 +820,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V41.73 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V41.74 Active\n${stats.toString()}` });
 }
 
