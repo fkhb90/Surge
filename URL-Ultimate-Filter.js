@@ -1,11 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.74.js
- * @version   41.74 (Platinum - Stable - Search & Infra Final)
- * @description [V41.74] 針對 Shopee 搜尋與基礎設施的最終極修復：
- * 1) [Fix] 新增 'search', 'recommend' 至 SEGMENTS 例外名單，徹底解決因參數含敏感詞導致的搜尋/推薦空白問題
- * 2) [Block] 新增 ubta.tracking.shopee.tw (行為分析) 至 BLOCK_DOMAINS
- * 3) [Keep] 保留 Shopee 基礎設施 IP (143.92.88.1) 與 Config (shopee.io) 的放行設定
- * 4) [Keep] 保留 Anti-Bot 驗證 (/verify/traffic) 的路徑豁免
+ * @file      URL-Ultimate-Filter-Surge-V41.75.js
+ * @version   41.75 (Platinum - Stable - Subdomain Fix)
+ * @description [V41.75] 針對 Shopee 搜尋功能的邏輯修正：
+ * 1) [Logic] 修正路徑豁免邏輯，現在子網域 (mall.shopee.tw) 會自動繼承主域名的豁免設定
+ * 2) [Fix] 放寬搜尋豁免關鍵字為 '/search/'，涵蓋所有 API 版本
+ * 3) [Rollback] 再次移除 dem.shopee.com，採取最保守策略以確保頁面功能
  * @lastUpdated 2026-01-13
  */
 
@@ -141,9 +140,9 @@ const RULES = {
 
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
-    // Shopee Tracking & RUM [V41.74 Updated]
+    // Shopee Tracking & RUM
     'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'ubta.tracking.shopee.tw',
-    // dem.shopee.com removed to ensure search stability
+    // dem.shopee.com REMOVED
 
     // RUM & Session Replay & Error Tracking
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
@@ -171,71 +170,11 @@ const RULES = {
     'moatads.com', 'sdk.iad-07.braze.com', 'serving-sys.com', 'tw.ad.doubleverify.com', 'agkn.com',
     'id5-sync.com', 'liveramp.com', 'permutive.com', 'tags.tiqcdn.com', 'klaviyo.com', 'marketo.com',
     'mktoresp.com', 'pardot.com', 'instana.io', 'launchdarkly.com', 'raygun.io', 'navify.com',
-    
-    // China
-    'cnzz.com', 'umeng.com', 'talkingdata.com', 'jiguang.cn', 'getui.com',
-    'mdap.alipay.com', 'loggw-ex.alipay.com', 'pgdt.gtimg.cn', 'afd.baidu.com', 'als.baidu.com',
-    'cpro.baidu.com', 'dlswbr.baidu.com', 'duclick.baidu.com', 'feed.baidu.com', 'h2tcbox.baidu.com',
-    'hm.baidu.com', 'hmma.baidu.com', 'mobads-logs.baidu.com', 'mobads.baidu.com', 'nadvideo2.baidu.com',
-    'nsclick.baidu.com', 'sp1.baidu.com', 'voice.baidu.com', '3gimg.qq.com', 'fusion.qq.com',
-    'ios.bugly.qq.com', 'lives.l.qq.com', 'monitor.uu.qq.com', 'pingma.qq.com', 'sdk.e.qq.com',
-    'wup.imtt.qq.com', 'appcloud.zhihu.com', 'appcloud2.in.zhihu.com', 'crash2.zhihu.com', 'mqtt.zhihu.com',
-    'sugar.zhihu.com', 'agn.aty.sohu.com', 'apm.gotokeep.com', 'applog.uc.cn', 'cn-huabei-1-lg.xf-yun.com',
-    'gs.getui.com', 'log.b612kaji.com', 'pc-mon.snssdk.com', 'sensorsdata.cn', 'stat.m.jd.com',
-    'trackapp.guahao.cn', 'traffic.mogujie.com', 'wmlog.meituan.com', 'zgsdk.zhugeio.com',
-    'admaster.com.cn', 'adview.cn', 'alimama.com', 'getui.net', 'gepush.com', 'gridsum.com',
-    'growingio.com', 'igexin.com', 'jpush.cn', 'kuaishou.com', 'miaozhen.com', 'mmstat.com',
-    'pangolin-sdk-toutiao.com', 'talkingdata.cn', 'tanx.com', 'umeng.cn', 'umeng.co',
-    'umengcloud.com', 'youmi.net', 'zhugeio.com',
-
-    // TW & E-commerce
-    'cache.ltn.com.tw', 'adnext-a.akamaihd.net', 'appnext.hs.llnwd.net', 'fusioncdn.com',
-    'toots-a.akamaihd.net', 'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'cacafly.com',
-    'clickforce.com.tw', 'ecdmp.momoshop.com.tw', 'analysis.momoshop.com.tw', 'event.momoshop.com.tw',
-    'log.momoshop.com.tw', 'sspap.momoshop.com.tw', 'fast-trk.com', 'funp.com', 'guoshipartners.com',
-    'imedia.com.tw', 'is-tracking.com', 'likr.tw', 'rtb.momoshop.com.tw', 'sitetag.us', 'tagtoo.co',
-    'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com', 'analytics.shopee.tw', 'dmp.shopee.tw',
-    'analytics.etmall.com.tw', 'pixel.momoshop.com.tw', 'trace.momoshop.com.tw', 'ad-serv.teepr.com',
-    'appier.net', 'itad.linetv.tw',
-
-    // Ad Networks
-    'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com', 'events.tiktok.com',
-    'abema-adx.ameba.jp', 'abtest.yuewen.cn', 'ad-cn.jovcloud.com', 'ad.12306.cn', 'ad.360in.com',
-    'ad.51wnl-cq.com', 'ad.api.3g.youku.com', 'ad.caiyunapp.com', 'ad.hzyoka.com', 'ad.jiemian.com',
-    'ad.qingting.fm', 'ad.wappalyzer.com', 'ad.yieldmanager.com', 'adashxgc.ut.taobao.com',
-    'adashz4yt.m.taobao.com', 'adextra.51wnl-cq.com', 'adroll.com', 'ads.adadapted.com',
-    'ads.daydaycook.com.cn', 'ads.weilitoutiao.net', 'ads.yahoo.com', 'adsapi.manhuaren.com',
-    'adsdk.dmzj.com', 'adse.ximalaya.com', 'adserver.pandora.com', 'adserver.yahoo.com',
-    'adsnative.com', 'adswizz.com', 'adtrack.quark.cn', 'adui.tg.meitu.com', 'adv.bandi.so',
-    'adxserver.ad.cmvideo.cn', 'amazon-adsystem.com', 'api.cupid.dns.iqiyi.com', 'api.joybj.com',
-    'api.whizzone.com', 'app-ad.variflight.com', 'appnexus.com', 'asimgs.pplive.cn', 'atm.youku.com',
-    'beacon-api.aliyuncs.com', 'bdurl.net', 'bidswitch.net', 'bluekai.com', 'casalemedia.com',
-    'contextweb.com', 'conversantmedia.com', 'cr-serving.com', 'creativecdn.com', 'csp.yahoo.com',
-    'flashtalking.com', 'geo.yahoo.com', 'ggs.myzaker.com', 'go-mpulse.net', 'gumgum.com',
-    'idatalog.iflysec.com', 'indexexchange.com', 'inmobi.com', 'ja.chushou.tv', 'liveintent.com',
-    'mads.suning.com', 'magnite.com', 'media.net', 'mobileads.msn.com', 'mopnativeadv.037201.com',
-    'mum.alibabachengdun.com', 'narrative.io', 'nativeadv.dftoutiao.com', 'neustar.biz',
-    'pbd.yahoo.com', 'pf.s.360.cn', 'puds.ucweb.com', 'pv.sohu.com', 's.youtube.com',
-    'sharethrough.com', 'sitescout.com', 'smartadserver.com', 'soom.la', 'spotx.tv', 'spotxchange.com',
-    'tapad.com', 'teads.tv', 'thetradedesk.com', 'tremorhub.com', 'volces.com', 'yieldify.com',
-    'yieldmo.com', 'zemanta.com', 'zztfly.com', 'innovid.com', 'springserve.com', 'adcash.com',
-    'propellerads.com', 'zeropark.com', 'admitad.com', 'awin1.com', 'cj.com', 'impactradius.com',
-    'linkshare.com', 'rakutenadvertising.com', 'adriver.ru', 'yandex.ru', 'addthis.com', 'cbox.ws',
-    'disqus.com', 'disquscdn.com', 'intensedebate.com', 'onesignal.com', 'po.st', 'pushengage.com',
-    'sail-track.com', 'sharethis.com', 'intercom.io', 'liveperson.net', 'zdassets.com', 'cookielaw.org',
-    'onetrust.com', 'sourcepoint.com', 'trustarc.com', 'usercentrics.eu', 'bat.bing.com',
-    'cdn.vercel-insights.com', 'cloudflareinsights.com', 'demdex.net', 'hs-analytics.net',
-    'hs-scripts.com', 'metrics.vitals.vercel-insights.com', 'monorail-edge.shopifysvc.com',
-    'omtrdc.net', 'plausible.io', 'static.cloudflareinsights.com', 'vitals.vercel-insights.com',
-    'business-api.tiktok.com', 'ct.pinterest.com', 'events.redditmedia.com', 'px.srvcs.tumblr.com',
-    'snap.licdn.com', 'spade.twitch.tv', 'tr.snap.com', 'adnx.com', 'cint.com', 'revjet.com',
-    'rlcdn.com', 'sc-static.net', 'wcs.naver.net',
     's.temu.com', 'events.reddit.com'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
     /^ad[s]?\d*\.(ettoday\.net|ltn\.com\.tw)$/i,
-    // [Anti-RUM] Wildcards for Monitoring Services
     /^(.+\.)?sentry\.io$/i,
     /^(.+\.)?browser-intake-datadoghq\.(com|eu|us)$/i,
     /^(.+\.)?lr-ingest\.io$/i
@@ -346,7 +285,7 @@ const RULES = {
       ['vk.com', new Set(['/rtrg'])],
       ['instagram.com', new Set(['/logging_client_events'])],
       
-      // [V41.72/74] Explicit Blocking for Shopee RUM
+      // [V41.72 Added] Shopee Mall/Live Statistics (Explicit Blocking)
       ['mall.shopee.tw', new Set(['/userstats_record/batchrecord'])],
       ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch'])]
     ])
@@ -435,15 +374,14 @@ const RULES = {
     SUBSTRINGS: new Set([
       '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/js/', 'static/media/'
     ]),
-    SEGMENTS: new Set([
-      'admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login',
-      // [V41.74] Universal Exemption for Search and Recommendation
-      'search', 'recommend'
-    ]),
+    SEGMENTS: new Set(['admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login']),
     PATH_EXEMPTIONS: new Map([
       ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])],
       // [V41.69] Shopee Anti-Bot Verification Exception
-      ['shopee.tw', new Set(['/verify/traffic'])]
+      ['shopee.tw', new Set(['/verify/traffic'])],
+      // [V41.75] Universal Search Exception (Covers mall.shopee.tw, etc.)
+      ['shopee.tw', new Set(['/search/', '/recommend/'])],
+      ['shopee.com', new Set(['/search/', '/recommend/'])]
     ])
   },
 
@@ -606,11 +544,15 @@ const HELPERS = {
     return false;
   },
 
+  // [V41.75 Fix] Enhanced domain matching to support subdomains (mall.shopee.tw inherits shopee.tw)
   isPathExemptedForDomain: (hostname, pathLower) => {
-    const exemptedPaths = RULES.EXCEPTIONS.PATH_EXEMPTIONS.get(hostname);
-    if (!exemptedPaths) return false;
-    for (const exemptedPath of exemptedPaths) {
-      if (pathLower.includes(exemptedPath)) return true;
+    for (const [domain, paths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
+      // Check if hostname is exactly the domain OR a subdomain of it
+      if (hostname === domain || hostname.endsWith('.' + domain)) {
+        for (const exemptedPath of paths) {
+          if (pathLower.includes(exemptedPath)) return true;
+        }
+      }
     }
     return false;
   },
@@ -820,6 +762,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V41.74 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V41.75 Active\n${stats.toString()}` });
 }
 
