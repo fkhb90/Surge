@@ -1,10 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.77.js
- * @version   41.77 (Platinum - Stable - Universal Exemption)
- * @description [V41.77] 針對 Shopee 搜尋與點擊問題的最終極方案：
- * 1) [Logic] 將搜尋與點擊的豁免權提升為「全域通用」(Universal)，不再受限於特定域名
- * 2) [Fix] 確保任何包含 '/search/', '/click', '/recommend' 的請求都絕對放行
- * 3) [Keep] 保留基礎設施 IP 與 Config 的保護
+ * @file      URL-Ultimate-Filter-Surge-V41.78.js
+ * @version   41.78 (Platinum - Debug - UBTA Allow)
+ * @description [V41.78] 針對 Shopee 搜尋問題的實驗性修復：
+ * 1) [Allow] 暫時將 ubta.tracking.shopee.tw 與 ubt.tracking.shopee.tw 加入 Hard Whitelist
+ * (驗證是否存在「追蹤強依賴」導致搜尋卡住)
+ * 2) [Keep] 保留 /search/, /click, /recommend 的全域豁免
+ * 3) [Keep] 保留 content.garena.com 與 HTTPDNS IP 的放行
  * @lastUpdated 2026-01-13
  */
 
@@ -50,6 +51,10 @@ const RULES = {
       '143.92.88.1',   // Shopee HTTPDNS
       'content.garena.com', // Shopee Config
       
+      // [V41.78] Debug Allow: UBTA Tracking (To verify if blocking causes search failure)
+      'ubta.tracking.shopee.tw',
+      'ubt.tracking.shopee.tw',
+
       // AI & Productivity
       'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
       'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
@@ -141,8 +146,8 @@ const RULES = {
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
     // Shopee Tracking & RUM
-    'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'ubta.tracking.shopee.tw',
-    // dem.shopee.com REMOVED
+    'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 
+    // 'ubta.tracking.shopee.tw', // [V41.78] Temporarily allowed
 
     // RUM & Session Replay & Error Tracking
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
@@ -433,16 +438,13 @@ const RULES = {
     SUBSTRINGS: new Set([
       '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/js/', 'static/media/'
     ]),
-    SEGMENTS: new Set([
-      'admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login',
-      // [V41.77] Universal Exemption
-      'search', 'recommend'
-    ]),
+    SEGMENTS: new Set(['admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login']),
     PATH_EXEMPTIONS: new Map([
       ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])],
       // [V41.69] Shopee Anti-Bot Verification Exception
       ['shopee.tw', new Set(['/verify/traffic'])],
-      // [V41.76/77] Universal exemption logic covers this, but kept for explicit safety
+      // [V41.73] Shopee Search API Exception (Fix for "search results not loading")
+      ['shopee.tw', new Set(['/api/v4/search/'])],
       ['shopee.com', new Set(['/api/v4/search/'])]
     ])
   },
@@ -606,15 +608,11 @@ const HELPERS = {
     return false;
   },
 
-  // [V41.75 Fix] Enhanced domain matching to support subdomains
   isPathExemptedForDomain: (hostname, pathLower) => {
-    for (const [domain, paths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
-      // Check if hostname is exactly the domain OR a subdomain of it
-      if (hostname === domain || hostname.endsWith('.' + domain)) {
-        for (const exemptedPath of paths) {
-          if (pathLower.includes(exemptedPath)) return true;
-        }
-      }
+    const exemptedPaths = RULES.EXCEPTIONS.PATH_EXEMPTIONS.get(hostname);
+    if (!exemptedPaths) return false;
+    for (const exemptedPath of exemptedPaths) {
+      if (pathLower.includes(exemptedPath)) return true;
     }
     return false;
   },
@@ -840,6 +838,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V41.77 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V41.78 Active\n${stats.toString()}` });
 }
 
