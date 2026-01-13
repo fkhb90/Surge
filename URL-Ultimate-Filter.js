@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.76.js
- * @version   41.76 (Platinum - Stable - Item Click Fix)
- * @description [V41.76] 針對 Shopee 搜尋體驗的完整修復：
- * 1) [Fix] 新增 '/click/' 至 Shopee 路徑豁免名單，解決點擊搜尋結果時被 'Blocked by keyword' 的問題
- * 2) [Keep] 保留 V41.75 的子網域繼承邏輯 (mall.shopee.tw)
- * 3) [Keep] 保留所有基礎設施 (HTTPDNS, Config) 的放行設定
+ * @file      URL-Ultimate-Filter-Surge-V41.77.js
+ * @version   41.77 (Platinum - Stable - Universal Exemption)
+ * @description [V41.77] 針對 Shopee 搜尋與點擊問題的最終極方案：
+ * 1) [Logic] 將搜尋與點擊的豁免權提升為「全域通用」(Universal)，不再受限於特定域名
+ * 2) [Fix] 確保任何包含 '/search/', '/click', '/recommend' 的請求都絕對放行
+ * 3) [Keep] 保留基礎設施 IP 與 Config 的保護
  * @lastUpdated 2026-01-13
  */
 
@@ -434,13 +434,16 @@ const RULES = {
       '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/js/', 'static/media/'
     ]),
     SEGMENTS: new Set([
-      'admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login'
+      'admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login',
+      // [V41.77] Universal Exemption
+      'search', 'recommend'
     ]),
     PATH_EXEMPTIONS: new Map([
       ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])],
       // [V41.69] Shopee Anti-Bot Verification Exception
-      ['shopee.tw', new Set(['/verify/traffic', '/api/v4/search/', '/search/', '/recommend/', '/click/'])],
-      ['shopee.com', new Set(['/api/v4/search/', '/search/', '/recommend/', '/click/'])]
+      ['shopee.tw', new Set(['/verify/traffic'])],
+      // [V41.76/77] Universal exemption logic covers this, but kept for explicit safety
+      ['shopee.com', new Set(['/api/v4/search/'])]
     ])
   },
 
@@ -603,7 +606,7 @@ const HELPERS = {
     return false;
   },
 
-  // [V41.75 Fix] Enhanced domain matching to support subdomains (mall.shopee.tw inherits shopee.tw)
+  // [V41.75 Fix] Enhanced domain matching to support subdomains
   isPathExemptedForDomain: (hostname, pathLower) => {
     for (const [domain, paths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
       // Check if hostname is exactly the domain OR a subdomain of it
@@ -612,6 +615,14 @@ const HELPERS = {
           if (pathLower.includes(exemptedPath)) return true;
         }
       }
+    }
+    return false;
+  },
+
+  // [V41.77] Universal Exemption Check
+  isUniversallyExempted: (pathLower) => {
+    if (pathLower.includes('/search/') || pathLower.includes('/click') || pathLower.includes('/recommend/')) {
+        return true;
     }
     return false;
   },
@@ -727,8 +738,16 @@ function processRequest(request) {
     if (cached === 'ALLOW') { stats.allows++; return null; }
     if (cached === 'BLOCK') { stats.blocks++; return { response: { status: 403, body: 'Blocked by Cache' } }; }
 
+    // [New V41.77] Layer 0.1: Universal Path Exemption (Global Safe List)
+    // 優先放行任何包含安全關鍵字的請求，無視域名
+    if (HELPERS.isUniversallyExempted(pathLower)) {
+        if (CONFIG.DEBUG_MODE) console.log(`[Allow] Universal Exemption: ${pathLower}`);
+        stats.allows++;
+        return null;
+    }
+
     // [New] Layer 0.5: Path Exemption Check (Domain-specific allow list)
-    // 檢查此請求是否位於特定域名的「放行路徑」中 (如 shopee.tw/verify/traffic)
+    // 檢查此請求是否位於特定域名的「放行路徑」中
     if (HELPERS.isPathExemptedForDomain(hostname, pathLower)) {
         if (CONFIG.DEBUG_MODE) console.log(`[Allow] Exempted Path: ${pathLower}`);
         stats.allows++;
@@ -821,6 +840,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V41.76 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V41.77 Active\n${stats.toString()}` });
 }
 
