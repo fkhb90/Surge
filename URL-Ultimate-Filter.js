@@ -1,10 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.70.js
- * @version   41.70 (Platinum - Stable - Cumulative Fix)
- * @description [V41.70] 針對 Shopee 基礎設施的緊急修復：
- * 1) [Fix] 將 Shopee HTTPDNS IP (143.92.88.1) 加入 Hard Whitelist，解決 'batch' 關鍵字誤殺
- * 2) [Fix] 包含 V41.69 的 Shopee Anti-Bot (/verify/traffic) 修復
- * 3) [Fix] 包含 V41.68 的 Feedly 生產力工具白名單
+ * @file      URL-Ultimate-Filter-Surge-V41.72.js
+ * @version   41.72 (Platinum - Stable - Shopee Tracking Hardening)
+ * @description [V41.72] 針對 Shopee 追蹤與基礎設施的雙向優化：
+ * 1) [Block] 新增 dem.shopee.com (數據監控) 至 BLOCK_DOMAINS
+ * 2) [Block] 新增 apm.tracking.shopee.tw (效能監控) 至 BLOCK_DOMAINS
+ * 3) [Block] 新增 mall.shopee.tw 的行為統計路徑至 CRITICAL_PATH.MAP
+ * 4) [Allow] 將 shopee.io (基礎設施) 加入 SOFT_WHITELIST，避免 ccms 配置更新被誤殺
  * @lastUpdated 2026-01-13
  */
 
@@ -13,7 +14,7 @@
 // #################################################################################################
 
 const RULES = {
-  // [1] P0 Priority Block (Safety Valve)
+  // [1] P0 Priority Block
   PRIORITY_BLOCK_DOMAINS: new Set([
     'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'admob.com', 'ads.google.com',
     'appsflyer.com', 'adjust.com', 'kochava.com', 'branch.io', 'app-measurement.com', 'singular.net',
@@ -22,7 +23,7 @@ const RULES = {
     'analytics.tiktok.com', 'ads.linkedin.com', 'ad.etmall.com.tw', 'trk.momoshop.com.tw', 'ad.line.me'
   ]),
 
-  // 惡意跳轉與縮網址追蹤
+  // 惡意跳轉與縮網址
   REDIRECTOR_HOSTS: new Set([
     '1ink.cc', '1link.club', 'adfoc.us', 'adsafelink.com', 'adshnk.com', 'adz7short.space', 'aylink.co',
     'bc.vc', 'bcvc.ink', 'birdurls.com', 'bitcosite.com', 'blogbux.net', 'boost.ink', 'ceesty.com',
@@ -46,15 +47,16 @@ const RULES = {
   // Layer 0: 絕對放行
   HARD_WHITELIST: {
     EXACT: new Set([
-      '175.99.79.153', // NHIA 健保署
-      '143.92.88.1',   // [V41.70] Shopee HTTPDNS/Infrastructure (Sea Group)
+      '175.99.79.153', // NHIA
+      '143.92.88.1',   // Shopee HTTPDNS (V41.70)
+      'content.garena.com', // Shopee/Garena Config (V41.71)
       
       // AI & Productivity
       'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
       'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
       'qianwen.aliyun.com', 'static.stepfun.com', 'api.openai.com', 'a-api.anthropic.com',
       
-      // News & Productivity (V41.68)
+      // News & Productivity
       'api.feedly.com', 'sandbox.feedly.com', 'cloud.feedly.com',
 
       // System & Auth
@@ -119,6 +121,7 @@ const RULES = {
       'linkedin.com', 'discord.com', 'googleapis.com', 'book.com.tw', 'citiesocial.com',
       'coupang.com', 'iherb.biz', 'iherb.com', 'm.youtube.com', 'momo.dm',
       'momoshop.com.tw', 'shopee.tw', 'shopeemobile.com',
+      'shopee.io', // [V41.72 Added] Shopee 基礎設施根域名 (ccms 等)
       'pxmart.com.tw', 'pxpayplus.com', 'shopback.com.tw', 'akamaihd.net',
       'amazonaws.com', 'cloudflare.com', 'cloudfront.net', 'fastly.net', 'fbcdn.net', 'gstatic.com',
       'jsdelivr.net', 'cdnjs.cloudflare.com', 'twimg.com', 'unpkg.com', 'ytimg.com', 'new-reporter.com',
@@ -126,7 +129,6 @@ const RULES = {
       'azurewebsites.net', 'cloudfunctions.net', 'digitaloceanspaces.com', 'github.io', 'gitlab.io',
       'netlify.app', 'oraclecloud.com', 'pages.dev', 'vercel.app', 'windows.net', 'threads.net',
       'slack.com', 'feedly.com',
-      // 圖片圖床類
       'ak.sv', 'bayimg.com', 'beeimg.com', 'binbox.io', 'casimages.com', 'cocoleech.com',
       'cubeupload.com', 'dlupload.com', 'fastpic.org', 'fotosik.pl', 'gofile.download', 'ibb.co',
       'imagebam.com', 'imageban.ru', 'imageshack.com', 'imagetwist.com', 'imagevenue.com', 'imgbb.com',
@@ -139,19 +141,13 @@ const RULES = {
 
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
-    // RUM & Session Replay & Error Tracking
-    'browser.sentry-cdn.com',       // Sentry SDK
-    'browser-intake-datadoghq.com', // Datadog RUM
-    'browser-intake-datadoghq.eu',
-    'browser-intake-datadoghq.us',
-    'bam.nr-data.net',              // New Relic Browser
-    'bam-cell.nr-data.net',
-    'lrkt-in.com',                  // LogRocket Script
-    'cdn.lr-ingest.com',            // LogRocket Ingest
-    'r.lr-ingest.io',
-    'api-iam.intercom.io',
+    // [V41.72 Added] Shopee Tracking & RUM
+    'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw',
 
-    // Global Trackers
+    // RUM & Session Replay & Error Tracking
+    'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
+    'browser-intake-datadoghq.us', 'bam.nr-data.net', 'bam-cell.nr-data.net',
+    'lrkt-in.com', 'cdn.lr-ingest.com', 'r.lr-ingest.io', 'api-iam.intercom.io',
     'openfpcdn.io', 'fingerprintjs.com', 'fundingchoicesmessages.google.com', 'hotjar.com', 'segment.io',
     'mixpanel.com', 'amplitude.com', 'crazyegg.com', 'bugsnag.com', 'sentry.io', 'newrelic.com',
     'logrocket.com', 'criteo.com', 'pubmatic.com', 'rubiconproject.com', 'openx.com', 'fpjs.io',
@@ -175,7 +171,7 @@ const RULES = {
     'id5-sync.com', 'liveramp.com', 'permutive.com', 'tags.tiqcdn.com', 'klaviyo.com', 'marketo.com',
     'mktoresp.com', 'pardot.com', 'instana.io', 'launchdarkly.com', 'raygun.io', 'navify.com',
     
-    // China Specific
+    // China
     'cnzz.com', 'umeng.com', 'talkingdata.com', 'jiguang.cn', 'getui.com',
     'mdap.alipay.com', 'loggw-ex.alipay.com', 'pgdt.gtimg.cn', 'afd.baidu.com', 'als.baidu.com',
     'cpro.baidu.com', 'dlswbr.baidu.com', 'duclick.baidu.com', 'feed.baidu.com', 'h2tcbox.baidu.com',
@@ -191,7 +187,7 @@ const RULES = {
     'pangolin-sdk-toutiao.com', 'talkingdata.cn', 'tanx.com', 'umeng.cn', 'umeng.co',
     'umengcloud.com', 'youmi.net', 'zhugeio.com',
 
-    // Taiwan Local & E-commerce
+    // TW & E-commerce
     'cache.ltn.com.tw', 'adnext-a.akamaihd.net', 'appnext.hs.llnwd.net', 'fusioncdn.com',
     'toots-a.akamaihd.net', 'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'cacafly.com',
     'clickforce.com.tw', 'ecdmp.momoshop.com.tw', 'analysis.momoshop.com.tw', 'event.momoshop.com.tw',
@@ -201,7 +197,7 @@ const RULES = {
     'analytics.etmall.com.tw', 'pixel.momoshop.com.tw', 'trace.momoshop.com.tw', 'ad-serv.teepr.com',
     'appier.net', 'itad.linetv.tw',
 
-    // Ad Networks & Exchanges
+    // Ad Networks
     'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com', 'events.tiktok.com',
     'abema-adx.ameba.jp', 'abtest.yuewen.cn', 'ad-cn.jovcloud.com', 'ad.12306.cn', 'ad.360in.com',
     'ad.51wnl-cq.com', 'ad.api.3g.youku.com', 'ad.caiyunapp.com', 'ad.hzyoka.com', 'ad.jiemian.com',
@@ -233,14 +229,11 @@ const RULES = {
     'business-api.tiktok.com', 'ct.pinterest.com', 'events.redditmedia.com', 'px.srvcs.tumblr.com',
     'snap.licdn.com', 'spade.twitch.tv', 'tr.snap.com', 'adnx.com', 'cint.com', 'revjet.com',
     'rlcdn.com', 'sc-static.net', 'wcs.naver.net',
-    
-    // New Additions
     's.temu.com', 'events.reddit.com'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
     /^ad[s]?\d*\.(ettoday\.net|ltn\.com\.tw)$/i,
-    // [Anti-RUM] Wildcards for Monitoring Services
     /^(.+\.)?sentry\.io$/i,
     /^(.+\.)?browser-intake-datadoghq\.(com|eu|us)$/i,
     /^(.+\.)?lr-ingest\.io$/i
@@ -349,7 +342,11 @@ const RULES = {
       ['www.redditstatic.com', new Set(['/ads/pixel.js'])],
       ['discord.com', new Set(['/api/v10/science', '/api/v9/science'])],
       ['vk.com', new Set(['/rtrg'])],
-      ['instagram.com', new Set(['/logging_client_events'])]
+      ['instagram.com', new Set(['/logging_client_events'])],
+      
+      // [V41.72 Added] Shopee Mall/Live Statistics (Explicit Blocking)
+      ['mall.shopee.tw', new Set(['/userstats_record/batchrecord'])],
+      ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch'])]
     ])
   },
 
@@ -817,6 +814,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V41.70 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V41.72 Active\n${stats.toString()}` });
 }
 
