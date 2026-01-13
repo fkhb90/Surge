@@ -1,11 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.79.js
- * @version   41.79 (Platinum - Stable - UBTA Fix)
- * @description [V41.79] 針對 Shopee 搜尋卡住問題的最終功能性修復：
- * 1) [Allow] 顯式放行 ubta.tracking.shopee.tw 與 ubt.tracking.shopee.tw (加入 Hard Whitelist)
- * - 原因：Shopee App 存在追蹤強依賴，若此行為分析請求失敗，會導致搜尋 API 不發送或前端報錯
- * 2) [Fix] 維持 Shopee 搜尋 (/api/v4/search/, /search/) 與點擊 (/click/) 的路徑豁免
- * 3) [Clean] 保持代碼架構精簡，移除不必要的實驗性全域豁免
+ * @file      URL-Ultimate-Filter-Surge-V41.80.js
+ * @version   41.80 (Platinum - Stable - Fusion Architecture)
+ * @description [V41.80] 集大成之作，融合 V41.77 與 V41.78 優點：
+ * 1) [L0.1] 保留 Universal Exemption (/search/, /click/)，確保跨子網域的搜尋與點擊功能絕對存活
+ * 2) [L0.2] 保留 Shopee Super Whitelist，對主網域跳過關鍵字檢查，但仍受黑名單規範
+ * 3) [Block] 恢復對 tracking/APM 的阻擋，但將 UBTA (行為分析) 暫時放行以避免潛在依賴
  * @lastUpdated 2026-01-13
  */
 
@@ -51,7 +50,7 @@ const RULES = {
       '143.92.88.1',   // Shopee HTTPDNS
       'content.garena.com', // Shopee Config
       
-      // [V41.79 Fix] Shopee Tracking Allow List (Required for Search Functionality)
+      // [V41.79/80] UBTA Tracking Allow (To prevent search lock-up)
       'ubta.tracking.shopee.tw',
       'ubt.tracking.shopee.tw',
       
@@ -146,8 +145,8 @@ const RULES = {
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
     // Shopee Tracking & RUM
-    'apm.tracking.shopee.tw', 'live-apm.shopee.tw',
-    // ubta.tracking.shopee.tw REMOVED from Block List
+    'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 
+    // ubta.tracking.shopee.tw (Allowed in L0)
 
     // RUM & Session Replay & Error Tracking
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
@@ -404,7 +403,7 @@ const RULES = {
       'amp-ad', 'amp-analytics', 'amp-auto-ads', 'amp-sticky-ad', 'amp4ads', 'apstag', 'google_ad', 'pagead',
       'pwt.js', '/analytic/', '/analytics/', '/api/v2/rum', '/audit/', '/beacon/', '/collect?', '/collector/',
       'g/collect', '/insight/', '/intelligence/', '/measurement', 'mp/collect', '/pixel/', '/report/',
-      '/reporting/', '/reports/', '/telemetry/', '/unstable/produce_batch', '/v1/produce', '/bugsnag/',
+      'reporting/', '/reports/', '/telemetry/', '/unstable/produce_batch', '/v1/produce', '/bugsnag/',
       '/crash/', 'debug/mp/collect', '/error/', '/envelope', '/exception/', '/sentry/', '/stacktrace/',
       'performance-tracking', 'real-user-monitoring', 'web-vitals',
       'audience', 'attribution', 'behavioral-targeting', 'cohort', 'cohort-analysis',
@@ -439,17 +438,18 @@ const RULES = {
     SUBSTRINGS: new Set([
       '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/js/', 'static/media/'
     ]),
-    SEGMENTS: new Set(['admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login']),
+    SEGMENTS: new Set([
+      'admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login',
+      // [V41.77] Universal Exemption
+      'search', 'recommend'
+    ]),
     PATH_EXEMPTIONS: new Map([
       ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])],
       // [V41.69] Shopee Anti-Bot Verification Exception
       ['shopee.tw', new Set(['/verify/traffic'])],
       // [V41.73] Shopee Search API Exception (Fix for "search results not loading")
       ['shopee.tw', new Set(['/api/v4/search/'])],
-      ['shopee.com', new Set(['/api/v4/search/'])],
-      // [V41.76] Item Click Exception
-      ['shopee.tw', new Set(['/click/'])],
-      ['shopee.com', new Set(['/click/'])]
+      ['shopee.com', new Set(['/api/v4/search/'])]
     ])
   },
 
@@ -612,11 +612,10 @@ const HELPERS = {
     return false;
   },
 
-  isPathExemptedForDomain: (hostname, pathLower) => {
-    const exemptedPaths = RULES.EXCEPTIONS.PATH_EXEMPTIONS.get(hostname);
-    if (!exemptedPaths) return false;
-    for (const exemptedPath of exemptedPaths) {
-      if (pathLower.includes(exemptedPath)) return true;
+  // [V41.77] Universal Exemption Check
+  isUniversallyExempted: (pathLower) => {
+    if (pathLower.includes('/search/') || pathLower.includes('/click') || pathLower.includes('/recommend/')) {
+        return true;
     }
     return false;
   },
@@ -720,6 +719,33 @@ function processRequest(request) {
     const hostname = urlObj.hostname.toLowerCase();
     const pathLower = (urlObj.pathname + urlObj.search).toLowerCase();
 
+    // [V41.78 Change] Shopee Super Whitelist Check
+    // If domain is shopee.tw or shopee.com, skip almost all checks except explicit block domains
+    if (hostname.endsWith('shopee.tw') || hostname.endsWith('shopee.com')) {
+        
+        // 1. Still check for Explicit Block Domains (like apm.tracking...)
+        if (RULES.BLOCK_DOMAINS.has(hostname)) {
+             stats.blocks++;
+             return { response: { status: 403, body: 'Blocked by Domain (Shopee)' } };
+        }
+
+        // 2. Still check for Critical Path Map (Surgical blocking like /batchrecord)
+        const blockedPaths = getCriticalBlockedPaths(hostname);
+        if (blockedPaths) {
+            for (const badPath of blockedPaths) {
+                if (pathLower.includes(badPath)) {
+                    stats.blocks++;
+                    return { response: { status: 204 } }; // Drop silently
+                }
+            }
+        }
+        
+        // 3. Skip Keyword/Regex checks for Shopee main domains to ensure search/click works
+        stats.allows++;
+        return null;
+    }
+
+
     // Layer 0: Hard whitelist must win (stability > aggressive P0 path)
     if (isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname)) {
       multiLevelCache.set(hostname, 'ALLOW', 86400000);
@@ -731,6 +757,14 @@ function processRequest(request) {
     const cached = multiLevelCache.get(hostname);
     if (cached === 'ALLOW') { stats.allows++; return null; }
     if (cached === 'BLOCK') { stats.blocks++; return { response: { status: 403, body: 'Blocked by Cache' } }; }
+
+    // [New V41.77] Layer 0.1: Universal Path Exemption (Global Safe List)
+    // 優先放行任何包含安全關鍵字的請求，無視域名
+    if (HELPERS.isUniversallyExempted(pathLower)) {
+        if (CONFIG.DEBUG_MODE) console.log(`[Allow] Universal Exemption: ${pathLower}`);
+        stats.allows++;
+        return null;
+    }
 
     // Layer 1: P0 Critical Path (generic + scripts)
     if (criticalPathScanner.matches(pathLower)) {
@@ -818,7 +852,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V41.79 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V41.78 Active\n${stats.toString()}` });
 }
-
 
