@@ -1,9 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.68.js
- * @version   41.68 (Platinum - Stable - Hotfix)
- * @description [V41.68] 針對 V41.67 的緊急修復與規則擴充：
- * 1) [Fix] 修復 Feedly API (/v3/collections) 因命中 'collect' 關鍵字而被誤殺的問題
- * 2) [Add] 將 api.feedly.com 加入 Hard Whitelist，feedly.com 加入 Soft Whitelist
+ * @file      URL-Ultimate-Filter-Surge-V41.69.js
+ * @version   41.69 (Platinum - Stable - Hotfix)
+ * @description [V41.69] 針對 V41.68 的累積修復：
+ * 1) [Fix] 修復 Shopee 驗證請求 (/verify/traffic) 被誤殺導致商品無法載入的問題
+ * 2) [Fix] 繼承 V41.68 的 Feedly 修復 (Hard/Soft Whitelist)
  * @lastUpdated 2026-01-13
  */
 
@@ -13,7 +13,6 @@
 
 const RULES = {
   // [1] P0 Priority Block (Safety Valve)
-  // 針對最強力且無所不在的廣告聯盟根域名
   PRIORITY_BLOCK_DOMAINS: new Set([
     'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'admob.com', 'ads.google.com',
     'appsflyer.com', 'adjust.com', 'kochava.com', 'branch.io', 'app-measurement.com', 'singular.net',
@@ -43,42 +42,39 @@ const RULES = {
   ]),
 
   // [2] Intelligent Whitelists
-  // Layer 0: 絕對放行，跳過所有檢查 (包含 P0 Block)
+  // Layer 0: 絕對放行
   HARD_WHITELIST: {
     EXACT: new Set([
-      // 台灣關鍵基礎設施 (IP 直連通常是 App 硬編碼)
       '175.99.79.153', // NHIA 健保署
       
-      // AI 生產力工具 (封鎖會導致對話中斷或功能失效)
+      // AI & Productivity
       'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
       'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
       'qianwen.aliyun.com', 'static.stepfun.com', 'api.openai.com', 'a-api.anthropic.com',
       
-      // 新聞閱讀與生產力工具 [V41.68 Added]
+      // News & Productivity (V41.68 Fix)
       'api.feedly.com', 'sandbox.feedly.com', 'cloud.feedly.com',
 
-      // 系統與驗證服務
+      // System & Auth
       'reportaproblem.apple.com', 'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
       'sso.godaddy.com', 'idmsa.apple.com', 'api.login.yahoo.com', 
       
-      // 台灣金融與支付 API
+      // Taiwan Finance & Payment
       'api.etmall.com.tw', 'api.map.ecpay.com.tw', 'api.ecpay.com.tw', 'payment.ecpay.com.tw',
       'api.jkos.com', 'tw.fd-api.com',
       
-      // 企業與開發者工具
+      // Dev Tools
       'code.createjs.com', 'oa.ledabangong.com', 'oa.qianyibangong.com', 'raw.githubusercontent.com',
       'ss.ledabangong.com', 'userscripts.adtidy.org', 'api.github.com', 'api.vercel.com',
       
-      // 社群基礎設施
+      // Social Infra
       'gateway.facebook.com', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com',
       'api.discord.com', 'api.twitch.tv', 'api.line.me', 'today.line.me',
       
-      // 特定修復 (Fixes)
-      'pro.104.com.tw', // 104 Pro 人資系統
-      'gov.tw'
+      // Fixes
+      'pro.104.com.tw', 'gov.tw'
     ]),
     WILDCARDS: [
-      // 銀行業 (必須確保網銀 App 穩定)
       'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw',
       'richart.tw', 'bot.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw',
       'dawho.tw', 'dbs.com.tw', 'firstbank.com.tw', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw',
@@ -87,21 +83,16 @@ const RULES = {
       'sinotrade.com.tw', 'standardchartered.com.tw', 'stripe.com', 'taipeifubon.com.tw',
       'taiwanpay.com.tw', 'tcb-bank.com.tw', 'twca.com.tw', 'twmp.com.tw', 'pay.taipei',
       
-      // 政府與公部門
       'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'org.tw', 'tdcc.com.tw',
       
-      // 系統核心
       'icloud.com', 'apple.com', 'whatsapp.net', 'update.microsoft.com', 'windowsupdate.com',
       'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
       
-      // 網頁時光機
       'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
       'perma.cc', 'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org',
       
-      // Google Video (YouTube 播放穩定性)
       'googlevideo.com',
       
-      // 短網址 (Google)
       'app.goo.gl', 'goo.gl'
     ]
   },
@@ -132,7 +123,7 @@ const RULES = {
       'wp.com', 'flipboard.com', 'inoreader.com', 'itofoo.com', 'newsblur.com', 'theoldreader.com',
       'azurewebsites.net', 'cloudfunctions.net', 'digitaloceanspaces.com', 'github.io', 'gitlab.io',
       'netlify.app', 'oraclecloud.com', 'pages.dev', 'vercel.app', 'windows.net', 'threads.net',
-      'slack.com', 'feedly.com',
+      'slack.com', 'feedly.com', // [V41.68 Added]
       // 圖片圖床類
       'ak.sv', 'bayimg.com', 'beeimg.com', 'binbox.io', 'casimages.com', 'cocoleech.com',
       'cubeupload.com', 'dlupload.com', 'fastpic.org', 'fotosik.pl', 'gofile.download', 'ibb.co',
@@ -445,7 +436,9 @@ const RULES = {
     ]),
     SEGMENTS: new Set(['admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login']),
     PATH_EXEMPTIONS: new Map([
-      ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])]
+      ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])],
+      // [V41.69] Shopee Anti-Bot Verification Exception
+      ['shopee.tw', new Set(['/verify/traffic'])]
     ])
   },
 
@@ -608,6 +601,15 @@ const HELPERS = {
     return false;
   },
 
+  isPathExemptedForDomain: (hostname, pathLower) => {
+    const exemptedPaths = RULES.EXCEPTIONS.PATH_EXEMPTIONS.get(hostname);
+    if (!exemptedPaths) return false;
+    for (const exemptedPath of exemptedPaths) {
+      if (pathLower.includes(exemptedPath)) return true;
+    }
+    return false;
+  },
+
   cleanTrackingParams: (urlStr, hostname, pathLower) => {
     // Exemption (keep behavior compatible)
     if (hostname === 'www.google.com' && pathLower.startsWith('/maps/')) return null;
@@ -719,6 +721,14 @@ function processRequest(request) {
     if (cached === 'ALLOW') { stats.allows++; return null; }
     if (cached === 'BLOCK') { stats.blocks++; return { response: { status: 403, body: 'Blocked by Cache' } }; }
 
+    // [New] Layer 0.5: Path Exemption Check (Domain-specific allow list)
+    // 檢查此請求是否位於特定域名的「放行路徑」中 (如 shopee.tw/verify/traffic)
+    if (HELPERS.isPathExemptedForDomain(hostname, pathLower)) {
+        if (CONFIG.DEBUG_MODE) console.log(`[Allow] Exempted Path: ${pathLower}`);
+        stats.allows++;
+        return null;
+    }
+
     // Layer 1: P0 Critical Path (generic + scripts)
     if (criticalPathScanner.matches(pathLower)) {
       stats.blocks++;
@@ -805,6 +815,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V41.68 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V41.69 Active\n${stats.toString()}` });
 }
 
