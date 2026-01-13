@@ -1,11 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.79.js
- * @version   41.79 (Platinum - Stable - Minimalist Fix)
- * @description [V41.79] 回退至最穩定的 V41.75 架構，並進行最小幅度的搜尋修復：
- * 1) [Fix] 確保 Shopee 搜尋 (/search/) 與點擊 (/click/) 路徑被正確豁免
- * 2) [Logic] 保留子網域繼承邏輯，確保 mall.shopee.tw 能繼承 shopee.tw 的白名單
- * 3) [Clean] 移除 V41.77/78 的實驗性全域豁免與 UBTA 放行，回歸單純
- * @lastUpdated 2026-01-13
+ * @file      URL-Ultimate-Filter-Surge-V41.80.js
+ * @version   41.80 (Platinum - Stable - Investing.com Fix)
+ * @description [V41.80] 針對財經 App 的誤殺修復與 Shopee 規則維護：
+ * 1) [Fix] 將 investing.com 與 iappapi.investing.com 加入 Soft Whitelist，解決新聞無法載入問題
+ * 2) [Keep] 保留 V41.79 的 Shopee 搜尋 (/search/) 與點擊 (/click/) 豁免
+ * 3) [Keep] 保留 Shopee 基礎設施 (HTTPDNS, Config) 的放行設定
+ * @lastUpdated 2026-01-14
  */
 
 // #################################################################################################
@@ -49,6 +49,10 @@ const RULES = {
       '175.99.79.153', // NHIA
       '143.92.88.1',   // Shopee HTTPDNS
       'content.garena.com', // Shopee Config
+      
+      // [V41.79] UBTA Tracking Allow
+      'ubta.tracking.shopee.tw',
+      'ubt.tracking.shopee.tw',
       
       // AI & Productivity
       'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
@@ -112,7 +116,10 @@ const RULES = {
       'auth.docker.io', 'database.windows.net', 'login.docker.com', 'api.irentcar.com.tw',
       'usiot.roborock.com', 'appapi.104.com.tw',
       'prism.ec.yahoo.com', 'graphql.ec.yahoo.com', 'visuals.feedly.com', 'api.revenuecat.com',
-      'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com'
+      'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com',
+      
+      // [V41.80 Added] Investing.com API Exception
+      'iappapi.investing.com'
     ]),
     WILDCARDS: [
       'youtube.com', 'facebook.com', 'instagram.com',
@@ -127,7 +134,7 @@ const RULES = {
       'wp.com', 'flipboard.com', 'inoreader.com', 'itofoo.com', 'newsblur.com', 'theoldreader.com',
       'azurewebsites.net', 'cloudfunctions.net', 'digitaloceanspaces.com', 'github.io', 'gitlab.io',
       'netlify.app', 'oraclecloud.com', 'pages.dev', 'vercel.app', 'windows.net', 'threads.net',
-      'slack.com', 'feedly.com',
+      'slack.com', 'feedly.com', 'investing.com', // [V41.80 Added] Investing.com
       'ak.sv', 'bayimg.com', 'beeimg.com', 'binbox.io', 'casimages.com', 'cocoleech.com',
       'cubeupload.com', 'dlupload.com', 'fastpic.org', 'fotosik.pl', 'gofile.download', 'ibb.co',
       'imagebam.com', 'imageban.ru', 'imageshack.com', 'imagetwist.com', 'imagevenue.com', 'imgbb.com',
@@ -140,9 +147,9 @@ const RULES = {
 
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
-    // Shopee Tracking & RUM (Explicit Block)
-    'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'ubta.tracking.shopee.tw',
-    // dem.shopee.com removed to ensure search stability
+    // Shopee Tracking & RUM
+    'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 
+    // ubta.tracking.shopee.tw (Allowed in L0)
 
     // RUM & Session Replay & Error Tracking
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
@@ -441,7 +448,10 @@ const RULES = {
       ['shopee.tw', new Set(['/verify/traffic'])],
       // [V41.73] Shopee Search API Exception (Fix for "search results not loading")
       ['shopee.tw', new Set(['/api/v4/search/'])],
-      ['shopee.com', new Set(['/api/v4/search/'])]
+      ['shopee.com', new Set(['/api/v4/search/'])],
+      // [V41.76] Item Click Exception
+      ['shopee.tw', new Set(['/click/'])],
+      ['shopee.com', new Set(['/click/'])]
     ])
   },
 
