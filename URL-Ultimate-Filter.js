@@ -1,9 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.69.js
- * @version   41.69 (Platinum - Stable - Hotfix)
- * @description [V41.69] 針對 V41.68 的累積修復：
- * 1) [Fix] 修復 Shopee 驗證請求 (/verify/traffic) 被誤殺導致商品無法載入的問題
- * 2) [Fix] 繼承 V41.68 的 Feedly 修復 (Hard/Soft Whitelist)
+ * @file      URL-Ultimate-Filter-Surge-V41.70.js
+ * @version   41.70 (Platinum - Stable - Cumulative Fix)
+ * @description [V41.70] 針對 Shopee 基礎設施的緊急修復：
+ * 1) [Fix] 將 Shopee HTTPDNS IP (143.92.88.1) 加入 Hard Whitelist，解決 'batch' 關鍵字誤殺
+ * 2) [Fix] 包含 V41.69 的 Shopee Anti-Bot (/verify/traffic) 修復
+ * 3) [Fix] 包含 V41.68 的 Feedly 生產力工具白名單
  * @lastUpdated 2026-01-13
  */
 
@@ -46,13 +47,14 @@ const RULES = {
   HARD_WHITELIST: {
     EXACT: new Set([
       '175.99.79.153', // NHIA 健保署
+      '143.92.88.1',   // [V41.70] Shopee HTTPDNS/Infrastructure (Sea Group)
       
       // AI & Productivity
       'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
       'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
       'qianwen.aliyun.com', 'static.stepfun.com', 'api.openai.com', 'a-api.anthropic.com',
       
-      // News & Productivity (V41.68 Fix)
+      // News & Productivity (V41.68)
       'api.feedly.com', 'sandbox.feedly.com', 'cloud.feedly.com',
 
       // System & Auth
@@ -123,7 +125,7 @@ const RULES = {
       'wp.com', 'flipboard.com', 'inoreader.com', 'itofoo.com', 'newsblur.com', 'theoldreader.com',
       'azurewebsites.net', 'cloudfunctions.net', 'digitaloceanspaces.com', 'github.io', 'gitlab.io',
       'netlify.app', 'oraclecloud.com', 'pages.dev', 'vercel.app', 'windows.net', 'threads.net',
-      'slack.com', 'feedly.com', // [V41.68 Added]
+      'slack.com', 'feedly.com',
       // 圖片圖床類
       'ak.sv', 'bayimg.com', 'beeimg.com', 'binbox.io', 'casimages.com', 'cocoleech.com',
       'cubeupload.com', 'dlupload.com', 'fastpic.org', 'fotosik.pl', 'gofile.download', 'ibb.co',
@@ -815,6 +817,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V41.69 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V41.70 Active\n${stats.toString()}` });
 }
 
