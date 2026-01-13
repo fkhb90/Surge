@@ -1,12 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.66.js
- * @version   41.66 (Platinum Architecture - Anti-RUM)
- * @description [V41.66] 針對前端監控與使用者行為錄製(RUM)的專項封鎖：
- * 1) [Block] Sentry: 全面封鎖 *.sentry.io 與 browser.sentry-cdn.com
- * 2) [Block] Datadog: 封鎖 browser-intake-datadoghq.* (RUM Ingest)
- * 3) [Block] New Relic: 封鎖 bam.nr-data.net (Browser Monitor)
- * 4) [Block] LogRocket: 封鎖 lrkt-in.com 與相關 Ingest 端點 (Session Replay)
- * 5) [Clean] 移除 CRITICAL_PATH.MAP 中已被域名封鎖覆蓋的冗餘規則
+ * @file      URL-Ultimate-Filter-Surge-V41.68.js
+ * @version   41.68 (Platinum - Stable - Hotfix)
+ * @description [V41.68] 針對 V41.67 的緊急修復與規則擴充：
+ * 1) [Fix] 修復 Feedly API (/v3/collections) 因命中 'collect' 關鍵字而被誤殺的問題
+ * 2) [Add] 將 api.feedly.com 加入 Hard Whitelist，feedly.com 加入 Soft Whitelist
  * @lastUpdated 2026-01-13
  */
 
@@ -57,6 +54,9 @@ const RULES = {
       'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
       'qianwen.aliyun.com', 'static.stepfun.com', 'api.openai.com', 'a-api.anthropic.com',
       
+      // 新聞閱讀與生產力工具 [V41.68 Added]
+      'api.feedly.com', 'sandbox.feedly.com', 'cloud.feedly.com',
+
       // 系統與驗證服務
       'reportaproblem.apple.com', 'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
       'sso.godaddy.com', 'idmsa.apple.com', 'api.login.yahoo.com', 
@@ -132,7 +132,7 @@ const RULES = {
       'wp.com', 'flipboard.com', 'inoreader.com', 'itofoo.com', 'newsblur.com', 'theoldreader.com',
       'azurewebsites.net', 'cloudfunctions.net', 'digitaloceanspaces.com', 'github.io', 'gitlab.io',
       'netlify.app', 'oraclecloud.com', 'pages.dev', 'vercel.app', 'windows.net', 'threads.net',
-      'slack.com',
+      'slack.com', 'feedly.com',
       // 圖片圖床類
       'ak.sv', 'bayimg.com', 'beeimg.com', 'binbox.io', 'casimages.com', 'cocoleech.com',
       'cubeupload.com', 'dlupload.com', 'fastpic.org', 'fotosik.pl', 'gofile.download', 'ibb.co',
@@ -146,7 +146,7 @@ const RULES = {
 
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
-    // RUM & Session Replay & Error Tracking (New Additions)
+    // RUM & Session Replay & Error Tracking
     'browser.sentry-cdn.com',       // Sentry SDK
     'browser-intake-datadoghq.com', // Datadog RUM
     'browser-intake-datadoghq.eu',
@@ -805,5 +805,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V41.66 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V41.68 Active\n${stats.toString()}` });
 }
+
