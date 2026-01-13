@@ -1,11 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.72.js
- * @version   41.72 (Platinum - Stable - Shopee Tracking Hardening)
- * @description [V41.72] 針對 Shopee 追蹤與基礎設施的雙向優化：
- * 1) [Block] 新增 dem.shopee.com (數據監控) 至 BLOCK_DOMAINS
- * 2) [Block] 新增 apm.tracking.shopee.tw (效能監控) 至 BLOCK_DOMAINS
- * 3) [Block] 新增 mall.shopee.tw 的行為統計路徑至 CRITICAL_PATH.MAP
- * 4) [Allow] 將 shopee.io (基礎設施) 加入 SOFT_WHITELIST，避免 ccms 配置更新被誤殺
+ * @file      URL-Ultimate-Filter-Surge-V41.73.js
+ * @version   41.73 (Platinum - Stable - Search Fix)
+ * @description [V41.73] 針對 Shopee 搜尋功能的緊急修復：
+ * 1) [Fix] 顯式放行 Shopee 搜尋 API (/api/v4/search/)，防止因參數含敏感詞被誤殺
+ * 2) [Rollback] 暫時將 dem.shopee.com 移出黑名單，以排除其導致頁面崩潰的可能性
+ * 3) [Keep] 保留 V41.72 的其他 APM 與 RUM 阻擋規則
  * @lastUpdated 2026-01-13
  */
 
@@ -48,8 +47,8 @@ const RULES = {
   HARD_WHITELIST: {
     EXACT: new Set([
       '175.99.79.153', // NHIA
-      '143.92.88.1',   // Shopee HTTPDNS (V41.70)
-      'content.garena.com', // Shopee/Garena Config (V41.71)
+      '143.92.88.1',   // Shopee HTTPDNS
+      'content.garena.com', // Shopee Config
       
       // AI & Productivity
       'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
@@ -121,7 +120,7 @@ const RULES = {
       'linkedin.com', 'discord.com', 'googleapis.com', 'book.com.tw', 'citiesocial.com',
       'coupang.com', 'iherb.biz', 'iherb.com', 'm.youtube.com', 'momo.dm',
       'momoshop.com.tw', 'shopee.tw', 'shopeemobile.com',
-      'shopee.io', // [V41.72 Added] Shopee 基礎設施根域名 (ccms 等)
+      'shopee.io', // Shopee Infra
       'pxmart.com.tw', 'pxpayplus.com', 'shopback.com.tw', 'akamaihd.net',
       'amazonaws.com', 'cloudflare.com', 'cloudfront.net', 'fastly.net', 'fbcdn.net', 'gstatic.com',
       'jsdelivr.net', 'cdnjs.cloudflare.com', 'twimg.com', 'unpkg.com', 'ytimg.com', 'new-reporter.com',
@@ -141,8 +140,9 @@ const RULES = {
 
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
-    // [V41.72 Added] Shopee Tracking & RUM
-    'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw',
+    // Shopee Tracking & RUM
+    'apm.tracking.shopee.tw', 'live-apm.shopee.tw',
+    // [V41.73 Rollback] dem.shopee.com 暫時移除，避免影響搜尋功能
 
     // RUM & Session Replay & Error Tracking
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
@@ -437,7 +437,10 @@ const RULES = {
     PATH_EXEMPTIONS: new Map([
       ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])],
       // [V41.69] Shopee Anti-Bot Verification Exception
-      ['shopee.tw', new Set(['/verify/traffic'])]
+      ['shopee.tw', new Set(['/verify/traffic'])],
+      // [V41.73] Shopee Search API Exception (Fix for "search results not loading")
+      ['shopee.tw', new Set(['/api/v4/search/'])],
+      ['shopee.com', new Set(['/api/v4/search/'])]
     ])
   },
 
@@ -814,6 +817,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V41.72 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V41.73 Active\n${stats.toString()}` });
 }
 
