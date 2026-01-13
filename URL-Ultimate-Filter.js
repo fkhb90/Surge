@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge-V41.80.js
- * @version   41.80 (Platinum - Stable - Investing.com Fix)
- * @description [V41.80] 針對財經 App 的誤殺修復與 Shopee 規則維護：
- * 1) [Fix] 將 investing.com 與 iappapi.investing.com 加入 Soft Whitelist，解決新聞無法載入問題
- * 2) [Keep] 保留 V41.79 的 Shopee 搜尋 (/search/) 與點擊 (/click/) 豁免
- * 3) [Keep] 保留 Shopee 基礎設施 (HTTPDNS, Config) 的放行設定
+ * @version   41.80 (Platinum - Stable - Investing & Shopee Fix)
+ * @description [V41.80] 針對財經與電商 App 的精準修復：
+ * 1) [Fix] 將 /portfolio_api.php 加入 PATH_EXEMPTIONS，解決 Investing.com 投資組合無法載入問題
+ * 2) [Fix] 將 investing.com 網域加入 Soft Whitelist
+ * 3) [Keep] 保留 V41.79 的 Shopee 搜尋/點擊修復與基礎設施放行
  * @lastUpdated 2026-01-14
  */
 
@@ -118,7 +118,7 @@ const RULES = {
       'prism.ec.yahoo.com', 'graphql.ec.yahoo.com', 'visuals.feedly.com', 'api.revenuecat.com',
       'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com',
       
-      // [V41.80 Added] Investing.com API Exception
+      // [V41.80 Added] Investing.com API
       'iappapi.investing.com'
     ]),
     WILDCARDS: [
@@ -134,7 +134,7 @@ const RULES = {
       'wp.com', 'flipboard.com', 'inoreader.com', 'itofoo.com', 'newsblur.com', 'theoldreader.com',
       'azurewebsites.net', 'cloudfunctions.net', 'digitaloceanspaces.com', 'github.io', 'gitlab.io',
       'netlify.app', 'oraclecloud.com', 'pages.dev', 'vercel.app', 'windows.net', 'threads.net',
-      'slack.com', 'feedly.com', 'investing.com', // [V41.80 Added] Investing.com
+      'slack.com', 'feedly.com', 'investing.com', // [V41.80 Added]
       'ak.sv', 'bayimg.com', 'beeimg.com', 'binbox.io', 'casimages.com', 'cocoleech.com',
       'cubeupload.com', 'dlupload.com', 'fastpic.org', 'fotosik.pl', 'gofile.download', 'ibb.co',
       'imagebam.com', 'imageban.ru', 'imageshack.com', 'imagetwist.com', 'imagevenue.com', 'imgbb.com',
@@ -406,7 +406,7 @@ const RULES = {
       'amp-ad', 'amp-analytics', 'amp-auto-ads', 'amp-sticky-ad', 'amp4ads', 'apstag', 'google_ad', 'pagead',
       'pwt.js', '/analytic/', '/analytics/', '/api/v2/rum', '/audit/', '/beacon/', '/collect?', '/collector/',
       'g/collect', '/insight/', '/intelligence/', '/measurement', 'mp/collect', '/pixel/', '/report/',
-      '/reporting/', '/reports/', '/telemetry/', '/unstable/produce_batch', '/v1/produce', '/bugsnag/',
+      'reporting/', '/reports/', '/telemetry/', '/unstable/produce_batch', '/v1/produce', '/bugsnag/',
       '/crash/', 'debug/mp/collect', '/error/', '/envelope', '/exception/', '/sentry/', '/stacktrace/',
       'performance-tracking', 'real-user-monitoring', 'web-vitals',
       'audience', 'attribution', 'behavioral-targeting', 'cohort', 'cohort-analysis',
@@ -451,7 +451,9 @@ const RULES = {
       ['shopee.com', new Set(['/api/v4/search/'])],
       // [V41.76] Item Click Exception
       ['shopee.tw', new Set(['/click/'])],
-      ['shopee.com', new Set(['/click/'])]
+      ['shopee.com', new Set(['/click/'])],
+      // [V41.80] Investing.com API Exception
+      ['iappapi.investing.com', new Set(['/portfolio_api.php'])]
     ])
   },
 
