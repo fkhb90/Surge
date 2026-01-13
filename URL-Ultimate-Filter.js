@@ -1,12 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.62.js
- * @version   41.62 (Platinum Architecture - Hotpath Zero-Alloc)
- * @description [V41.62] 以 V41.61 為基底的熱路徑零配置優化版：
- * 1) [Perf] 預先合併 REGEX（避免每 request 重建 combinedRegex）
- * 2) [Perf] 將 EXCEPTIONS.SUFFIXES 拆分為「副檔名集合」與「完整檔名集合」（避免每 request 迭代整包 SUFFIXES）
- * 3) [Perf] 預先快取 CRITICAL_PATH.MAP.get(hostname) 結果（避免重複查表）
- * 4) [Stability] 行為保持向下相容：封鎖/放行邏輯與 V41.61 等價（僅減少熱路徑成本）
- * @lastUpdated 2026-01-12
+ * @file      URL-Ultimate-Filter-Surge-V41.63.js
+ * @version   41.63 (Platinum Architecture - Hotpath Zero-Alloc)
+ * @description [V41.63] 針對 104 Pro 誤殺的熱修復：
+ * 1) [Fix] 將 'pro.104.com.tw' 移至 HARD_WHITELIST，解決 '/api/login' 誤中 '/api/log' 規則的問題
+ * 2) [Clean] 清理 BLOCK_DOMAINS 中殘留的 104 相關域名
+ * @lastUpdated 2026-01-13
  */
 
 // #################################################################################################
@@ -61,7 +59,8 @@ const RULES = {
       'api.login.yahoo.com', 'api.etmall.com.tw', 'api.map.ecpay.com.tw', 'api.adyen.com', 'api.feedly.com', 
       'api.braintreegateway.com', 'api.ecpay.com.tw', 'api.jkos.com', 'payment.ecpay.com.tw',
       'api.line.me', 'kktix.com', 'tixcraft.com', 'api.discord.com', 'api.twitch.tv', 'graph.instagram.com',
-      'graph.threads.net', 'i.instagram.com', 'iappapi.investing.com', 'today.line.me', 't.uber.com', 'gov.tw'
+      'graph.threads.net', 'i.instagram.com', 'iappapi.investing.com', 'today.line.me', 't.uber.com', 'gov.tw',
+      'pro.104.com.tw'
     ]),
     WILDCARDS: [
       'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw',
@@ -749,5 +748,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V41.62 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V41.63 Active\n${stats.toString()}` });
 }
