@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.78.js
- * @version   41.78 (Platinum - Stable - Shopee Whitelist Mode)
- * @description [V41.78] 針對 Shopee 搜尋問題的最終極手段：
- * 1) [Logic] 將 Shopee 主域名 (shopee.tw/com) 升級為「超級白名單」
- * 2) [Fix] 針對 Shopee 域名，完全跳過關鍵字與正則檢查，只攔截明確的黑名單域名
- * 3) [Safety] 仍保留對 apm.tracking 等已知追蹤域名的阻擋
+ * @file      URL-Ultimate-Filter-Surge-V41.79.js
+ * @version   41.79 (Platinum - Stable - Minimalist Fix)
+ * @description [V41.79] 回退至最穩定的 V41.75 架構，並進行最小幅度的搜尋修復：
+ * 1) [Fix] 確保 Shopee 搜尋 (/api/v4/search/, /search/) 與點擊 (/click/) 路徑被正確豁免
+ * 2) [Logic] 簡化子網域繼承邏輯，確保 mall.shopee.tw 能繼承 shopee.tw 的白名單
+ * 3) [Clean] 移除 V41.77/78 的實驗性全域豁免與 UBTA 放行，回歸單純
  * @lastUpdated 2026-01-13
  */
 
@@ -142,8 +142,7 @@ const RULES = {
   BLOCK_DOMAINS: new Set([
     // Shopee Tracking & RUM
     'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'ubta.tracking.shopee.tw',
-    // dem.shopee.com REMOVED
-
+    
     // RUM & Session Replay & Error Tracking
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
     'browser-intake-datadoghq.us', 'bam.nr-data.net', 'bam-cell.nr-data.net',
@@ -234,7 +233,6 @@ const RULES = {
 
   BLOCK_DOMAINS_REGEX: [
     /^ad[s]?\d*\.(ettoday\.net|ltn\.com\.tw)$/i,
-    // [Anti-RUM] Wildcards for Monitoring Services
     /^(.+\.)?sentry\.io$/i,
     /^(.+\.)?browser-intake-datadoghq\.(com|eu|us)$/i,
     /^(.+\.)?lr-ingest\.io$/i
@@ -345,7 +343,7 @@ const RULES = {
       ['vk.com', new Set(['/rtrg'])],
       ['instagram.com', new Set(['/logging_client_events'])],
       
-      // [V41.72/74] Explicit Blocking for Shopee RUM
+      // [V41.72] Blocking specific tracking paths
       ['mall.shopee.tw', new Set(['/userstats_record/batchrecord'])],
       ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch'])]
     ])
@@ -437,11 +435,9 @@ const RULES = {
     SEGMENTS: new Set(['admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login']),
     PATH_EXEMPTIONS: new Map([
       ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])],
-      // [V41.69] Shopee Anti-Bot Verification Exception
-      ['shopee.tw', new Set(['/verify/traffic'])],
-      // [V41.73] Shopee Search API Exception (Fix for "search results not loading")
-      ['shopee.tw', new Set(['/api/v4/search/'])],
-      ['shopee.com', new Set(['/api/v4/search/'])]
+      // [V41.79 Fix] Shopee Essential Path Exemptions
+      ['shopee.tw', new Set(['/verify/traffic', '/api/v4/search/', '/search/', '/recommend/', '/click/'])],
+      ['shopee.com', new Set(['/api/v4/search/', '/search/', '/recommend/', '/click/'])]
     ])
   },
 
@@ -604,7 +600,7 @@ const HELPERS = {
     return false;
   },
 
-  // [V41.75 Fix] Enhanced domain matching to support subdomains (mall.shopee.tw inherits shopee.tw)
+  // [V41.75/V41.79 Fix] Enhanced domain matching to support subdomains
   isPathExemptedForDomain: (hostname, pathLower) => {
     for (const [domain, paths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
       // Check if hostname is exactly the domain OR a subdomain of it
@@ -613,14 +609,6 @@ const HELPERS = {
           if (pathLower.includes(exemptedPath)) return true;
         }
       }
-    }
-    return false;
-  },
-
-  // [V41.77] Universal Exemption Check
-  isUniversallyExempted: (pathLower) => {
-    if (pathLower.includes('/search/') || pathLower.includes('/click') || pathLower.includes('/recommend/')) {
-        return true;
     }
     return false;
   },
@@ -724,33 +712,6 @@ function processRequest(request) {
     const hostname = urlObj.hostname.toLowerCase();
     const pathLower = (urlObj.pathname + urlObj.search).toLowerCase();
 
-    // [V41.78 Change] Shopee Super Whitelist Check
-    // If domain is shopee.tw or shopee.com, skip almost all checks except explicit block domains
-    if (hostname.endsWith('shopee.tw') || hostname.endsWith('shopee.com')) {
-        
-        // 1. Still check for Explicit Block Domains (like apm.tracking...)
-        if (RULES.BLOCK_DOMAINS.has(hostname)) {
-             stats.blocks++;
-             return { response: { status: 403, body: 'Blocked by Domain (Shopee)' } };
-        }
-
-        // 2. Still check for Critical Path Map (Surgical blocking like /batchrecord)
-        const blockedPaths = getCriticalBlockedPaths(hostname);
-        if (blockedPaths) {
-            for (const badPath of blockedPaths) {
-                if (pathLower.includes(badPath)) {
-                    stats.blocks++;
-                    return { response: { status: 204 } }; // Drop silently
-                }
-            }
-        }
-        
-        // 3. Skip Keyword/Regex checks for Shopee main domains to ensure search/click works
-        stats.allows++;
-        return null;
-    }
-
-
     // Layer 0: Hard whitelist must win (stability > aggressive P0 path)
     if (isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname)) {
       multiLevelCache.set(hostname, 'ALLOW', 86400000);
@@ -762,14 +723,6 @@ function processRequest(request) {
     const cached = multiLevelCache.get(hostname);
     if (cached === 'ALLOW') { stats.allows++; return null; }
     if (cached === 'BLOCK') { stats.blocks++; return { response: { status: 403, body: 'Blocked by Cache' } }; }
-
-    // [New V41.77] Layer 0.1: Universal Path Exemption (Global Safe List)
-    // 優先放行任何包含安全關鍵字的請求，無視域名
-    if (HELPERS.isUniversallyExempted(pathLower)) {
-        if (CONFIG.DEBUG_MODE) console.log(`[Allow] Universal Exemption: ${pathLower}`);
-        stats.allows++;
-        return null;
-    }
 
     // [New] Layer 0.5: Path Exemption Check (Domain-specific allow list)
     // 檢查此請求是否位於特定域名的「放行路徑」中
@@ -865,7 +818,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V41.78 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V41.79 Active\n${stats.toString()}` });
 }
-
 
