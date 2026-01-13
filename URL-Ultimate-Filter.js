@@ -1,10 +1,11 @@
 /**
  * @file      URL-Ultimate-Filter-Surge-V41.79.js
- * @version   41.79 (Platinum - Stable - Minimalist Fix)
- * @description [V41.79] 回退至最穩定的 V41.75 架構，並進行最小幅度的搜尋修復：
- * 1) [Fix] 確保 Shopee 搜尋 (/api/v4/search/, /search/) 與點擊 (/click/) 路徑被正確豁免
- * 2) [Logic] 簡化子網域繼承邏輯，確保 mall.shopee.tw 能繼承 shopee.tw 的白名單
- * 3) [Clean] 移除 V41.77/78 的實驗性全域豁免與 UBTA 放行，回歸單純
+ * @version   41.79 (Platinum - Stable - UBTA Fix)
+ * @description [V41.79] 針對 Shopee 搜尋卡住問題的最終功能性修復：
+ * 1) [Allow] 顯式放行 ubta.tracking.shopee.tw 與 ubt.tracking.shopee.tw (加入 Hard Whitelist)
+ * - 原因：Shopee App 存在追蹤強依賴，若此行為分析請求失敗，會導致搜尋 API 不發送或前端報錯
+ * 2) [Fix] 維持 Shopee 搜尋 (/api/v4/search/, /search/) 與點擊 (/click/) 的路徑豁免
+ * 3) [Clean] 保持代碼架構精簡，移除不必要的實驗性全域豁免
  * @lastUpdated 2026-01-13
  */
 
@@ -49,6 +50,10 @@ const RULES = {
       '175.99.79.153', // NHIA
       '143.92.88.1',   // Shopee HTTPDNS
       'content.garena.com', // Shopee Config
+      
+      // [V41.79 Fix] Shopee Tracking Allow List (Required for Search Functionality)
+      'ubta.tracking.shopee.tw',
+      'ubt.tracking.shopee.tw',
       
       // AI & Productivity
       'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
@@ -141,8 +146,9 @@ const RULES = {
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
     // Shopee Tracking & RUM
-    'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'ubta.tracking.shopee.tw',
-    
+    'apm.tracking.shopee.tw', 'live-apm.shopee.tw',
+    // ubta.tracking.shopee.tw REMOVED from Block List
+
     // RUM & Session Replay & Error Tracking
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
     'browser-intake-datadoghq.us', 'bam.nr-data.net', 'bam-cell.nr-data.net',
@@ -233,6 +239,7 @@ const RULES = {
 
   BLOCK_DOMAINS_REGEX: [
     /^ad[s]?\d*\.(ettoday\.net|ltn\.com\.tw)$/i,
+    // [Anti-RUM] Wildcards for Monitoring Services
     /^(.+\.)?sentry\.io$/i,
     /^(.+\.)?browser-intake-datadoghq\.(com|eu|us)$/i,
     /^(.+\.)?lr-ingest\.io$/i
@@ -343,7 +350,7 @@ const RULES = {
       ['vk.com', new Set(['/rtrg'])],
       ['instagram.com', new Set(['/logging_client_events'])],
       
-      // [V41.72] Blocking specific tracking paths
+      // [V41.72 Added] Shopee Mall/Live Statistics (Explicit Blocking)
       ['mall.shopee.tw', new Set(['/userstats_record/batchrecord'])],
       ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch'])]
     ])
@@ -435,9 +442,14 @@ const RULES = {
     SEGMENTS: new Set(['admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login']),
     PATH_EXEMPTIONS: new Map([
       ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])],
-      // [V41.79 Fix] Shopee Essential Path Exemptions
-      ['shopee.tw', new Set(['/verify/traffic', '/api/v4/search/', '/search/', '/recommend/', '/click/'])],
-      ['shopee.com', new Set(['/api/v4/search/', '/search/', '/recommend/', '/click/'])]
+      // [V41.69] Shopee Anti-Bot Verification Exception
+      ['shopee.tw', new Set(['/verify/traffic'])],
+      // [V41.73] Shopee Search API Exception (Fix for "search results not loading")
+      ['shopee.tw', new Set(['/api/v4/search/'])],
+      ['shopee.com', new Set(['/api/v4/search/'])],
+      // [V41.76] Item Click Exception
+      ['shopee.tw', new Set(['/click/'])],
+      ['shopee.com', new Set(['/click/'])]
     ])
   },
 
@@ -600,15 +612,11 @@ const HELPERS = {
     return false;
   },
 
-  // [V41.75/V41.79 Fix] Enhanced domain matching to support subdomains
   isPathExemptedForDomain: (hostname, pathLower) => {
-    for (const [domain, paths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
-      // Check if hostname is exactly the domain OR a subdomain of it
-      if (hostname === domain || hostname.endsWith('.' + domain)) {
-        for (const exemptedPath of paths) {
-          if (pathLower.includes(exemptedPath)) return true;
-        }
-      }
+    const exemptedPaths = RULES.EXCEPTIONS.PATH_EXEMPTIONS.get(hostname);
+    if (!exemptedPaths) return false;
+    for (const exemptedPath of exemptedPaths) {
+      if (pathLower.includes(exemptedPath)) return true;
     }
     return false;
   },
@@ -724,14 +732,6 @@ function processRequest(request) {
     if (cached === 'ALLOW') { stats.allows++; return null; }
     if (cached === 'BLOCK') { stats.blocks++; return { response: { status: 403, body: 'Blocked by Cache' } }; }
 
-    // [New] Layer 0.5: Path Exemption Check (Domain-specific allow list)
-    // 檢查此請求是否位於特定域名的「放行路徑」中
-    if (HELPERS.isPathExemptedForDomain(hostname, pathLower)) {
-        if (CONFIG.DEBUG_MODE) console.log(`[Allow] Exempted Path: ${pathLower}`);
-        stats.allows++;
-        return null;
-    }
-
     // Layer 1: P0 Critical Path (generic + scripts)
     if (criticalPathScanner.matches(pathLower)) {
       stats.blocks++;
@@ -820,4 +820,5 @@ if (typeof $request !== 'undefined') {
 } else {
   $done({ title: 'URL Ultimate Filter', content: `V41.79 Active\n${stats.toString()}` });
 }
+
 
