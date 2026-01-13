@@ -1,11 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge-V41.78.js
- * @version   41.78 (Platinum - Debug - UBTA Allow)
- * @description [V41.78] 針對 Shopee 搜尋問題的實驗性修復：
- * 1) [Allow] 暫時將 ubta.tracking.shopee.tw 與 ubt.tracking.shopee.tw 加入 Hard Whitelist
- * (驗證是否存在「追蹤強依賴」導致搜尋卡住)
- * 2) [Keep] 保留 /search/, /click, /recommend 的全域豁免
- * 3) [Keep] 保留 content.garena.com 與 HTTPDNS IP 的放行
+ * @version   41.78 (Platinum - Stable - Shopee Whitelist Mode)
+ * @description [V41.78] 針對 Shopee 搜尋問題的最終極手段：
+ * 1) [Logic] 將 Shopee 主域名 (shopee.tw/com) 升級為「超級白名單」
+ * 2) [Fix] 針對 Shopee 域名，完全跳過關鍵字與正則檢查，只攔截明確的黑名單域名
+ * 3) [Safety] 仍保留對 apm.tracking 等已知追蹤域名的阻擋
  * @lastUpdated 2026-01-13
  */
 
@@ -51,10 +50,6 @@ const RULES = {
       '143.92.88.1',   // Shopee HTTPDNS
       'content.garena.com', // Shopee Config
       
-      // [V41.78] Debug Allow: UBTA Tracking (To verify if blocking causes search failure)
-      'ubta.tracking.shopee.tw',
-      'ubt.tracking.shopee.tw',
-
       // AI & Productivity
       'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
       'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
@@ -146,8 +141,8 @@ const RULES = {
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
     // Shopee Tracking & RUM
-    'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 
-    // 'ubta.tracking.shopee.tw', // [V41.78] Temporarily allowed
+    'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'ubta.tracking.shopee.tw',
+    // dem.shopee.com REMOVED
 
     // RUM & Session Replay & Error Tracking
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
@@ -239,6 +234,7 @@ const RULES = {
 
   BLOCK_DOMAINS_REGEX: [
     /^ad[s]?\d*\.(ettoday\.net|ltn\.com\.tw)$/i,
+    // [Anti-RUM] Wildcards for Monitoring Services
     /^(.+\.)?sentry\.io$/i,
     /^(.+\.)?browser-intake-datadoghq\.(com|eu|us)$/i,
     /^(.+\.)?lr-ingest\.io$/i
@@ -349,7 +345,7 @@ const RULES = {
       ['vk.com', new Set(['/rtrg'])],
       ['instagram.com', new Set(['/logging_client_events'])],
       
-      // [V41.72 Added] Shopee Mall/Live Statistics (Explicit Blocking)
+      // [V41.72/74] Explicit Blocking for Shopee RUM
       ['mall.shopee.tw', new Set(['/userstats_record/batchrecord'])],
       ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch'])]
     ])
@@ -608,11 +604,15 @@ const HELPERS = {
     return false;
   },
 
+  // [V41.75 Fix] Enhanced domain matching to support subdomains (mall.shopee.tw inherits shopee.tw)
   isPathExemptedForDomain: (hostname, pathLower) => {
-    const exemptedPaths = RULES.EXCEPTIONS.PATH_EXEMPTIONS.get(hostname);
-    if (!exemptedPaths) return false;
-    for (const exemptedPath of exemptedPaths) {
-      if (pathLower.includes(exemptedPath)) return true;
+    for (const [domain, paths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
+      // Check if hostname is exactly the domain OR a subdomain of it
+      if (hostname === domain || hostname.endsWith('.' + domain)) {
+        for (const exemptedPath of paths) {
+          if (pathLower.includes(exemptedPath)) return true;
+        }
+      }
     }
     return false;
   },
@@ -723,6 +723,33 @@ function processRequest(request) {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname.toLowerCase();
     const pathLower = (urlObj.pathname + urlObj.search).toLowerCase();
+
+    // [V41.78 Change] Shopee Super Whitelist Check
+    // If domain is shopee.tw or shopee.com, skip almost all checks except explicit block domains
+    if (hostname.endsWith('shopee.tw') || hostname.endsWith('shopee.com')) {
+        
+        // 1. Still check for Explicit Block Domains (like apm.tracking...)
+        if (RULES.BLOCK_DOMAINS.has(hostname)) {
+             stats.blocks++;
+             return { response: { status: 403, body: 'Blocked by Domain (Shopee)' } };
+        }
+
+        // 2. Still check for Critical Path Map (Surgical blocking like /batchrecord)
+        const blockedPaths = getCriticalBlockedPaths(hostname);
+        if (blockedPaths) {
+            for (const badPath of blockedPaths) {
+                if (pathLower.includes(badPath)) {
+                    stats.blocks++;
+                    return { response: { status: 204 } }; // Drop silently
+                }
+            }
+        }
+        
+        // 3. Skip Keyword/Regex checks for Shopee main domains to ensure search/click works
+        stats.allows++;
+        return null;
+    }
+
 
     // Layer 0: Hard whitelist must win (stability > aggressive P0 path)
     if (isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname)) {
@@ -840,4 +867,5 @@ if (typeof $request !== 'undefined') {
 } else {
   $done({ title: 'URL Ultimate Filter', content: `V41.78 Active\n${stats.toString()}` });
 }
+
 
