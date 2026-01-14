@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge-V41.83.js
- * @version   41.83 (Platinum - Regression Patched)
+ * @version   41.83a (Platinum - Regression Patched)
  * @description [V41.83] 基於 28 類規則迴歸測試結果的修正版本：
  * 1) [Fix] 新增 cdn.oaistatic.com, files.oaiusercontent.com 至白名單，解決 ChatGPT 生成內容誤殺。
  * 2) [Block] 新增 t.reddit.com (Reddit 新版追蹤) 至 BLOCK_DOMAINS。
@@ -98,7 +98,6 @@ const RULES = {
   // Layer 3: 軟性白名單
   SOFT_WHITELIST: {
     EXACT: new Set([
-      'shopee.com', 'shopeemobile.com', 'shopee.io',
       'gateway.shopback.com.tw', 'api.anthropic.com', 'api.cohere.ai', 'api.digitalocean.com',
       'api.fastly.com', 'api.heroku.com', 'api.hubapi.com', 'api.mailgun.com', 'api.netlify.com',
       'api.pagerduty.com', 'api.sendgrid.com', 'api.telegram.org', 'api.zendesk.com', 'duckduckgo.com',
@@ -110,12 +109,11 @@ const RULES = {
       'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com'
     ]),
     WILDCARDS: [
+      'shopee.com', 'shopeemobile.com', 'shopee.io',
       'youtube.com', 'facebook.com', 'instagram.com',
       'twitter.com', 'tiktok.com', 'spotify.com', 'netflix.com', 'disney.com',
       'linkedin.com', 'discord.com', 'googleapis.com', 'book.com.tw', 'citiesocial.com',
-      'coupang.com', 'iherb.biz', 'iherb.com', 'm.youtube.com', 'momo.dm',
-      'momoshop.com.tw', 
-       // [V41.72 Added] Shopee 基礎設施根域名 (ccms 等)
+      'coupang.com', 'iherb.biz', 'iherb.com', 'm.youtube.com', 'momo.dm', 'momoshop.com.tw', 
       'pxmart.com.tw', 'pxpayplus.com', 'shopback.com.tw', 'akamaihd.net',
       'amazonaws.com', 'cloudflare.com', 'cloudfront.net', 'fastly.net', 'fbcdn.net', 'gstatic.com',
       'jsdelivr.net', 'cdnjs.cloudflare.com', 'twimg.com', 'unpkg.com', 'ytimg.com', 'new-reporter.com',
