@@ -46,10 +46,6 @@ const RULES = {
   // Layer 0: 絕對放行
   HARD_WHITELIST: {
     EXACT: new Set([
-      '175.99.79.153', // NHIA
-      '143.92.88.1',   // Shopee HTTPDNS (V41.70)
-      'content.garena.com', // Shopee/Garena Config (V41.71)
-      
       // AI & Productivity [Patched V41.83]
       'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
       'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
