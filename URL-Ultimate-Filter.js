@@ -1,11 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.81.js
- * @version   41.81 (Platinum - Stable - Shopee Tracking Hardening)
- * @description [V41.81] 針對 Shopee 追蹤與基礎設施的雙向優化：
- * 1) [Block] 新增 dem.shopee.com (數據監控) 至 BLOCK_DOMAINS
- * 2) [Block] 新增 apm.tracking.shopee.tw (效能監控) 至 BLOCK_DOMAINS
- * 3) [Block] 新增 mall.shopee.tw 的行為統計路徑至 CRITICAL_PATH.MAP
- * 4) [Allow] 將 shopee.io (基礎設施) 加入 SOFT_WHITELIST，避免 ccms 配置更新被誤殺
+ * @file      URL-Ultimate-Filter-Surge-V41.83.js
+ * @version   41.83 (Platinum - Regression Patched)
+ * @description [V41.83] 基於 28 類規則迴歸測試結果的修正版本：
+ * 1) [Fix] 新增 cdn.oaistatic.com, files.oaiusercontent.com 至白名單，解決 ChatGPT 生成內容誤殺。
+ * 2) [Block] 新增 t.reddit.com (Reddit 新版追蹤) 至 BLOCK_DOMAINS。
+ * 3) [Logic] 維持 V41.81 所有 Shopee 優化與基礎設施保護邏輯。
  * @lastUpdated 2026-01-14
  */
 
@@ -51,10 +50,11 @@ const RULES = {
       '143.92.88.1',   // Shopee HTTPDNS (V41.70)
       'content.garena.com', // Shopee/Garena Config (V41.71)
       
-      // AI & Productivity
+      // AI & Productivity [Patched V41.83]
       'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
       'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
       'qianwen.aliyun.com', 'static.stepfun.com', 'api.openai.com', 'a-api.anthropic.com',
+      'cdn.oaistatic.com', 'files.oaiusercontent.com', // [New] ChatGPT Assets
       
       // News & Productivity
       'api.feedly.com', 'sandbox.feedly.com', 'cloud.feedly.com',
@@ -221,7 +221,7 @@ const RULES = {
     'business-api.tiktok.com', 'ct.pinterest.com', 'events.redditmedia.com', 'px.srvcs.tumblr.com',
     'snap.licdn.com', 'spade.twitch.tv', 'tr.snap.com', 'adnx.com', 'cint.com', 'revjet.com',
     'rlcdn.com', 'sc-static.net', 'wcs.naver.net',
-    's.temu.com', 'events.reddit.com'
+    's.temu.com', 'events.reddit.com', 't.reddit.com'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
@@ -427,7 +427,7 @@ const RULES = {
     SEGMENTS: new Set(['admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login']),
     PATH_EXEMPTIONS: new Map([
       ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])],
-      ['shopee.tw', new Set(['/verify/traffic'])]      // Shopee Anti-Bot Verification Exception
+      ['shopee.tw', new Set(['/verify/traffic'])],      // Shopee Anti-Bot Verification Exception
       ['iappapi.investing.com', new Set(['/portfolio_api.php'])] // Investing.com API Exception
     ])
   },
