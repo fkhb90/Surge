@@ -91,14 +91,13 @@ const RULES = {
       'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
       'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
       'perma.cc', 'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org',
-      'googlevideo.com', 'app.goo.gl', 'goo.gl', 'shopee.tw'
+      'googlevideo.com', 'app.goo.gl', 'goo.gl'
     ]
   },
 
   // Layer 3: 軟性白名單
   SOFT_WHITELIST: {
     EXACT: new Set([
-      'shopee.com', 'shopeemobile.com', 'shopee.io',
       'gateway.shopback.com.tw', 'api.anthropic.com', 'api.cohere.ai', 'api.digitalocean.com',
       'api.fastly.com', 'api.heroku.com', 'api.hubapi.com', 'api.mailgun.com', 'api.netlify.com',
       'api.pagerduty.com', 'api.sendgrid.com', 'api.telegram.org', 'api.zendesk.com', 'duckduckgo.com',
@@ -113,9 +112,8 @@ const RULES = {
       'youtube.com', 'facebook.com', 'instagram.com',
       'twitter.com', 'tiktok.com', 'spotify.com', 'netflix.com', 'disney.com',
       'linkedin.com', 'discord.com', 'googleapis.com', 'book.com.tw', 'citiesocial.com',
-      'coupang.com', 'iherb.biz', 'iherb.com', 'm.youtube.com', 'momo.dm',
-      'momoshop.com.tw', 
-       // [V41.72 Added] Shopee 基礎設施根域名 (ccms 等)
+      'coupang.com', 'iherb.biz', 'iherb.com', 'm.youtube.com', 'momo.dm', 'momoshop.com.tw', 
+      'shopee.tw', 'shopee.com', 'shopeemobile.com', 'shopee.io',
       'pxmart.com.tw', 'pxpayplus.com', 'shopback.com.tw', 'akamaihd.net',
       'amazonaws.com', 'cloudflare.com', 'cloudfront.net', 'fastly.net', 'fbcdn.net', 'gstatic.com',
       'jsdelivr.net', 'cdnjs.cloudflare.com', 'twimg.com', 'unpkg.com', 'ytimg.com', 'new-reporter.com',
