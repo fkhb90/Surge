@@ -142,7 +142,7 @@ const RULES = {
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
     // [V41.72 Added] Shopee Tracking & RUM
-    'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw',
+    // 'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw',
     // RUM & Session Replay & Error Tracking
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
     'browser-intake-datadoghq.us', 'bam.nr-data.net', 'bam-cell.nr-data.net',
