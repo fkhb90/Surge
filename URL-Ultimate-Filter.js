@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge-V41.72.js
- * @version   41.72c (Platinum - Stable - Shopee Tracking Hardening)
+ * @version   41.72d (Platinum - Stable - Shopee Tracking Hardening)
  * @description [V41.72] 針對 Shopee 追蹤與基礎設施的雙向優化：
  * 1) [Block] 新增 dem.shopee.com (數據監控) 至 BLOCK_DOMAINS
  * 2) [Block] 新增 apm.tracking.shopee.tw (效能監控) 至 BLOCK_DOMAINS
@@ -86,25 +86,19 @@ const RULES = {
       'momopay.com.tw', 'mymobibank.com.tw', 'paypal.com', 'scsb.com.tw', 'sinopac.com',
       'sinotrade.com.tw', 'standardchartered.com.tw', 'stripe.com', 'taipeifubon.com.tw',
       'taiwanpay.com.tw', 'tcb-bank.com.tw', 'twca.com.tw', 'twmp.com.tw', 'pay.taipei',
-      
       'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'org.tw', 'tdcc.com.tw',
-      
       'icloud.com', 'apple.com', 'whatsapp.net', 'update.microsoft.com', 'windowsupdate.com',
       'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
-      
       'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
       'perma.cc', 'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org',
-      
-      'googlevideo.com',
-      
-      'app.goo.gl', 'goo.gl'
+      'googlevideo.com', 'app.goo.gl', 'goo.gl', 'shopee.tw', 'shopee.com'
     ]
   },
 
   // Layer 3: 軟性白名單
   SOFT_WHITELIST: {
     EXACT: new Set([
-      'shopee.tw', 'shopee.com', 'shopeemobile.com', 'shopee.io',
+      'shopeemobile.com', 'shopee.io',
       'gateway.shopback.com.tw', 'api.anthropic.com', 'api.cohere.ai', 'api.digitalocean.com',
       'api.fastly.com', 'api.heroku.com', 'api.hubapi.com', 'api.mailgun.com', 'api.netlify.com',
       'api.pagerduty.com', 'api.sendgrid.com', 'api.telegram.org', 'api.zendesk.com', 'duckduckgo.com',
