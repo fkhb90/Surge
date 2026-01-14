@@ -344,7 +344,7 @@ const RULES = {
       ['instagram.com', new Set(['/logging_client_events'])],
       
       // [V41.72 Added] Shopee Mall/Live Statistics (Explicit Blocking)
-      ['mall.shopee.tw', new Set(['/userstats_record/batchrecord'])],
+      // ['mall.shopee.tw', new Set(['/userstats_record/batchrecord'])],
       ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch'])]
     ])
   },
