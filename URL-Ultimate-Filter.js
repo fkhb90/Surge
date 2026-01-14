@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge-V41.72.js
- * @version   41.72e (Platinum - Stable - Shopee Tracking Hardening)
+ * @version   41.81 (Platinum - Stable - Shopee Tracking Hardening)
  * @description [V41.72] 針對 Shopee 追蹤與基礎設施的雙向優化：
  * 1) [Block] 新增 dem.shopee.com (數據監控) 至 BLOCK_DOMAINS
  * 2) [Block] 新增 apm.tracking.shopee.tw (效能監控) 至 BLOCK_DOMAINS
@@ -135,9 +135,8 @@ const RULES = {
 
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
-    // [V41.72 Added] Shopee Tracking & RUM
-    'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw',
     // RUM & Session Replay & Error Tracking
+    'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw',
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
     'browser-intake-datadoghq.us', 'bam.nr-data.net', 'bam-cell.nr-data.net',
     'lrkt-in.com', 'cdn.lr-ingest.com', 'r.lr-ingest.io', 'api-iam.intercom.io',
@@ -336,8 +335,6 @@ const RULES = {
       ['discord.com', new Set(['/api/v10/science', '/api/v9/science'])],
       ['vk.com', new Set(['/rtrg'])],
       ['instagram.com', new Set(['/logging_client_events'])],
-      
-      // [V41.72 Added] Shopee Mall/Live Statistics (Explicit Blocking)
       ['mall.shopee.tw', new Set(['/userstats_record/batchrecord'])],
       ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch'])]
     ])
@@ -397,7 +394,8 @@ const RULES = {
       'audience', 'attribution', 'behavioral-targeting', 'cohort', 'cohort-analysis',
       'data-collection', 'data-sync', 'fingerprint', 'retargeting', 'session-replay', 'third-party-cookie',
       'user-analytics', 'user-behavior', 'user-cohort', 'user-segment',
-      'appier', 'comscore', 'fbevents', 'fbq', 'google-analytics', 'onead', 'osano', 'sailthru', 'tapfiliate', 'utag.js'
+      'appier', 'comscore', 'fbevents', 'fbq', 'google-analytics', 'onead', 'osano', 'sailthru', 'tapfiliate', 'utag.js',
+      '/apmapi/'
     ],
     HIGH_CONFIDENCE_TRACKER: new Set(['/ads', '/analytics', '/api/track', '/beacon', '/collect', '/pixel', '/tracker']),
     DROP: new Set([
@@ -429,8 +427,8 @@ const RULES = {
     SEGMENTS: new Set(['admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login']),
     PATH_EXEMPTIONS: new Map([
       ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])],
-      // [V41.69] Shopee Anti-Bot Verification Exception
-      ['shopee.tw', new Set(['/verify/traffic'])]
+      ['shopee.tw', new Set(['/verify/traffic'])]      // Shopee Anti-Bot Verification Exception
+      ['iappapi.investing.com', new Set(['/portfolio_api.php'])] // Investing.com API Exception
     ])
   },
 
