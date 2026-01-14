@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge-V41.83.js
- * @version   41.83b (Platinum - Regression Patched)
+ * @version   41.83c (Platinum - Regression Patched)
  * @description [V41.83] 基於 28 類規則迴歸測試結果的修正版本：
  * 1) [Fix] 新增 cdn.oaistatic.com, files.oaiusercontent.com 至白名單，解決 ChatGPT 生成內容誤殺。
  * 2) [Block] 新增 t.reddit.com (Reddit 新版追蹤) 至 BLOCK_DOMAINS。
@@ -130,7 +130,7 @@ const RULES = {
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
     // RUM & Session Replay & Error Tracking
-    'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw',
+    'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw',
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
     'browser-intake-datadoghq.us', 'bam.nr-data.net', 'bam-cell.nr-data.net',
     'lrkt-in.com', 'cdn.lr-ingest.com', 'r.lr-ingest.io', 'api-iam.intercom.io',
