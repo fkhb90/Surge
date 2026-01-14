@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge-V41.72.js
- * @version   41.72 (Platinum - Stable - Shopee Tracking Hardening)
+ * @version   41.72a (Platinum - Stable - Shopee Tracking Hardening)
  * @description [V41.72] 針對 Shopee 追蹤與基礎設施的雙向優化：
  * 1) [Block] 新增 dem.shopee.com (數據監控) 至 BLOCK_DOMAINS
  * 2) [Block] 新增 apm.tracking.shopee.tw (效能監控) 至 BLOCK_DOMAINS
@@ -104,7 +104,7 @@ const RULES = {
   // Layer 3: 軟性白名單
   SOFT_WHITELIST: {
     EXACT: new Set([
-      'shopee.tw', 'shopee.com',
+      'shopee.tw', 'shopee.com', 'shopeemobile.com', 'shopee.io',
       'gateway.shopback.com.tw', 'api.anthropic.com', 'api.cohere.ai', 'api.digitalocean.com',
       'api.fastly.com', 'api.heroku.com', 'api.hubapi.com', 'api.mailgun.com', 'api.netlify.com',
       'api.pagerduty.com', 'api.sendgrid.com', 'api.telegram.org', 'api.zendesk.com', 'duckduckgo.com',
@@ -120,8 +120,8 @@ const RULES = {
       'twitter.com', 'tiktok.com', 'spotify.com', 'netflix.com', 'disney.com',
       'linkedin.com', 'discord.com', 'googleapis.com', 'book.com.tw', 'citiesocial.com',
       'coupang.com', 'iherb.biz', 'iherb.com', 'm.youtube.com', 'momo.dm',
-      'momoshop.com.tw', 'shopeemobile.com',
-      'shopee.io', // [V41.72 Added] Shopee 基礎設施根域名 (ccms 等)
+      'momoshop.com.tw', 
+       // [V41.72 Added] Shopee 基礎設施根域名 (ccms 等)
       'pxmart.com.tw', 'pxpayplus.com', 'shopback.com.tw', 'akamaihd.net',
       'amazonaws.com', 'cloudflare.com', 'cloudfront.net', 'fastly.net', 'fbcdn.net', 'gstatic.com',
       'jsdelivr.net', 'cdnjs.cloudflare.com', 'twimg.com', 'unpkg.com', 'ytimg.com', 'new-reporter.com',
@@ -142,7 +142,7 @@ const RULES = {
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
     // [V41.72 Added] Shopee Tracking & RUM
-    // 'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw',
+    'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw',
     // RUM & Session Replay & Error Tracking
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
     'browser-intake-datadoghq.us', 'bam.nr-data.net', 'bam-cell.nr-data.net',
