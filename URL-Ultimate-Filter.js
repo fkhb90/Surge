@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge-V41.72.js
- * @version   41.72d (Platinum - Stable - Shopee Tracking Hardening)
+ * @version   41.72e (Platinum - Stable - Shopee Tracking Hardening)
  * @description [V41.72] 針對 Shopee 追蹤與基礎設施的雙向優化：
  * 1) [Block] 新增 dem.shopee.com (數據監控) 至 BLOCK_DOMAINS
  * 2) [Block] 新增 apm.tracking.shopee.tw (效能監控) 至 BLOCK_DOMAINS
@@ -91,14 +91,14 @@ const RULES = {
       'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
       'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
       'perma.cc', 'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org',
-      'googlevideo.com', 'app.goo.gl', 'goo.gl', 'shopee.tw', 'shopee.com'
+      'googlevideo.com', 'app.goo.gl', 'goo.gl', 'shopee.tw'
     ]
   },
 
   // Layer 3: 軟性白名單
   SOFT_WHITELIST: {
     EXACT: new Set([
-      'shopeemobile.com', 'shopee.io',
+      'shopee.com', 'shopeemobile.com', 'shopee.io',
       'gateway.shopback.com.tw', 'api.anthropic.com', 'api.cohere.ai', 'api.digitalocean.com',
       'api.fastly.com', 'api.heroku.com', 'api.hubapi.com', 'api.mailgun.com', 'api.netlify.com',
       'api.pagerduty.com', 'api.sendgrid.com', 'api.telegram.org', 'api.zendesk.com', 'duckduckgo.com',
@@ -136,7 +136,7 @@ const RULES = {
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
     // [V41.72 Added] Shopee Tracking & RUM
-    // 'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw',
+    'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw',
     // RUM & Session Replay & Error Tracking
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
     'browser-intake-datadoghq.us', 'bam.nr-data.net', 'bam-cell.nr-data.net',
@@ -338,7 +338,7 @@ const RULES = {
       ['instagram.com', new Set(['/logging_client_events'])],
       
       // [V41.72 Added] Shopee Mall/Live Statistics (Explicit Blocking)
-      // ['mall.shopee.tw', new Set(['/userstats_record/batchrecord'])],
+      ['mall.shopee.tw', new Set(['/userstats_record/batchrecord'])],
       ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch'])]
     ])
   },
