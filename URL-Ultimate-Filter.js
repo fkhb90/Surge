@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge-V41.72.js
- * @version   41.72b (Platinum - Stable - Shopee Tracking Hardening)
+ * @version   41.72c (Platinum - Stable - Shopee Tracking Hardening)
  * @description [V41.72] 針對 Shopee 追蹤與基礎設施的雙向優化：
  * 1) [Block] 新增 dem.shopee.com (數據監控) 至 BLOCK_DOMAINS
  * 2) [Block] 新增 apm.tracking.shopee.tw (效能監控) 至 BLOCK_DOMAINS
