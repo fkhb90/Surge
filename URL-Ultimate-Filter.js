@@ -1,11 +1,12 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.80.js
- * @version   41.80 (Platinum - Stable - Investing & Shopee Fix)
- * @description [V41.80] 針對財經與電商 App 的精準修復：
- * 1) [Fix] 將 /portfolio_api.php 加入 PATH_EXEMPTIONS，解決 Investing.com 投資組合無法載入問題
- * 2) [Fix] 將 investing.com 網域加入 Soft Whitelist
- * 3) [Keep] 保留 V41.79 的 Shopee 搜尋/點擊修復與基礎設施放行
- * @lastUpdated 2026-01-14
+ * @file      URL-Ultimate-Filter-Surge-V41.72.js
+ * @version   41.72 (Platinum - Stable - Shopee Tracking Hardening)
+ * @description [V41.72] 針對 Shopee 追蹤與基礎設施的雙向優化：
+ * 1) [Block] 新增 dem.shopee.com (數據監控) 至 BLOCK_DOMAINS
+ * 2) [Block] 新增 apm.tracking.shopee.tw (效能監控) 至 BLOCK_DOMAINS
+ * 3) [Block] 新增 mall.shopee.tw 的行為統計路徑至 CRITICAL_PATH.MAP
+ * 4) [Allow] 將 shopee.io (基礎設施) 加入 SOFT_WHITELIST，避免 ccms 配置更新被誤殺
+ * @lastUpdated 2026-01-13
  */
 
 // #################################################################################################
@@ -47,12 +48,8 @@ const RULES = {
   HARD_WHITELIST: {
     EXACT: new Set([
       '175.99.79.153', // NHIA
-      '143.92.88.1',   // Shopee HTTPDNS
-      'content.garena.com', // Shopee Config
-      
-      // [V41.79] UBTA Tracking Allow
-      'ubta.tracking.shopee.tw',
-      'ubt.tracking.shopee.tw',
+      '143.92.88.1',   // Shopee HTTPDNS (V41.70)
+      'content.garena.com', // Shopee/Garena Config (V41.71)
       
       // AI & Productivity
       'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
@@ -107,7 +104,7 @@ const RULES = {
   // Layer 3: 軟性白名單
   SOFT_WHITELIST: {
     EXACT: new Set([
-      'shopee.com',
+      'shopee.tw', 'shopee.com',
       'gateway.shopback.com.tw', 'api.anthropic.com', 'api.cohere.ai', 'api.digitalocean.com',
       'api.fastly.com', 'api.heroku.com', 'api.hubapi.com', 'api.mailgun.com', 'api.netlify.com',
       'api.pagerduty.com', 'api.sendgrid.com', 'api.telegram.org', 'api.zendesk.com', 'duckduckgo.com',
@@ -116,25 +113,22 @@ const RULES = {
       'auth.docker.io', 'database.windows.net', 'login.docker.com', 'api.irentcar.com.tw',
       'usiot.roborock.com', 'appapi.104.com.tw',
       'prism.ec.yahoo.com', 'graphql.ec.yahoo.com', 'visuals.feedly.com', 'api.revenuecat.com',
-      'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com',
-      
-      // [V41.80 Added] Investing.com API
-      'iappapi.investing.com'
+      'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com'
     ]),
     WILDCARDS: [
       'youtube.com', 'facebook.com', 'instagram.com',
       'twitter.com', 'tiktok.com', 'spotify.com', 'netflix.com', 'disney.com',
       'linkedin.com', 'discord.com', 'googleapis.com', 'book.com.tw', 'citiesocial.com',
       'coupang.com', 'iherb.biz', 'iherb.com', 'm.youtube.com', 'momo.dm',
-      'momoshop.com.tw', 'shopee.tw', 'shopeemobile.com',
-      'shopee.io', // Shopee Infra
+      'momoshop.com.tw', 'shopeemobile.com',
+      'shopee.io', // [V41.72 Added] Shopee 基礎設施根域名 (ccms 等)
       'pxmart.com.tw', 'pxpayplus.com', 'shopback.com.tw', 'akamaihd.net',
       'amazonaws.com', 'cloudflare.com', 'cloudfront.net', 'fastly.net', 'fbcdn.net', 'gstatic.com',
       'jsdelivr.net', 'cdnjs.cloudflare.com', 'twimg.com', 'unpkg.com', 'ytimg.com', 'new-reporter.com',
       'wp.com', 'flipboard.com', 'inoreader.com', 'itofoo.com', 'newsblur.com', 'theoldreader.com',
       'azurewebsites.net', 'cloudfunctions.net', 'digitaloceanspaces.com', 'github.io', 'gitlab.io',
       'netlify.app', 'oraclecloud.com', 'pages.dev', 'vercel.app', 'windows.net', 'threads.net',
-      'slack.com', 'feedly.com', 'investing.com', // [V41.80 Added]
+      'slack.com', 'feedly.com',
       'ak.sv', 'bayimg.com', 'beeimg.com', 'binbox.io', 'casimages.com', 'cocoleech.com',
       'cubeupload.com', 'dlupload.com', 'fastpic.org', 'fotosik.pl', 'gofile.download', 'ibb.co',
       'imagebam.com', 'imageban.ru', 'imageshack.com', 'imagetwist.com', 'imagevenue.com', 'imgbb.com',
@@ -147,10 +141,8 @@ const RULES = {
 
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
-    // Shopee Tracking & RUM
-    'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 
-    // ubta.tracking.shopee.tw (Allowed in L0)
-
+    // [V41.72 Added] Shopee Tracking & RUM
+    'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw',
     // RUM & Session Replay & Error Tracking
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
     'browser-intake-datadoghq.us', 'bam.nr-data.net', 'bam-cell.nr-data.net',
@@ -241,7 +233,6 @@ const RULES = {
 
   BLOCK_DOMAINS_REGEX: [
     /^ad[s]?\d*\.(ettoday\.net|ltn\.com\.tw)$/i,
-    // [Anti-RUM] Wildcards for Monitoring Services
     /^(.+\.)?sentry\.io$/i,
     /^(.+\.)?browser-intake-datadoghq\.(com|eu|us)$/i,
     /^(.+\.)?lr-ingest\.io$/i
@@ -406,7 +397,7 @@ const RULES = {
       'amp-ad', 'amp-analytics', 'amp-auto-ads', 'amp-sticky-ad', 'amp4ads', 'apstag', 'google_ad', 'pagead',
       'pwt.js', '/analytic/', '/analytics/', '/api/v2/rum', '/audit/', '/beacon/', '/collect?', '/collector/',
       'g/collect', '/insight/', '/intelligence/', '/measurement', 'mp/collect', '/pixel/', '/report/',
-      'reporting/', '/reports/', '/telemetry/', '/unstable/produce_batch', '/v1/produce', '/bugsnag/',
+      '/reporting/', '/reports/', '/telemetry/', '/unstable/produce_batch', '/v1/produce', '/bugsnag/',
       '/crash/', 'debug/mp/collect', '/error/', '/envelope', '/exception/', '/sentry/', '/stacktrace/',
       'performance-tracking', 'real-user-monitoring', 'web-vitals',
       'audience', 'attribution', 'behavioral-targeting', 'cohort', 'cohort-analysis',
@@ -445,15 +436,7 @@ const RULES = {
     PATH_EXEMPTIONS: new Map([
       ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])],
       // [V41.69] Shopee Anti-Bot Verification Exception
-      ['shopee.tw', new Set(['/verify/traffic'])],
-      // [V41.73] Shopee Search API Exception (Fix for "search results not loading")
-      ['shopee.tw', new Set(['/api/v4/search/'])],
-      ['shopee.com', new Set(['/api/v4/search/'])],
-      // [V41.76] Item Click Exception
-      ['shopee.tw', new Set(['/click/'])],
-      ['shopee.com', new Set(['/click/'])],
-      // [V41.80] Investing.com API Exception
-      ['iappapi.investing.com', new Set(['/portfolio_api.php'])]
+      ['shopee.tw', new Set(['/verify/traffic'])]
     ])
   },
 
@@ -616,23 +599,11 @@ const HELPERS = {
     return false;
   },
 
-  // [V41.75 Fix] Enhanced domain matching to support subdomains (mall.shopee.tw inherits shopee.tw)
   isPathExemptedForDomain: (hostname, pathLower) => {
-    for (const [domain, paths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
-      // Check if hostname is exactly the domain OR a subdomain of it
-      if (hostname === domain || hostname.endsWith('.' + domain)) {
-        for (const exemptedPath of paths) {
-          if (pathLower.includes(exemptedPath)) return true;
-        }
-      }
-    }
-    return false;
-  },
-
-  // [V41.77] Universal Exemption Check
-  isUniversallyExempted: (pathLower) => {
-    if (pathLower.includes('/search/') || pathLower.includes('/click') || pathLower.includes('/recommend/')) {
-        return true;
+    const exemptedPaths = RULES.EXCEPTIONS.PATH_EXEMPTIONS.get(hostname);
+    if (!exemptedPaths) return false;
+    for (const exemptedPath of exemptedPaths) {
+      if (pathLower.includes(exemptedPath)) return true;
     }
     return false;
   },
@@ -736,33 +707,6 @@ function processRequest(request) {
     const hostname = urlObj.hostname.toLowerCase();
     const pathLower = (urlObj.pathname + urlObj.search).toLowerCase();
 
-    // [V41.78 Change] Shopee Super Whitelist Check
-    // If domain is shopee.tw or shopee.com, skip almost all checks except explicit block domains
-    if (hostname.endsWith('shopee.tw') || hostname.endsWith('shopee.com')) {
-        
-        // 1. Still check for Explicit Block Domains (like apm.tracking...)
-        if (RULES.BLOCK_DOMAINS.has(hostname)) {
-             stats.blocks++;
-             return { response: { status: 403, body: 'Blocked by Domain (Shopee)' } };
-        }
-
-        // 2. Still check for Critical Path Map (Surgical blocking like /batchrecord)
-        const blockedPaths = getCriticalBlockedPaths(hostname);
-        if (blockedPaths) {
-            for (const badPath of blockedPaths) {
-                if (pathLower.includes(badPath)) {
-                    stats.blocks++;
-                    return { response: { status: 204 } }; // Drop silently
-                }
-            }
-        }
-        
-        // 3. Skip Keyword/Regex checks for Shopee main domains to ensure search/click works
-        stats.allows++;
-        return null;
-    }
-
-
     // Layer 0: Hard whitelist must win (stability > aggressive P0 path)
     if (isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname)) {
       multiLevelCache.set(hostname, 'ALLOW', 86400000);
@@ -775,16 +719,8 @@ function processRequest(request) {
     if (cached === 'ALLOW') { stats.allows++; return null; }
     if (cached === 'BLOCK') { stats.blocks++; return { response: { status: 403, body: 'Blocked by Cache' } }; }
 
-    // [New V41.77] Layer 0.1: Universal Path Exemption (Global Safe List)
-    // 優先放行任何包含安全關鍵字的請求，無視域名
-    if (HELPERS.isUniversallyExempted(pathLower)) {
-        if (CONFIG.DEBUG_MODE) console.log(`[Allow] Universal Exemption: ${pathLower}`);
-        stats.allows++;
-        return null;
-    }
-
     // [New] Layer 0.5: Path Exemption Check (Domain-specific allow list)
-    // 檢查此請求是否位於特定域名的「放行路徑」中
+    // 檢查此請求是否位於特定域名的「放行路徑」中 (如 shopee.tw/verify/traffic)
     if (HELPERS.isPathExemptedForDomain(hostname, pathLower)) {
         if (CONFIG.DEBUG_MODE) console.log(`[Allow] Exempted Path: ${pathLower}`);
         stats.allows++;
@@ -877,7 +813,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V41.78 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V41.72 Active\n${stats.toString()}` });
 }
-
-
