@@ -1,12 +1,12 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.72.js
+ * @file      URL-Ultimate-Filter-Surge-V41.81.js
  * @version   41.81 (Platinum - Stable - Shopee Tracking Hardening)
- * @description [V41.72] 針對 Shopee 追蹤與基礎設施的雙向優化：
+ * @description [V41.81] 針對 Shopee 追蹤與基礎設施的雙向優化：
  * 1) [Block] 新增 dem.shopee.com (數據監控) 至 BLOCK_DOMAINS
  * 2) [Block] 新增 apm.tracking.shopee.tw (效能監控) 至 BLOCK_DOMAINS
  * 3) [Block] 新增 mall.shopee.tw 的行為統計路徑至 CRITICAL_PATH.MAP
  * 4) [Allow] 將 shopee.io (基礎設施) 加入 SOFT_WHITELIST，避免 ccms 配置更新被誤殺
- * @lastUpdated 2026-01-13
+ * @lastUpdated 2026-01-14
  */
 
 // #################################################################################################
