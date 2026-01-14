@@ -1,11 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.84.js
- * @version   41.84 (Platinum - Exception Handling)
- * @description [V41.84] 引入 Layer -1 強制例外阻擋機制，解決白名單覆蓋導致的特定路徑攔截失效問題：
- * 1) [Logic] 新增 Layer -1 檢查層，優先於 HARD_WHITELIST 執行。
- * 2) [Block] 強制攔截 chatbot.shopee.tw 的 /report/v1/log (日誌上報)。
- * 3) [Block] 強制攔截 mall.shopee.tw 的 /userstats_record (行為追蹤)，修復先前因白名單導致的失效。
- * 4) [Fix] 維持 shopee.tw 在白名單中，確保主站功能不受影響。
+ * @file      URL-Ultimate-Filter-Surge-V41.83.js
+ * @version   41.83 (Platinum - Regression Patched)
+ * @description [V41.83] 基於 28 類規則迴歸測試結果的修正版本：
+ * 1) [Fix] 新增 cdn.oaistatic.com, files.oaiusercontent.com 至白名單，解決 ChatGPT 生成內容誤殺。
+ * 2) [Block] 新增 t.reddit.com (Reddit 新版追蹤) 至 BLOCK_DOMAINS。
+ * 3) [Logic] 維持 V41.81 所有 Shopee 優化與基礎設施保護邏輯。
  * @lastUpdated 2026-01-14
  */
 
@@ -14,13 +13,6 @@
 // #################################################################################################
 
 const RULES = {
-  // [0] Pre-Whitelist Blocking Exceptions (Layer -1)
-  // 即使域名在 HARD_WHITELIST 中，這些特定路徑仍需強制優先攔截
-  FORCE_BLOCK_EXCEPTIONS: new Map([
-    ['chatbot.shopee.tw', new Set(['/report/v1/log'])],
-    ['mall.shopee.tw', new Set(['/userstats_record/batchrecord'])]
-  ]),
-
   // [1] P0 Priority Block
   PRIORITY_BLOCK_DOMAINS: new Set([
     'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'admob.com', 'ads.google.com',
@@ -55,6 +47,8 @@ const RULES = {
   HARD_WHITELIST: {
     EXACT: new Set([
       '175.99.79.153', // NHIA
+      '143.92.88.1',   // Shopee HTTPDNS (V41.70)
+      'content.garena.com', // Shopee/Garena Config (V41.71)
       
       // AI & Productivity [Patched V41.83]
       'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
@@ -119,7 +113,9 @@ const RULES = {
       'youtube.com', 'facebook.com', 'instagram.com',
       'twitter.com', 'tiktok.com', 'spotify.com', 'netflix.com', 'disney.com',
       'linkedin.com', 'discord.com', 'googleapis.com', 'book.com.tw', 'citiesocial.com',
-      'coupang.com', 'iherb.biz', 'iherb.com', 'm.youtube.com', 'momo.dm', 'momoshop.com.tw', 
+      'coupang.com', 'iherb.biz', 'iherb.com', 'm.youtube.com', 'momo.dm',
+      'momoshop.com.tw', 
+       // [V41.72 Added] Shopee 基礎設施根域名 (ccms 等)
       'pxmart.com.tw', 'pxpayplus.com', 'shopback.com.tw', 'akamaihd.net',
       'amazonaws.com', 'cloudflare.com', 'cloudfront.net', 'fastly.net', 'fbcdn.net', 'gstatic.com',
       'jsdelivr.net', 'cdnjs.cloudflare.com', 'twimg.com', 'unpkg.com', 'ytimg.com', 'new-reporter.com',
@@ -703,19 +699,6 @@ function processRequest(request) {
     const hostname = urlObj.hostname.toLowerCase();
     const pathLower = (urlObj.pathname + urlObj.search).toLowerCase();
 
-    // [New] Layer -1: Force Block Exceptions (Override Whitelist)
-    // 即使域名在 HARD_WHITELIST 中，若命中此處的黑名單路徑，仍優先阻擋。
-    const forceBlockPaths = RULES.FORCE_BLOCK_EXCEPTIONS.get(hostname);
-    if (forceBlockPaths) {
-      for (const path of forceBlockPaths) {
-         if (pathLower.includes(path)) {
-            stats.blocks++;
-            if (CONFIG.DEBUG_MODE) console.log(`[Block] Force Exception: ${path}`);
-            return { response: { status: 403, body: 'Blocked by Force Exception' } };
-         }
-      }
-    }
-
     // Layer 0: Hard whitelist must win (stability > aggressive P0 path)
     if (isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname)) {
       multiLevelCache.set(hostname, 'ALLOW', 86400000);
@@ -824,3 +807,4 @@ if (typeof $request !== 'undefined') {
 } else {
   $done({ title: 'URL Ultimate Filter', content: `V41.72 Active\n${stats.toString()}` });
 }
+
