@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge-V41.83.js
- * @version   41.83 (Platinum - Regression Patched)
+ * @version   41.84 (Platinum - Regression Patched)
  * @description [V41.83] 基於 28 類規則迴歸測試結果的修正版本：
  * 1) [Fix] 新增 cdn.oaistatic.com, files.oaiusercontent.com 至白名單，解決 ChatGPT 生成內容誤殺。
  * 2) [Block] 新增 t.reddit.com (Reddit 新版追蹤) 至 BLOCK_DOMAINS。
