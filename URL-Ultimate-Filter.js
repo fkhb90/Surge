@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge-V41.83.js
- * @version   41.83a (Platinum - Regression Patched)
+ * @version   41.83b (Platinum - Regression Patched)
  * @description [V41.83] 基於 28 類規則迴歸測試結果的修正版本：
  * 1) [Fix] 新增 cdn.oaistatic.com, files.oaiusercontent.com 至白名單，解決 ChatGPT 生成內容誤殺。
  * 2) [Block] 新增 t.reddit.com (Reddit 新版追蹤) 至 BLOCK_DOMAINS。
@@ -91,7 +91,7 @@ const RULES = {
       'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
       'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
       'perma.cc', 'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org',
-      'googlevideo.com', 'app.goo.gl', 'goo.gl', 'shopee.tw'
+      'googlevideo.com', 'app.goo.gl', 'goo.gl'
     ]
   },
 
@@ -109,7 +109,7 @@ const RULES = {
       'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com'
     ]),
     WILDCARDS: [
-      'shopee.com', 'shopeemobile.com', 'shopee.io',
+      'shopee.tw', 'shopee.com', 'shopeemobile.com', 'shopee.io',
       'youtube.com', 'facebook.com', 'instagram.com',
       'twitter.com', 'tiktok.com', 'spotify.com', 'netflix.com', 'disney.com',
       'linkedin.com', 'discord.com', 'googleapis.com', 'book.com.tw', 'citiesocial.com',
