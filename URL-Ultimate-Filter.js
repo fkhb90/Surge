@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.0.js
- * @version   42.0 (Diamond - Production Release)
- * @description [V42.0] 正式發行版 - 基於 V41.86 完美測試結果：
- * 1) [Strategy] ChatGPT (chatgpt.com) 降級至 Soft Whitelist，以觸發 /v1/rgstr 深度攔截，同時保留 cdn 資源白名單。
- * 2) [Fix] 修正啟發式正則表達式 (Heuristic Regex)，解決路徑匹配失效問題。
- * 3) [Security] 強化 Reddit (t.reddit.com) 與長檔名惡意腳本的阻擋能力。
+ * @file      URL-Ultimate-Filter-Surge-V42.1.js
+ * @version   42.1 (Diamond - ChatGPT Assets Hotfix)
+ * @description [V42.1] 緊急修正版 - 解決 ChatGPT 動態資源誤殺問題：
+ * 1) [Hotfix] 新增 chatgpt.com 的路徑豁免 (/cdn/, /assets/)，確保 hash 檔名 JS/CSS 不被正則誤殺。
+ * 2) [Logic] 保持 chatgpt.com 在 Soft Whitelist，以繼續攔截 /v1/rgstr 遙測。
+ * 3) [Optimize] 優化通用正則 (REGEX.PATH_BLOCK)，將 'cdn' 加入排除關鍵字。
  * @lastUpdated 2026-01-15
  */
 
@@ -47,7 +47,6 @@ const RULES = {
   HARD_WHITELIST: {
     EXACT: new Set([
       // AI & Productivity Assets (Images/CSS/JS)
-      // [V42.0 Note] chatgpt.com 已移至 Soft Whitelist 以進行深度檢查
       'cdn.oaistatic.com', 'files.oaiusercontent.com', 
       
       'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
@@ -108,8 +107,7 @@ const RULES = {
       'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com'
     ]),
     WILDCARDS: [
-      // [V42.0] Moved here from Hard Whitelist to enable path blocking
-      'chatgpt.com', 
+      'chatgpt.com', // Soft Whitelist to allow deep inspection (blocking /v1/rgstr)
       
       'shopee.tw', 'shopee.com', 'shopeemobile.com', 'shopee.io',
       'youtube.com', 'facebook.com', 'instagram.com',
@@ -428,14 +426,16 @@ const RULES = {
     PATH_EXEMPTIONS: new Map([
       ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])],
       ['shopee.tw', new Set(['/verify/traffic'])],      // Shopee Anti-Bot Verification Exception
-      ['iappapi.investing.com', new Set(['/portfolio_api.php'])] // Investing.com API Exception
+      ['iappapi.investing.com', new Set(['/portfolio_api.php'])], // Investing.com API Exception
+      ['chatgpt.com', new Set(['/cdn/', '/assets/'])]   // [V42.1 Fix] ChatGPT Asset Exemption
     ])
   },
 
   // [7] Regex Rules
   REGEX: {
     PATH_BLOCK: [
-      /^\/(?!_next\/static\/|static\/|assets\/|dist\/|build\/|public\/)[a-z0-9]{12,}\.js$/i,
+      // [V42.1 Fix] Added 'cdn' to exclusion group to prevent false positives
+      /^\/(?!_next\/static\/|static\/|assets\/|dist\/|build\/|public\/|cdn\/)[a-z0-9]{12,}\.js$/i,
       /[^\/]*sentry[^\/]*\.js/i,
       /\/v\d+\/event/i,
       /\/api\/v\d+\/collect$/i,
@@ -806,5 +806,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.0 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.1 Active\n${stats.toString()}` });
 }
