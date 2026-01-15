@@ -1,11 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V41.83.js
- * @version   41.83c (Platinum - Regression Patched)
- * @description [V41.83] 基於 28 類規則迴歸測試結果的修正版本：
- * 1) [Fix] 新增 cdn.oaistatic.com, files.oaiusercontent.com 至白名單，解決 ChatGPT 生成內容誤殺。
- * 2) [Block] 新增 t.reddit.com (Reddit 新版追蹤) 至 BLOCK_DOMAINS。
- * 3) [Logic] 維持 V41.81 所有 Shopee 優化與基礎設施保護邏輯。
- * @lastUpdated 2026-01-14
+ * @file      URL-Ultimate-Filter-Surge-V42.0.js
+ * @version   42.0 (Diamond - Production Release)
+ * @description [V42.0] 正式發行版 - 基於 V41.86 完美測試結果：
+ * 1) [Strategy] ChatGPT (chatgpt.com) 降級至 Soft Whitelist，以觸發 /v1/rgstr 深度攔截，同時保留 cdn 資源白名單。
+ * 2) [Fix] 修正啟發式正則表達式 (Heuristic Regex)，解決路徑匹配失效問題。
+ * 3) [Security] 強化 Reddit (t.reddit.com) 與長檔名惡意腳本的阻擋能力。
+ * @lastUpdated 2026-01-15
  */
 
 // #################################################################################################
@@ -43,14 +43,16 @@ const RULES = {
   ]),
 
   // [2] Intelligent Whitelists
-  // Layer 0: 絕對放行
+  // Layer 0: 絕對放行 (Hard Whitelist) - 優先級最高，跳過所有檢查
   HARD_WHITELIST: {
     EXACT: new Set([
-      // AI & Productivity [Patched V41.83]
-      'chatgpt.com', 'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
+      // AI & Productivity Assets (Images/CSS/JS)
+      // [V42.0 Note] chatgpt.com 已移至 Soft Whitelist 以進行深度檢查
+      'cdn.oaistatic.com', 'files.oaiusercontent.com', 
+      
+      'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
       'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
       'qianwen.aliyun.com', 'static.stepfun.com', 'api.openai.com', 'a-api.anthropic.com',
-      'cdn.oaistatic.com', 'files.oaiusercontent.com', // [New] ChatGPT Assets
       
       // News & Productivity
       'api.feedly.com', 'sandbox.feedly.com', 'cloud.feedly.com',
@@ -91,7 +93,8 @@ const RULES = {
     ]
   },
 
-  // Layer 3: 軟性白名單
+  // Layer 3: 軟性白名單 (Soft Whitelist)
+  // 允許正常瀏覽，但會經過 Layer 4 (Map/Keyword) 檢查，可用於攔截特定路徑
   SOFT_WHITELIST: {
     EXACT: new Set([
       'gateway.shopback.com.tw', 'api.anthropic.com', 'api.cohere.ai', 'api.digitalocean.com',
@@ -105,6 +108,9 @@ const RULES = {
       'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com'
     ]),
     WILDCARDS: [
+      // [V42.0] Moved here from Hard Whitelist to enable path blocking
+      'chatgpt.com', 
+      
       'shopee.tw', 'shopee.com', 'shopeemobile.com', 'shopee.io',
       'youtube.com', 'facebook.com', 'instagram.com',
       'twitter.com', 'tiktok.com', 'spotify.com', 'netflix.com', 'disney.com',
@@ -446,7 +452,8 @@ const RULES = {
       /\/visitor-?id\.js$/i,
       /\/canvas-?fp\.js$/i
     ],
-    HEURISTIC: [/^[a-z0-9]{32,}\.(js|mjs)$/i]
+    // [Fix V42.0] 修正正則，確保路徑以 / 開頭，解決 V41.83 漏攔截問題
+    HEURISTIC: [/^\/[a-z0-9]{32,}\.(js|mjs)$/i]
   },
 
   // [8] Parameter Cleaning
@@ -799,6 +806,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V41.72 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.0 Active\n${stats.toString()}` });
 }
-
