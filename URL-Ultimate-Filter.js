@@ -1,11 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.7.js
- * @version   42.7 (Obsidian - Uber Metrics Fix)
- * @description [V42.7] 精準修復版：
- * 1) [Fix] 針對 'ewp.uber.com/_browsermetrics/' 實施 Layer 0.5 路徑豁免。
- * - 解決 Uber/UberEats App 因效能監控請求被攔截而導致的頁面卡死問題。
- * - 維持對 'pidetupop.com' 的追蹤攔截 (Reverted from V42.6)。
- * 2) [Base] 基於 V42.5 核心邏輯，保留完整指紋防護功能。
+ * @file      URL-Ultimate-Filter-Surge-V42.71.js
+ * @version   42.71 (Obsidian - Rollback to Baseline)
+ * @description [V42.71] 邏輯回退版 - 恢復至 V42.5 基準：
+ * 1) [Rollback] 移除針對 Uber Metrics 的腳本層級白名單 (用戶端改採 Skip MITM 策略)。
+ * 2) [Security] 維持對 'pidetupop.com' (Uber Tracker) 的強制封鎖。
+ * 3) [Base] 完整保留指紋防護 (Canvas/WebGL) 與電商白名單邏輯。
  * @lastUpdated 2026-01-17
  */
 
@@ -432,8 +431,7 @@ const RULES = {
       ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])],
       ['shopee.tw', new Set(['/verify/traffic'])],      // Shopee Anti-Bot Verification Exception
       ['iappapi.investing.com', new Set(['/portfolio_api.php'])], // Investing.com API Exception
-      ['chatgpt.com', new Set(['/cdn/', '/assets/'])],   // [V42.1 Fix] ChatGPT Asset Exemption
-      ['ewp.uber.com', new Set(['/_browsermetrics/'])]    // [V42.7 Fix] Uber App Crash Fix (Hard Dependency)
+      ['chatgpt.com', new Set(['/cdn/', '/assets/'])]   // [V42.1 Fix] ChatGPT Asset Exemption
     ])
   },
 
@@ -820,6 +818,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.7 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.71 Active\n${stats.toString()}` });
 }
 
