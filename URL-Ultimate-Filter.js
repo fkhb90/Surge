@@ -1,10 +1,11 @@
 /**
  * @file      URL-Ultimate-Filter-Surge-V42.5.js
- * @version   42.5 (Obsidian - Fingerprint Security)
- * @description [V42.5] 進階指紋防護與安全整合：
- * 1) [Feature] 整合高風險指紋關鍵字 (canvas, webgl, audio-fp, font-detect) 至正則攔截，並受白名單保護。
- * 2) [Safety] 排除 'tracking' 與 'client-id' 的通用匹配，防止物流查詢與 OAuth 登入失敗。
- * 3) [Inherit] 繼承 V42.4 Stripe 防護與 V42.3 Coupang/Yahoo 白名單策略。
+ * @version   42.5 (Obsidian - Fingerprint Security Stable)
+ * @description [V42.5] 穩定發行版 - 全面指紋防護與電商白名單整合：
+ * 1) [Feature] 整合高風險指紋關鍵字 (canvas, webgl, audio-fp, font-detect) 至正則攔截。
+ * 2) [Safety] 針對 Coupang/Yahoo/ChatGPT 實施 Layer 0 硬白名單與 Layer 4.1 精準攔截的混合防護。
+ * 3) [Fix] 修復 Stripe 指紋攔截邏輯，確保支付功能正常。
+ * 4) [Fix] 移除 'tracking' 與 'client-id' 的通用封鎖，確保物流查詢與 OAuth 登入功能。
  * @lastUpdated 2026-01-16
  */
 
@@ -94,6 +95,7 @@ const RULES = {
   },
 
   // Layer 3: 軟性白名單 (Soft Whitelist)
+  // 允許正常瀏覽，但會經過 Layer 4 (Map/Keyword) 檢查，可用於攔截特定路徑
   SOFT_WHITELIST: {
     EXACT: new Set([
       'gateway.shopback.com.tw', 'api.anthropic.com', 'api.cohere.ai', 'api.digitalocean.com',
@@ -107,7 +109,8 @@ const RULES = {
       'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com'
     ]),
     WILDCARDS: [
-      'chatgpt.com',
+      'chatgpt.com', // [Critical] Soft Whitelist to allow deep inspection (blocking /v1/rgstr)
+      
       'shopee.tw', 'shopee.com', 'shopeemobile.com', 'shopee.io',
       'youtube.com', 'facebook.com', 'instagram.com',
       'twitter.com', 'tiktok.com', 'spotify.com', 'netflix.com', 'disney.com',
@@ -186,7 +189,7 @@ const RULES = {
     'analytics.etmall.com.tw', 'pixel.momoshop.com.tw', 'trace.momoshop.com.tw', 'ad-serv.teepr.com',
     'appier.net', 'itad.linetv.tw',
 
-    // Ad Networks (Filtered)
+    // Ad Networks
     'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com', 'events.tiktok.com',
     'abema-adx.ameba.jp', 'abtest.yuewen.cn', 'ad-cn.jovcloud.com', 'ad.12306.cn', 'ad.360in.com',
     'ad.51wnl-cq.com', 'ad.api.3g.youku.com', 'ad.caiyunapp.com', 'ad.hzyoka.com', 'ad.jiemian.com',
@@ -342,6 +345,7 @@ const RULES = {
   KEYWORDS: {
     PATH_BLOCK: [
       // [V42.5 Refine] 移除 'tracking', 'client-id' 避免誤殺物流與登入
+      // [V42.5 Feature] 新增指紋關鍵字 canvas, webgl, audio-fp, font-detect
       '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/banner/',
       '/interstitial/', '/midroll/', '/popads/', '/popup/', '/postroll/', '/preroll/', '/promoted/',
       '/sponsor/', '/vclick/', '/ads-self-serve/',
@@ -394,7 +398,7 @@ const RULES = {
       'data-collection', 'data-sync', 'fingerprint', 'retargeting', 'session-replay', 'third-party-cookie',
       'user-analytics', 'user-behavior', 'user-cohort', 'user-segment',
       'appier', 'comscore', 'fbevents', 'fbq', 'google-analytics', 'onead', 'osano', 'sailthru', 'tapfiliate', 'utag.js',
-      '/apmapi/'
+      '/apmapi/', 'canvas', 'webgl', 'audio-fp', 'font-detect'
     ],
     HIGH_CONFIDENCE_TRACKER: new Set(['/ads', '/analytics', '/api/track', '/beacon', '/collect', '/pixel', '/tracker']),
     DROP: new Set([
