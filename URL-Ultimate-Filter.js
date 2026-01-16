@@ -1,11 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.1.js
- * @version   42.1 (Diamond - ChatGPT Assets Hotfix)
- * @description [V42.1] 緊急修正版 - 解決 ChatGPT 動態資源誤殺問題：
- * 1) [Hotfix] 新增 chatgpt.com 的路徑豁免 (/cdn/, /assets/)，確保 hash 檔名 JS/CSS 不被正則誤殺。
- * 2) [Logic] 保持 chatgpt.com 在 Soft Whitelist，以繼續攔截 /v1/rgstr 遙測。
- * 3) [Optimize] 優化通用正則 (REGEX.PATH_BLOCK)，將 'cdn' 加入排除關鍵字。
- * @lastUpdated 2026-01-15
+ * @file      URL-Ultimate-Filter-Surge-V42.2.js
+ * @version   42.2 (Titanium - Yahoo Shopping Fix)
+ * @description [V42.2] 邏輯漏洞修復與白名單增強：
+ * 1) [Hotfix] 新增 tw.mapi.shp.yahoo.com 至硬白名單，解決 Yahoo 購物商品頁無法載入問題。
+ * 2) [System] 修正 Layer 4.4 (Drop) 邏輯，使其必須遵守 EXCEPTIONS 豁免規則 (如 /api/ 路徑)，防止 functional API 被誤認為 tracker。
+ * 3) [Base] 基於 V42.1 (Diamond) 架構迭代。
+ * @lastUpdated 2026-01-16
  */
 
 // #################################################################################################
@@ -62,7 +62,7 @@ const RULES = {
       
       // Taiwan Finance & Payment
       'api.etmall.com.tw', 'api.map.ecpay.com.tw', 'api.ecpay.com.tw', 'payment.ecpay.com.tw',
-      'api.jkos.com', 'tw.fd-api.com',
+      'api.jkos.com', 'tw.fd-api.com', 'tw.mapi.shp.yahoo.com', // [V42.2 Fix] Yahoo Shopping Mobile API
       
       // Dev Tools
       'code.createjs.com', 'oa.ledabangong.com', 'oa.qianyibangong.com', 'raw.githubusercontent.com',
@@ -765,8 +765,11 @@ function processRequest(request) {
 
     // 4.3 Keywords & Regex
     // For soft whitelist: only deep-check non-static resources to reduce breakage
+    // [V42.2 Fix] Cache exemption result for both Keyword and Drop layers
+    const isExplicitlyAllowed = HELPERS.isPathExplicitlyAllowed(pathLower);
+
     if (!isSoftWhitelisted || (isSoftWhitelisted && !HELPERS.isStaticFile(pathLower))) {
-      if (!HELPERS.isPathExplicitlyAllowed(pathLower)) {
+      if (!isExplicitlyAllowed) {
         if (pathScanner.matches(pathLower)) {
           stats.blocks++;
           return { response: { status: 403, body: 'Blocked by Keyword' } };
@@ -780,10 +783,13 @@ function processRequest(request) {
     }
 
     // 4.4 Drop Keywords (respond 204)
-    for (const k of RULES.KEYWORDS.DROP) {
-      if (pathLower.includes(k)) {
-        stats.blocks++;
-        return { response: { status: 204 } };
+    // [V42.2 Fix] Added exemption check wrapper to prevent 'collectionService' (API) from being dropped by 'collect'
+    if (!isExplicitlyAllowed) {
+      for (const k of RULES.KEYWORDS.DROP) {
+        if (pathLower.includes(k)) {
+          stats.blocks++;
+          return { response: { status: 204 } };
+        }
       }
     }
 
@@ -806,5 +812,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.1 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.2 Active\n${stats.toString()}` });
 }
+
