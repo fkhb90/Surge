@@ -1,12 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.5.js
- * @version   42.5 (Obsidian - Fingerprint Security Stable)
- * @description [V42.5] 穩定發行版 - 全面指紋防護與電商白名單整合：
- * 1) [Feature] 整合高風險指紋關鍵字 (canvas, webgl, audio-fp, font-detect) 至正則攔截。
- * 2) [Safety] 針對 Coupang/Yahoo/ChatGPT 實施 Layer 0 硬白名單與 Layer 4.1 精準攔截的混合防護。
- * 3) [Fix] 修復 Stripe 指紋攔截邏輯，確保支付功能正常。
- * 4) [Fix] 移除 'tracking' 與 'client-id' 的通用封鎖，確保物流查詢與 OAuth 登入功能。
- * @lastUpdated 2026-01-16
+ * @file      URL-Ultimate-Filter-Surge-V42.6.js
+ * @version   42.6 (Obsidian - Hotfix for Uber/UberEats)
+ * @description [V42.6] 緊急修復版：
+ * 1) [Hotfix] 移除 'pidetupop.com' (Uber Tracker) 的強制封鎖，修復 Uber Eats 商品頁面無法開啟的問題。
+ * 2) [Safety] 將 'pidetupop.com' 加入軟性白名單，防止被關鍵字誤殺。
+ * @lastUpdated 2026-01-17
  */
 
 // #################################################################################################
@@ -111,6 +109,8 @@ const RULES = {
     WILDCARDS: [
       'chatgpt.com', // [Critical] Soft Whitelist to allow deep inspection (blocking /v1/rgstr)
       
+      'pidetupop.com', // [V42.6 Fix] Uber CNAME Tracker - Whitelisted to prevent app breakage (Product Page)
+
       'shopee.tw', 'shopee.com', 'shopeemobile.com', 'shopee.io',
       'youtube.com', 'facebook.com', 'instagram.com',
       'twitter.com', 'tiktok.com', 'spotify.com', 'netflix.com', 'disney.com',
@@ -147,7 +147,7 @@ const RULES = {
     'iadsdk.apple.com', 'cdn-edge-tracking.com', 'edge-analytics.amazonaws.com', 'edge-telemetry.akamai.com',
     'edge-tracking.cloudflare.com', 'edgecompute-analytics.com', 'monitoring.edge-compute.io',
     'realtime-edge.fastly.com', '2o7.net', 'everesttech.net', 'log.felo.ai', 'event.sc.gearupportal.com',
-    'pidetupop.com', 'adform.net', 'adsrvr.org', 'analytics.line.me', 'analytics.slashdotmedia.com',
+    'adform.net', 'adsrvr.org', 'analytics.line.me', 'analytics.slashdotmedia.com',
     'analytics.strava.com', 'analytics.twitter.com', 'analytics.yahoo.com', 'api.pendo.io',
     'c.clarity.ms', 'c.segment.com', 'chartbeat.com', 'clicktale.net', 'clicky.com',
     'comscore.com', 'criteo.net', 'customer.io', 'data.investing.com', 'datadoghq.com',
@@ -819,5 +819,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.5 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.6 Active\n${stats.toString()}` });
 }
+
