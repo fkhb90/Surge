@@ -1,10 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.2.js
- * @version   42.2 (Titanium - Yahoo Shopping Fix)
- * @description [V42.2] 邏輯漏洞修復與白名單增強：
- * 1) [Hotfix] 新增 tw.mapi.shp.yahoo.com 至硬白名單，解決 Yahoo 購物商品頁無法載入問題。
- * 2) [System] 修正 Layer 4.4 (Drop) 邏輯，使其必須遵守 EXCEPTIONS 豁免規則 (如 /api/ 路徑)，防止 functional API 被誤認為 tracker。
- * 3) [Base] 基於 V42.1 (Diamond) 架構迭代。
+ * @file      URL-Ultimate-Filter-Surge-V42.3.js
+ * @version   42.3 (Titanium+1 - Coupang API Stabilization)
+ * @description [V42.3] 電商 API 穩定性增強：
+ * 1) [Whitelist] 新增 cmapi.tw.coupang.com 至硬白名單，防止商品詳情頁 (SDP) 因 Base64 參數或 Event 關鍵字被誤殺。
+ * 2) [Inherit] 繼承 V42.2 Yahoo 修正與 Layer 4.4 豁免邏輯。
  * @lastUpdated 2026-01-16
  */
 
@@ -60,9 +59,10 @@ const RULES = {
       'reportaproblem.apple.com', 'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
       'sso.godaddy.com', 'idmsa.apple.com', 'api.login.yahoo.com', 
       
-      // Taiwan Finance & Payment
+      // Taiwan Finance & Payment & E-commerce API
       'api.etmall.com.tw', 'api.map.ecpay.com.tw', 'api.ecpay.com.tw', 'payment.ecpay.com.tw',
-      'api.jkos.com', 'tw.fd-api.com', 'tw.mapi.shp.yahoo.com', // [V42.2 Fix] Yahoo Shopping Mobile API
+      'api.jkos.com', 'tw.fd-api.com', 'tw.mapi.shp.yahoo.com', 
+      'cmapi.tw.coupang.com', // [V42.3 Fix] Coupang TW Mobile API (Critical for SDP)
       
       // Dev Tools
       'code.createjs.com', 'oa.ledabangong.com', 'oa.qianyibangong.com', 'raw.githubusercontent.com',
@@ -812,6 +812,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.2 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.3 Active\n${stats.toString()}` });
 }
-
