@@ -1,9 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.6.js
- * @version   42.6 (Obsidian - Hotfix for Uber/UberEats)
- * @description [V42.6] 緊急修復版：
- * 1) [Hotfix] 移除 'pidetupop.com' (Uber Tracker) 的強制封鎖，修復 Uber Eats 商品頁面無法開啟的問題。
- * 2) [Safety] 將 'pidetupop.com' 加入軟性白名單，防止被關鍵字誤殺。
+ * @file      URL-Ultimate-Filter-Surge-V42.7.js
+ * @version   42.7 (Obsidian - Uber Metrics Fix)
+ * @description [V42.7] 精準修復版：
+ * 1) [Fix] 針對 'ewp.uber.com/_browsermetrics/' 實施 Layer 0.5 路徑豁免。
+ * - 解決 Uber/UberEats App 因效能監控請求被攔截而導致的頁面卡死問題。
+ * - 維持對 'pidetupop.com' 的追蹤攔截 (Reverted from V42.6)。
+ * 2) [Base] 基於 V42.5 核心邏輯，保留完整指紋防護功能。
  * @lastUpdated 2026-01-17
  */
 
@@ -109,8 +111,6 @@ const RULES = {
     WILDCARDS: [
       'chatgpt.com', // [Critical] Soft Whitelist to allow deep inspection (blocking /v1/rgstr)
       
-      'pidetupop.com', // [V42.6 Fix] Uber CNAME Tracker - Whitelisted to prevent app breakage (Product Page)
-
       'shopee.tw', 'shopee.com', 'shopeemobile.com', 'shopee.io',
       'youtube.com', 'facebook.com', 'instagram.com',
       'twitter.com', 'tiktok.com', 'spotify.com', 'netflix.com', 'disney.com',
@@ -147,7 +147,7 @@ const RULES = {
     'iadsdk.apple.com', 'cdn-edge-tracking.com', 'edge-analytics.amazonaws.com', 'edge-telemetry.akamai.com',
     'edge-tracking.cloudflare.com', 'edgecompute-analytics.com', 'monitoring.edge-compute.io',
     'realtime-edge.fastly.com', '2o7.net', 'everesttech.net', 'log.felo.ai', 'event.sc.gearupportal.com',
-    'adform.net', 'adsrvr.org', 'analytics.line.me', 'analytics.slashdotmedia.com',
+    'pidetupop.com', 'adform.net', 'adsrvr.org', 'analytics.line.me', 'analytics.slashdotmedia.com',
     'analytics.strava.com', 'analytics.twitter.com', 'analytics.yahoo.com', 'api.pendo.io',
     'c.clarity.ms', 'c.segment.com', 'chartbeat.com', 'clicktale.net', 'clicky.com',
     'comscore.com', 'criteo.net', 'customer.io', 'data.investing.com', 'datadoghq.com',
@@ -432,7 +432,8 @@ const RULES = {
       ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])],
       ['shopee.tw', new Set(['/verify/traffic'])],      // Shopee Anti-Bot Verification Exception
       ['iappapi.investing.com', new Set(['/portfolio_api.php'])], // Investing.com API Exception
-      ['chatgpt.com', new Set(['/cdn/', '/assets/'])]   // [V42.1 Fix] ChatGPT Asset Exemption
+      ['chatgpt.com', new Set(['/cdn/', '/assets/'])],   // [V42.1 Fix] ChatGPT Asset Exemption
+      ['ewp.uber.com', new Set(['/_browsermetrics/'])]    // [V42.7 Fix] Uber App Crash Fix (Hard Dependency)
     ])
   },
 
@@ -819,6 +820,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.6 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.7 Active\n${stats.toString()}` });
 }
 
