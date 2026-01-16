@@ -1,9 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.3.js
- * @version   42.3 (Titanium+1 - Coupang API Stabilization)
- * @description [V42.3] 電商 API 穩定性增強：
- * 1) [Whitelist] 新增 cmapi.tw.coupang.com 至硬白名單，防止商品詳情頁 (SDP) 因 Base64 參數或 Event 關鍵字被誤殺。
- * 2) [Inherit] 繼承 V42.2 Yahoo 修正與 Layer 4.4 豁免邏輯。
+ * @file      URL-Ultimate-Filter-Surge-V42.5.js
+ * @version   42.5 (Obsidian - Fingerprint Security)
+ * @description [V42.5] 進階指紋防護與安全整合：
+ * 1) [Feature] 整合高風險指紋關鍵字 (canvas, webgl, audio-fp, font-detect) 至正則攔截，並受白名單保護。
+ * 2) [Safety] 排除 'tracking' 與 'client-id' 的通用匹配，防止物流查詢與 OAuth 登入失敗。
+ * 3) [Inherit] 繼承 V42.4 Stripe 防護與 V42.3 Coupang/Yahoo 白名單策略。
  * @lastUpdated 2026-01-16
  */
 
@@ -62,7 +63,7 @@ const RULES = {
       // Taiwan Finance & Payment & E-commerce API
       'api.etmall.com.tw', 'api.map.ecpay.com.tw', 'api.ecpay.com.tw', 'payment.ecpay.com.tw',
       'api.jkos.com', 'tw.fd-api.com', 'tw.mapi.shp.yahoo.com', 
-      'cmapi.tw.coupang.com', // [V42.3 Fix] Coupang TW Mobile API (Critical for SDP)
+      'cmapi.tw.coupang.com', // [V42.3 Fix] Coupang TW Mobile API
       
       // Dev Tools
       'code.createjs.com', 'oa.ledabangong.com', 'oa.qianyibangong.com', 'raw.githubusercontent.com',
@@ -93,7 +94,6 @@ const RULES = {
   },
 
   // Layer 3: 軟性白名單 (Soft Whitelist)
-  // 允許正常瀏覽，但會經過 Layer 4 (Map/Keyword) 檢查，可用於攔截特定路徑
   SOFT_WHITELIST: {
     EXACT: new Set([
       'gateway.shopback.com.tw', 'api.anthropic.com', 'api.cohere.ai', 'api.digitalocean.com',
@@ -107,8 +107,7 @@ const RULES = {
       'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com'
     ]),
     WILDCARDS: [
-      'chatgpt.com', // Soft Whitelist to allow deep inspection (blocking /v1/rgstr)
-      
+      'chatgpt.com',
       'shopee.tw', 'shopee.com', 'shopeemobile.com', 'shopee.io',
       'youtube.com', 'facebook.com', 'instagram.com',
       'twitter.com', 'tiktok.com', 'spotify.com', 'netflix.com', 'disney.com',
@@ -187,7 +186,7 @@ const RULES = {
     'analytics.etmall.com.tw', 'pixel.momoshop.com.tw', 'trace.momoshop.com.tw', 'ad-serv.teepr.com',
     'appier.net', 'itad.linetv.tw',
 
-    // Ad Networks
+    // Ad Networks (Filtered)
     'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com', 'events.tiktok.com',
     'abema-adx.ameba.jp', 'abtest.yuewen.cn', 'ad-cn.jovcloud.com', 'ad.12306.cn', 'ad.360in.com',
     'ad.51wnl-cq.com', 'ad.api.3g.youku.com', 'ad.caiyunapp.com', 'ad.hzyoka.com', 'ad.jiemian.com',
@@ -271,6 +270,7 @@ const RULES = {
       'user-id.js', 'user-timing.js', 'wcslog.js'
     ]),
     MAP: new Map([
+      ['js.stripe.com', new Set(['/fingerprinted/'])], // [V42.4] Stripe Fingerprint Block
       ['chatgpt.com', new Set(['/ces/statsc/flush', '/v1/rgstr'])],
       ['tw.fd-api.com', new Set(['/api/v5/action-log'])],
       ['chatbot.shopee.tw', new Set(['/report/v1/log'])],
@@ -341,6 +341,7 @@ const RULES = {
   // [5] Keyword & Regex Blocking
   KEYWORDS: {
     PATH_BLOCK: [
+      // [V42.5 Refine] 移除 'tracking', 'client-id' 避免誤殺物流與登入
       '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/banner/',
       '/interstitial/', '/midroll/', '/popads/', '/popup/', '/postroll/', '/preroll/', '/promoted/',
       '/sponsor/', '/vclick/', '/ads-self-serve/',
@@ -371,7 +372,7 @@ const RULES = {
       'socdm', 'sponsors', 'spy', 'spyware', 'statcounter', 'stathat', 'sticky-ad', 'storageug', 'straas',
       'studybreakmedia', 'stunninglover', 'supersonicads', 'syndication', 'taboola', 'tagtoo', 'talkingdata',
       'tanx', 'tapjoy', 'tapjoyads', 'tenmax', 'tingyun', 'tiqcdn', 'tlcafftrax', 'toateeli', 'tongji',
-      '/trace/', 'tracker', 'trackersimulator', 'tracking', 'trafficjunky', 'trafficmanager', 'tubemogul',
+      '/trace/', 'tracker', 'trackersimulator', 'trafficjunky', 'trafficmanager', 'tubemogul',
       'uedas', 'umeng', 'umtrack', 'unidesk', 'usermaven', 'usertesting', 'vast', 'venraas', 'vilynx', 'vpaid',
       'vpon', 'vungle', 'whalecloud', 'wistia', 'wlmonitor', 'woopra', 'xxshuyuan', 'yandex', 'zaoo', 'zarget',
       'zgdfz6h7po', 'zgty365', 'zhengjian', 'zhengwunet', 'zhuichaguoji', 'zjtoolbar', 'zzhyyj',
@@ -436,6 +437,8 @@ const RULES = {
     PATH_BLOCK: [
       // [V42.1 Fix] Added 'cdn' to exclusion group to prevent false positives
       /^\/(?!_next\/static\/|static\/|assets\/|dist\/|build\/|public\/|cdn\/)[a-z0-9]{12,}\.js$/i,
+      // [V42.5 Feature] Integrated Fingerprint/Canvas/Audio/Font blockers (Safeguarded by Whitelist)
+      /\/(fp|fingerprint|device-id|visitor|dfp|bfp|canvas|webgl|audio-fp|font-detect).*\.js$/i,
       /[^\/]*sentry[^\/]*\.js/i,
       /\/v\d+\/event/i,
       /\/api\/v\d+\/collect$/i,
@@ -812,5 +815,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.3 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.5 Active\n${stats.toString()}` });
 }
