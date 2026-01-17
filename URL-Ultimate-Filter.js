@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.71.js
- * @version   42.71 (Obsidian - Rollback to Baseline)
- * @description [V42.71] 邏輯回退版 - 恢復至 V42.5 基準：
- * 1) [Rollback] 移除針對 Uber Metrics 的腳本層級白名單 (用戶端改採 Skip MITM 策略)。
- * 2) [Security] 維持對 'pidetupop.com' (Uber Tracker) 的強制封鎖。
- * 3) [Base] 完整保留指紋防護 (Canvas/WebGL) 與電商白名單邏輯。
+ * @file      URL-Ultimate-Filter-Surge-V42.72.js
+ * @version   42.72 (Obsidian - ShopBack CDN Optimization)
+ * @description [V42.72] 靜態資源優化版：
+ * 1) [Optimization] 新增 ShopBack 專屬 CDN 路徑 '__sbcdn' 至例外豁免清單。
+ * - 確保 ShopBack 的所有靜態資源 (JS/CSS/Images) 不會被關鍵字掃描誤殺。
+ * - 維持 V42.5 基準的所有防護邏輯 (Uber 策略維持 Skip MITM)。
  * @lastUpdated 2026-01-17
  */
 
@@ -424,7 +424,8 @@ const RULES = {
       'page-data.js', 'polyfill.js', 'robots.txt', 'sitemap.xml', 'sw.js', 'theme.js', 'web.config'
     ]),
     SUBSTRINGS: new Set([
-      '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/js/', 'static/media/'
+      '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/js/', 'static/media/',
+      '__sbcdn' // [V42.72] ShopBack CDN Exception
     ]),
     SEGMENTS: new Set(['admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login']),
     PATH_EXEMPTIONS: new Map([
@@ -818,6 +819,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.71 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.72 Active\n${stats.toString()}` });
 }
 
