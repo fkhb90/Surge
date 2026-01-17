@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.72.js
- * @version   42.72 (Obsidian - ShopBack CDN Optimization)
- * @description [V42.72] 靜態資源優化版：
- * 1) [Optimization] 新增 ShopBack 專屬 CDN 路徑 '__sbcdn' 至例外豁免清單。
- * - 確保 ShopBack 的所有靜態資源 (JS/CSS/Images) 不會被關鍵字掃描誤殺。
- * - 維持 V42.5 基準的所有防護邏輯 (Uber 策略維持 Skip MITM)。
+ * @file      URL-Ultimate-Filter-Surge-V42.73.js
+ * @version   42.73 (Obsidian - ShopBack Critical Fix)
+ * @description [V42.73] ShopBack 強制修復版：
+ * 1) [Hotfix] 將 ShopBack CDN 路徑 '/__sbcdn/' 提升至 Layer 0.5 絕對路徑豁免。
+ * - 解決 V42.72 軟性豁免無效的問題，強制放行所有 CDN 靜態資源。
+ * 2) [Base] 基於 V42.5 基準，維持 Uber (Skip MITM) 與 Stripe 的最佳化設定。
  * @lastUpdated 2026-01-17
  */
 
@@ -424,15 +424,16 @@ const RULES = {
       'page-data.js', 'polyfill.js', 'robots.txt', 'sitemap.xml', 'sw.js', 'theme.js', 'web.config'
     ]),
     SUBSTRINGS: new Set([
-      '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/js/', 'static/media/',
-      '__sbcdn' // [V42.72] ShopBack CDN Exception
+      '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/js/', 'static/media/'
     ]),
     SEGMENTS: new Set(['admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login']),
     PATH_EXEMPTIONS: new Map([
       ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])],
       ['shopee.tw', new Set(['/verify/traffic'])],      // Shopee Anti-Bot Verification Exception
       ['iappapi.investing.com', new Set(['/portfolio_api.php'])], // Investing.com API Exception
-      ['chatgpt.com', new Set(['/cdn/', '/assets/'])]   // [V42.1 Fix] ChatGPT Asset Exemption
+      ['chatgpt.com', new Set(['/cdn/', '/assets/'])],   // [V42.1 Fix] ChatGPT Asset Exemption
+      ['www.shopback.com.tw', new Set(['/__sbcdn/'])],   // [V42.73 Fix] ShopBack CDN Path Exemption
+      ['shopback.com.tw', new Set(['/__sbcdn/'])]        // [V42.73 Fix] ShopBack CDN (Root)
     ])
   },
 
@@ -819,6 +820,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.72 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.73 Active\n${stats.toString()}` });
 }
 
