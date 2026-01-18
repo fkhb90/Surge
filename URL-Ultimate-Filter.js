@@ -1,11 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.73.js
- * @version   42.73 (Obsidian - ShopBack Critical Fix)
- * @description [V42.73] ShopBack 強制修復版：
- * 1) [Hotfix] 將 ShopBack CDN 路徑 '/__sbcdn/' 提升至 Layer 0.5 絕對路徑豁免。
- * - 解決 V42.72 軟性豁免無效的問題，強制放行所有 CDN 靜態資源。
- * 2) [Base] 基於 V42.5 基準，維持 Uber (Skip MITM) 與 Stripe 的最佳化設定。
- * @lastUpdated 2026-01-17
+ * @file      URL-Ultimate-Filter-Surge-V42.76.js
+ * @version   42.76 (Obsidian - Shopee Event Receiver Patch)
+ * @description [V42.76] 蝦皮追蹤補完版：
+ * 1) [Block] 針對 'patronus.idata.shopeemobile.com' 新增 '/event-receiver/' 攔截規則。
+ * - 封堵蝦皮新版行為數據上傳通道 (API v4)，提升隱私保護。
+ * - 維持 V42.73 的所有修復 (ShopBack CDN 強制放行)。
+ * @lastUpdated 2026-01-18
  */
 
 // #################################################################################################
@@ -47,7 +47,7 @@ const RULES = {
   HARD_WHITELIST: {
     EXACT: new Set([
       // AI & Productivity Assets (Images/CSS/JS)
-      'cdn.oaistatic.com', 'files.oaiusercontent.com', '143.92.88.1',
+      'cdn.oaistatic.com', 'files.oaiusercontent.com', 
       
       'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
       'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
@@ -128,7 +128,8 @@ const RULES = {
       'imgbox.com', 'imgflip.com', 'imx.to', 'indishare.org', 'infidrive.net', 'k2s.cc', 'katfile.com',
       'mirrored.to', 'multiup.io', 'nmac.to', 'noelshack.com', 'pic-upload.de', 'pixhost.to',
       'postimg.cc', 'prnt.sc', 'sfile.mobi', 'thefileslocker.net', 'turboimagehost.com', 'uploadhaven.com',
-      'uploadrar.com', 'usersdrive.com'
+      'uploadrar.com', 'usersdrive.com',
+      '__sbcdn' // [V42.73] ShopBack CDN Exception
     ]
   },
 
@@ -336,7 +337,7 @@ const RULES = {
       ['vk.com', new Set(['/rtrg'])],
       ['instagram.com', new Set(['/logging_client_events'])],
       ['mall.shopee.tw', new Set(['/userstats_record/batchrecord'])],
-      ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch'])]
+      ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'])] // [V42.76 Patch] Shopee API v4 Tracking Block
     ])
   },
 
@@ -424,7 +425,8 @@ const RULES = {
       'page-data.js', 'polyfill.js', 'robots.txt', 'sitemap.xml', 'sw.js', 'theme.js', 'web.config'
     ]),
     SUBSTRINGS: new Set([
-      '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/js/', 'static/media/'
+      '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/js/', 'static/media/',
+      '__sbcdn' // [V42.73] ShopBack CDN Exception
     ]),
     SEGMENTS: new Set(['admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login']),
     PATH_EXEMPTIONS: new Map([
@@ -820,6 +822,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.73 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.76 Active\n${stats.toString()}` });
 }
 
