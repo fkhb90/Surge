@@ -47,7 +47,7 @@ const RULES = {
   HARD_WHITELIST: {
     EXACT: new Set([
       // AI & Productivity Assets (Images/CSS/JS)
-      'cdn.oaistatic.com', 'files.oaiusercontent.com', 
+      'cdn.oaistatic.com', 'files.oaiusercontent.com', '143.92.88.1',
       
       'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
       'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
