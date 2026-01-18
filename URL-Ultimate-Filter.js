@@ -1,10 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.76.js
- * @version   42.76 (Obsidian - Shopee Event Receiver Patch)
- * @description [V42.76] 蝦皮追蹤補完版：
- * 1) [Block] 針對 'patronus.idata.shopeemobile.com' 新增 '/event-receiver/' 攔截規則。
- * - 封堵蝦皮新版行為數據上傳通道 (API v4)，提升隱私保護。
- * - 維持 V42.73 的所有修復 (ShopBack CDN 強制放行)。
+ * @file      URL-Ultimate-Filter-Surge-V42.77.js
+ * @version   42.77 (Obsidian - Shopee APM Purge)
+ * @description [V42.77] 蝦皮效能監控清除版：
+ * 1) [Block] 將 'live-apm.shopee.tw' 加入 Layer 4.1 Critical Map 強制攔截。
+ * - 解決因主網域白名單導致的 APM 監控流量漏網問題。
+ * - 阻斷 '/apmapi/v1/event' 背景效能數據上傳。
+ * 2) [Base] 繼承 V42.76 所有邏輯 (ShopBack/Uber/Shopee Tracking Fixes)。
  * @lastUpdated 2026-01-18
  */
 
@@ -89,7 +90,7 @@ const RULES = {
       'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
       'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
       'perma.cc', 'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org',
-      'googlevideo.com', 'app.goo.gl', 'goo.gl', 'shopee.tw'
+      'googlevideo.com', 'app.goo.gl', 'goo.gl'
     ]
   },
 
@@ -337,7 +338,9 @@ const RULES = {
       ['vk.com', new Set(['/rtrg'])],
       ['instagram.com', new Set(['/logging_client_events'])],
       ['mall.shopee.tw', new Set(['/userstats_record/batchrecord'])],
-      ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'])] // [V42.76 Patch] Shopee API v4 Tracking Block
+      ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'])], // [V42.76 Patch] Shopee API v4 Tracking Block
+      ['dp.tracking.shopee.tw', new Set(['/v4/event_batch'])], // [V42.75] Shopee Event Batch Block
+      ['live-apm.shopee.tw', new Set(['/apmapi/v1/event'])] // [V42.77] Shopee Live APM Block
     ])
   },
 
@@ -349,6 +352,8 @@ const RULES = {
       '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/banner/',
       '/interstitial/', '/midroll/', '/popads/', '/popup/', '/postroll/', '/preroll/', '/promoted/',
       '/sponsor/', '/vclick/', '/ads-self-serve/',
+      // [V42.74] HTTPDNS Detection Keywords
+      '/httpdns/', '/d?dn=', '/resolve?host=', '/query?host=', '__httpdns__', 'dns-query',
       '112wan', '2mdn', '51y5', '51yes', '789htbet', '96110',
       'acs86', 'ad-choices', 'ad-logics', 'adash', 'adashx', 'adcash', 'adcome', 'addsticky', 'addthis',
       'adform', 'adhacker', 'adinfuse', 'adjust', 'admarvel', 'admaster', 'admation', 'admdfs', 'admicro',
@@ -822,6 +827,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.76 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.77 Active\n${stats.toString()}` });
 }
 
