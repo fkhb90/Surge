@@ -1,12 +1,12 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.80.js
- * @version   42.80 (Obsidian - Shopee Privacy & Cleaning)
- * @description [V42.80] 隱私與清洗修復版：
- * 1) [Block] 新增 'patronus.idata.shopeemobile.com' 的 '/event-receiver/api/v4/tw' 攔截規則。
- * 2) [Fix] 調整邏輯架構：即使是 Hard Whitelist (如 shopee.tw) 的網域，現在也會執行參數清洗 (移除 gclid/fbclid)。
- * - 確保 App 穩定不崩潰 (白名單生效)。
- * - 確保廣告商追蹤失效 (參數清洗生效)。
- * 3) [Base] 繼承 V42.79 的混合分流策略。
+ * @file      URL-Ultimate-Filter-Surge-V42.81.js
+ * @version   42.81 (Obsidian - Pure Hard Whitelist)
+ * @description [V42.81] 硬白名單邏輯修正版：
+ * 1) [Logic Fix] 恢復 Layer 0 硬白名單的「絕對豁免權」。
+ * - 命中 Hard Whitelist 的網域 (如 shopee.tw) 將直接放行，**跳過**參數清洗。
+ * - 這意味著點擊 shopee.tw 的廣告連結時，gclid/fbclid 將被保留 (換取 App 絕對穩定)。
+ * 2) [Block] 維持對 'patronus' (API v4) 與 'live-apm' 的精準攔截。
+ * 3) [Base] 繼承 V42.80 的規則集與混合分流策略。
  * @lastUpdated 2026-01-18
  */
 
@@ -45,7 +45,7 @@ const RULES = {
   ]),
 
   // [2] Intelligent Whitelists
-  // Layer 0: 絕對放行 (Hard Whitelist) - 優先級最高，跳過所有檢查，但仍需進行參數清洗
+  // Layer 0: 絕對放行 (Hard Whitelist) - 優先級最高，跳過所有檢查，包含參數清洗
   HARD_WHITELIST: {
     EXACT: new Set([
       // AI & Productivity Assets (Images/CSS/JS)
@@ -79,7 +79,7 @@ const RULES = {
       'pro.104.com.tw', 'gov.tw'
     ]),
     WILDCARDS: [
-      // [V42.79] Shopee TW Hard Whitelist
+      // [V42.79] Shopee TW Hard Whitelist - No Cleaning, No Blocking
       'shopee.tw',
 
       'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw',
@@ -99,7 +99,7 @@ const RULES = {
   },
 
   // Layer 3: 軟性白名單 (Soft Whitelist)
-  // 允許正常瀏覽，但會經過 Layer 4 (Map/Keyword) 檢查，可用於攔截特定路徑
+  // 允許正常瀏覽，但會經過 Layer 4 (Map/Keyword) 檢查，可用於攔截特定路徑，且會執行參數清洗
   SOFT_WHITELIST: {
     EXACT: new Set([
       'gateway.shopback.com.tw', 'api.anthropic.com', 'api.cohere.ai', 'api.digitalocean.com',
@@ -342,7 +342,9 @@ const RULES = {
       ['vk.com', new Set(['/rtrg'])],
       ['instagram.com', new Set(['/logging_client_events'])],
       ['mall.shopee.tw', new Set(['/userstats_record/batchrecord'])],
-      ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'])] // [V42.80 Patch] Shopee API v4 Tracking Block
+      ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'])], // [V42.80 Patch] Shopee API v4 Tracking Block
+      ['dp.tracking.shopee.tw', new Set(['/v4/event_batch'])], // [V42.75] Shopee Event Batch Block
+      ['live-apm.shopee.tw', new Set(['/apmapi/v1/event'])] // [V42.77] Shopee Live APM Block
     ])
   },
 
@@ -354,6 +356,8 @@ const RULES = {
       '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/banner/',
       '/interstitial/', '/midroll/', '/popads/', '/popup/', '/postroll/', '/preroll/', '/promoted/',
       '/sponsor/', '/vclick/', '/ads-self-serve/',
+      // [V42.74] HTTPDNS Detection Keywords
+      '/httpdns/', '/d?dn=', '/resolve?host=', '/query?host=', '__httpdns__', 'dns-query',
       '112wan', '2mdn', '51y5', '51yes', '789htbet', '96110',
       'acs86', 'ad-choices', 'ad-logics', 'adash', 'adashx', 'adcash', 'adcome', 'addsticky', 'addthis',
       'adform', 'adhacker', 'adinfuse', 'adjust', 'admarvel', 'admaster', 'admation', 'admdfs', 'admicro',
@@ -726,17 +730,18 @@ function processRequest(request) {
     };
 
     // Layer 0: Hard whitelist must win (stability > aggressive P0 path)
-    // [V42.80 Fix] Even hard whitelisted domains must undergo parameter cleaning
+    // [V42.81 Update] Restore Pure Hard Whitelist Logic: Return null immediately, SKIP cleaning.
     if (isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname)) {
       multiLevelCache.set(hostname, 'ALLOW', 86400000);
       stats.allows++;
-      return performCleaning(); // Return result of cleaning, or null if no params to clean
+      return null; // <--- The Golden Rule of Hard Whitelist: Do Nothing.
     }
 
     // Cache fast path (ALLOW / BLOCK)
     const cached = multiLevelCache.get(hostname);
     if (cached === 'ALLOW') { 
         stats.allows++; 
+        // Cached Soft Whitelists still get cleaned
         return performCleaning(); 
     }
     if (cached === 'BLOCK') { stats.blocks++; return { response: { status: 403, body: 'Blocked by Cache' } }; }
@@ -822,7 +827,7 @@ function processRequest(request) {
       }
     }
 
-    // Parameter Cleaning (redirect to clean URL) - Main Execution
+    // Parameter Cleaning (redirect to clean URL) - Main Execution for Non-Hard Whitelisted
     return performCleaning();
 
   } catch (err) {
@@ -837,6 +842,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.80 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.81 Active\n${stats.toString()}` });
 }
 
