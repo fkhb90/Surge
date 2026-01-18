@@ -89,7 +89,7 @@ const RULES = {
       'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
       'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
       'perma.cc', 'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org',
-      'googlevideo.com', 'app.goo.gl', 'goo.gl', 'shopee.com'
+      'googlevideo.com', 'app.goo.gl', 'goo.gl', 'shopee.tw'
     ]
   },
 
