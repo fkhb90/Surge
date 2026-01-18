@@ -1,11 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.77.js
- * @version   42.77 (Obsidian - Shopee APM Purge)
- * @description [V42.77] 蝦皮效能監控清除版：
- * 1) [Block] 將 'live-apm.shopee.tw' 加入 Layer 4.1 Critical Map 強制攔截。
- * - 解決因主網域白名單導致的 APM 監控流量漏網問題。
- * - 阻斷 '/apmapi/v1/event' 背景效能數據上傳。
- * 2) [Base] 繼承 V42.76 所有邏輯 (ShopBack/Uber/Shopee Tracking Fixes)。
+ * @file      URL-Ultimate-Filter-Surge-V42.79.js
+ * @version   42.79 (Obsidian - Shopee TW Hybrid Patch)
+ * @description [V42.79] 蝦皮台灣專屬修復版：
+ * 1) [Allow] 將 'shopee.tw' 移至 Layer 0 硬白名單，確保台灣蝦皮 App 100% 穩定。
+ * 2) [Retain] 保持 'shopee.com' 於 Layer 3 軟性白名單，維持對非 TW 流量的檢查。
+ * 3) [Base] 繼承 V42.73 (ShopBack CDN 強制修復 + Adjust/Branch 攔截) 的所有邏輯。
  * @lastUpdated 2026-01-18
  */
 
@@ -78,6 +77,9 @@ const RULES = {
       'pro.104.com.tw', 'gov.tw'
     ]),
     WILDCARDS: [
+      // [V42.79] Shopee TW Hard Whitelist
+      'shopee.tw',
+
       'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw',
       'richart.tw', 'bot.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw',
       'dawho.tw', 'dbs.com.tw', 'firstbank.com.tw', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw',
@@ -111,7 +113,7 @@ const RULES = {
     WILDCARDS: [
       'chatgpt.com', // [Critical] Soft Whitelist to allow deep inspection (blocking /v1/rgstr)
       
-      'shopee.tw', 'shopee.com', 'shopeemobile.com', 'shopee.io',
+      'shopee.com', 'shopeemobile.com', 'shopee.io', // Shopee.com remains in Soft Whitelist
       'youtube.com', 'facebook.com', 'instagram.com',
       'twitter.com', 'tiktok.com', 'spotify.com', 'netflix.com', 'disney.com',
       'linkedin.com', 'discord.com', 'googleapis.com', 'book.com.tw', 'citiesocial.com',
@@ -338,9 +340,7 @@ const RULES = {
       ['vk.com', new Set(['/rtrg'])],
       ['instagram.com', new Set(['/logging_client_events'])],
       ['mall.shopee.tw', new Set(['/userstats_record/batchrecord'])],
-      ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'])], // [V42.76 Patch] Shopee API v4 Tracking Block
-      ['dp.tracking.shopee.tw', new Set(['/v4/event_batch'])], // [V42.75] Shopee Event Batch Block
-      ['live-apm.shopee.tw', new Set(['/apmapi/v1/event'])] // [V42.77] Shopee Live APM Block
+      ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch'])]
     ])
   },
 
@@ -352,8 +352,6 @@ const RULES = {
       '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/banner/',
       '/interstitial/', '/midroll/', '/popads/', '/popup/', '/postroll/', '/preroll/', '/promoted/',
       '/sponsor/', '/vclick/', '/ads-self-serve/',
-      // [V42.74] HTTPDNS Detection Keywords
-      '/httpdns/', '/d?dn=', '/resolve?host=', '/query?host=', '__httpdns__', 'dns-query',
       '112wan', '2mdn', '51y5', '51yes', '789htbet', '96110',
       'acs86', 'ad-choices', 'ad-logics', 'adash', 'adashx', 'adcash', 'adcome', 'addsticky', 'addthis',
       'adform', 'adhacker', 'adinfuse', 'adjust', 'admarvel', 'admaster', 'admation', 'admdfs', 'admicro',
@@ -827,6 +825,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.77 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.79 Active\n${stats.toString()}` });
 }
 
