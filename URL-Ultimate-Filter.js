@@ -1,10 +1,12 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.79.js
- * @version   42.79 (Obsidian - Shopee TW Hybrid Patch)
- * @description [V42.79] 蝦皮台灣專屬修復版：
- * 1) [Allow] 將 'shopee.tw' 移至 Layer 0 硬白名單，確保台灣蝦皮 App 100% 穩定。
- * 2) [Retain] 保持 'shopee.com' 於 Layer 3 軟性白名單，維持對非 TW 流量的檢查。
- * 3) [Base] 繼承 V42.73 (ShopBack CDN 強制修復 + Adjust/Branch 攔截) 的所有邏輯。
+ * @file      URL-Ultimate-Filter-Surge-V42.80.js
+ * @version   42.80 (Obsidian - Shopee Privacy & Cleaning)
+ * @description [V42.80] 隱私與清洗修復版：
+ * 1) [Block] 新增 'patronus.idata.shopeemobile.com' 的 '/event-receiver/api/v4/tw' 攔截規則。
+ * 2) [Fix] 調整邏輯架構：即使是 Hard Whitelist (如 shopee.tw) 的網域，現在也會執行參數清洗 (移除 gclid/fbclid)。
+ * - 確保 App 穩定不崩潰 (白名單生效)。
+ * - 確保廣告商追蹤失效 (參數清洗生效)。
+ * 3) [Base] 繼承 V42.79 的混合分流策略。
  * @lastUpdated 2026-01-18
  */
 
@@ -43,7 +45,7 @@ const RULES = {
   ]),
 
   // [2] Intelligent Whitelists
-  // Layer 0: 絕對放行 (Hard Whitelist) - 優先級最高，跳過所有檢查
+  // Layer 0: 絕對放行 (Hard Whitelist) - 優先級最高，跳過所有檢查，但仍需進行參數清洗
   HARD_WHITELIST: {
     EXACT: new Set([
       // AI & Productivity Assets (Images/CSS/JS)
@@ -340,7 +342,7 @@ const RULES = {
       ['vk.com', new Set(['/rtrg'])],
       ['instagram.com', new Set(['/logging_client_events'])],
       ['mall.shopee.tw', new Set(['/userstats_record/batchrecord'])],
-      ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch'])]
+      ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'])] // [V42.80 Patch] Shopee API v4 Tracking Block
     ])
   },
 
@@ -713,16 +715,30 @@ function processRequest(request) {
     const hostname = urlObj.hostname.toLowerCase();
     const pathLower = (urlObj.pathname + urlObj.search).toLowerCase();
 
+    // 參數清洗邏輯提前定義，即使是白名單網域也需要清洗
+    const performCleaning = () => {
+        const cleanUrl = HELPERS.cleanTrackingParams(url, hostname, pathLower);
+        if (cleanUrl) {
+            stats.allows++;
+            return { response: { status: 302, headers: { Location: cleanUrl } } };
+        }
+        return null;
+    };
+
     // Layer 0: Hard whitelist must win (stability > aggressive P0 path)
+    // [V42.80 Fix] Even hard whitelisted domains must undergo parameter cleaning
     if (isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname)) {
       multiLevelCache.set(hostname, 'ALLOW', 86400000);
       stats.allows++;
-      return null;
+      return performCleaning(); // Return result of cleaning, or null if no params to clean
     }
 
     // Cache fast path (ALLOW / BLOCK)
     const cached = multiLevelCache.get(hostname);
-    if (cached === 'ALLOW') { stats.allows++; return null; }
+    if (cached === 'ALLOW') { 
+        stats.allows++; 
+        return performCleaning(); 
+    }
     if (cached === 'BLOCK') { stats.blocks++; return { response: { status: 403, body: 'Blocked by Cache' } }; }
 
     // [New] Layer 0.5: Path Exemption Check (Domain-specific allow list)
@@ -730,7 +746,7 @@ function processRequest(request) {
     if (HELPERS.isPathExemptedForDomain(hostname, pathLower)) {
         if (CONFIG.DEBUG_MODE) console.log(`[Allow] Exempted Path: ${pathLower}`);
         stats.allows++;
-        return null;
+        return performCleaning();
     }
 
     // Layer 1: P0 Critical Path (generic + scripts)
@@ -806,12 +822,8 @@ function processRequest(request) {
       }
     }
 
-    // Parameter Cleaning (redirect to clean URL)
-    const cleanUrl = HELPERS.cleanTrackingParams(url, hostname, pathLower);
-    if (cleanUrl) {
-      stats.allows++;
-      return { response: { status: 302, headers: { Location: cleanUrl } } };
-    }
+    // Parameter Cleaning (redirect to clean URL) - Main Execution
+    return performCleaning();
 
   } catch (err) {
     if (CONFIG.DEBUG_MODE) console.log(`[Error] ${err}`);
@@ -825,6 +837,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.79 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.80 Active\n${stats.toString()}` });
 }
 
