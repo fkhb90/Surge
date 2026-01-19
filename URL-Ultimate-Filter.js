@@ -1,13 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.81.js
- * @version   42.81 (Obsidian - Pure Hard Whitelist)
- * @description [V42.81] 硬白名單邏輯修正版：
- * 1) [Logic Fix] 恢復 Layer 0 硬白名單的「絕對豁免權」。
- * - 命中 Hard Whitelist 的網域 (如 shopee.tw) 將直接放行，**跳過**參數清洗。
- * - 這意味著點擊 shopee.tw 的廣告連結時，gclid/fbclid 將被保留 (換取 App 絕對穩定)。
- * 2) [Block] 維持對 'patronus' (API v4) 與 'live-apm' 的精準攔截。
- * 3) [Base] 繼承 V42.80 的規則集與混合分流策略。
- * @lastUpdated 2026-01-18
+ * @file      URL-Ultimate-Filter-Surge-V42.82.js
+ * @version   42.82 (Line Ads Patch)
+ * @description [V42.82] 新增 Line 廣告域名攔截：
+ * 1) [Block] 新增 'ad-history.line.me' 至 PRIORITY_BLOCK_DOMAINS。
+ * 2) [Base] 繼承 V42.81 的硬白名單邏輯。
+ * @lastUpdated 2026-01-19
  */
 
 // #################################################################################################
@@ -21,7 +18,8 @@ const RULES = {
     'appsflyer.com', 'adjust.com', 'kochava.com', 'branch.io', 'app-measurement.com', 'singular.net',
     'unityads.unity3d.com', 'applovin.com', 'ironsrc.com', 'vungle.com', 'adcolony.com', 'chartboost.com',
     'tapjoy.com', 'pangle.io', 'taboola.com', 'outbrain.com', 'popads.net', 'ads.tiktok.com',
-    'analytics.tiktok.com', 'ads.linkedin.com', 'ad.etmall.com.tw', 'trk.momoshop.com.tw', 'ad.line.me'
+    'analytics.tiktok.com', 'ads.linkedin.com', 'ad.etmall.com.tw', 'trk.momoshop.com.tw', 'ad.line.me',
+    'ad-history.line.me' // [V42.82] Added
   ]),
 
   // 惡意跳轉與縮網址
@@ -842,6 +840,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.81 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.82 Active\n${stats.toString()}` });
 }
-
