@@ -1,9 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.82.js
- * @version   42.82 (Line Ads Patch)
- * @description [V42.82] 新增 Line 廣告域名攔截：
- * 1) [Block] 新增 'ad-history.line.me' 至 PRIORITY_BLOCK_DOMAINS。
- * 2) [Base] 繼承 V42.81 的硬白名單邏輯。
+ * @file      URL-Ultimate-Filter-Surge-V42.83.js
+ * @version   42.83 (Firebase App Check Patch)
+ * @description [V42.83] 安全性服務放行：
+ * 1) [Allow] 新增 'firebaseappcheck.googleapis.com' 至 HARD_WHITELIST，防止 App 驗證失敗。
+ * 2) [Base] 繼承 V42.82 的 Line 廣告攔截邏輯。
  * @lastUpdated 2026-01-19
  */
 
@@ -59,6 +59,7 @@ const RULES = {
       // System & Auth
       'reportaproblem.apple.com', 'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
       'sso.godaddy.com', 'idmsa.apple.com', 'api.login.yahoo.com', 
+      'firebaseappcheck.googleapis.com', // [V42.83] Firebase App Check Security
       
       // Taiwan Finance & Payment & E-commerce API
       'api.etmall.com.tw', 'api.map.ecpay.com.tw', 'api.ecpay.com.tw', 'payment.ecpay.com.tw',
@@ -840,5 +841,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.82 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.83 Active\n${stats.toString()}` });
 }
+
