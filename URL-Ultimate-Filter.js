@@ -1,9 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.85.js
- * @version   42.85 (Remote Config Patch)
- * @description [V42.85] 基礎設施放行：
- * 1) [Allow] 新增 'firebaseremoteconfig.googleapis.com' 至 HARD_WHITELIST，防止 App 啟動卡死 (Feature Flags)。
- * 2) [Base] 包含 V42.84 的 App Check 與 Installations 放行。
+ * @file      URL-Ultimate-Filter-Surge-V42.86.js
+ * @version   42.86 (Google Translate Patch)
+ * @description [V42.86] 功能性放行：
+ * 1) [Allow] 新增 'translate.google.com' 至 HARD_WHITELIST，保護翻譯功能 RPC 請求。
+ * 2) [Base] 包含 V42.85 的 Firebase Remote Config 放行。
  * @lastUpdated 2026-01-20
  */
 
@@ -55,6 +55,7 @@ const RULES = {
       
       // News & Productivity
       'api.feedly.com', 'sandbox.feedly.com', 'cloud.feedly.com',
+      'translate.google.com', 'translate.googleapis.com', // [V42.86] Google Translate
 
       // System & Auth
       'reportaproblem.apple.com', 'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
@@ -843,7 +844,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.85 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.86 Active\n${stats.toString()}` });
 }
-
 
