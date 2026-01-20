@@ -1,9 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.87.js
- * @version   42.87 (Google Auth TW Patch)
- * @description [V42.87] 認證修復：
- * 1) [Allow] 新增 'accounts.google.com.tw' 至 HARD_WHITELIST，防止台灣區 Google 登入/跳轉失敗。
- * 2) [Base] 包含 V42.86 的 Google Translate RPC 放行。
+ * @file      URL-Ultimate-Filter-Surge-V42.89.js
+ * @version   42.89 (Critical Path Fix)
+ * @description [V42.89] 邏輯修正：
+ * 1) [Fix] 將 '/api/v2/rum' 從 KEYWORDS 移動至 CRITICAL_PATH，強制繞過 'api' 網段的白名單豁免檢查。
+ * 2) [Base] 繼承 V42.88 的 Shopee 邏輯修正。
  * @lastUpdated 2026-01-20
  */
 
@@ -39,7 +39,7 @@ const RULES = {
     'swzz.xyz', 'techgeek.digital', 'techstudify.com', 'techtrendmakers.com', 'thinfi.com', 'thotpacks.xyz',
     'tmearn.net', 'tnshort.net', 'tribuntekno.com', 'turdown.com', 'tutwuri.id', 'uplinkto.hair',
     'urlbluemedia.shop', 'urlcash.com', 'urlcash.org', 'vinaurl.net', 'vzturl.com', 'xpshort.com',
-    'zegtrends.com', 's.shopee.tw'
+    'zegtrends.com'
   ]),
 
   // [2] Intelligent Whitelists
@@ -259,7 +259,8 @@ const RULES = {
       '/plugins/easy-social-share-buttons/', '/event_report', '/log/aplus', '/v.gif', '/ad-sw.js',
       '/ads-sw.js', '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/', '/abtesting/',
       '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc', '/user-profile/', 'cacafly/track',
-      '/api/v1/t', '/sa.gif'
+      '/api/v1/t', '/sa.gif',
+      '/api/v2/rum' // [V42.89 Fix] Moved to Critical Path to bypass 'api' exemption
     ],
     SCRIPTS: new Set([
       'ads.js', 'adsbygoogle.js', 'analytics.js', 'ga-init.js', 'ga.js', 'gtag.js', 'gtm.js', 'ytag.js',
@@ -845,5 +846,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.87 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.89 Active\n${stats.toString()}` });
 }
