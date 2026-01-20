@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.84.js
- * @version   42.84 (Firebase Infra Patch)
- * @description [V42.84] 基礎設施放行：
- * 1) [Allow] 新增 'firebaseinstallations.googleapis.com' 至 HARD_WHITELIST，修復推播與初始化問題。
- * 2) [Base] 包含 V42.83 App Check 放行與 V42.82 Line 廣告攔截。
- * @lastUpdated 2026-01-19
+ * @file      URL-Ultimate-Filter-Surge-V42.85.js
+ * @version   42.85 (Remote Config Patch)
+ * @description [V42.85] 基礎設施放行：
+ * 1) [Allow] 新增 'firebaseremoteconfig.googleapis.com' 至 HARD_WHITELIST，防止 App 啟動卡死 (Feature Flags)。
+ * 2) [Base] 包含 V42.84 的 App Check 與 Installations 放行。
+ * @lastUpdated 2026-01-20
  */
 
 // #################################################################################################
@@ -61,6 +61,7 @@ const RULES = {
       'sso.godaddy.com', 'idmsa.apple.com', 'api.login.yahoo.com', 
       'firebaseappcheck.googleapis.com', // [V42.83] Firebase App Check
       'firebaseinstallations.googleapis.com', // [V42.84] Firebase Installations (FID)
+      'firebaseremoteconfig.googleapis.com', // [V42.85] Firebase Remote Config (Feature Flags)
       
       // Taiwan Finance & Payment & E-commerce API
       'api.etmall.com.tw', 'api.map.ecpay.com.tw', 'api.ecpay.com.tw', 'payment.ecpay.com.tw',
@@ -842,6 +843,7 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.84 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.85 Active\n${stats.toString()}` });
 }
+
 
