@@ -1,9 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.86.js
- * @version   42.86 (Google Translate Patch)
- * @description [V42.86] 功能性放行：
- * 1) [Allow] 新增 'translate.google.com' 至 HARD_WHITELIST，保護翻譯功能 RPC 請求。
- * 2) [Base] 包含 V42.85 的 Firebase Remote Config 放行。
+ * @file      URL-Ultimate-Filter-Surge-V42.87.js
+ * @version   42.87 (Google Auth TW Patch)
+ * @description [V42.87] 認證修復：
+ * 1) [Allow] 新增 'accounts.google.com.tw' 至 HARD_WHITELIST，防止台灣區 Google 登入/跳轉失敗。
+ * 2) [Base] 包含 V42.86 的 Google Translate RPC 放行。
  * @lastUpdated 2026-01-20
  */
 
@@ -63,6 +63,7 @@ const RULES = {
       'firebaseappcheck.googleapis.com', // [V42.83] Firebase App Check
       'firebaseinstallations.googleapis.com', // [V42.84] Firebase Installations (FID)
       'firebaseremoteconfig.googleapis.com', // [V42.85] Firebase Remote Config (Feature Flags)
+      'accounts.google.com.tw', // [V42.87] Google Auth TW (SetSID)
       
       // Taiwan Finance & Payment & E-commerce API
       'api.etmall.com.tw', 'api.map.ecpay.com.tw', 'api.ecpay.com.tw', 'payment.ecpay.com.tw',
@@ -844,6 +845,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.86 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.87 Active\n${stats.toString()}` });
 }
-
