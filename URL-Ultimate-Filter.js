@@ -1,9 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.91.js
- * @version   42.91 (Keyword Safety Fix)
- * @description [V42.91] 誤殺修正：
- * 1) [Fix] 修正 KEYWORDS.DROP 中的 'rum' 為 '/rum/'，解決 Investing.com 路徑中 'instruments' (inst-rum-ents) 造成的誤殺。
- * 2) [Base] 繼承 V42.90 的所有功能。
+ * @file      URL-Ultimate-Filter-Surge-V42.93.js
+ * @version   42.93 (Short Script Safety)
+ * @description [V42.93] 誤殺修正：
+ * 1) [Fix] 將 CRITICAL_PATH.SCRIPTS 中高風險的短檔名 (如 cf.js, ec.js, u.js) 改為路徑匹配 (如 /cf.js)。
+ * 解決 Uber 靜態資源因雜湊值結尾 (...cb02cf.js) 命中 'cf.js' 而被 L1 誤殺的問題。
+ * 2) [Base] 繼承 V42.92 的靜態檔案安全邏輯。
  * @lastUpdated 2026-01-21
  */
 
@@ -274,9 +275,9 @@ const RULES = {
       'taboola.js', 'ad-full-page.min.js', 'api_event_tracking_rtb_house.js', 'ed.js', 'itriweblog.js',
       'api_event_tracking.js', 'adobedtm.js', 'dax.js', 'tag.js', 'utag.js', 'visitorapi.js', 'newrelic.js',
       'nr-loader.js', 'perf.js', 'essb-core.min.js', 'intercom.js', 'pangle.js', 'tagtoo.js',
-      'tiktok-analytics.js', 'aplus.js', 'aplus_wap.js', 'ec.js', 'gdt.js', 'hm.js', 'u.js', 'um.js', 'bat.js',
+      'tiktok-analytics.js', 'aplus.js', 'aplus_wap.js', '/ec.js', '/gdt.js', '/hm.js', '/u.js', '/um.js', '/bat.js',
       'beacon.min.js', 'plausible.outbound-links.js', 'abtasty.js', 'ad-core.js',
-      'ad-lib.js', 'adroll_pro.js', 'ads-beacon.js', 'autotrack.js', 'beacon.js', 'capture.js', 'cf.js',
+      'ad-lib.js', 'adroll_pro.js', 'ads-beacon.js', 'autotrack.js', 'beacon.js', 'capture.js', '/cf.js',
       'cmp.js', 'collect.js', 'link-click-tracker.js', 'main-ad.js',
       'scevent.min.js', 'showcoverad.min.js', 'sp.js', 'tracker.js', 'tracking-api.js', 'tracking.js',
       'user-id.js', 'user-timing.js', 'wcslog.js'
@@ -822,7 +823,7 @@ function processRequest(request) {
 
     // 4.4 Drop Keywords (respond 204)
     // [V42.2 Fix] Added exemption check wrapper to prevent 'collectionService' (API) from being dropped by 'collect'
-    if (!isExplicitlyAllowed) {
+    if (!isExplicitlyAllowed && !HELPERS.isStaticFile(pathLower)) { // [V42.92 Fix] Added static file check
       for (const k of RULES.KEYWORDS.DROP) {
         if (pathLower.includes(k)) {
           stats.blocks++;
@@ -846,5 +847,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.91 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.93 Active\n${stats.toString()}` });
 }
