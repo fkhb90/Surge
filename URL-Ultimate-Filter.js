@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.89.js
- * @version   42.89 (Critical Path Fix)
- * @description [V42.89] 邏輯修正：
- * 1) [Fix] 將 '/api/v2/rum' 從 KEYWORDS 移動至 CRITICAL_PATH，強制繞過 'api' 網段的白名單豁免檢查。
- * 2) [Base] 繼承 V42.88 的 Shopee 邏輯修正。
- * @lastUpdated 2026-01-20
+ * @file      URL-Ultimate-Filter-Surge-V42.90.js
+ * @version   42.90 (Investing.com Verification)
+ * @description [V42.90] 驗證與維護：
+ * 1) [Verify] 針對 Investing.com API (endpoints.investing.com) 進行白名單驗證，確保自選股與推薦功能正常 (預設放行)。
+ * 2) [Base] 繼承 V42.89 的 Critical Path Fix (RUM 阻擋) 與 Shopee 修正。
+ * @lastUpdated 2026-01-21
  */
 
 // #################################################################################################
@@ -846,5 +846,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.89 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.90 Active\n${stats.toString()}` });
 }
