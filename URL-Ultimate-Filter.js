@@ -1,9 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.90.js
- * @version   42.90 (Investing.com Verification)
- * @description [V42.90] 驗證與維護：
- * 1) [Verify] 針對 Investing.com API (endpoints.investing.com) 進行白名單驗證，確保自選股與推薦功能正常 (預設放行)。
- * 2) [Base] 繼承 V42.89 的 Critical Path Fix (RUM 阻擋) 與 Shopee 修正。
+ * @file      URL-Ultimate-Filter-Surge-V42.91.js
+ * @version   42.91 (Keyword Safety Fix)
+ * @description [V42.91] 誤殺修正：
+ * 1) [Fix] 修正 KEYWORDS.DROP 中的 'rum' 為 '/rum/'，解決 Investing.com 路徑中 'instruments' (inst-rum-ents) 造成的誤殺。
+ * 2) [Base] 繼承 V42.90 的所有功能。
  * @lastUpdated 2026-01-21
  */
 
@@ -419,7 +419,7 @@ const RULES = {
       'ads-beacon', 'airbrake', 'amp-analytics', 'batch', 'beacon', 'client-event', 'collect',
       'collect?', 'collector', 'crashlytics', 'csp-report', 'data-pipeline', 'error-monitoring',
       'error-report', 'heartbeat', 'ingest', 'intake', 'live-log', 'log-event', 'logevents',
-      'loggly', 'log-hl', 'realtime-log', 'rum', 'server-event', 'telemetry', 'uploadmobiledata',
+      'loggly', 'log-hl', 'realtime-log', '/rum/', 'server-event', 'telemetry', 'uploadmobiledata',
       'web-beacon', 'web-vitals', 'crash-report', 'diagnostic.log', 'profiler', 'stacktrace', 'trace.json'
     ])
   },
@@ -846,5 +846,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.90 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.91 Active\n${stats.toString()}` });
 }
