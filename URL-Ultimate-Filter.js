@@ -1,11 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.93.js
- * @version   42.93 (Short Script Safety)
- * @description [V42.93] 誤殺修正：
- * 1) [Fix] 將 CRITICAL_PATH.SCRIPTS 中高風險的短檔名 (如 cf.js, ec.js, u.js) 改為路徑匹配 (如 /cf.js)。
- * 解決 Uber 靜態資源因雜湊值結尾 (...cb02cf.js) 命中 'cf.js' 而被 L1 誤殺的問題。
- * 2) [Base] 繼承 V42.92 的靜態檔案安全邏輯。
- * @lastUpdated 2026-01-21
+ * @file      URL-Ultimate-Filter-Surge-V42.94.js
+ * @version   42.94 (Taxi Fix & Slack Block)
+ * @description [V42.94] 修正與阻擋更新：
+ * 1) [Fix] 豁免 taxi.sleepnova.org 的路徑 /api/v4/routes_estimate，避免誤刪 from/to 參數。
+ * 2) [Block] 新增 slackb.com 至黑名單，阻擋遙測數據傳輸。
+ * 3) [Core] 優化 cleanTrackingParams 邏輯，支援通用參數豁免清單。
+ * @lastUpdated 2026-01-22
  */
 
 // #################################################################################################
@@ -144,6 +144,7 @@ const RULES = {
 
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
+    'slackb.com', // [V42.94] Slack Telemetry Block
     // RUM & Session Replay & Error Tracking
     'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw',
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
@@ -509,7 +510,10 @@ const RULES = {
       'order', 'page_number', 'size', 'sort', 'sort_by', 'aff_sub', 'click_id', 'deal_id', 'offer_id',
       'cancel_url', 'error_url', 'return_url', 'success_url'
     ]),
-    EXEMPTIONS: new Map([['www.google.com', new Set(['/maps/'])]])
+    EXEMPTIONS: new Map([
+        ['www.google.com', new Set(['/maps/'])],
+        ['taxi.sleepnova.org', new Set(['/api/v4/routes_estimate'])] // [V42.94] Taxi API Exemption
+    ])
   }
 };
 
@@ -626,8 +630,14 @@ const HELPERS = {
   },
 
   cleanTrackingParams: (urlStr, hostname, pathLower) => {
-    // Exemption (keep behavior compatible)
-    if (hostname === 'www.google.com' && pathLower.startsWith('/maps/')) return null;
+    // [V42.94 Fix] Generic Parameter Exemption Check
+    // Checks if the current path matches any path in the exemption map for this domain
+    const exemptions = RULES.PARAMS.EXEMPTIONS.get(hostname);
+    if (exemptions) {
+        for (const ex of exemptions) {
+            if (pathLower.includes(ex)) return null;
+        }
+    }
 
     try {
       if (!urlStr.includes('?')) return null;
@@ -847,5 +857,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.93 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.94 Active\n${stats.toString()}` });
 }
