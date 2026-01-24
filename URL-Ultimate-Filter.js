@@ -1,11 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.94.js
- * @version   42.94 (Taxi Fix & Slack Block)
- * @description [V42.94] 修正與阻擋更新：
- * 1) [Fix] 豁免 taxi.sleepnova.org 的路徑 /api/v4/routes_estimate，避免誤刪 from/to 參數。
- * 2) [Block] 新增 slackb.com 至黑名單，阻擋遙測數據傳輸。
- * 3) [Core] 優化 cleanTrackingParams 邏輯，支援通用參數豁免清單。
- * @lastUpdated 2026-01-22
+ * @file      URL-Ultimate-Filter-Surge-V42.96.js
+ * @version   42.96 (Coupang Hybrid Safety)
+ * @description [V42.96] Coupang 混合安全模式：
+ * 1) [Arch] 將 cmapi.tw.coupang.com 移至軟性白名單，以支援路徑阻擋。
+ * 2) [Safe] 在 PARAMS.EXEMPTIONS 新增全路徑豁免，確保 Coupang API 參數不被誤洗 (模擬 Layer 0 行為)。
+ * 3) [Block] 阻擋 /featureFlag/batchTracking 與 jslog.min.js。
+ * @lastUpdated 2026-01-24
  */
 
 // #################################################################################################
@@ -68,8 +68,8 @@ const RULES = {
       
       // Taiwan Finance & Payment & E-commerce API
       'api.etmall.com.tw', 'api.map.ecpay.com.tw', 'api.ecpay.com.tw', 'payment.ecpay.com.tw',
-      'api.jkos.com', 'tw.fd-api.com', 'tw.mapi.shp.yahoo.com', 
-      'cmapi.tw.coupang.com', // [V42.3 Fix] Coupang TW Mobile API
+      'api.jkos.com', 'tw.fd-api.com', 'tw.mapi.shp.yahoo.com',
+      // 'cmapi.tw.coupang.com', // [V42.96] Moved to Soft Whitelist + Param Exemption
       
       // Dev Tools
       'code.createjs.com', 'oa.ledabangong.com', 'oa.qianyibangong.com', 'raw.githubusercontent.com',
@@ -114,7 +114,8 @@ const RULES = {
       'auth.docker.io', 'database.windows.net', 'login.docker.com', 'api.irentcar.com.tw',
       'usiot.roborock.com', 'appapi.104.com.tw',
       'prism.ec.yahoo.com', 'graphql.ec.yahoo.com', 'visuals.feedly.com', 'api.revenuecat.com',
-      'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com'
+      'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com',
+      'cmapi.tw.coupang.com' // [V42.96] Moved from Hard Whitelist (Blocked in L4, Params Exempted below)
     ]),
     WILDCARDS: [
       'chatgpt.com', // [Critical] Soft Whitelist to allow deep inspection (blocking /v1/rgstr)
@@ -281,7 +282,7 @@ const RULES = {
       'ad-lib.js', 'adroll_pro.js', 'ads-beacon.js', 'autotrack.js', 'beacon.js', 'capture.js', '/cf.js',
       'cmp.js', 'collect.js', 'link-click-tracker.js', 'main-ad.js',
       'scevent.min.js', 'showcoverad.min.js', 'sp.js', 'tracker.js', 'tracking-api.js', 'tracking.js',
-      'user-id.js', 'user-timing.js', 'wcslog.js'
+      'user-id.js', 'user-timing.js', 'wcslog.js', 'jslog.min.js' // [V42.95] Block Coupang Error Log
     ]),
     MAP: new Map([
       ['js.stripe.com', new Set(['/fingerprinted/'])], // [V42.4] Stripe Fingerprint Block
@@ -350,7 +351,8 @@ const RULES = {
       ['mall.shopee.tw', new Set(['/userstats_record/batchrecord'])],
       ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'])], // [V42.80 Patch] Shopee API v4 Tracking Block
       ['dp.tracking.shopee.tw', new Set(['/v4/event_batch'])], // [V42.75] Shopee Event Batch Block
-      ['live-apm.shopee.tw', new Set(['/apmapi/v1/event'])] // [V42.77] Shopee Live APM Block
+      ['live-apm.shopee.tw', new Set(['/apmapi/v1/event'])], // [V42.77] Shopee Live APM Block
+      ['cmapi.tw.coupang.com', new Set(['/featureflag/batchtracking'])] // [V42.95] Coupang Batch Tracking Block
     ])
   },
 
@@ -512,7 +514,8 @@ const RULES = {
     ]),
     EXEMPTIONS: new Map([
         ['www.google.com', new Set(['/maps/'])],
-        ['taxi.sleepnova.org', new Set(['/api/v4/routes_estimate'])] // [V42.94] Taxi API Exemption
+        ['taxi.sleepnova.org', new Set(['/api/v4/routes_estimate'])], // [V42.94] Taxi API Exemption
+        ['cmapi.tw.coupang.com', new Set(['/'])] // [V42.96] Coupang Full Param Exemption
     ])
   }
 };
@@ -857,5 +860,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.94 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.96 Active\n${stats.toString()}` });
 }
+
