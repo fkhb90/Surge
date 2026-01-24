@@ -1,9 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.02.js
- * @version   43.02 (Simon Signal Block)
- * @description [V43.02] 新增行銷追蹤阻擋：
- * 1) [Block] 阻擋 simonsignal.com (Simon Data CDP / 行銷數據收集)。
- * 2) [Base] 繼承 V43.01 的 Coupang Mercury 阻擋與相關修復。
+ * @file      URL-Ultimate-Filter-Surge-V43.03.js
+ * @version   43.03 (Telemetry Governance)
+ * @description [V43.03] 通用遙測端點治理：
+ * 1) [Governance] 擴大 CRITICAL_PATH 覆蓋範圍，納入 /collect, /events, /telemetry 等根目錄標準路徑。
+ * 2) [Regex] 新增版本化 API 攔截正則 (如 /v1/collect, /api/v2/track)，建立主動防禦網。
+ * 3) [Base] 繼承 V43.02 的 Simon Signal 與 Coupang 阻擋策略。
  * @lastUpdated 2026-01-24
  */
 
@@ -246,13 +247,21 @@ const RULES = {
   // [4] Critical Path Blocking
   CRITICAL_PATH: {
     GENERIC: [
+      // [V43.03 Governance] Root & Versioned Telemetry Paths
+      '/collect', '/events', '/telemetry', '/metrics', '/traces', '/track', '/beacon', '/pixel',
+      '/v1/collect', '/v1/events', '/v1/track', '/v1/telemetry', '/v1/metrics', '/v1/log',
+      '/v2/collect', '/v2/events', '/v2/track', '/v2/telemetry',
+      '/api/v1/collect', '/api/v1/events', '/api/v1/track', '/api/v1/telemetry',
+      '/api/v1/log', '/api/log',
+      
+      // Existing Specific Paths
       '/api/stats/ads', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback',
       '/pagead/gen_204', '/pagead/paralleladview',
       '/youtubei/v1/log_interaction', '/youtubei/v1/log_event', '/youtubei/v1/player/log',
       '/tiktok/pixel/events', '/linkedin/insight/track',
       '/api/fingerprint', '/v1/fingerprint', '/cdn/fp/',
-      '/api/collect', '/api/track', '/tr/', '/pixel', '/beacon',
-      '/api/v1/event', '/api/log', '/ptracking', '/rest/n/log', '/action-log', '/ramen/v1/events',
+      '/api/collect', '/api/track', '/tr/', '/beacon',
+      '/api/v1/event', '/ptracking', '/rest/n/log', '/action-log', '/ramen/v1/events',
       '/_events', '/report/v1/log', '/app/mobilelog', '/api/web/ad/', '/cdn/fingerprint/',
       '/api/device-id', '/api/visitor-id', '/ads/ga-audiences', '/doubleclick/', '/google-analytics/',
       '/googleadservices/', '/googlesyndication/', '/googletagmanager/', '/tiktok/track/',
@@ -460,6 +469,10 @@ const RULES = {
   // [7] Regex Rules
   REGEX: {
     PATH_BLOCK: [
+      // [V43.03 Governance] Universal Telemetry Pattern Block
+      // Matches standard versioned endpoints like /v1/collect, /api/v2/track, /v1/telemetry
+      /\/v\d+\/(collect|events|track|telemetry|metrics|log|report)/i,
+      
       // [V42.1 Fix] Added 'cdn' to exclusion group to prevent false positives
       /^\/(?!_next\/static\/|static\/|assets\/|dist\/|build\/|public\/|cdn\/)[a-z0-9]{12,}\.js$/i,
       // [V42.5 Feature] Integrated Fingerprint/Canvas/Audio/Font blockers (Safeguarded by Whitelist)
@@ -874,6 +887,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.02 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.03 Active\n${stats.toString()}` });
 }
 
