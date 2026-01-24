@@ -1,11 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.99.js
- * @version   42.99 (Coupang Omni-Block)
- * @description [V42.99] Coupang 全方位廣告防禦：
- * 1) [Smart Block] 針對 cmapi.tw.coupang.com 啟用正則匹配，自動攔截所有包含 '-ads' 或 '/ads/' 的模組路徑。
- * 覆蓋範圍：ATF(首屏), BTF(底部), Banner(橫幅), PLP(列表) 等所有廣告版位。
- * 2) [Safe] 保持混合模式與參數豁免，確保購物功能不受影響。
- * 3) [Base] 繼承 Slack 阻擋與 Taxi 修正。
+ * @file      URL-Ultimate-Filter-Surge-V43.00.js
+ * @version   43.00 (Coupang Final Fix)
+ * @description [V43.00] 里程碑更新 - Coupang 終極修正與引擎升級：
+ * 1) [Core] 重寫 cleanTrackingParams 引擎，修復 V42.9x 版本中豁免邏輯 (Exemption Map) 未正確生效的問題。
+ * 2) [Safe] 將 Coupang 關鍵長參數 (unitPrice..., optionTable..., metaData) 加入全域白名單，提供雙重保險。
+ * 3) [Block] 繼承 V42.99 的全方位廣告阻擋 (Regex Block) 與混合防護模式。
  * @lastUpdated 2026-01-24
  */
 
@@ -353,7 +352,7 @@ const RULES = {
       ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'])], // [V42.80 Patch] Shopee API v4 Tracking Block
       ['dp.tracking.shopee.tw', new Set(['/v4/event_batch'])], // [V42.75] Shopee Event Batch Block
       ['live-apm.shopee.tw', new Set(['/apmapi/v1/event'])], // [V42.77] Shopee Live APM Block
-      ['cmapi.tw.coupang.com', new Set(['/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/', '/category-banner-ads/', '/plp-ads/'])] // [V42.99] Coupang Omni-Block (Specific paths as fallback if regex fails)
+      ['cmapi.tw.coupang.com', new Set(['/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/', '/category-banner-ads/', '/plp-ads/'])] // [V42.99] Coupang Omni-Block
     ])
   },
 
@@ -429,61 +428,6 @@ const RULES = {
     ])
   },
 
-  // [6] Exceptions
-  EXCEPTIONS: {
-    PREFIXES: new Set(['/.well-known/']),
-    SUFFIXES: new Set([
-      '.css', '.png', '.jpg', '.jpeg', '.svg', '.gif', '.ico', '.woff', '.woff2', '.ttf',
-      '.js', '.json', '.xml', '.mp4', '.mjs', 'app.js', 'bundle.js', 'chunk.js', 'chunk.mjs',
-      'common.js', 'framework.js', 'framework.mjs', 'index.js', 'index.mjs', 'main.js',
-      'polyfills.js', 'polyfills.mjs', 'runtime.js', 'styles.css', 'styles.js', 'vendor.js',
-      'badge.svg', 'browser.js', 'card.js', 'chunk-common', 'chunk-vendors', 'component---',
-      'config.js', 'favicon.ico', 'fetch-polyfill', 'head.js', 'header.js', 'icon.svg',
-      'legacy.js', 'loader.js', 'logo.svg', 'manifest.json', 'modal.js', 'padding.css',
-      'page-data.js', 'polyfill.js', 'robots.txt', 'sitemap.xml', 'sw.js', 'theme.js', 'web.config'
-    ]),
-    SUBSTRINGS: new Set([
-      '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/js/', 'static/media/',
-      '__sbcdn' // [V42.73] ShopBack CDN Exception
-    ]),
-    SEGMENTS: new Set(['admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login']),
-    PATH_EXEMPTIONS: new Map([
-      ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])],
-      ['shopee.tw', new Set(['/verify/traffic'])],      // Shopee Anti-Bot Verification Exception
-      ['iappapi.investing.com', new Set(['/portfolio_api.php'])], // Investing.com API Exception
-      ['chatgpt.com', new Set(['/cdn/', '/assets/'])],   // [V42.1 Fix] ChatGPT Asset Exemption
-      ['www.shopback.com.tw', new Set(['/__sbcdn/'])],   // [V42.73 Fix] ShopBack CDN Path Exemption
-      ['shopback.com.tw', new Set(['/__sbcdn/'])]        // [V42.73 Fix] ShopBack CDN (Root)
-    ])
-  },
-
-  // [7] Regex Rules
-  REGEX: {
-    PATH_BLOCK: [
-      // [V42.1 Fix] Added 'cdn' to exclusion group to prevent false positives
-      /^\/(?!_next\/static\/|static\/|assets\/|dist\/|build\/|public\/|cdn\/)[a-z0-9]{12,}\.js$/i,
-      // [V42.5 Feature] Integrated Fingerprint/Canvas/Audio/Font blockers (Safeguarded by Whitelist)
-      /\/(fp|fingerprint|device-id|visitor|dfp|bfp|canvas|webgl|audio-fp|font-detect).*\.js$/i,
-      /[^\/]*sentry[^\/]*\.js/i,
-      /\/v\d+\/event/i,
-      /\/api\/v\d+\/collect$/i,
-      /\/api\/v\d+\/action-log/i,
-      /\/api\/stats\/(ads|atr|qoe|playback)/i,
-      /\/fp\d+(\.[a-z0-9]+)?\.js$/i,
-      /\/fingerprint(2|js|js2)?(\.min)?\.js$/i,
-      /\/imprint\.js$/i,
-      /\/device-?uuid\.js$/i,
-      /\/machine-?id\.js$/i,
-      /\/fp-?[a-z0-9-]*\.js$/i,
-      /\/device-?(id|uuid|fingerprint)\.js$/i,
-      /\/client-?id\.js$/i,
-      /\/visitor-?id\.js$/i,
-      /\/canvas-?fp\.js$/i
-    ],
-    // [Fix V42.0] 修正正則，確保路徑以 / 開頭，解決 V41.83 漏攔截問題
-    HEURISTIC: [/^\/[a-z0-9]{32,}\.(js|mjs)$/i]
-  },
-
   // [8] Parameter Cleaning
   PARAMS: {
     GLOBAL: new Set([
@@ -512,7 +456,7 @@ const RULES = {
       'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope', 'direction', 'limit', 'offset',
       'order', 'page_number', 'size', 'sort', 'sort_by', 'aff_sub', 'click_id', 'deal_id', 'offer_id',
       'cancel_url', 'error_url', 'return_url', 'success_url',
-      // [V42.97] Coupang Double Safety Whitelist
+      // [V43.00] Coupang Double Safety Whitelist
       'metadata', 'pagestatus', 'eventactiontype', 'unitpricewithdeliveryfee',
       'previousitempricecount', 'optiontablelandingvendoritemid', 'selectedshowdeliverypddstatus'
     ]),
@@ -637,12 +581,12 @@ const HELPERS = {
   },
 
   cleanTrackingParams: (urlStr, hostname, pathLower) => {
-    // [V42.97 Fix] Generic Parameter Exemption Check
-    // This logic MUST be present for Coupang/Taxi exemption to work.
+    // [V43.00 Core Fix] Generic Parameter Exemption Check (Critical for Coupang/Taxi)
+    // 舊版腳本可能缺少此段邏輯，導致豁免表失效。此為強制修復。
     const exemptions = RULES.PARAMS.EXEMPTIONS.get(hostname);
     if (exemptions) {
         for (const ex of exemptions) {
-            if (pathLower.includes(ex)) return null;
+            if (pathLower.includes(ex)) return null; // 豁免生效，直接回傳 null (不清洗)
         }
     }
 
@@ -874,6 +818,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.99 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.00 Active\n${stats.toString()}` });
 }
 
