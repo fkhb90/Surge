@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.96.js
- * @version   42.96 (Coupang Hybrid Safety)
- * @description [V42.96] Coupang 混合安全模式：
- * 1) [Arch] 將 cmapi.tw.coupang.com 移至軟性白名單，以支援路徑阻擋。
- * 2) [Safe] 在 PARAMS.EXEMPTIONS 新增全路徑豁免，確保 Coupang API 參數不被誤洗 (模擬 Layer 0 行為)。
- * 3) [Block] 阻擋 /featureFlag/batchTracking 與 jslog.min.js。
+ * @file      URL-Ultimate-Filter-Surge-V42.97.js
+ * @version   42.97 (Coupang Double Safety)
+ * @description [V42.97] Coupang 雙重防護修正：
+ * 1) [Fix] 將 Coupang 關鍵參數 (metaData, pageStatus 等) 直接加入 WHITELIST，防止因引擎版本不匹配導致的誤刪。
+ * 2) [Core] 確保 cleanTrackingParams 邏輯支援通用路徑豁免。
+ * 3) [Base] 繼承 V42.96 的混合模式 (阻擋 batchTracking / jslog)。
  * @lastUpdated 2026-01-24
  */
 
@@ -68,7 +68,7 @@ const RULES = {
       
       // Taiwan Finance & Payment & E-commerce API
       'api.etmall.com.tw', 'api.map.ecpay.com.tw', 'api.ecpay.com.tw', 'payment.ecpay.com.tw',
-      'api.jkos.com', 'tw.fd-api.com', 'tw.mapi.shp.yahoo.com',
+      'api.jkos.com', 'tw.fd-api.com', 'tw.mapi.shp.yahoo.com', 
       // 'cmapi.tw.coupang.com', // [V42.96] Moved to Soft Whitelist + Param Exemption
       
       // Dev Tools
@@ -510,7 +510,10 @@ const RULES = {
       'timestamp', 'type', 'withstats', 'access_token', 'client_assertion', 'client_id', 'device_id',
       'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope', 'direction', 'limit', 'offset',
       'order', 'page_number', 'size', 'sort', 'sort_by', 'aff_sub', 'click_id', 'deal_id', 'offer_id',
-      'cancel_url', 'error_url', 'return_url', 'success_url'
+      'cancel_url', 'error_url', 'return_url', 'success_url',
+      // [V42.97] Coupang Double Safety Whitelist
+      'metadata', 'pagestatus', 'eventactiontype', 'unitpricewithdeliveryfee',
+      'previousitempricecount', 'optiontablelandingvendoritemid', 'selectedshowdeliverypddstatus'
     ]),
     EXEMPTIONS: new Map([
         ['www.google.com', new Set(['/maps/'])],
@@ -633,8 +636,8 @@ const HELPERS = {
   },
 
   cleanTrackingParams: (urlStr, hostname, pathLower) => {
-    // [V42.94 Fix] Generic Parameter Exemption Check
-    // Checks if the current path matches any path in the exemption map for this domain
+    // [V42.97 Fix] Generic Parameter Exemption Check
+    // This logic MUST be present for Coupang/Taxi exemption to work.
     const exemptions = RULES.PARAMS.EXEMPTIONS.get(hostname);
     if (exemptions) {
         for (const ex of exemptions) {
@@ -860,6 +863,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.96 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.97 Active\n${stats.toString()}` });
 }
 
