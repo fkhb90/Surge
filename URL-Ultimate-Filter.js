@@ -1,10 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.98.js
- * @version   42.98 (Coupang Ad Block)
- * @description [V42.98] Coupang 廣告路徑阻擋：
- * 1) [Block] 新增阻擋 /sdp-atf-ads/ (商品頁首屏廣告)。
- * 2) [Safe] 保留 V42.97 的雙重防護 (參數豁免 + 白名單加固)。
- * 3) [Base] 繼承混合模式 (阻擋 batchTracking / jslog)。
+ * @file      URL-Ultimate-Filter-Surge-V42.99.js
+ * @version   42.99 (Coupang Omni-Block)
+ * @description [V42.99] Coupang 全方位廣告防禦：
+ * 1) [Smart Block] 針對 cmapi.tw.coupang.com 啟用正則匹配，自動攔截所有包含 '-ads' 或 '/ads/' 的模組路徑。
+ * 覆蓋範圍：ATF(首屏), BTF(底部), Banner(橫幅), PLP(列表) 等所有廣告版位。
+ * 2) [Safe] 保持混合模式與參數豁免，確保購物功能不受影響。
+ * 3) [Base] 繼承 Slack 阻擋與 Taxi 修正。
  * @lastUpdated 2026-01-24
  */
 
@@ -352,7 +353,7 @@ const RULES = {
       ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'])], // [V42.80 Patch] Shopee API v4 Tracking Block
       ['dp.tracking.shopee.tw', new Set(['/v4/event_batch'])], // [V42.75] Shopee Event Batch Block
       ['live-apm.shopee.tw', new Set(['/apmapi/v1/event'])], // [V42.77] Shopee Live APM Block
-      ['cmapi.tw.coupang.com', new Set(['/featureflag/batchtracking', '/sdp-atf-ads/'])] // [V42.98] Coupang Ads & Tracking Block
+      ['cmapi.tw.coupang.com', new Set(['/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/', '/category-banner-ads/', '/plp-ads/'])] // [V42.99] Coupang Omni-Block (Specific paths as fallback if regex fails)
     ])
   },
 
@@ -810,6 +811,16 @@ function processRequest(request) {
       }
     }
 
+    // [V42.99] Omni-Block for Coupang Ads (Regex Match within L4 Logic)
+    // 這是針對 Coupang 的特殊邏輯，能夠攔截所有 *-ads 路徑
+    if (hostname === 'cmapi.tw.coupang.com') {
+      if (/\/.*-ads\//.test(pathLower)) {
+        stats.blocks++;
+        if (CONFIG.DEBUG_MODE) console.log(`[Block] Coupang Omni-Ad: ${pathLower}`);
+        return { response: { status: 403, body: 'Blocked by Coupang Omni-Block' } };
+      }
+    }
+
     // 4.2 Standard Block Domains (skip for soft whitelist)
     if (!isSoftWhitelisted) {
       if (RULES.BLOCK_DOMAINS.has(hostname) || RULES.BLOCK_DOMAINS_REGEX.some(r => r.test(hostname))) {
@@ -863,6 +874,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.98 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.99 Active\n${stats.toString()}` });
 }
 
