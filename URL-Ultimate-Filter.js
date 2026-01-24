@@ -1,10 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.03.js
- * @version   43.03 (Telemetry Governance)
- * @description [V43.03] 通用遙測端點治理：
- * 1) [Governance] 擴大 CRITICAL_PATH 覆蓋範圍，納入 /collect, /events, /telemetry 等根目錄標準路徑。
- * 2) [Regex] 新增版本化 API 攔截正則 (如 /v1/collect, /api/v2/track)，建立主動防禦網。
- * 3) [Base] 繼承 V43.02 的 Simon Signal 與 Coupang 阻擋策略。
+ * @file      URL-Ultimate-Filter-Surge-V43.04.js
+ * @version   43.04 (Event Intake Governance)
+ * @description [V43.04] 事件收集端點治理擴充：
+ * 1) [Governance] 新增 OTLP 標準端點 (/v1/traces) 阻擋。
+ * 2) [Governance] 新增 Snowplow 標準端點 (/tp2, /i) 阻擋。
+ * 3) [Governance] 強化 GA4 (/g/collect) 與 RUM 類路徑的覆蓋。
+ * 4) [Regex] 更新正則表達式以支援 traces 與 spans 關鍵字。
  * @lastUpdated 2026-01-24
  */
 
@@ -247,10 +248,11 @@ const RULES = {
   // [4] Critical Path Blocking
   CRITICAL_PATH: {
     GENERIC: [
-      // [V43.03 Governance] Root & Versioned Telemetry Paths
+      // [V43.04 Governance] Expanded Standard Telemetry Paths
+      // Includes OTLP (/v1/traces), Snowplow (/tp2, /i), and generic variants
       '/collect', '/events', '/telemetry', '/metrics', '/traces', '/track', '/beacon', '/pixel',
-      '/v1/collect', '/v1/events', '/v1/track', '/v1/telemetry', '/v1/metrics', '/v1/log',
-      '/v2/collect', '/v2/events', '/v2/track', '/v2/telemetry',
+      '/v1/collect', '/v1/events', '/v1/track', '/v1/telemetry', '/v1/metrics', '/v1/log', '/v1/traces',
+      '/v2/collect', '/v2/events', '/v2/track', '/v2/telemetry', '/tp2', '/i',
       '/api/v1/collect', '/api/v1/events', '/api/v1/track', '/api/v1/telemetry',
       '/api/v1/log', '/api/log',
       
@@ -469,9 +471,9 @@ const RULES = {
   // [7] Regex Rules
   REGEX: {
     PATH_BLOCK: [
-      // [V43.03 Governance] Universal Telemetry Pattern Block
+      // [V43.04 Governance] Universal Telemetry Pattern Block (Expanded)
       // Matches standard versioned endpoints like /v1/collect, /api/v2/track, /v1/telemetry
-      /\/v\d+\/(collect|events|track|telemetry|metrics|log|report)/i,
+      /\/v\d+\/(collect|events|track|telemetry|metrics|log|report|traces|spans)/i,
       
       // [V42.1 Fix] Added 'cdn' to exclusion group to prevent false positives
       /^\/(?!_next\/static\/|static\/|assets\/|dist\/|build\/|public\/|cdn\/)[a-z0-9]{12,}\.js$/i,
@@ -887,6 +889,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.03 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.04 Active\n${stats.toString()}` });
 }
 
