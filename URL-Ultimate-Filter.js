@@ -1,10 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.00.js
- * @version   43.00 (Coupang Final Fix)
- * @description [V43.00] 里程碑更新 - Coupang 終極修正與引擎升級：
- * 1) [Core] 重寫 cleanTrackingParams 引擎，修復 V42.9x 版本中豁免邏輯 (Exemption Map) 未正確生效的問題。
- * 2) [Safe] 將 Coupang 關鍵長參數 (unitPrice..., optionTable..., metaData) 加入全域白名單，提供雙重保險。
- * 3) [Block] 繼承 V42.99 的全方位廣告阻擋 (Regex Block) 與混合防護模式。
+ * @file      URL-Ultimate-Filter-Surge-V43.01.js
+ * @version   43.01 (Mercury Block)
+ * @description [V43.01] 新增遙測阻擋：
+ * 1) [Block] 阻擋 mercury.coupang.com (使用者行為追蹤/遙測信使服務)。
+ * 2) [Base] 繼承 V43.00 的 Coupang 終極修正 (引擎升級 + 參數豁免 + 廣告阻擋)。
  * @lastUpdated 2026-01-24
  */
 
@@ -145,6 +144,7 @@ const RULES = {
 
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
+    'mercury.coupang.com', // [V43.01] Coupang Telemetry/Event Logging
     'slackb.com', // [V42.94] Slack Telemetry Block
     // RUM & Session Replay & Error Tracking
     'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw',
@@ -818,6 +818,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.00 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.01 Active\n${stats.toString()}` });
 }
 
