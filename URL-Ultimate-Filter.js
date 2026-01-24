@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V42.97.js
- * @version   42.97 (Coupang Double Safety)
- * @description [V42.97] Coupang 雙重防護修正：
- * 1) [Fix] 將 Coupang 關鍵參數 (metaData, pageStatus 等) 直接加入 WHITELIST，防止因引擎版本不匹配導致的誤刪。
- * 2) [Core] 確保 cleanTrackingParams 邏輯支援通用路徑豁免。
- * 3) [Base] 繼承 V42.96 的混合模式 (阻擋 batchTracking / jslog)。
+ * @file      URL-Ultimate-Filter-Surge-V42.98.js
+ * @version   42.98 (Coupang Ad Block)
+ * @description [V42.98] Coupang 廣告路徑阻擋：
+ * 1) [Block] 新增阻擋 /sdp-atf-ads/ (商品頁首屏廣告)。
+ * 2) [Safe] 保留 V42.97 的雙重防護 (參數豁免 + 白名單加固)。
+ * 3) [Base] 繼承混合模式 (阻擋 batchTracking / jslog)。
  * @lastUpdated 2026-01-24
  */
 
@@ -352,7 +352,7 @@ const RULES = {
       ['patronus.idata.shopeemobile.com', new Set(['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'])], // [V42.80 Patch] Shopee API v4 Tracking Block
       ['dp.tracking.shopee.tw', new Set(['/v4/event_batch'])], // [V42.75] Shopee Event Batch Block
       ['live-apm.shopee.tw', new Set(['/apmapi/v1/event'])], // [V42.77] Shopee Live APM Block
-      ['cmapi.tw.coupang.com', new Set(['/featureflag/batchtracking'])] // [V42.95] Coupang Batch Tracking Block
+      ['cmapi.tw.coupang.com', new Set(['/featureflag/batchtracking', '/sdp-atf-ads/'])] // [V42.98] Coupang Ads & Tracking Block
     ])
   },
 
@@ -863,6 +863,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V42.97 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V42.98 Active\n${stats.toString()}` });
 }
 
