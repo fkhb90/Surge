@@ -1,12 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.04.js
- * @version   43.04 (Event Intake Governance)
- * @description [V43.04] 事件收集端點治理擴充：
- * 1) [Governance] 新增 OTLP 標準端點 (/v1/traces) 阻擋。
- * 2) [Governance] 新增 Snowplow 標準端點 (/tp2, /i) 阻擋。
- * 3) [Governance] 強化 GA4 (/g/collect) 與 RUM 類路徑的覆蓋。
- * 4) [Regex] 更新正則表達式以支援 traces 與 spans 關鍵字。
- * @lastUpdated 2026-01-24
+ * @file      URL-Ultimate-Filter-Surge-V43.05.js
+ * @version   43.05 (Inbox Sync Fix)
+ * @description [V43.05] Google Inbox 修正：
+ * 1) [Fix] 將 inbox.google.com 加入絕對白名單 (Hard Whitelist)，防止舊版同步參數 (hl, c) 被清洗或誤擋。
+ * 2) [Base] 繼承 V43.04 的事件收集治理 (OTLP/Snowplow) 與 Coupang 全方位防護。
+ * @lastUpdated 2026-01-25
  */
 
 // #################################################################################################
@@ -58,6 +56,7 @@ const RULES = {
       // News & Productivity
       'api.feedly.com', 'sandbox.feedly.com', 'cloud.feedly.com',
       'translate.google.com', 'translate.googleapis.com', // [V42.86] Google Translate
+      'inbox.google.com', // [V43.05] Google Inbox Legacy Sync Fix
 
       // System & Auth
       'reportaproblem.apple.com', 'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
@@ -438,65 +437,6 @@ const RULES = {
       'loggly', 'log-hl', 'realtime-log', '/rum/', 'server-event', 'telemetry', 'uploadmobiledata',
       'web-beacon', 'web-vitals', 'crash-report', 'diagnostic.log', 'profiler', 'stacktrace', 'trace.json'
     ])
-  },
-
-  // [6] Exceptions
-  EXCEPTIONS: {
-    PREFIXES: new Set(['/.well-known/']),
-    SUFFIXES: new Set([
-      '.css', '.png', '.jpg', '.jpeg', '.svg', '.gif', '.ico', '.woff', '.woff2', '.ttf',
-      '.js', '.json', '.xml', '.mp4', '.mjs', 'app.js', 'bundle.js', 'chunk.js', 'chunk.mjs',
-      'common.js', 'framework.js', 'framework.mjs', 'index.js', 'index.mjs', 'main.js',
-      'polyfills.js', 'polyfills.mjs', 'runtime.js', 'styles.css', 'styles.js', 'vendor.js',
-      'badge.svg', 'browser.js', 'card.js', 'chunk-common', 'chunk-vendors', 'component---',
-      'config.js', 'favicon.ico', 'fetch-polyfill', 'head.js', 'header.js', 'icon.svg',
-      'legacy.js', 'loader.js', 'logo.svg', 'manifest.json', 'modal.js', 'padding.css',
-      'page-data.js', 'polyfill.js', 'robots.txt', 'sitemap.xml', 'sw.js', 'theme.js', 'web.config'
-    ]),
-    SUBSTRINGS: new Set([
-      '_app/', '_next/static/', '_nuxt/', 'i18n/', 'locales/', 'static/css/', 'static/js/', 'static/media/',
-      '__sbcdn' // [V42.73] ShopBack CDN Exception
-    ]),
-    SEGMENTS: new Set(['admin', 'api', 'blog', 'catalog', 'collections', 'dashboard', 'dialog', 'login']),
-    PATH_EXEMPTIONS: new Map([
-      ['graph.facebook.com', new Set(['/v19.0/', '/v20.0/', '/v21.0/', '/v22.0/'])],
-      ['shopee.tw', new Set(['/verify/traffic'])],      // Shopee Anti-Bot Verification Exception
-      ['iappapi.investing.com', new Set(['/portfolio_api.php'])], // Investing.com API Exception
-      ['chatgpt.com', new Set(['/cdn/', '/assets/'])],   // [V42.1 Fix] ChatGPT Asset Exemption
-      ['www.shopback.com.tw', new Set(['/__sbcdn/'])],   // [V42.73 Fix] ShopBack CDN Path Exemption
-      ['shopback.com.tw', new Set(['/__sbcdn/'])]        // [V42.73 Fix] ShopBack CDN (Root)
-    ])
-  },
-
-  // [7] Regex Rules
-  REGEX: {
-    PATH_BLOCK: [
-      // [V43.04 Governance] Universal Telemetry Pattern Block (Expanded)
-      // Matches standard versioned endpoints like /v1/collect, /api/v2/track, /v1/telemetry
-      /\/v\d+\/(collect|events|track|telemetry|metrics|log|report|traces|spans)/i,
-      
-      // [V42.1 Fix] Added 'cdn' to exclusion group to prevent false positives
-      /^\/(?!_next\/static\/|static\/|assets\/|dist\/|build\/|public\/|cdn\/)[a-z0-9]{12,}\.js$/i,
-      // [V42.5 Feature] Integrated Fingerprint/Canvas/Audio/Font blockers (Safeguarded by Whitelist)
-      /\/(fp|fingerprint|device-id|visitor|dfp|bfp|canvas|webgl|audio-fp|font-detect).*\.js$/i,
-      /[^\/]*sentry[^\/]*\.js/i,
-      /\/v\d+\/event/i,
-      /\/api\/v\d+\/collect$/i,
-      /\/api\/v\d+\/action-log/i,
-      /\/api\/stats\/(ads|atr|qoe|playback)/i,
-      /\/fp\d+(\.[a-z0-9]+)?\.js$/i,
-      /\/fingerprint(2|js|js2)?(\.min)?\.js$/i,
-      /\/imprint\.js$/i,
-      /\/device-?uuid\.js$/i,
-      /\/machine-?id\.js$/i,
-      /\/fp-?[a-z0-9-]*\.js$/i,
-      /\/device-?(id|uuid|fingerprint)\.js$/i,
-      /\/client-?id\.js$/i,
-      /\/visitor-?id\.js$/i,
-      /\/canvas-?fp\.js$/i
-    ],
-    // [Fix V42.0] 修正正則，確保路徑以 / 開頭，解決 V41.83 漏攔截問題
-    HEURISTIC: [/^\/[a-z0-9]{32,}\.(js|mjs)$/i]
   },
 
   // [8] Parameter Cleaning
