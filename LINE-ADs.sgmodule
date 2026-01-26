@@ -1,14 +1,7 @@
-#!name=LINE 廣告與追蹤攔截規則 (v3.4.3 - REGEX 最終修正版)
-#!desc=修正所有因正規表示式包含逗號而導致的 Surge 解析錯誤。v20250916
+#!name=LINE 廣告與追蹤攔截  (v3.5.0 - 修正終極版)
+#!desc=修正 Regex 格式錯誤，恢復 Surfshark-Taipei 策略。基於 LINE-ADs-New 核心，整合舊版周邊攔截與核心保護。 v2026.01.26
 #!system=ios
 #!category=Line
-
-#
-# 最後更新：2025-09-16
-# 說明：此版本修正了所有已知的 URL-REGEX 規則，因其表達式內部含有
-#       逗號 {n,} 與 Surge 解析器衝突的問題。通過為所有相關表達式
-#       添加雙引號，解決了 "unknown policy" 的警告。
-# ===================================================================
 
 [General]
 # 此區段為 Surge Module 標準結構的一部分，即使沒有通用設定也建議保留。
@@ -17,12 +10,6 @@
 # -------------------------------------------------------------------
 # A. 核心功能保護 (最高優先級)
 # -------------------------------------------------------------------
-DOMAIN-SUFFIX,gw.line.naver.jp,Surfshark-Taipei
-DOMAIN-SUFFIX,gw2.line.naver.jp,Surfshark-Taipei
-DOMAIN-SUFFIX,gwx.line.naver.jp,Surfshark-Taipei
-DOMAIN-SUFFIX,api.line.me,Surfshark-Taipei
-DOMAIN-SUFFIX,profile.line-scdn.net,Surfshark-Taipei
-DOMAIN-SUFFIX,stickershop.line-scdn.net,Proxy
 URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/ext\/album\/api\/v\d+\/albums\/(?:preview|\d+\/photos(?:\/\d+\/likes\/preview)?)(?:\?.*)?$,Surfshark-Taipei
 URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/ext\/album\/?$,Surfshark-Taipei
 URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/[A-Z0-9]+(\?.*)?$,Surfshark-Taipei
@@ -37,40 +24,69 @@ URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/[A-Za-z0-9_-]+$,Surfshark-T
 URL-REGEX,^https?:\/\/manager\.line-scdn\.net(:443)?\/[A-Za-z0-9_-]+$,Surfshark-Taipei
 URL-REGEX,^https?:\/\/obs\.line-scdn\.net\/(?!.*(\/banner\/|r\/linecrs)).*$,Surfshark-Taipei
 
-# -------------------------------------------------------------------
-# B. 全域廣告 API 與追蹤服務 (攔截核心)
-# -------------------------------------------------------------------
-# --- 主要廣告 API ---
-URL-REGEX,^https:\/\/legy\.line-apps\.com\/ext\/lgfp\/lad\/v\d+,REJECT
-URL-REGEX,^https:\/\/legy\.line-apps\.com\/ext\/(smartch|today)\/.*\/ad\/,REJECT
 
-# --- [v3.4 新增] 核心閘道廣告與追蹤 ---
-URL-REGEX,^https:\/\/gw\.line\.naver\.jp\/lass\/api\/v1\/ads$,REJECT
-URL-REGEX,^https:\/\/gw\.line\.naver\.jp\/tr\/event$,REJECT-DROP
+# ==========================================
+# 區域 1: LINE 廣告追蹤與 API (a.line.me / gw / legy)
+# ==========================================
+# LINE Ads 追蹤
+# 1. LINE Ads 追蹤像素與事件圖片攔截 (REJECT-TINYGIF)
+# 針對 a.line.me 的 LADS 追蹤像素與事件圖片，回傳 1x1 透明 GIF 以避免破圖
+URL-REGEX, ^https:\/\/a\.line\.me\/er\/(?:lads\/v\d\/ei|l[^/]+\/v\d\/event\/image)(?:$|\?.*), REJECT-TINYGIF
+# 2. LINE Ad Serving System (LASS) API 攔截 (REJECT-DROP)
+# 針對 LASS 廣告服務 API，直接丟棄封包以節省流量
+URL-REGEX, ^https:\/\/a\.line\.me\/lass\/api\/v\d\/ads(?:$|\?.*), REJECT-DROP
+# 3. LINE 官方帳號與客服遙測攔截 (REJECT-DROP)
+# 針對官方帳號 (OA) 與客服系統 (CS) 的事件追蹤與遙測數據
+URL-REGEX, ^https:\/\/a\.line\.me\/(?:oa|cs)\/v\d\/(?:e|oa)(?:$|\?.*), REJECT-DROP
 
-# --- [v3.4 新增] 通用廣告 API 與追蹤 ---
-URL-REGEX,^https:\/\/.*\.line\.me\/lass\/api\/.*\/ads$,REJECT
-URL-REGEX,^https:\/\/.*\.line\.me\/la.*\/api\/.*\/ads$,REJECT
-URL-REGEX,^https:\/\/.*\.line\.me\/er\/lads\/v1\/ei\.*$,REJECT-DROP
+# LINE 網關與事件追蹤 (gw.line.naver.jp)
+# 整合 gw.line.naver.jp 的 LINE Ads (LAD)、LASS API 以及追蹤事件 (TR Event)
+URL-REGEX, ^https:\/\/gw\.line\.naver\.jp\/(?:ext\/lgfp\/lad\/v\d|lass\/api\/v\d\/ads|tr\/event)(?:$|\?.*), REJECT
 
-# --- 核心追蹤與分析 (使用 REJECT-DROP 無聲拒絕，效率更高) ---
-URL-REGEX,^https:\/\/nelo2-col\.linecorp\.com\/_store$,REJECT-DROP
-URL-REGEX,^https:\/\/(analytics|stat|track|metrics|collect|telemetry|beacon)\.line(-apps)?\.(com|me)\/.*$,REJECT-DROP
+# Smart Channel 與內部 API (legy.line-apps.com)
+URL-REGEX,^https:\/\/legy\.line-apps\.com(:443)?\/ext\/lgfp\/lad\/v\d+,REJECT
+URL-REGEX,^https:\/\/legy\.line-apps\.com(:443)?\/ext\/(smartch|today)\/.*\/ad\/,REJECT
+URL-REGEX,^https:\/\/legy\.line-apps\.com(:443)?\/line\.gcs\.GcsModuleService\/GetModulesByModuleIds$,REJECT
+URL-REGEX,^https:\/\/legy\.line-apps\.com(:443)?\/tr\/event$,REJECT-DROP
 
-# --- 個人化與目標式廣告 (涉及用戶行為分析) ---
-URL-REGEX,^https:\/\/(targeting|behavioral|personalized|recommend-ad)\.line\.me\/.*$,REJECT-DROP
+# LINE 內部遙測與 iOS 介面配置 (REJECT)
+# 整合 lan.line.me 的 iOS 配置與 cix.line-apps.com 的追蹤
+URL-REGEX, ^https:\/\/(?:lan\.line\.me\/v1\/line\/ios|cix\.line-apps\.com\/R4\?)(?:$|\?.*), REJECT
+# LINE 廣告平台與排程 API (REJECT-DROP)
+# 整合 w.line.me (ADP) 與 sch.line.me (Schedule) 的廣告 API，使用 DROP 節省流量
+URL-REGEX, ^https:\/\/(?:w\.line\.me\/adp\/api\/ad|sch\.line\.me\/api)\/v\d\/.*(?:$|\?.*), REJECT-DROP
+# LINE 購物 API (REJECT)
+# 針對 buy.line.me 的 GraphQL API
+URL-REGEX, ^https:\/\/buy\.line\.me\/api\/graphql\?variables(?:$|\?.*), REJECT
+# LINE 事件追蹤與前端遙測 (REJECT-DROP)
+# 整合 crs-event.line.me 的曝光追蹤與 uts-front.line-apps.com 的事件/設定回報
+URL-REGEX, ^https:\/\/(?:crs-event\.line\.me\/v\d\/imp|uts-front\.line-apps\.com\/(?:event|settings))(?:$|\?.*), REJECT-DROP
 
-# -------------------------------------------------------------------
-# C. 各服務內嵌廣告 (API 優先，內容為輔)
-# -------------------------------------------------------------------
-# === 廣告內容 CDN ===
-URL-REGEX,"https:\/\/obs\.line-scdn\.net\/(r\/linecrs\/.+\/m\d+x\d+|0h[0-9a-zA-Z_-]{50,})",REJECT-TINYGIF
-URL-REGEX,^https:\/\/d\.line-scdn\.net\/lcp-prod-photo\/20.+\.(jpe?g|png)$,REJECT-TINYGIF
-URL-REGEX,^https:\/\/(splash|startup-ad|dynamic-ad)\.line\.(me|net|com)\/.*$,REJECT-TINYGIF
-URL-REGEX,^https:\/\/.*\.line\.me\/er\/lass\/v1\/event\/image\.*$,REJECT-TINYGIF # [v3.4 新增]
-DOMAIN-SUFFIX,ad.line-scdn.net,REJECT-TINYGIF
-DOMAIN-SUFFIX,shop-ad.line-scdn.net,REJECT-TINYGIF
-DOMAIN-SUFFIX,wallet-ad.line.me,REJECT-TINYGIF
+# ==========================================
+# 區域 2: 圖片與媒體廣告 (obs / scdn / ad)
+# ==========================================
+URL-REGEX,^https:\/\/obs\.line-scdn\.net\/0h[a-zA-Z0-9_-]{50}[a-zA-Z0-9_-]*,REJECT-DROP
+URL-REGEX,^https:\/\/obs\.line-scdn\.net\/0h.+\/(o|m)\d+x\d+$,REJECT-DROP
+URL-REGEX,^https:\/\/obs\.line-scdn\.net\/0hGH\d,REJECT-DROP
+URL-REGEX,^https:\/\/obs\.line-scdn\.net\/0h.+\/\d+p\.mp4$,REJECT-DROP
+URL-REGEX,^https:\/\/obs\.line-scdn\.net\/r\/linecrs\/.+\/m180x180$,REJECT-TINYGIF
+
+# 針對 ad.line-scdn.net 與其他 CDN
+URL-REGEX,^https:\/\/ad\.line-scdn\.net\/0h,REJECT
+URL-REGEX,^https:\/\/ec-bot-obs\.line-scdn\.net\/0h[0-9a-zA-Z_-]{50}[0-9a-zA-Z_-]*,REJECT-TINYGIF
+URL-REGEX,^https:\/\/d\.line-scdn\.net\/lcp-prod-photo\/20.+\.(jpg|jpeg|png),REJECT-TINYGIF
+URL-REGEX,^https:\/\/static\.line-scdn\.net\/ad-sdk\/,REJECT
+
+# LINE 錢包/更多頁面/LIFF 相關廣告
+URL-REGEX,^https:\/\/web-mmap-pay\.line-apps\.com\/tw\/liff\/campaign\/v1\/aggregate\/ad\/banner\/,REJECT-TINYGIF
+URL-REGEX,^https:\/\/scdn\.line-apps\.com\/appresources\/moretab\/list\.json,REJECT
+URL-REGEX,^https:\/\/scdn\.line-apps\.com\/lan\/image\/line\/bannerImageEvent\/,REJECT-DROP
+URL-REGEX,^https:\/\/scdn\.line-apps\.com\/lan\/document\/pageEvent\/line\/ios\/,REJECT-DROP
+
+# ==========================================
+# 區域 3: 舊版保留 - 進階廣告網域與數據追蹤
+# (經檢視仍有效且為廣告核心網域)
+# ==========================================
 
 # === 廣告 API 域名 ===
 DOMAIN-SUFFIX,sch.line.me,REJECT
@@ -88,9 +104,12 @@ DOMAIN-SUFFIX,music-ad.line.me,REJECT
 DOMAIN-SUFFIX,impression.line.me,REJECT-DROP
 DOMAIN-SUFFIX,dmp.line.me,REJECT-DROP # Data Management Platform
 
-# === 混合內容域名的 URL 過濾 (需 MitM) ===
-URL-REGEX,^https:\/\/scdn\.line-apps\.com\/(promotion|campaign|sponsored|ad)\/.*$,REJECT
-URL-REGEX,^https:\/\/static\.line-scdn\.net\/.*(\/ad\/|\/promotion\/|\/banner\/).*$,REJECT
+# --- 核心追蹤與分析 (使用 REJECT-DROP 無聲拒絕，效率更高) ---
+URL-REGEX,^https:\/\/nelo2-col\.linecorp\.com\/_store$,REJECT-DROP
+URL-REGEX,^https:\/\/(analytics|stat|track|metrics|collect|telemetry|beacon)\.line(-apps)?\.(com|me)\/.*$,REJECT-DROP
+
+# --- 個人化與目標式廣告 (涉及用戶行為分析) ---
+URL-REGEX,^https:\/\/(targeting|behavioral|personalized|recommend-ad)\.line\.me\/.*$,REJECT-DROP
 
 # --- LINE Today, Voom, Timeline ---
 URL-REGEX,^https:\/\/vdn\.line-scdn\.net(:443)?\/.*\/adv\/.*\.(mp4|webm)$,REJECT
@@ -128,4 +147,4 @@ URL-REGEX,^https:\/\/real-time-ad\.line\.me\/.*\/[0-9a-f]{32},REJECT
 URL-REGEX,^https:\/\/(partner-ad|affiliate|external-ad|network-ad)\.line\.(me|com|net|apps)\/.*$,REJECT
 
 [MITM]
-hostname = %APPEND% legy.line-apps.com, obs.line-scdn.net, api.line.me, nelo2-col.linecorp.com, analytics.line.me, stat.line-apps.com, track.line.me, metrics.line-apps.com, collect.line-apps.com, telemetry.line.me, beacon.line.me, targeting.line.me, behavioral.line.me, personalized.line-apps.com, recommend-ad.line.me, d.line-scdn.net, splash.line.me, startup-ad.line-scdn.net, dynamic-ad.line-scdn.net, vdn.line-scdn.net, today-api.line-apps.com, voom.line.me, timeline.line.me, oa.line.biz, live.line.me, live-api.line-apps.com, shopping.line.me, pay.line.me, point-ad.line.me, reward.line.me, place.line.me, gift.line.me, webtoon.line.me, manga.line.me, friend.line.me, push.line.me, push-api.line.me, real-time-ad.line.me, partner-ad.line-scdn.net, affiliate.line.me, external-ad.line.me, network-ad.line-apps.com
+hostname = %APPEND% a.line.me, ad.line-scdn.net, w.line.me, gw.line.naver.jp, lan.line.me, buy.line.me, crs-event.line.me, obs.line-scdn.net, d.line-scdn.net, scdn.line-apps.com, sch.line.me, static.line-scdn.net, nelo2-col.linecorp.com, uts-front.line-apps.com, cix.line-apps.com, legy.line-apps.com, ec-bot-obs.line-scdn.net, api.line.me, analytics.line.me, stat.line-apps.com, track.line.me, metrics.line-apps.com, collect.line-apps.com, telemetry.line.me, beacon.line.me, targeting.line.me, behavioral.line.me, personalized.line-apps.com, recommend-ad.line.me, splash.line.me, startup-ad.line-scdn.net, dynamic-ad.line-scdn.net, vdn.line-scdn.net, today-api.line-apps.com, voom.line.me, timeline.line.me, oa.line.biz, live.line.me, live-api.line-apps.com, shopping.line.me, pay.line.me, point-ad.line.me, reward.line.me, place.line.me, gift.line.me, webtoon.line.me, manga.line.me, friend.line.me, push.line.me, push-api.line.me, real-time-ad.line.me, partner-ad.line-scdn.net, affiliate.line.me, external-ad.line.me, network-ad.line-apps.com
