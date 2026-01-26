@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.13.js
- * @version   43.13 (Quark & Browser Telemetry)
- * @description [V43.13] 瀏覽器遙測與日誌防護增強：
- * 1) [Block] 新增 Quark (夸克) 瀏覽器追蹤網域 'unpm-upaas.quark.cn' 至優先攔截。
- * 2) [Block] 定義特殊日誌路徑 '/appbase_report_log' 與 '/stat_log'，防止非標準日誌繞過。
- * 3) [Base] 繼承 V43.12 所有穩定規則 (Momo/Coupang P0 級防護)。
+ * @file      URL-Ultimate-Filter-Surge-V43.15.js
+ * @version   43.15 (Pixel Storm)
+ * @description [V43.15] 像素追蹤深度防護 (Pixel Storm)：
+ * 1) [Block] 大幅擴充像素追蹤黑名單：涵蓋 Impression、Cookie Sync 及隱形信標 (如 dot.gif, clear.gif)。
+ * 2) [Refine] 針對 'imp' (Impression) 與 'sync' (Synchronization) 類路徑進行無差別攔截。
+ * 3) [Base] 繼承 V43.14 所有穩定規則 (Shenma/Quark P0 級防護)。
  * @lastUpdated 2026-01-26
  */
 
@@ -16,7 +16,8 @@ const RULES = {
   // [1] P0 Priority Block
   // 優先級最高，直接攔截，不經過白名單檢查
   PRIORITY_BLOCK_DOMAINS: new Set([
-    // Browser Telemetry [V43.13]
+    // Browser & Search Telemetry [V43.14]
+    'log.m.sm.cn',         // Shenma/Quark Search Logger
     'unpm-upaas.quark.cn', // Quark Browser Logger
     'cms-statistics.quark.cn', // Quark Statistics
     'applog.uc.cn',        // UC Browser Logger (Ali Group)
@@ -230,16 +231,22 @@ const RULES = {
   // [4] Critical Path Blocking
   CRITICAL_PATH: {
     GENERIC: [
+      // [V43.15] Pixel & Beacon Storm
+      '/0.gif', '/1.gif', '/pixel.gif', '/beacon.gif', '/ping.gif', '/track.gif',
+      '/dot.gif', '/clear.gif', '/empty.gif', '/shim.gif', '/spacer.gif',
+      '/imp.gif', '/impression.gif', '/view.gif',
+      '/sync.gif', '/sync.php', '/match.gif', '/match.php',
+      '/utm.gif', '/event.gif',
+      '/bk', '/bk.gif', '/img', // Generic endpoints often used as pixel handlers
+
+      // Legacy & Previous
       '/collect', '/events', '/telemetry', '/metrics', '/traces', '/track', '/beacon', '/pixel',
       '/v1/collect', '/v1/events', '/v1/track', '/v1/telemetry', '/v1/metrics', '/v1/log', '/v1/traces',
-      '/v1/report', // [V43.11] Added
-      '/appbase_report_log', // [V43.13] Quark Browser
-      '/stat_log',           // [V43.13] Common Short Log
-      '/trackcode/', // [V43.12] Added for momo
+      '/v1/report', '/appbase_report_log', '/stat_log', '/trackcode/',
       '/v2/collect', '/v2/events', '/v2/track', '/v2/telemetry', '/tp2',
       '/api/v1/collect', '/api/v1/events', '/api/v1/track', '/api/v1/telemetry',
       '/api/v1/log', '/api/log',
-      '/v1/event', // [V43.08] Added singular for Mercury
+      '/v1/event',
       
       '/api/stats/ads', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback',
       '/pagead/gen_204', '/pagead/paralleladview',
@@ -836,5 +843,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.13 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.15 Active\n${stats.toString()}` });
 }
+
