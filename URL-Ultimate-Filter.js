@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.11.js
- * @version   43.11 (Hotfix)
- * @description [V43.11] Coupang 追蹤阻擋增強 (Tracker Blocking)：
- * 1) [Block] 新增 'jslog.coupang.com' 至優先攔截名單，阻擋前端行為日誌。
- * 2) [Block] 新增關鍵路徑 '/v1/report'，防止通用回報 API 繞過檢查。
- * 3) [Base] 繼承 V43.10 所有穩定規則 (Coupang 豁免、Google Inbox、LINE LEGY)。
+ * @file      URL-Ultimate-Filter-Surge-V43.12.js
+ * @version   43.12 (Momo & Coupang Enhanced)
+ * @description [V43.12] 針對電商追蹤進行深度強化：
+ * 1) [Block] momo 追蹤核心 'ecdmp' 與 'log' 網域升級為 P0 強制攔截，修補白名單繞過漏洞。
+ * 2) [Block] 新增 '/trackcode/' 目錄特徵，精確攔截 momo 靜態追蹤腳本。
+ * 3) [Base] 包含 V43.11 的 Coupang 'jslog' 與 '/v1/report' 阻擋規則。
  * @lastUpdated 2026-01-26
  */
 
@@ -16,13 +16,22 @@ const RULES = {
   // [1] P0 Priority Block
   // 優先級最高，直接攔截，不經過白名單檢查
   PRIORITY_BLOCK_DOMAINS: new Set([
-    'mercury.coupang.com', // [V43.08] Force Block (Bypass Soft Whitelist)
-    'jslog.coupang.com',   // [V43.11] Front-end Logger
+    // Momo Shop Trackers [V43.12]
+    'ecdmp.momoshop.com.tw', // E-Commerce DMP
+    'log.momoshop.com.tw',   // Analytics Logger
+    'trk.momoshop.com.tw',   // Tracker Redirect
+    'rtb.momoshop.com.tw',   // Real-time Bidding
+
+    // Coupang Trackers [V43.11]
+    'mercury.coupang.com', 
+    'jslog.coupang.com',
+    
+    // Global Ad Networks
     'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'admob.com', 'ads.google.com',
     'appsflyer.com', 'adjust.com', 'kochava.com', 'branch.io', 'app-measurement.com', 'singular.net',
     'unityads.unity3d.com', 'applovin.com', 'ironsrc.com', 'vungle.com', 'adcolony.com', 'chartboost.com',
     'tapjoy.com', 'pangle.io', 'taboola.com', 'outbrain.com', 'popads.net', 'ads.tiktok.com',
-    'analytics.tiktok.com', 'ads.linkedin.com', 'ad.etmall.com.tw', 'trk.momoshop.com.tw', 'ad.line.me',
+    'analytics.tiktok.com', 'ads.linkedin.com', 'ad.etmall.com.tw', 'ad.line.me',
     'ad-history.line.me'
   ]),
 
@@ -186,12 +195,12 @@ const RULES = {
     'pangolin-sdk-toutiao.com', 'talkingdata.cn', 'tanx.com', 'umeng.cn', 'umeng.co',
     'umengcloud.com', 'youmi.net', 'zhugeio.com',
 
-    // TW & E-commerce
+    // TW & E-commerce (Moved ecdmp/log/trk to Priority)
     'cache.ltn.com.tw', 'adnext-a.akamaihd.net', 'appnext.hs.llnwd.net', 'fusioncdn.com',
     'toots-a.akamaihd.net', 'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'cacafly.com',
-    'clickforce.com.tw', 'ecdmp.momoshop.com.tw', 'analysis.momoshop.com.tw', 'event.momoshop.com.tw',
-    'log.momoshop.com.tw', 'sspap.momoshop.com.tw', 'fast-trk.com', 'funp.com', 'guoshipartners.com',
-    'imedia.com.tw', 'is-tracking.com', 'likr.tw', 'rtb.momoshop.com.tw', 'sitetag.us', 'tagtoo.co',
+    'clickforce.com.tw', 'analysis.momoshop.com.tw', 'event.momoshop.com.tw',
+    'sspap.momoshop.com.tw', 'fast-trk.com', 'funp.com', 'guoshipartners.com',
+    'imedia.com.tw', 'is-tracking.com', 'likr.tw', 'sitetag.us', 'tagtoo.co',
     'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com', 'analytics.shopee.tw', 'dmp.shopee.tw',
     'analytics.etmall.com.tw', 'pixel.momoshop.com.tw', 'trace.momoshop.com.tw', 'ad-serv.teepr.com',
     'appier.net', 'itad.linetv.tw',
@@ -216,10 +225,10 @@ const RULES = {
   // [4] Critical Path Blocking
   CRITICAL_PATH: {
     GENERIC: [
-      // [V43.11] Added '/v1/report'
       '/collect', '/events', '/telemetry', '/metrics', '/traces', '/track', '/beacon', '/pixel',
       '/v1/collect', '/v1/events', '/v1/track', '/v1/telemetry', '/v1/metrics', '/v1/log', '/v1/traces',
       '/v1/report', // [V43.11] Added
+      '/trackcode/', // [V43.12] Added for momo
       '/v2/collect', '/v2/events', '/v2/track', '/v2/telemetry', '/tp2',
       '/api/v1/collect', '/api/v1/events', '/api/v1/track', '/api/v1/telemetry',
       '/api/v1/log', '/api/log',
@@ -820,5 +829,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.11 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.12 Active\n${stats.toString()}` });
 }
