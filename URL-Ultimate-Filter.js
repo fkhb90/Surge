@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.10.js
- * @version   43.10 (Production Release)
- * @description [V43.10] 最終驗收通過版本 (100% PASS)：
- * 1) [Refine] Coupang 防護機制定案：利用 '/vendor-items/' 作為精確豁免錨點，完美分離商品內容與廣告 (sdp-atf-ads)。
- * 2) [Restore] 完整修復 V43.05 結構缺失，補齊 REGEX 與 EXCEPTIONS 規則庫。
- * 3) [Base] 整合 Google Inbox 修復、Mercury 強制攔截與常見誤殺 (items/instruments) 排除。
+ * @file      URL-Ultimate-Filter-Surge-V43.11.js
+ * @version   43.11 (Hotfix)
+ * @description [V43.11] Coupang 追蹤阻擋增強 (Tracker Blocking)：
+ * 1) [Block] 新增 'jslog.coupang.com' 至優先攔截名單，阻擋前端行為日誌。
+ * 2) [Block] 新增關鍵路徑 '/v1/report'，防止通用回報 API 繞過檢查。
+ * 3) [Base] 繼承 V43.10 所有穩定規則 (Coupang 豁免、Google Inbox、LINE LEGY)。
  * @lastUpdated 2026-01-26
  */
 
@@ -17,6 +17,7 @@ const RULES = {
   // 優先級最高，直接攔截，不經過白名單檢查
   PRIORITY_BLOCK_DOMAINS: new Set([
     'mercury.coupang.com', // [V43.08] Force Block (Bypass Soft Whitelist)
+    'jslog.coupang.com',   // [V43.11] Front-end Logger
     'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'admob.com', 'ads.google.com',
     'appsflyer.com', 'adjust.com', 'kochava.com', 'branch.io', 'app-measurement.com', 'singular.net',
     'unityads.unity3d.com', 'applovin.com', 'ironsrc.com', 'vungle.com', 'adcolony.com', 'chartboost.com',
@@ -215,9 +216,10 @@ const RULES = {
   // [4] Critical Path Blocking
   CRITICAL_PATH: {
     GENERIC: [
-      // [V43.08 Fix] REMOVED '/i' to prevent false positives (items, instruments)
+      // [V43.11] Added '/v1/report'
       '/collect', '/events', '/telemetry', '/metrics', '/traces', '/track', '/beacon', '/pixel',
       '/v1/collect', '/v1/events', '/v1/track', '/v1/telemetry', '/v1/metrics', '/v1/log', '/v1/traces',
+      '/v1/report', // [V43.11] Added
       '/v2/collect', '/v2/events', '/v2/track', '/v2/telemetry', '/tp2',
       '/api/v1/collect', '/api/v1/events', '/api/v1/track', '/api/v1/telemetry',
       '/api/v1/log', '/api/log',
@@ -368,7 +370,7 @@ const RULES = {
       'sentry', 'shence', 'shenyun', 'shoplytics', 'shujupie', 'smartadserver', 'smartbanner', 'snowplow',
       'socdm', 'sponsors', 'spy', 'spyware', 'statcounter', 'stathat', 'sticky-ad', 'storageug', 'straas',
       'studybreakmedia', 'stunninglover', 'supersonicads', 'syndication', 'taboola', 'tagtoo', 'talkingdata',
-      'tanx', 'tapjoy', 'tapjoyads', 'tenmax', 'tingyun', 'tiqcdn', 'tlcafftrax', 'toateeli', 'tongji',
+      'tanx', 'tapjoy', 'tapjoyads', 'tenmax', 'tapfiliate', 'tingyun', 'tiqcdn', 'tlcafftrax', 'toateeli', 'tongji',
       '/trace/', 'tracker', 'trackersimulator', 'trafficjunky', 'trafficmanager', 'tubemogul',
       'uedas', 'umeng', 'umtrack', 'unidesk', 'usermaven', 'usertesting', 'vast', 'venraas', 'vilynx', 'vpaid',
       'vpon', 'vungle', 'whalecloud', 'wistia', 'wlmonitor', 'woopra', 'xxshuyuan', 'yandex', 'zaoo', 'zarget',
@@ -818,5 +820,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.10 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.11 Active\n${stats.toString()}` });
 }
