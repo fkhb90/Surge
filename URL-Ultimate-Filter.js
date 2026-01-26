@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.12.js
- * @version   43.12 (Momo & Coupang Enhanced)
- * @description [V43.12] 針對電商追蹤進行深度強化：
- * 1) [Block] momo 追蹤核心 'ecdmp' 與 'log' 網域升級為 P0 強制攔截，修補白名單繞過漏洞。
- * 2) [Block] 新增 '/trackcode/' 目錄特徵，精確攔截 momo 靜態追蹤腳本。
- * 3) [Base] 包含 V43.11 的 Coupang 'jslog' 與 '/v1/report' 阻擋規則。
+ * @file      URL-Ultimate-Filter-Surge-V43.13.js
+ * @version   43.13 (Quark & Browser Telemetry)
+ * @description [V43.13] 瀏覽器遙測與日誌防護增強：
+ * 1) [Block] 新增 Quark (夸克) 瀏覽器追蹤網域 'unpm-upaas.quark.cn' 至優先攔截。
+ * 2) [Block] 定義特殊日誌路徑 '/appbase_report_log' 與 '/stat_log'，防止非標準日誌繞過。
+ * 3) [Base] 繼承 V43.12 所有穩定規則 (Momo/Coupang P0 級防護)。
  * @lastUpdated 2026-01-26
  */
 
@@ -16,6 +16,11 @@ const RULES = {
   // [1] P0 Priority Block
   // 優先級最高，直接攔截，不經過白名單檢查
   PRIORITY_BLOCK_DOMAINS: new Set([
+    // Browser Telemetry [V43.13]
+    'unpm-upaas.quark.cn', // Quark Browser Logger
+    'cms-statistics.quark.cn', // Quark Statistics
+    'applog.uc.cn',        // UC Browser Logger (Ali Group)
+    
     // Momo Shop Trackers [V43.12]
     'ecdmp.momoshop.com.tw', // E-Commerce DMP
     'log.momoshop.com.tw',   // Analytics Logger
@@ -187,7 +192,7 @@ const RULES = {
     'nsclick.baidu.com', 'sp1.baidu.com', 'voice.baidu.com', '3gimg.qq.com', 'fusion.qq.com',
     'ios.bugly.qq.com', 'lives.l.qq.com', 'monitor.uu.qq.com', 'pingma.qq.com', 'sdk.e.qq.com',
     'wup.imtt.qq.com', 'appcloud.zhihu.com', 'appcloud2.in.zhihu.com', 'crash2.zhihu.com', 'mqtt.zhihu.com',
-    'sugar.zhihu.com', 'agn.aty.sohu.com', 'apm.gotokeep.com', 'applog.uc.cn', 'cn-huabei-1-lg.xf-yun.com',
+    'sugar.zhihu.com', 'agn.aty.sohu.com', 'apm.gotokeep.com', 'cn-huabei-1-lg.xf-yun.com',
     'gs.getui.com', 'log.b612kaji.com', 'pc-mon.snssdk.com', 'sensorsdata.cn', 'stat.m.jd.com',
     'trackapp.guahao.cn', 'traffic.mogujie.com', 'wmlog.meituan.com', 'zgsdk.zhugeio.com',
     'admaster.com.cn', 'adview.cn', 'alimama.com', 'getui.net', 'gepush.com', 'gridsum.com',
@@ -228,6 +233,8 @@ const RULES = {
       '/collect', '/events', '/telemetry', '/metrics', '/traces', '/track', '/beacon', '/pixel',
       '/v1/collect', '/v1/events', '/v1/track', '/v1/telemetry', '/v1/metrics', '/v1/log', '/v1/traces',
       '/v1/report', // [V43.11] Added
+      '/appbase_report_log', // [V43.13] Quark Browser
+      '/stat_log',           // [V43.13] Common Short Log
       '/trackcode/', // [V43.12] Added for momo
       '/v2/collect', '/v2/events', '/v2/track', '/v2/telemetry', '/tp2',
       '/api/v1/collect', '/api/v1/events', '/api/v1/track', '/api/v1/telemetry',
@@ -829,5 +836,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.12 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.13 Active\n${stats.toString()}` });
 }
