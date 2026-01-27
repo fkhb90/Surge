@@ -1,10 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.27.js
- * @version   43.27 (Syntax Final)
- * @description [V43.27] 語法與邏輯終極修復：
- * 1) [CritFix] 修復 PARAMS.EXEMPTIONS 導致的 SyntaxError (補上遺失的逗號)。
- * 2) [Sync] 確保 Google CheckConnection 回傳 204 (Silent Drop)。
- * 3) [Base] 整合 Zero Trust OAuth 與 Pixel Storm 所有防護規則。
+ * @file      URL-Ultimate-Filter-Surge-V43.28.js
+ * @version   43.28 (HotFix)
+ * @description [V43.28] 關鍵路徑修復：
+ * 1) [Fix] 移除 '/img' 掃描規則，解決其優先級高於靜態文件豁免導致的誤殺問題。
+ * 2) [Base] 繼承 V43.27 所有 Zero Trust OAuth 與 Pixel Storm 防護邏輯。
  * @lastUpdated 2026-01-27
  */
 
@@ -225,7 +224,9 @@ const RULES = {
       '/imp.gif', '/impression.gif', '/view.gif',
       '/sync.gif', '/sync.php', '/match.gif', '/match.php',
       '/utm.gif', '/event.gif',
-      '/bk', '/bk.gif',
+      '/bk', '/bk.gif', 
+      
+      // [V43.28] Removed '/img' to prevent blocking static images
 
       // Legacy & Previous
       '/collect', '/events', '/telemetry', '/metrics', '/traces', '/track', '/beacon', '/pixel',
@@ -477,7 +478,7 @@ const RULES = {
       '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar'
     ]),
     PREFIXES: new Set([
-      '/favicon', '/assets/', '/static/', '/images/', '/js/', '/css/', '/wp-content/', '/wp-includes/',
+      '/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/', '/wp-content/', '/wp-includes/',
       '/fonts/', '/dist/', '/vendor/', '/public/'
     ]),
     SUBSTRINGS: new Set([
@@ -819,5 +820,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.27 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.28 Active\n${stats.toString()}` });
 }
