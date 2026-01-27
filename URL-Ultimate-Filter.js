@@ -1,11 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.15.js
- * @version   43.15 (Pixel Storm)
- * @description [V43.15] 像素追蹤深度防護 (Pixel Storm)：
- * 1) [Block] 大幅擴充像素追蹤黑名單：涵蓋 Impression、Cookie Sync 及隱形信標 (如 dot.gif, clear.gif)。
- * 2) [Refine] 針對 'imp' (Impression) 與 'sync' (Synchronization) 類路徑進行無差別攔截。
- * 3) [Base] 繼承 V43.14 所有穩定規則 (Shenma/Quark P0 級防護)。
- * @lastUpdated 2026-01-26
+ * @file      URL-Ultimate-Filter-Surge-V43.18.js
+ * @version   43.18 (Syntax Hotfix)
+ * @description [V43.18] 語法修復與 Felo 多渠道登入支援：
+ * 1) [Fix] 修復 V43.17 中 PARAMS.EXEMPTIONS 遺漏逗號的語法錯誤，防止腳本崩潰。
+ * 2) [Verify] 確認 'accounts.felo.me' 豁免規則可同時支援 Google (source=GOOGLE) 與 Apple (source=APPLE) 登入。
+ * 3) [Base] 完整整合 V43.10~V43.17 所有核心規則 (Slack, Pixel, Shenma, Quark, Momo, Coupang)。
+ * @lastUpdated 2026-01-27
  */
 
 // #################################################################################################
@@ -16,6 +16,9 @@ const RULES = {
   // [1] P0 Priority Block
   // 優先級最高，直接攔截，不經過白名單檢查
   PRIORITY_BLOCK_DOMAINS: new Set([
+    // Slack Telemetry [V43.16]
+    'slackb.com',          // Slack Beacon / Events
+
     // Browser & Search Telemetry [V43.14]
     'log.m.sm.cn',         // Shenma/Quark Search Logger
     'unpm-upaas.quark.cn', // Quark Browser Logger
@@ -82,6 +85,7 @@ const RULES = {
       'sso.godaddy.com', 'idmsa.apple.com', 'api.login.yahoo.com', 
       'firebaseappcheck.googleapis.com', 'firebaseinstallations.googleapis.com',
       'firebaseremoteconfig.googleapis.com', 'accounts.google.com.tw',
+      'accounts.felo.me', // [V43.17] Felo Auth
       
       // Taiwan Finance & Payment & E-commerce API
       'api.etmall.com.tw', 'api.map.ecpay.com.tw', 'api.ecpay.com.tw', 'payment.ecpay.com.tw',
@@ -157,7 +161,7 @@ const RULES = {
 
   // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
-    'simonsignal.com', 'slackb.com',
+    'simonsignal.com', 
     'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw',
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
     'browser-intake-datadoghq.us', 'bam.nr-data.net', 'bam-cell.nr-data.net',
@@ -464,7 +468,8 @@ const RULES = {
     EXEMPTIONS: new Map([
         ['www.google.com', new Set(['/maps/'])],
         ['taxi.sleepnova.org', new Set(['/api/v4/routes_estimate'])],
-        ['cmapi.tw.coupang.com', new Set(['/'])]
+        ['cmapi.tw.coupang.com', new Set(['/'])],
+        ['accounts.felo.me', new Set(['/'])] // [V43.18] Felo Auth Exemption
     ])
   },
 
@@ -843,6 +848,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.15 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.18 Active\n${stats.toString()}` });
 }
-
