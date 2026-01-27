@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.18.js
- * @version   43.18 (Syntax Hotfix)
- * @description [V43.18] 語法修復與 Felo 多渠道登入支援：
- * 1) [Fix] 修復 V43.17 中 PARAMS.EXEMPTIONS 遺漏逗號的語法錯誤，防止腳本崩潰。
- * 2) [Verify] 確認 'accounts.felo.me' 豁免規則可同時支援 Google (source=GOOGLE) 與 Apple (source=APPLE) 登入。
- * 3) [Base] 完整整合 V43.10~V43.17 所有核心規則 (Slack, Pixel, Shenma, Quark, Momo, Coupang)。
+ * @file      URL-Ultimate-Filter-Surge-V43.19.js
+ * @version   43.19 (Stability Architecture)
+ * @description [V43.19] 架構穩定性更新 - 停止「挖東牆補西牆」：
+ * 1) [Arch] 引入 'OAUTH_SAFE_HARBOR' 機制：針對 '/oauth', '/login', '/authorize' 路徑，強制跳過參數清洗，徹底解決 Felo、Google、Apple 登入誤殺問題。
+ * 2) [Refine] 參數清洗降級：將 'source' 從全域清洗名單中移除，僅在特定追蹤網域生效，避免誤殺正常 App 邏輯。
+ * 3) [Fix] 包含 V43.18 的語法修復與所有 P0 級攔截規則。
  * @lastUpdated 2026-01-27
  */
 
@@ -85,7 +85,7 @@ const RULES = {
       'sso.godaddy.com', 'idmsa.apple.com', 'api.login.yahoo.com', 
       'firebaseappcheck.googleapis.com', 'firebaseinstallations.googleapis.com',
       'firebaseremoteconfig.googleapis.com', 'accounts.google.com.tw',
-      'accounts.felo.me', // [V43.17] Felo Auth
+      'accounts.felo.me', // Felo Auth
       
       // Taiwan Finance & Payment & E-commerce API
       'api.etmall.com.tw', 'api.map.ecpay.com.tw', 'api.ecpay.com.tw', 'payment.ecpay.com.tw',
@@ -435,6 +435,7 @@ const RULES = {
 
   // [8] Parameter Cleaning
   PARAMS: {
+    // 參數降級 (V43.19)：'source' 從 GLOBAL 移出
     GLOBAL: new Set([
       'gclid', 'fbclid', 'ttclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
       'yclid', 'mc_cid', 'mc_eid', 'srsltid', 'dclid', 'gclsrc', 'twclid', 'lid', '_branch_match_id',
@@ -453,7 +454,7 @@ const RULES = {
       'ttc_', 'vsm_', 'li_fat_', 'linkedin_'
     ]),
     PREFIXES_REGEX: [/_ga_/i, /^tt_[\w_]+/i, /^li_[\w_]+/i],
-    COSMETIC: new Set(['fb_ref', 'fb_source', 'from', 'ref', 'share_id', 'source', 'spot_im_redirect_source']),
+    COSMETIC: new Set(['fb_ref', 'fb_source', 'from', 'ref', 'share_id', 'spot_im_redirect_source']), // 'source' removed
     WHITELIST: new Set([
       'code', 'id', 'item', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't',
       'targetid', 'token', 'v', 'callback', 'ct', 'cv', 'filter', 'format', 'lang', 'locale', 'status',
@@ -513,6 +514,18 @@ const RULES = {
 };
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 1024 };
+
+// [V43.19] Safe Harbor Logic for OAuth
+const OAUTH_SAFE_HARBOR = {
+    DOMAINS: new Set([
+        'accounts.google.com', 'accounts.google.com.tw', 'accounts.youtube.com',
+        'appleid.apple.com', 'idmsa.apple.com',
+        'facebook.com', 'www.facebook.com', 'm.facebook.com',
+        'login.microsoftonline.com', 'login.live.com',
+        'github.com', 'api.twitter.com', 'api.x.com'
+    ]),
+    PATHS: ['/oauth', '/oauth2', '/authorize', '/login', '/signin', '/session']
+};
 
 // #################################################################################################
 // #  🧠 CORE LOGIC ENGINE (Classes & Helpers)
@@ -623,7 +636,24 @@ const HELPERS = {
     return false;
   },
 
+  // [V43.19] Check if request is OAuth related
+  isOAuthRequest: (hostname, pathLower) => {
+      // 1. Domain Check
+      if (OAUTH_SAFE_HARBOR.DOMAINS.has(hostname)) return true;
+      // 2. Path Keyword Check
+      for (const keyword of OAUTH_SAFE_HARBOR.PATHS) {
+          if (pathLower.includes(keyword)) return true;
+      }
+      return false;
+  },
+
   cleanTrackingParams: (urlStr, hostname, pathLower) => {
+    // [V43.19] OAuth Safe Harbor - SKIP cleaning for auth flows
+    if (HELPERS.isOAuthRequest(hostname, pathLower)) {
+        if (CONFIG.DEBUG_MODE) console.log(`[Safe Harbor] Skip cleaning for: ${urlStr}`);
+        return null;
+    }
+
     const exemptions = RULES.PARAMS.EXEMPTIONS.get(hostname);
     if (exemptions) {
         for (const ex of exemptions) {
@@ -848,5 +878,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.18 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.19 Active\n${stats.toString()}` });
 }
