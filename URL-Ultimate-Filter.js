@@ -225,7 +225,7 @@ const RULES = {
       '/imp.gif', '/impression.gif', '/view.gif',
       '/sync.gif', '/sync.php', '/match.gif', '/match.php',
       '/utm.gif', '/event.gif',
-      '/bk', '/bk.gif', '/img',
+      '/bk', '/bk.gif',
 
       // Legacy & Previous
       '/collect', '/events', '/telemetry', '/metrics', '/traces', '/track', '/beacon', '/pixel',
@@ -477,7 +477,7 @@ const RULES = {
       '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar'
     ]),
     PREFIXES: new Set([
-      '/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/', '/wp-content/', '/wp-includes/',
+      '/favicon', '/assets/', '/static/', '/images/', '/js/', '/css/', '/wp-content/', '/wp-includes/',
       '/fonts/', '/dist/', '/vendor/', '/public/'
     ]),
     SUBSTRINGS: new Set([
