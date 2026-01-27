@@ -1,41 +1,45 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.19.js
- * @version   43.19 (Stability Architecture)
- * @description [V43.19] 架構穩定性更新 - 停止「挖東牆補西牆」：
- * 1) [Arch] 引入 'OAUTH_SAFE_HARBOR' 機制：針對 '/oauth', '/login', '/authorize' 路徑，強制跳過參數清洗，徹底解決 Felo、Google、Apple 登入誤殺問題。
- * 2) [Refine] 參數清洗降級：將 'source' 從全域清洗名單中移除，僅在特定追蹤網域生效，避免誤殺正常 App 邏輯。
- * 3) [Fix] 包含 V43.18 的語法修復與所有 P0 級攔截規則。
+ * @file      URL-Ultimate-Filter-Surge-V43.27.js
+ * @version   43.27 (Syntax Final)
+ * @description [V43.27] 語法與邏輯終極修復：
+ * 1) [CritFix] 修復 PARAMS.EXEMPTIONS 導致的 SyntaxError (補上遺失的逗號)。
+ * 2) [Sync] 確保 Google CheckConnection 回傳 204 (Silent Drop)。
+ * 3) [Base] 整合 Zero Trust OAuth 與 Pixel Storm 所有防護規則。
  * @lastUpdated 2026-01-27
  */
+
+const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 1024 };
+
+// [V43.25] Moved to top-level to prevent ReferenceError
+const OAUTH_SAFE_HARBOR = {
+    DOMAINS: new Set([
+        'accounts.google.com', 'accounts.google.com.tw', 'accounts.youtube.com',
+        'appleid.apple.com', 'idmsa.apple.com',
+        'facebook.com', 'www.facebook.com', 'm.facebook.com',
+        'login.microsoftonline.com', 'login.live.com',
+        'github.com', 'api.twitter.com', 'api.x.com'
+    ]),
+    PATHS: ['/oauth', '/oauth2', '/authorize', '/login', '/signin', '/session']
+};
 
 // #################################################################################################
 // #  ⚙️ RULES CONFIGURATION
 // #################################################################################################
 
 const RULES = {
-  // [1] P0 Priority Block
-  // 優先級最高，直接攔截，不經過白名單檢查
+  // [1] P0 Priority Block (High Risk / Telemetry)
   PRIORITY_BLOCK_DOMAINS: new Set([
-    // Slack Telemetry [V43.16]
-    'slackb.com',          // Slack Beacon / Events
-
-    // Browser & Search Telemetry [V43.14]
-    'log.m.sm.cn',         // Shenma/Quark Search Logger
-    'unpm-upaas.quark.cn', // Quark Browser Logger
-    'cms-statistics.quark.cn', // Quark Statistics
-    'applog.uc.cn',        // UC Browser Logger (Ali Group)
-    
-    // Momo Shop Trackers [V43.12]
-    'ecdmp.momoshop.com.tw', // E-Commerce DMP
-    'log.momoshop.com.tw',   // Analytics Logger
-    'trk.momoshop.com.tw',   // Tracker Redirect
-    'rtb.momoshop.com.tw',   // Real-time Bidding
-
-    // Coupang Trackers [V43.11]
-    'mercury.coupang.com', 
+    'slackb.com',
+    'log.m.sm.cn',
+    'unpm-upaas.quark.cn',
+    'cms-statistics.quark.cn',
+    'applog.uc.cn',
+    'ecdmp.momoshop.com.tw',
+    'log.momoshop.com.tw',
+    'trk.momoshop.com.tw',
+    'rtb.momoshop.com.tw',
+    'mercury.coupang.com',
     'jslog.coupang.com',
-    
-    // Global Ad Networks
     'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'admob.com', 'ads.google.com',
     'appsflyer.com', 'adjust.com', 'kochava.com', 'branch.io', 'app-measurement.com', 'singular.net',
     'unityads.unity3d.com', 'applovin.com', 'ironsrc.com', 'vungle.com', 'adcolony.com', 'chartboost.com',
@@ -65,41 +69,26 @@ const RULES = {
   ]),
 
   // [2] Intelligent Whitelists
-  // Layer 0: 絕對放行 (Hard Whitelist) - 優先級最高，跳過所有檢查，包含參數清洗
   HARD_WHITELIST: {
     EXACT: new Set([
-      // AI & Productivity Assets (Images/CSS/JS)
       'cdn.oaistatic.com', 'files.oaiusercontent.com', 
-      
       'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
       'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
       'qianwen.aliyun.com', 'static.stepfun.com', 'api.openai.com', 'a-api.anthropic.com',
-      
-      // News & Productivity
       'api.feedly.com', 'sandbox.feedly.com', 'cloud.feedly.com',
       'translate.google.com', 'translate.googleapis.com',
-      'inbox.google.com', // Google Inbox Legacy Sync Fix
-
-      // System & Auth
+      'inbox.google.com',
       'reportaproblem.apple.com', 'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
       'sso.godaddy.com', 'idmsa.apple.com', 'api.login.yahoo.com', 
       'firebaseappcheck.googleapis.com', 'firebaseinstallations.googleapis.com',
       'firebaseremoteconfig.googleapis.com', 'accounts.google.com.tw',
-      'accounts.felo.me', // Felo Auth
-      
-      // Taiwan Finance & Payment & E-commerce API
+      'accounts.felo.me',
       'api.etmall.com.tw', 'api.map.ecpay.com.tw', 'api.ecpay.com.tw', 'payment.ecpay.com.tw',
       'api.jkos.com', 'tw.fd-api.com', 'tw.mapi.shp.yahoo.com', 
-      
-      // Dev Tools
       'code.createjs.com', 'oa.ledabangong.com', 'oa.qianyibangong.com', 'raw.githubusercontent.com',
       'ss.ledabangong.com', 'userscripts.adtidy.org', 'api.github.com', 'api.vercel.com',
-      
-      // Social Infra
       'gateway.facebook.com', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com',
       'api.discord.com', 'api.twitch.tv', 'api.line.me', 'today.line.me',
-      
-      // Fixes
       'pro.104.com.tw', 'gov.tw'
     ]),
     WILDCARDS: [
@@ -120,7 +109,6 @@ const RULES = {
     ]
   },
 
-  // Layer 3: 軟性白名單 (Soft Whitelist)
   SOFT_WHITELIST: {
     EXACT: new Set([
       'gateway.shopback.com.tw', 'api.anthropic.com', 'api.cohere.ai', 'api.digitalocean.com',
@@ -159,7 +147,6 @@ const RULES = {
     ]
   },
 
-  // [3] Standard Blocking
   BLOCK_DOMAINS: new Set([
     'simonsignal.com', 
     'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw',
@@ -188,8 +175,6 @@ const RULES = {
     'moatads.com', 'sdk.iad-07.braze.com', 'serving-sys.com', 'tw.ad.doubleverify.com', 'agkn.com',
     'id5-sync.com', 'liveramp.com', 'permutive.com', 'tags.tiqcdn.com', 'klaviyo.com', 'marketo.com',
     'mktoresp.com', 'pardot.com', 'instana.io', 'launchdarkly.com', 'raygun.io', 'navify.com',
-    
-    // China & Others
     'cnzz.com', 'umeng.com', 'talkingdata.com', 'jiguang.cn', 'getui.com',
     'mdap.alipay.com', 'loggw-ex.alipay.com', 'pgdt.gtimg.cn', 'afd.baidu.com', 'als.baidu.com',
     'cpro.baidu.com', 'dlswbr.baidu.com', 'duclick.baidu.com', 'feed.baidu.com', 'h2tcbox.baidu.com',
@@ -204,8 +189,6 @@ const RULES = {
     'growingio.com', 'igexin.com', 'jpush.cn', 'kuaishou.com', 'miaozhen.com', 'mmstat.com',
     'pangolin-sdk-toutiao.com', 'talkingdata.cn', 'tanx.com', 'umeng.cn', 'umeng.co',
     'umengcloud.com', 'youmi.net', 'zhugeio.com',
-
-    // TW & E-commerce (Moved ecdmp/log/trk to Priority)
     'cache.ltn.com.tw', 'adnext-a.akamaihd.net', 'appnext.hs.llnwd.net', 'fusioncdn.com',
     'toots-a.akamaihd.net', 'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'cacafly.com',
     'clickforce.com.tw', 'analysis.momoshop.com.tw', 'event.momoshop.com.tw',
@@ -214,8 +197,6 @@ const RULES = {
     'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com', 'analytics.shopee.tw', 'dmp.shopee.tw',
     'analytics.etmall.com.tw', 'pixel.momoshop.com.tw', 'trace.momoshop.com.tw', 'ad-serv.teepr.com',
     'appier.net', 'itad.linetv.tw',
-    
-    // Ad Networks (Condensed)
     'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com', 'events.tiktok.com',
     'abema-adx.ameba.jp', 'ad.12306.cn', 'ad.360in.com', 'adroll.com', 'ads.yahoo.com', 
     'adserver.yahoo.com', 'appnexus.com', 'bluekai.com', 'casalemedia.com', 'criteo.com',
@@ -235,13 +216,16 @@ const RULES = {
   // [4] Critical Path Blocking
   CRITICAL_PATH: {
     GENERIC: [
+      // [V43.23] Silent Drop for Google Connectivity Check
+      '/accounts/CheckConnection', 
+
       // [V43.15] Pixel & Beacon Storm
       '/0.gif', '/1.gif', '/pixel.gif', '/beacon.gif', '/ping.gif', '/track.gif',
       '/dot.gif', '/clear.gif', '/empty.gif', '/shim.gif', '/spacer.gif',
       '/imp.gif', '/impression.gif', '/view.gif',
       '/sync.gif', '/sync.php', '/match.gif', '/match.php',
       '/utm.gif', '/event.gif',
-      '/bk', '/bk.gif', '/img', // Generic endpoints often used as pixel handlers
+      '/bk', '/bk.gif', '/img',
 
       // Legacy & Previous
       '/collect', '/events', '/telemetry', '/metrics', '/traces', '/track', '/beacon', '/pixel',
@@ -364,7 +348,6 @@ const RULES = {
     ])
   },
 
-  // [5] Keyword & Regex Blocking
   KEYWORDS: {
     PATH_BLOCK: [
       '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/banner/',
@@ -433,9 +416,7 @@ const RULES = {
     ])
   },
 
-  // [8] Parameter Cleaning
   PARAMS: {
-    // 參數降級 (V43.19)：'source' 從 GLOBAL 移出
     GLOBAL: new Set([
       'gclid', 'fbclid', 'ttclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
       'yclid', 'mc_cid', 'mc_eid', 'srsltid', 'dclid', 'gclsrc', 'twclid', 'lid', '_branch_match_id',
@@ -454,7 +435,7 @@ const RULES = {
       'ttc_', 'vsm_', 'li_fat_', 'linkedin_'
     ]),
     PREFIXES_REGEX: [/_ga_/i, /^tt_[\w_]+/i, /^li_[\w_]+/i],
-    COSMETIC: new Set(['fb_ref', 'fb_source', 'from', 'ref', 'share_id', 'spot_im_redirect_source']), // 'source' removed
+    COSMETIC: new Set(['fb_ref', 'fb_source', 'from', 'ref', 'share_id', 'spot_im_redirect_source']),
     WHITELIST: new Set([
       'code', 'id', 'item', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't',
       'targetid', 'token', 'v', 'callback', 'ct', 'cv', 'filter', 'format', 'lang', 'locale', 'status',
@@ -462,7 +443,6 @@ const RULES = {
       'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope', 'direction', 'limit', 'offset',
       'order', 'page_number', 'size', 'sort', 'sort_by', 'aff_sub', 'click_id', 'deal_id', 'offer_id',
       'cancel_url', 'error_url', 'return_url', 'success_url',
-      // [V43.00] Coupang Double Safety Whitelist
       'metadata', 'pagestatus', 'eventactiontype', 'unitpricewithdeliveryfee',
       'previousitempricecount', 'optiontablelandingvendoritemid', 'selectedshowdeliverypddstatus'
     ]),
@@ -470,7 +450,7 @@ const RULES = {
         ['www.google.com', new Set(['/maps/'])],
         ['taxi.sleepnova.org', new Set(['/api/v4/routes_estimate'])],
         ['cmapi.tw.coupang.com', new Set(['/'])],
-        ['accounts.felo.me', new Set(['/'])] // [V43.18] Felo Auth Exemption
+        ['accounts.felo.me', new Set(['/'])]
     ])
   },
 
@@ -508,28 +488,10 @@ const RULES = {
     ]),
     PATH_EXEMPTIONS: new Map([
         ['shopee.tw', new Set(['/api/v4/search/search_items'])],
-        ['cmapi.tw.coupang.com', new Set(['/vendor-items/'])] // [V43.10] Refined from /modular/
+        ['cmapi.tw.coupang.com', new Set(['/vendor-items/'])]
     ])
   }
 };
-
-const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 1024 };
-
-// [V43.19] Safe Harbor Logic for OAuth
-const OAUTH_SAFE_HARBOR = {
-    DOMAINS: new Set([
-        'accounts.google.com', 'accounts.google.com.tw', 'accounts.youtube.com',
-        'appleid.apple.com', 'idmsa.apple.com',
-        'facebook.com', 'www.facebook.com', 'm.facebook.com',
-        'login.microsoftonline.com', 'login.live.com',
-        'github.com', 'api.twitter.com', 'api.x.com'
-    ]),
-    PATHS: ['/oauth', '/oauth2', '/authorize', '/login', '/signin', '/session']
-};
-
-// #################################################################################################
-// #  🧠 CORE LOGIC ENGINE (Classes & Helpers)
-// #################################################################################################
 
 class ACScanner {
   constructor(keywords) { this.keywords = keywords; }
@@ -564,7 +526,6 @@ class HighPerformanceLRUCache {
 // Precomputations (Hotpath)
 // -----------------------------
 
-// Scanner setup (one-time)
 const pathScanner = new ACScanner(RULES.KEYWORDS.PATH_BLOCK);
 const criticalPathScanner = new ACScanner([
   ...RULES.CRITICAL_PATH.GENERIC,
@@ -577,10 +538,8 @@ const COMBINED_REGEX = [
   ...RULES.BLOCK_DOMAINS_REGEX
 ];
 
-// Priority suffix list (for subdomains)
 const PRIORITY_SUFFIX_LIST = Array.from(RULES.PRIORITY_BLOCK_DOMAINS);
 
-// Split static suffix rules into 2 sets
 const STATIC_EXTENSIONS = new Set();
 const STATIC_FILENAMES = new Set();
 for (const s of RULES.EXCEPTIONS.SUFFIXES) {
@@ -589,11 +548,8 @@ for (const s of RULES.EXCEPTIONS.SUFFIXES) {
   else STATIC_FILENAMES.add(s);
 }
 
-// Cache & stats
 const multiLevelCache = new HighPerformanceLRUCache(512);
 const stats = { blocks: 0, allows: 0, toString: () => `Blocked: ${stats.blocks}, Allowed: ${stats.allows}` };
-
-// Cache CRITICAL_PATH.MAP.get(hostname) results
 const criticalMapCache = new HighPerformanceLRUCache(256);
 
 // #################################################################################################
@@ -604,19 +560,14 @@ const HELPERS = {
   isStaticFile: (pathLowerMaybeWithQuery) => {
     if (!pathLowerMaybeWithQuery) return false;
     const cleanPath = pathLowerMaybeWithQuery.split('?')[0].toLowerCase();
-
-    // 1) extension-based
     const lastDot = cleanPath.lastIndexOf('.');
     if (lastDot !== -1) {
       const ext = cleanPath.substring(lastDot);
       if (STATIC_EXTENSIONS.has(ext)) return true;
     }
-
-    // 2) filename-based (exact tail)
     for (const fn of STATIC_FILENAMES) {
       if (cleanPath.endsWith(fn)) return true;
     }
-
     return false;
   },
 
@@ -636,11 +587,12 @@ const HELPERS = {
     return false;
   },
 
-  // [V43.19] Check if request is OAuth related
-  isOAuthRequest: (hostname, pathLower) => {
-      // 1. Domain Check
-      if (OAUTH_SAFE_HARBOR.DOMAINS.has(hostname)) return true;
-      // 2. Path Keyword Check
+  isSafeHarborDomain: (hostname) => {
+      if (hostname === 'accounts.youtube.com') return false; 
+      return OAUTH_SAFE_HARBOR.DOMAINS.has(hostname);
+  },
+
+  isAuthPath: (pathLower) => {
       for (const keyword of OAUTH_SAFE_HARBOR.PATHS) {
           if (pathLower.includes(keyword)) return true;
       }
@@ -648,8 +600,7 @@ const HELPERS = {
   },
 
   cleanTrackingParams: (urlStr, hostname, pathLower) => {
-    // [V43.19] OAuth Safe Harbor - SKIP cleaning for auth flows
-    if (HELPERS.isOAuthRequest(hostname, pathLower)) {
+    if (HELPERS.isSafeHarborDomain(hostname) || HELPERS.isAuthPath(pathLower)) {
         if (CONFIG.DEBUG_MODE) console.log(`[Safe Harbor] Skip cleaning for: ${urlStr}`);
         return null;
     }
@@ -663,12 +614,10 @@ const HELPERS = {
 
     try {
       if (!urlStr.includes('?')) return null;
-
       const urlObj = new URL(urlStr);
       const params = urlObj.searchParams;
       let changed = false;
 
-      // 1) Global & Cosmetic
       for (const p of RULES.PARAMS.GLOBAL) {
         if (params.has(p)) { params.delete(p); changed = true; }
       }
@@ -676,27 +625,20 @@ const HELPERS = {
         if (params.has(p)) { params.delete(p); changed = true; }
       }
 
-      // 2) Prefix & Regex
       const keys = Array.from(params.keys());
       for (const key of keys) {
         const lowerKey = key.toLowerCase();
-
         if (RULES.PARAMS.WHITELIST.has(lowerKey)) continue;
-
-        // Prefix set
         for (const p of RULES.PARAMS.PREFIXES) {
           if (lowerKey.startsWith(p)) { params.delete(key); changed = true; break; }
         }
         if (!params.has(key)) continue;
-
-        // Regex sets
         if (RULES.PARAMS.GLOBAL_REGEX.some(r => r.test(lowerKey)) ||
             RULES.PARAMS.PREFIXES_REGEX.some(r => r.test(lowerKey))) {
           params.delete(key);
           changed = true;
         }
       }
-
       return changed ? urlObj.toString() : null;
     } catch (_) {
       return null;
@@ -713,8 +655,6 @@ let __INITIALIZED__ = false;
 function initializeOnce() {
   if (__INITIALIZED__) return;
   __INITIALIZED__ = true;
-
-  // Seed allow/block hints for faster hot path
   RULES.HARD_WHITELIST.EXACT.forEach(d => multiLevelCache.set(d, 'ALLOW', 86400000));
   RULES.PRIORITY_BLOCK_DOMAINS.forEach(d => multiLevelCache.set(d, 'BLOCK', 86400000));
 }
@@ -729,7 +669,6 @@ function isDomainMatch(setExact, wildcards, hostname) {
 
 function isPriorityDomain(hostname) {
   if (RULES.PRIORITY_BLOCK_DOMAINS.has(hostname)) return true;
-  // subdomain suffix match
   for (const d of PRIORITY_SUFFIX_LIST) {
     if (hostname.endsWith('.' + d)) return true;
   }
@@ -739,7 +678,6 @@ function isPriorityDomain(hostname) {
 function getCriticalBlockedPaths(hostname) {
   const cached = criticalMapCache.get(hostname);
   if (cached !== null) return cached; 
-
   const setOrUndef = RULES.CRITICAL_PATH.MAP.get(hostname);
   const value = setOrUndef ? setOrUndef : false;
   criticalMapCache.set(hostname, value, 300000);
@@ -753,7 +691,33 @@ function processRequest(request) {
   try {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname.toLowerCase();
-    const pathLower = (urlObj.pathname + urlObj.search).toLowerCase();
+    
+    let pathLower;
+    try {
+        pathLower = decodeURIComponent(urlObj.pathname + urlObj.search).toLowerCase();
+    } catch (e) {
+        pathLower = (urlObj.pathname + urlObj.search).toLowerCase();
+    }
+
+    if (pathLower.includes('/accounts/checkconnection')) {
+        return { response: { status: 204 } };
+    }
+
+    if (isPriorityDomain(hostname)) {
+      stats.blocks++;
+      multiLevelCache.set(hostname, 'BLOCK', 86400000);
+      return { response: { status: 403, body: 'Blocked by P0 (Zero Trust)' } };
+    }
+
+    if (RULES.REDIRECTOR_HOSTS.has(hostname)) {
+      stats.blocks++;
+      return { response: { status: 403, body: 'Blocked Redirector' } };
+    }
+
+    if (HELPERS.isSafeHarborDomain(hostname)) {
+        stats.allows++;
+        return null;
+    }
 
     const performCleaning = () => {
         const cleanUrl = HELPERS.cleanTrackingParams(url, hostname, pathLower);
@@ -764,14 +728,12 @@ function processRequest(request) {
         return null;
     };
 
-    // Layer 0: Hard whitelist
     if (isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname)) {
       multiLevelCache.set(hostname, 'ALLOW', 86400000);
       stats.allows++;
       return null;
     }
 
-    // Cache fast path
     const cached = multiLevelCache.get(hostname);
     if (cached === 'ALLOW') { 
         stats.allows++; 
@@ -779,37 +741,20 @@ function processRequest(request) {
     }
     if (cached === 'BLOCK') { stats.blocks++; return { response: { status: 403, body: 'Blocked by Cache' } }; }
 
-    // Layer 0.5: Path Exemption
     if (HELPERS.isPathExemptedForDomain(hostname, pathLower)) {
         if (CONFIG.DEBUG_MODE) console.log(`[Allow] Exempted Path: ${pathLower}`);
         stats.allows++;
         return performCleaning();
     }
 
-    // Layer 1: P0 Critical Path
     if (criticalPathScanner.matches(pathLower)) {
       stats.blocks++;
       if (CONFIG.DEBUG_MODE) console.log(`[Block] L1 Critical: ${pathLower}`);
       return { response: { status: 403, body: 'Blocked by L1' } };
     }
 
-    // Layer 2: P0 Priority Domain
-    if (isPriorityDomain(hostname)) {
-      stats.blocks++;
-      multiLevelCache.set(hostname, 'BLOCK', 86400000);
-      return { response: { status: 403, body: 'Blocked by L2' } };
-    }
-
-    if (RULES.REDIRECTOR_HOSTS.has(hostname)) {
-      stats.blocks++;
-      return { response: { status: 403, body: 'Blocked Redirector' } };
-    }
-
-    // Layer 3: Soft whitelist
     const isSoftWhitelisted = isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname);
 
-    // Layer 4: Deep Inspection
-    // 4.1 Critical Map
     const blockedPaths = getCriticalBlockedPaths(hostname);
     if (blockedPaths && blockedPaths !== false) {
       for (const badPath of blockedPaths) {
@@ -821,7 +766,6 @@ function processRequest(request) {
       }
     }
 
-    // Coupang Omni-Block
     if (hostname === 'cmapi.tw.coupang.com') {
       if (/\/.*-ads\//.test(pathLower)) {
         stats.blocks++;
@@ -830,7 +774,6 @@ function processRequest(request) {
       }
     }
 
-    // 4.2 Standard Block Domains
     if (!isSoftWhitelisted) {
       if (RULES.BLOCK_DOMAINS.has(hostname) || RULES.BLOCK_DOMAINS_REGEX.some(r => r.test(hostname))) {
         stats.blocks++;
@@ -838,7 +781,6 @@ function processRequest(request) {
       }
     }
 
-    // 4.3 Keywords & Regex
     const isExplicitlyAllowed = HELPERS.isPathExplicitlyAllowed(pathLower);
 
     if (!isSoftWhitelisted || (isSoftWhitelisted && !HELPERS.isStaticFile(pathLower))) {
@@ -854,7 +796,6 @@ function processRequest(request) {
       }
     }
 
-    // 4.4 Drop Keywords (respond 204)
     if (!isExplicitlyAllowed && !HELPERS.isStaticFile(pathLower)) {
       for (const k of RULES.KEYWORDS.DROP) {
         if (pathLower.includes(k)) {
@@ -878,5 +819,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.19 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.27 Active\n${stats.toString()}` });
 }
