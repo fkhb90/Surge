@@ -1,10 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.30.js
- * @version   43.30 (Privacy Hardening)
- * @description [V43.30] 隱私與誤殺平衡調整：
- * 1) [Block] 新增 'china-caa' 關鍵字阻擋，強化對 CAID 變種路徑的防護。
- * 2) [Clean] 將 'dev_id' 加入參數清洗清單 (302 Redirect)，移除裝置識別碼但不阻斷請求。
- * 3) [Base] 繼承 V43.29 CAID 網域阻擋與 V43.28 的修復邏輯。
+ * @file      URL-Ultimate-Filter-Surge-V43.31.js
+ * @version   43.31 (Port-Agnostic Block)
+ * @description [V43.31] 針對性網域阻擋：
+ * 1) [Block] 新增 'easytomessage.com' 阻擋規則 (涵蓋 Port 19000 等非標準連接埠)。
+ * 2) [Base] 繼承 V43.30 所有隱私強化與 CAID 防護邏輯。
  * @lastUpdated 2026-01-28
  */
 
@@ -148,6 +147,7 @@ const RULES = {
   },
 
   BLOCK_DOMAINS: new Set([
+    'easytomessage.com',
     'caid.china-caa.org',
     'simonsignal.com', 
     'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw',
@@ -824,5 +824,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.28 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.31 Active\n${stats.toString()}` });
 }
