@@ -1,5 +1,5 @@
 #!name=LINE 廣告與追蹤攔截  (v3.5.0 - 修正終極版)
-#!desc=修正 Regex 格式錯誤，恢復 Surfshark-Taipei 策略。基於 LINE-ADs-New 核心，整合舊版周邊攔截與核心保護。 v2026.01.26
+#!desc=修正 Regex 格式錯誤，恢復 Surfshark-Taipei 策略。基於 LINE-ADs-New 核心，整合舊版周邊攔截與核心保護。 v2026.01.28
 #!system=ios
 #!category=Line
 
@@ -10,20 +10,20 @@
 # -------------------------------------------------------------------
 # A. 核心功能保護 (最高優先級)
 # -------------------------------------------------------------------
-URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/ext\/album\/api\/v\d+\/albums\/(?:preview|\d+\/photos(?:\/\d+\/likes\/preview)?)(?:\?.*)?$,Surfshark-Taipei
-URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/ext\/album\/?$,Surfshark-Taipei
-URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/[A-Z0-9]+(\?.*)?$,Surfshark-Taipei
-URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/(?!ext\/(lgfp\/lad|smartch|today)\/).*$,Surfshark-Taipei
-URL-REGEX,^https?:\/\/legy-backup\.line-apps\.com(:443)?\/[A-Z0-9]+(\?.*)?$,Surfshark-Taipei
-URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/talk$,Surfshark-Taipei
-URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/talk\/emi\/.*$,Surfshark-Taipei
-URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/talk\/emv\/.*\/ud-preview$,Surfshark-Taipei
-URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/talk\/emv\/.*$,Surfshark-Taipei
-URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/album\/a\/.*$,Surfshark-Taipei
-URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/[A-Za-z0-9_-]+$,Surfshark-Taipei
-URL-REGEX,^https?:\/\/manager\.line-scdn\.net(:443)?\/[A-Za-z0-9_-]+$,Surfshark-Taipei
-URL-REGEX,^https?:\/\/obs\.line-scdn\.net\/(?!.*(\/banner\/|r\/linecrs)).*$,Surfshark-Taipei
-
+DOMAIN-SUFFIX,vdn.line-scdn.net,DIRECT
+URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/ext\/album\/api\/v\d+\/albums\/(?:preview|\d+\/photos(?:\/\d+\/likes\/preview)?)(?:\?.*)?$,DIRECT
+URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/ext\/album\/?$,DIRECT
+URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/[A-Z0-9]+(\?.*)?$,DIRECT
+URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/(?!ext\/(lgfp\/lad|smartch|today)\/).*$,DIRECT
+URL-REGEX,^https?:\/\/legy-backup\.line-apps\.com(:443)?\/[A-Z0-9]+(\?.*)?$,DIRECT
+URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/talk$,DIRECT
+URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/talk\/emi\/.*$,DIRECT
+URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/talk\/emv\/.*\/ud-preview$,DIRECT
+URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/talk\/emv\/.*$,DIRECT
+URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/album\/a\/.*$,DIRECT
+URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/[A-Za-z0-9_-]+$,DIRECT
+URL-REGEX,^https?:\/\/manager\.line-scdn\.net(:443)?\/[A-Za-z0-9_-]+$,DIRECT
+URL-REGEX,^https?:\/\/obs\.line-scdn\.net\/(?!.*(\/banner\/|r\/linecrs)).*$,DIRECT
 
 # ==========================================
 # 區域 1: LINE 廣告追蹤與 API (a.line.me / gw / legy)
