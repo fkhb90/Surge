@@ -1,10 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.28.js
- * @version   43.28 (HotFix)
- * @description [V43.28] 關鍵路徑修復：
- * 1) [Fix] 移除 '/img' 掃描規則，解決其優先級高於靜態文件豁免導致的誤殺問題。
- * 2) [Base] 繼承 V43.27 所有 Zero Trust OAuth 與 Pixel Storm 防護邏輯。
- * @lastUpdated 2026-01-27
+ * @file      URL-Ultimate-Filter-Surge-V43.30.js
+ * @version   43.30 (Privacy Hardening)
+ * @description [V43.30] 隱私與誤殺平衡調整：
+ * 1) [Block] 新增 'china-caa' 關鍵字阻擋，強化對 CAID 變種路徑的防護。
+ * 2) [Clean] 將 'dev_id' 加入參數清洗清單 (302 Redirect)，移除裝置識別碼但不阻斷請求。
+ * 3) [Base] 繼承 V43.29 CAID 網域阻擋與 V43.28 的修復邏輯。
+ * @lastUpdated 2026-01-28
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 1024 };
@@ -147,6 +148,7 @@ const RULES = {
   },
 
   BLOCK_DOMAINS: new Set([
+    'caid.china-caa.org',
     'simonsignal.com', 
     'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw',
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
@@ -351,6 +353,7 @@ const RULES = {
 
   KEYWORDS: {
     PATH_BLOCK: [
+      'china-caa',
       '/ad/', '/ads/', '/adv/', '/advert/', '/advertisement/', '/advertising/', '/affiliate/', '/banner/',
       '/interstitial/', '/midroll/', '/popads/', '/popup/', '/postroll/', '/preroll/', '/promoted/',
       '/sponsor/', '/vclick/', '/ads-self-serve/',
@@ -419,6 +422,7 @@ const RULES = {
 
   PARAMS: {
     GLOBAL: new Set([
+      'dev_id',
       'gclid', 'fbclid', 'ttclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
       'yclid', 'mc_cid', 'mc_eid', 'srsltid', 'dclid', 'gclsrc', 'twclid', 'lid', '_branch_match_id',
       '_ga', '_gl', '_gid', '_openstat', 'admitad_uid', 'aiad_clid', 'awc', 'btag', 'cjevent', 'cmpid',
