@@ -11,6 +11,7 @@
 # A. 核心功能保護 (最高優先級)
 # -------------------------------------------------------------------
 DOMAIN-SUFFIX,vdn.line-scdn.net,DIRECT
+DOMAIN-SUFFIX,yuki-cdn.line-apps.com,DIRECT
 URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/ext\/album\/api\/v\d+\/albums\/(?:preview|\d+\/photos(?:\/\d+\/likes\/preview)?)(?:\?.*)?$,DIRECT
 URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/ext\/album\/?$,DIRECT
 URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/[A-Z0-9]+(\?.*)?$,DIRECT
