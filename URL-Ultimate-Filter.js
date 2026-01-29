@@ -1,9 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.37.js
- * @version   43.37 (LINE Notice Fix)
- * @description [V43.37] 功能性白名單擴增：
- * 1) [Allow] 將 'lan.line.me' 加入白名單，確保 LINE App 內通知與公告文件能正常加載。
- * 2) [Base] 繼承 V43.36 所有規則（Yahoo Canary, Taiwan AdNets P0, DGA Block）。
+ * @file      URL-Ultimate-Filter-Surge-V43.36.js
+ * @version   43.36 (Subdomain Fix & Whitelist Promotion)
+ * @description [V43.36] 邏輯漏洞修復：
+ * 1) [Fix] 將台灣廣告網域與 DGA 亂數網域移至 PRIORITY_BLOCK (P0)，啟用子網域後綴匹配，解決 b.bridgewell.com 等攔截失敗問題。
+ * 2) [Fix] 將 'iappapi.investing.com' 升級至 HARD_WHITELIST，防止因 URL 內含 'analysis' 關鍵字導致誤殺。
+ * 3) [Base] 繼承 V43.35 所有規則集。
  * @lastUpdated 2026-01-29
  */
 
@@ -41,13 +42,14 @@ const RULES = {
     'mercury.coupang.com',
     'jslog.coupang.com',
     
+    // [V43.36] Moved from BLOCK_DOMAINS to enable subdomain blocking
     // DGA / Suspicious / Spam
     'sir90hl.com', 
     'uymgg1.com',
     'easytomessage.com',
     'caid.china-caa.org',
     
-    // Taiwan Local Ad Networks (Wildcard Enforced)
+    // [V43.36] Taiwan Local Ad Networks (Wildcard Enforced)
     'bridgewell.com', 'scupio.com',
     'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'cacafly.com',
     'clickforce.com.tw', 'fast-trk.com', 'funp.com', 'guoshipartners.com',
@@ -87,8 +89,7 @@ const RULES = {
   // [2] Intelligent Whitelists
   HARD_WHITELIST: {
     EXACT: new Set([
-      'lan.line.me', // [V43.37] LINE Notices & Documents
-      'iappapi.investing.com', // [V43.36] Investing.com Portfolio API
+      'iappapi.investing.com', // [V43.36] Promoted to Hard Whitelist (bypass keyword scan)
       'cdn.oaistatic.com', 'files.oaiusercontent.com', 
       'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
       'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
@@ -842,5 +843,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.37 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.36 Active\n${stats.toString()}` });
 }
