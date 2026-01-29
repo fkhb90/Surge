@@ -1,11 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.36.js
- * @version   43.36 (Subdomain Fix & Whitelist Promotion)
- * @description [V43.36] 邏輯漏洞修復：
- * 1) [Fix] 將台灣廣告網域與 DGA 亂數網域移至 PRIORITY_BLOCK (P0)，啟用子網域後綴匹配，解決 b.bridgewell.com 等攔截失敗問題。
- * 2) [Fix] 將 'iappapi.investing.com' 升級至 HARD_WHITELIST，防止因 URL 內含 'analysis' 關鍵字導致誤殺。
- * 3) [Base] 繼承 V43.35 所有規則集。
- * @lastUpdated 2026-01-29
+ * @file      URL-Ultimate-Filter-Surge-V43.38.js
+ * @version   43.38 (iCloud Telemetry Fix)
+ * @description [V43.38] 邏輯優先權修復：
+ * 1) [Fix] 將 'metrics.icloud.com' 升級至 PRIORITY_BLOCK (P0)。
+ * 原因：'icloud.com' 位於強制白名單中，導致一般阻擋無效。P0 優先級高於白名單，可成功攔截。
+ * 2) [Base] 包含 V43.37 的語法修復與台灣社群廣告規則。
+ * @lastUpdated 2026-02-04
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 1024 };
@@ -28,8 +28,12 @@ const OAUTH_SAFE_HARBOR = {
 
 const RULES = {
   // [1] P0 Priority Block (High Risk / Telemetry / Wildcard AdNets)
-  // 此清單支援後綴匹配 (Suffix Matching)，例如 'bridgewell.com' 會同時攔截 'b.bridgewell.com'
+  // 此清單支援後綴匹配 (Suffix Matching)
+  // [Logic] P0 執行順序優於 HARD_WHITELIST，專門用於攔截白名單網域下的黑名單子網域
   PRIORITY_BLOCK_DOMAINS: new Set([
+    // [V43.38] iCloud Telemetry (Promoted to P0 to bypass icloud.com whitelist)
+    'metrics.icloud.com',
+
     'slackb.com',
     'log.m.sm.cn',
     'unpm-upaas.quark.cn',
@@ -42,20 +46,22 @@ const RULES = {
     'mercury.coupang.com',
     'jslog.coupang.com',
     
-    // [V43.36] Moved from BLOCK_DOMAINS to enable subdomain blocking
-    // DGA / Suspicious / Spam
-    'sir90hl.com', 
-    'uymgg1.com',
-    'easytomessage.com',
-    'caid.china-caa.org',
-    
-    // [V43.36] Taiwan Local Ad Networks (Wildcard Enforced)
-    'bridgewell.com', 'scupio.com',
+    // Taiwan Social & Local Ads
+    'ad.gamer.com.tw',       // Bahamut Ads
+    'ad-tracking.dcard.tw',  // Dcard Tracking
+    'b.bridgewell.com', 
+    'scupio.com',
     'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'cacafly.com',
     'clickforce.com.tw', 'fast-trk.com', 'funp.com', 'guoshipartners.com',
     'imedia.com.tw', 'is-tracking.com', 'likr.tw', 'sitetag.us', 'tagtoo.co',
     'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com', 
     'ad-serv.teepr.com', 'appier.net', 'itad.linetv.tw',
+
+    // DGA / Suspicious / Spam
+    'sir90hl.com', 
+    'uymgg1.com',
+    'easytomessage.com',
+    'caid.china-caa.org',
 
     // Global SDKs
     'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'admob.com', 'ads.google.com',
@@ -89,7 +95,7 @@ const RULES = {
   // [2] Intelligent Whitelists
   HARD_WHITELIST: {
     EXACT: new Set([
-      'iappapi.investing.com', // [V43.36] Promoted to Hard Whitelist (bypass keyword scan)
+      'iappapi.investing.com',
       'cdn.oaistatic.com', 'files.oaiusercontent.com', 
       'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
       'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
@@ -111,7 +117,6 @@ const RULES = {
       'pro.104.com.tw', 'gov.tw'
     ]),
     WILDCARDS: [
-      // [V43.35] Yahoo Finance Core Data (Canary Protection)
       'query1.finance.yahoo.com', 'query2.finance.yahoo.com',
       
       'shopee.tw',
@@ -142,7 +147,9 @@ const RULES = {
       'usiot.roborock.com', 'appapi.104.com.tw',
       'prism.ec.yahoo.com', 'graphql.ec.yahoo.com', 'visuals.feedly.com', 'api.revenuecat.com',
       'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com',
-      'cmapi.tw.coupang.com'
+      'cmapi.tw.coupang.com',
+      // [V43.37] Common IP Check Service (Prevent false positives)
+      'api.ipify.org'
     ]),
     WILDCARDS: [
       'chatgpt.com',
@@ -175,6 +182,8 @@ const RULES = {
     'analytics.shopee.tw', 'dmp.shopee.tw',
     'analysis.momoshop.com.tw', 'event.momoshop.com.tw', 'sspap.momoshop.com.tw',
     'analytics.etmall.com.tw', 'pixel.momoshop.com.tw', 'trace.momoshop.com.tw',
+    
+    // [V43.38] Removed 'metrics.icloud.com' (Moved to PRIORITY_BLOCK_DOMAINS)
 
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
     'browser-intake-datadoghq.us', 'bam.nr-data.net', 'bam-cell.nr-data.net',
@@ -247,8 +256,6 @@ const RULES = {
       '/utm.gif', '/event.gif',
       '/bk', '/bk.gif', 
       
-      // [V43.28] Removed '/img' to prevent blocking static images
-
       // Legacy & Previous
       '/collect', '/events', '/telemetry', '/metrics', '/traces', '/track', '/beacon', '/pixel',
       '/v1/collect', '/v1/events', '/v1/track', '/v1/telemetry', '/v1/metrics', '/v1/log', '/v1/traces',
@@ -843,5 +850,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.36 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.38 Active\n${stats.toString()}` });
 }
