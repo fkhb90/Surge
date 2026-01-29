@@ -1,10 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.31.js
- * @version   43.31 (Port-Agnostic Block)
- * @description [V43.31] 針對性網域阻擋：
- * 1) [Block] 新增 'easytomessage.com' 阻擋規則 (涵蓋 Port 19000 等非標準連接埠)。
- * 2) [Base] 繼承 V43.30 所有隱私強化與 CAID 防護邏輯。
- * @lastUpdated 2026-01-28
+ * @file      URL-Ultimate-Filter-Surge-V43.36.js
+ * @version   43.36 (Subdomain Fix & Whitelist Promotion)
+ * @description [V43.36] 邏輯漏洞修復：
+ * 1) [Fix] 將台灣廣告網域與 DGA 亂數網域移至 PRIORITY_BLOCK (P0)，啟用子網域後綴匹配，解決 b.bridgewell.com 等攔截失敗問題。
+ * 2) [Fix] 將 'iappapi.investing.com' 升級至 HARD_WHITELIST，防止因 URL 內含 'analysis' 關鍵字導致誤殺。
+ * 3) [Base] 繼承 V43.35 所有規則集。
+ * @lastUpdated 2026-01-29
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 1024 };
@@ -26,7 +27,8 @@ const OAUTH_SAFE_HARBOR = {
 // #################################################################################################
 
 const RULES = {
-  // [1] P0 Priority Block (High Risk / Telemetry)
+  // [1] P0 Priority Block (High Risk / Telemetry / Wildcard AdNets)
+  // 此清單支援後綴匹配 (Suffix Matching)，例如 'bridgewell.com' 會同時攔截 'b.bridgewell.com'
   PRIORITY_BLOCK_DOMAINS: new Set([
     'slackb.com',
     'log.m.sm.cn',
@@ -39,6 +41,23 @@ const RULES = {
     'rtb.momoshop.com.tw',
     'mercury.coupang.com',
     'jslog.coupang.com',
+    
+    // [V43.36] Moved from BLOCK_DOMAINS to enable subdomain blocking
+    // DGA / Suspicious / Spam
+    'sir90hl.com', 
+    'uymgg1.com',
+    'easytomessage.com',
+    'caid.china-caa.org',
+    
+    // [V43.36] Taiwan Local Ad Networks (Wildcard Enforced)
+    'bridgewell.com', 'scupio.com',
+    'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'cacafly.com',
+    'clickforce.com.tw', 'fast-trk.com', 'funp.com', 'guoshipartners.com',
+    'imedia.com.tw', 'is-tracking.com', 'likr.tw', 'sitetag.us', 'tagtoo.co',
+    'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com', 
+    'ad-serv.teepr.com', 'appier.net', 'itad.linetv.tw',
+
+    // Global SDKs
     'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'admob.com', 'ads.google.com',
     'appsflyer.com', 'adjust.com', 'kochava.com', 'branch.io', 'app-measurement.com', 'singular.net',
     'unityads.unity3d.com', 'applovin.com', 'ironsrc.com', 'vungle.com', 'adcolony.com', 'chartboost.com',
@@ -70,6 +89,7 @@ const RULES = {
   // [2] Intelligent Whitelists
   HARD_WHITELIST: {
     EXACT: new Set([
+      'iappapi.investing.com', // [V43.36] Promoted to Hard Whitelist (bypass keyword scan)
       'cdn.oaistatic.com', 'files.oaiusercontent.com', 
       'claude.ai', 'gemini.google.com', 'perplexity.ai', 'www.perplexity.ai',
       'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
@@ -91,6 +111,9 @@ const RULES = {
       'pro.104.com.tw', 'gov.tw'
     ]),
     WILDCARDS: [
+      // [V43.35] Yahoo Finance Core Data (Canary Protection)
+      'query1.finance.yahoo.com', 'query2.finance.yahoo.com',
+      
       'shopee.tw',
       'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw',
       'richart.tw', 'bot.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw',
@@ -147,10 +170,12 @@ const RULES = {
   },
 
   BLOCK_DOMAINS: new Set([
-    'easytomessage.com',
-    'caid.china-caa.org',
     'simonsignal.com', 
     'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw',
+    'analytics.shopee.tw', 'dmp.shopee.tw',
+    'analysis.momoshop.com.tw', 'event.momoshop.com.tw', 'sspap.momoshop.com.tw',
+    'analytics.etmall.com.tw', 'pixel.momoshop.com.tw', 'trace.momoshop.com.tw',
+
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
     'browser-intake-datadoghq.us', 'bam.nr-data.net', 'bam-cell.nr-data.net',
     'lrkt-in.com', 'cdn.lr-ingest.com', 'r.lr-ingest.io', 'api-iam.intercom.io',
@@ -191,13 +216,7 @@ const RULES = {
     'pangolin-sdk-toutiao.com', 'talkingdata.cn', 'tanx.com', 'umeng.cn', 'umeng.co',
     'umengcloud.com', 'youmi.net', 'zhugeio.com',
     'cache.ltn.com.tw', 'adnext-a.akamaihd.net', 'appnext.hs.llnwd.net', 'fusioncdn.com',
-    'toots-a.akamaihd.net', 'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'cacafly.com',
-    'clickforce.com.tw', 'analysis.momoshop.com.tw', 'event.momoshop.com.tw',
-    'sspap.momoshop.com.tw', 'fast-trk.com', 'funp.com', 'guoshipartners.com',
-    'imedia.com.tw', 'is-tracking.com', 'likr.tw', 'sitetag.us', 'tagtoo.co',
-    'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com', 'analytics.shopee.tw', 'dmp.shopee.tw',
-    'analytics.etmall.com.tw', 'pixel.momoshop.com.tw', 'trace.momoshop.com.tw', 'ad-serv.teepr.com',
-    'appier.net', 'itad.linetv.tw',
+    'toots-a.akamaihd.net',
     'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com', 'events.tiktok.com',
     'abema-adx.ameba.jp', 'ad.12306.cn', 'ad.360in.com', 'adroll.com', 'ads.yahoo.com', 
     'adserver.yahoo.com', 'appnexus.com', 'bluekai.com', 'casalemedia.com', 'criteo.com',
@@ -824,5 +843,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.31 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.36 Active\n${stats.toString()}` });
 }
