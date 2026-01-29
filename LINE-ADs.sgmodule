@@ -33,17 +33,17 @@ URL-REGEX,^https?:\/\/obs\.line-scdn\.net\/(?!.*(\/banner\/|r\/linecrs)).*$,DIRE
 # LINE Ads 追蹤
 # 1. LINE Ads 追蹤像素與事件圖片攔截 (REJECT-TINYGIF)
 # 針對 a.line.me 的 LADS 追蹤像素與事件圖片，回傳 1x1 透明 GIF 以避免破圖
-URL-REGEX, ^https:\/\/a\.line\.me\/er\/(?:lads\/v\d\/ei|l[^/]+\/v\d\/event\/image)(?:$|\?.*), REJECT-TINYGIF
+URL-REGEX, ^https:\/\/a\.line\.me\/er\/(?:lads\/v\d\/ei|l[^/]+\/v\d\/event\/image)(?:$|\?.*),REJECT-TINYGIF
 # 2. LINE Ad Serving System (LASS) API 攔截 (REJECT-DROP)
 # 針對 LASS 廣告服務 API，直接丟棄封包以節省流量
-URL-REGEX, ^https:\/\/a\.line\.me\/lass\/api\/v\d\/ads(?:$|\?.*), REJECT-DROP
+URL-REGEX, ^https:\/\/a\.line\.me\/lass\/api\/v\d\/ads(?:$|\?.*),REJECT-DROP
 # 3. LINE 官方帳號與客服遙測攔截 (REJECT-DROP)
 # 針對官方帳號 (OA) 與客服系統 (CS) 的事件追蹤與遙測數據
-URL-REGEX, ^https:\/\/a\.line\.me\/(?:oa|cs)\/v\d\/(?:e|oa)(?:$|\?.*), REJECT-DROP
+URL-REGEX, ^https:\/\/a\.line\.me\/(?:oa|cs)\/v\d\/(?:e|oa)(?:$|\?.*),REJECT-DROP
 
 # LINE 網關與事件追蹤 (gw.line.naver.jp)
 # 整合 gw.line.naver.jp 的 LINE Ads (LAD)、LASS API 以及追蹤事件 (TR Event)
-URL-REGEX, ^https:\/\/gw\.line\.naver\.jp\/(?:ext\/lgfp\/lad\/v\d|lass\/api\/v\d\/ads|tr\/event)(?:$|\?.*), REJECT
+URL-REGEX, ^https:\/\/gw\.line\.naver\.jp\/(?:ext\/lgfp\/lad\/v\d|lass\/api\/v\d\/ads|tr\/event)(?:$|\?.*),REJECT
 
 # Smart Channel 與內部 API (legy.line-apps.com)
 URL-REGEX,^https:\/\/legy\.line-apps\.com(:443)?\/ext\/lgfp\/lad\/v\d+,REJECT
@@ -53,13 +53,13 @@ URL-REGEX,^https:\/\/legy\.line-apps\.com(:443)?\/tr\/event$,REJECT-DROP
 
 # LINE 廣告平台與排程 API (REJECT-DROP)
 # 整合 w.line.me (ADP) 與 sch.line.me (Schedule) 的廣告 API，使用 DROP 節省流量
-URL-REGEX, ^https:\/\/(?:w\.line\.me\/adp\/api\/ad|sch\.line\.me\/api)\/v\d\/.*(?:$|\?.*), REJECT-DROP
+URL-REGEX, ^https:\/\/(?:w\.line\.me\/adp\/api\/ad|sch\.line\.me\/api)\/v\d\/.*(?:$|\?.*),REJECT-DROP
 # LINE 購物 API (REJECT)
 # 針對 buy.line.me 的 GraphQL API
-URL-REGEX, ^https:\/\/buy\.line\.me\/api\/graphql\?variables(?:$|\?.*), REJECT
+URL-REGEX, ^https:\/\/buy\.line\.me\/api\/graphql\?variables(?:$|\?.*),REJECT
 # LINE 事件追蹤與前端遙測 (REJECT-DROP)
-# 整合 crs-event.line.me 的曝光追蹤與 uts-front.line-apps.com 的事件/設定回報
-URL-REGEX, ^https:\/\/(?:crs-event\.line\.me\/v\d\/imp|uts-front\.line-apps\.com\/(?:event|settings))(?:$|\?.*), REJECT-DROP
+# 整合 crs-event.line.me 的曝光追蹤
+URL-REGEX, ^https:\/\/(?:crs-event\.line\.me\/v\d\/imp),REJECT-DROP
 
 # ==========================================
 # 區域 2: 圖片與媒體廣告 (obs / scdn / ad)
@@ -147,4 +147,4 @@ URL-REGEX,^https:\/\/real-time-ad\.line\.me\/.*\/[0-9a-f]{32},REJECT
 URL-REGEX,^https:\/\/(partner-ad|affiliate|external-ad|network-ad)\.line\.(me|com|net|apps)\/.*$,REJECT
 
 [MITM]
-hostname = %APPEND% a.line.me, ad.line-scdn.net, w.line.me, gw.line.naver.jp, lan.line.me, buy.line.me, crs-event.line.me, obs.line-scdn.net, d.line-scdn.net, scdn.line-apps.com, sch.line.me, static.line-scdn.net, nelo2-col.linecorp.com, uts-front.line-apps.com, cix.line-apps.com, legy.line-apps.com, ec-bot-obs.line-scdn.net, api.line.me, analytics.line.me, stat.line-apps.com, track.line.me, metrics.line-apps.com, collect.line-apps.com, telemetry.line.me, beacon.line.me, targeting.line.me, behavioral.line.me, personalized.line-apps.com, recommend-ad.line.me, splash.line.me, startup-ad.line-scdn.net, dynamic-ad.line-scdn.net, vdn.line-scdn.net, today-api.line-apps.com, voom.line.me, timeline.line.me, oa.line.biz, live.line.me, live-api.line-apps.com, shopping.line.me, pay.line.me, point-ad.line.me, reward.line.me, place.line.me, gift.line.me, webtoon.line.me, manga.line.me, friend.line.me, push.line.me, push-api.line.me, real-time-ad.line.me, partner-ad.line-scdn.net, affiliate.line.me, external-ad.line.me, network-ad.line-apps.com
+hostname = %APPEND% a.line.me, ad.line-scdn.net, w.line.me, gw.line.naver.jp, lan.line.me, buy.line.me, crs-event.line.me, obs.line-scdn.net, d.line-scdn.net, scdn.line-apps.com, sch.line.me, static.line-scdn.net, nelo2-col.linecorp.com, cix.line-apps.com, legy.line-apps.com, ec-bot-obs.line-scdn.net, api.line.me, analytics.line.me, stat.line-apps.com, track.line.me, metrics.line-apps.com, collect.line-apps.com, telemetry.line.me, beacon.line.me, targeting.line.me, behavioral.line.me, personalized.line-apps.com, recommend-ad.line.me, splash.line.me, startup-ad.line-scdn.net, dynamic-ad.line-scdn.net, vdn.line-scdn.net, today-api.line-apps.com, voom.line.me, timeline.line.me, oa.line.biz, live.line.me, live-api.line-apps.com, shopping.line.me, pay.line.me, point-ad.line.me, reward.line.me, place.line.me, gift.line.me, webtoon.line.me, manga.line.me, friend.line.me, push.line.me, push-api.line.me, real-time-ad.line.me, partner-ad.line-scdn.net, affiliate.line.me, external-ad.line.me, network-ad.line-apps.com
