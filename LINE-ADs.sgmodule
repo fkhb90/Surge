@@ -51,9 +51,6 @@ URL-REGEX,^https:\/\/legy\.line-apps\.com(:443)?\/ext\/(smartch|today)\/.*\/ad\/
 URL-REGEX,^https:\/\/legy\.line-apps\.com(:443)?\/line\.gcs\.GcsModuleService\/GetModulesByModuleIds$,REJECT
 URL-REGEX,^https:\/\/legy\.line-apps\.com(:443)?\/tr\/event$,REJECT-DROP
 
-# LINE 內部遙測與 iOS 介面配置 (REJECT)
-# 整合 lan.line.me 的 iOS 配置與 cix.line-apps.com 的追蹤
-URL-REGEX, ^https:\/\/(?:lan\.line\.me\/v1\/line\/ios|cix\.line-apps\.com\/R4\?)(?:$|\?.*), REJECT
 # LINE 廣告平台與排程 API (REJECT-DROP)
 # 整合 w.line.me (ADP) 與 sch.line.me (Schedule) 的廣告 API，使用 DROP 節省流量
 URL-REGEX, ^https:\/\/(?:w\.line\.me\/adp\/api\/ad|sch\.line\.me\/api)\/v\d\/.*(?:$|\?.*), REJECT-DROP
