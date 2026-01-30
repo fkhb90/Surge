@@ -1,10 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.38.js
- * @version   43.38 (iCloud Telemetry Fix)
- * @description [V43.38] 邏輯優先權修復：
- * 1) [Fix] 將 'metrics.icloud.com' 升級至 PRIORITY_BLOCK (P0)。
- * 原因：'icloud.com' 位於強制白名單中，導致一般阻擋無效。P0 優先級高於白名單，可成功攔截。
- * 2) [Base] 包含 V43.37 的語法修復與台灣社群廣告規則。
+ * @file      URL-Ultimate-Filter-Surge-V43.41.js
+ * @version   43.41 (LTN Cache False Positive Fix)
+ * @description [V43.41] 誤殺修正與精細化：
+ * 1) [Fix] 移除 'cache.ltn.com.tw' 的全域阻擋。
+ * 原因：該網域承載自由時報的 UI 圖示與靜態資源，全域阻擋會導致頁面破損。
+ * 註：該網域下的廣告腳本 (如 showCoverAd.min.js) 已由 CRITICAL_PATH.SCRIPTS 接管攔截。
+ * 2) [Base] 繼承 V43.40 所有規則 (Google/YouTube Telemetry Block)。
  * @lastUpdated 2026-02-04
  */
 
@@ -29,9 +30,9 @@ const OAUTH_SAFE_HARBOR = {
 const RULES = {
   // [1] P0 Priority Block (High Risk / Telemetry / Wildcard AdNets)
   // 此清單支援後綴匹配 (Suffix Matching)
-  // [Logic] P0 執行順序優於 HARD_WHITELIST，專門用於攔截白名單網域下的黑名單子網域
+  // [Logic] P0 執行順序優於 HARD_WHITELIST
   PRIORITY_BLOCK_DOMAINS: new Set([
-    // [V43.38] iCloud Telemetry (Promoted to P0 to bypass icloud.com whitelist)
+    // iCloud Telemetry (Bypass icloud.com whitelist)
     'metrics.icloud.com',
 
     'slackb.com',
@@ -148,7 +149,6 @@ const RULES = {
       'prism.ec.yahoo.com', 'graphql.ec.yahoo.com', 'visuals.feedly.com', 'api.revenuecat.com',
       'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com',
       'cmapi.tw.coupang.com',
-      // [V43.37] Common IP Check Service (Prevent false positives)
       'api.ipify.org'
     ]),
     WILDCARDS: [
@@ -182,8 +182,8 @@ const RULES = {
     'analytics.shopee.tw', 'dmp.shopee.tw',
     'analysis.momoshop.com.tw', 'event.momoshop.com.tw', 'sspap.momoshop.com.tw',
     'analytics.etmall.com.tw', 'pixel.momoshop.com.tw', 'trace.momoshop.com.tw',
-    
-    // [V43.38] Removed 'metrics.icloud.com' (Moved to PRIORITY_BLOCK_DOMAINS)
+
+    // [V43.41] Removed 'cache.ltn.com.tw' (It hosts legitimate UI assets)
 
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
     'browser-intake-datadoghq.us', 'bam.nr-data.net', 'bam-cell.nr-data.net',
@@ -224,7 +224,7 @@ const RULES = {
     'growingio.com', 'igexin.com', 'jpush.cn', 'kuaishou.com', 'miaozhen.com', 'mmstat.com',
     'pangolin-sdk-toutiao.com', 'talkingdata.cn', 'tanx.com', 'umeng.cn', 'umeng.co',
     'umengcloud.com', 'youmi.net', 'zhugeio.com',
-    'cache.ltn.com.tw', 'adnext-a.akamaihd.net', 'appnext.hs.llnwd.net', 'fusioncdn.com',
+    'adnext-a.akamaihd.net', 'appnext.hs.llnwd.net', 'fusioncdn.com',
     'toots-a.akamaihd.net',
     'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com', 'events.tiktok.com',
     'abema-adx.ameba.jp', 'ad.12306.cn', 'ad.360in.com', 'adroll.com', 'ads.yahoo.com', 
@@ -256,6 +256,9 @@ const RULES = {
       '/utm.gif', '/event.gif',
       '/bk', '/bk.gif', 
       
+      // [V43.39] YouTube Feedback Telemetry
+      '/youtubei/v1/feedback',
+
       // Legacy & Previous
       '/collect', '/events', '/telemetry', '/metrics', '/traces', '/track', '/beacon', '/pixel',
       '/v1/collect', '/v1/events', '/v1/track', '/v1/telemetry', '/v1/metrics', '/v1/log', '/v1/traces',
@@ -306,6 +309,9 @@ const RULES = {
       'device-uuid.js'
     ]),
     MAP: new Map([
+      // [V43.40] Google Telemetry Block
+      ['www.google.com', new Set(['/log', '/pagead/1p-user-list/'])],
+
       ['js.stripe.com', new Set(['/fingerprinted/'])],
       ['chatgpt.com', new Set(['/ces/statsc/flush', '/v1/rgstr'])],
       ['tw.fd-api.com', new Set(['/api/v5/action-log'])],
@@ -850,5 +856,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.38 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.41 Active\n${stats.toString()}` });
 }
