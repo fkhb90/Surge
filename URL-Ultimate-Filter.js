@@ -1,9 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.44.js
- * @version   43.44 (Omni Media Ad Block)
- * @description [V43.44] 台灣廣告網路強化：
- * 1) [New] 新增 'adsv.omgrmn.tw' (Omni Media 奧米互動) 至 P0 優先攔截。
- * 2) [Base] 繼承 V43.43 所有規則 (IMA SDK, LTN API Fixes)。
+ * @file      URL-Ultimate-Filter-Surge-V43.47.js
+ * @version   43.47 (UI Portal Whitelist Removal)
+ * @description [V43.47] 規則精簡化：
+ * 1) [Revert] 將 'ui-portal.de' 移出 SOFT_WHITELIST。
+ * 原因：依使用者策略調整，回歸預設檢查機制。
+ * 2) [Keep] 保留 'wa.ui-portal.de' 在 P0 優先攔截 (V43.46)。
+ * 3) [Base] 繼承 V43.46 所有規則。
  * @lastUpdated 2026-02-04
  */
 
@@ -30,7 +32,10 @@ const RULES = {
   // 此清單支援後綴匹配 (Suffix Matching)
   // [Logic] P0 執行順序優於 HARD_WHITELIST
   PRIORITY_BLOCK_DOMAINS: new Set([
-    // [V43.44] Omni Media (Taiwan AdNet)
+    // United Internet Analytics (Bypass ui-portal.de whitelist)
+    'wa.ui-portal.de',
+
+    // Omni Media (Taiwan AdNet)
     'adsv.omgrmn.tw',
 
     // Google IMA SDK (Video Ads) - Bypass googleapis.com whitelist
@@ -178,6 +183,7 @@ const RULES = {
       'postimg.cc', 'prnt.sc', 'sfile.mobi', 'thefileslocker.net', 'turboimagehost.com', 'uploadhaven.com',
       'uploadrar.com', 'usersdrive.com',
       '__sbcdn'
+      // [V43.47] Removed 'ui-portal.de'
     ]
   },
 
@@ -861,5 +867,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.44 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.47 Active\n${stats.toString()}` });
 }
