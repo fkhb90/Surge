@@ -1,10 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.42.js
- * @version   43.42 (LTN Data API Protection)
- * @description [V43.42] 內容 API 保護與淨化：
- * 1) [Safe] 將 'gcp-data-api.ltn.com.tw' 加入 SOFT_WHITELIST。
- * 原因：此為自由時報核心內容 API (如 /hot, /related)，需防止被誤殺，同時保留去除 UTM 參數的功能。
- * 2) [Base] 繼承 V43.41 所有規則 (LTN Cache Fix)。
+ * @file      URL-Ultimate-Filter-Surge-V43.43.js
+ * @version   43.43 (IMA SDK Block & LTN API Exemption)
+ * @description [V43.43] 影音廣告攔截與 API 穩定性修復：
+ * 1) [Block] 將 'imasdk.googleapis.com' (Google Video Ads) 納入 P0 優先攔截，去除影音貼片廣告。
+ * 2) [Fix] 將 'gcp-data-api.ltn.com.tw' 加入參數淨化豁免清單。
+ * 原因：API 請求若遭遇 302 重導向 (參數淨化) 容易導致 App 連線失敗，改為直接放行。
+ * 3) [Base] 繼承 V43.42 所有規則。
  * @lastUpdated 2026-02-04
  */
 
@@ -31,6 +32,9 @@ const RULES = {
   // 此清單支援後綴匹配 (Suffix Matching)
   // [Logic] P0 執行順序優於 HARD_WHITELIST
   PRIORITY_BLOCK_DOMAINS: new Set([
+    // [V43.43] Google IMA SDK (Video Ads) - Bypass googleapis.com whitelist
+    'imasdk.googleapis.com',
+
     // iCloud Telemetry (Bypass icloud.com whitelist)
     'metrics.icloud.com',
 
@@ -149,8 +153,6 @@ const RULES = {
       'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com',
       'cmapi.tw.coupang.com',
       'api.ipify.org',
-      
-      // [V43.42] LTN Content API (Protect from false positives)
       'gcp-data-api.ltn.com.tw'
     ]),
     WILDCARDS: [
@@ -487,7 +489,9 @@ const RULES = {
         ['www.google.com', new Set(['/maps/'])],
         ['taxi.sleepnova.org', new Set(['/api/v4/routes_estimate'])],
         ['cmapi.tw.coupang.com', new Set(['/'])],
-        ['accounts.felo.me', new Set(['/'])]
+        ['accounts.felo.me', new Set(['/'])],
+        // [V43.43] Exempt LTN API from 302 redirects to prevent app failures
+        ['gcp-data-api.ltn.com.tw', new Set(['/'])]
     ])
   },
 
@@ -856,5 +860,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.42 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.43 Active\n${stats.toString()}` });
 }
