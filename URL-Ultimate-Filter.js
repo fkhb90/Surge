@@ -1,11 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.47.js
- * @version   43.47 (UI Portal Whitelist Removal)
- * @description [V43.47] 規則精簡化：
- * 1) [Revert] 將 'ui-portal.de' 移出 SOFT_WHITELIST。
- * 原因：依使用者策略調整，回歸預設檢查機制。
- * 2) [Keep] 保留 'wa.ui-portal.de' 在 P0 優先攔截 (V43.46)。
- * 3) [Base] 繼承 V43.46 所有規則。
+ * @file      URL-Ultimate-Filter-Surge-V43.48.js
+ * @version   43.48 (Aotter Fix)
+ * @description [V43.48] 電獺少女誤殺修正：
+ * 1) [Move] 將 'aotter.net' 從 P0 優先攔截移除，移至 Regex 黑名單。
+ * 2) [Allow] 新增 'agirls.aotter.net' 至 HARD_WHITELIST。
+ * 原因：解決內容網站與廣告網域共用導致的誤殺問題，同時維持對追蹤器的攔截。
+ * 3) [Base] 繼承 V43.47 所有規則。
  * @lastUpdated 2026-02-04
  */
 
@@ -61,7 +61,7 @@ const RULES = {
     'ad-tracking.dcard.tw',  // Dcard Tracking
     'b.bridgewell.com', 
     'scupio.com',
-    'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'aotter.net', 'cacafly.com',
+    'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'cacafly.com', // Removed 'aotter.net' from P0 [V43.48]
     'clickforce.com.tw', 'fast-trk.com', 'funp.com', 'guoshipartners.com',
     'imedia.com.tw', 'is-tracking.com', 'likr.tw', 'sitetag.us', 'tagtoo.co',
     'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com', 
@@ -127,6 +127,7 @@ const RULES = {
       'pro.104.com.tw', 'gov.tw'
     ]),
     WILDCARDS: [
+      'agirls.aotter.net', // [V43.48] Allow Aotter Girls (Content Site)
       'query1.finance.yahoo.com', 'query2.finance.yahoo.com',
       
       'shopee.tw',
@@ -183,7 +184,6 @@ const RULES = {
       'postimg.cc', 'prnt.sc', 'sfile.mobi', 'thefileslocker.net', 'turboimagehost.com', 'uploadhaven.com',
       'uploadrar.com', 'usersdrive.com',
       '__sbcdn'
-      // [V43.47] Removed 'ui-portal.de'
     ]
   },
 
@@ -248,7 +248,9 @@ const RULES = {
     /^ad[s]?\d*\.(ettoday\.net|ltn\.com\.tw)$/i,
     /^(.+\.)?sentry\.io$/i,
     /^(.+\.)?browser-intake-datadoghq\.(com|eu|us)$/i,
-    /^(.+\.)?lr-ingest\.io$/i
+    /^(.+\.)?lr-ingest\.io$/i,
+    // [V43.48] Moved 'aotter.net' here to allow whitelisting of subdomains
+    /^(.+\.)?aotter\.net$/i
   ],
 
   // [4] Critical Path Blocking
@@ -867,5 +869,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.47 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.48 Active\n${stats.toString()}` });
 }
