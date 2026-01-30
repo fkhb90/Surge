@@ -1,11 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.41.js
- * @version   43.41 (LTN Cache False Positive Fix)
- * @description [V43.41] 誤殺修正與精細化：
- * 1) [Fix] 移除 'cache.ltn.com.tw' 的全域阻擋。
- * 原因：該網域承載自由時報的 UI 圖示與靜態資源，全域阻擋會導致頁面破損。
- * 註：該網域下的廣告腳本 (如 showCoverAd.min.js) 已由 CRITICAL_PATH.SCRIPTS 接管攔截。
- * 2) [Base] 繼承 V43.40 所有規則 (Google/YouTube Telemetry Block)。
+ * @file      URL-Ultimate-Filter-Surge-V43.42.js
+ * @version   43.42 (LTN Data API Protection)
+ * @description [V43.42] 內容 API 保護與淨化：
+ * 1) [Safe] 將 'gcp-data-api.ltn.com.tw' 加入 SOFT_WHITELIST。
+ * 原因：此為自由時報核心內容 API (如 /hot, /related)，需防止被誤殺，同時保留去除 UTM 參數的功能。
+ * 2) [Base] 繼承 V43.41 所有規則 (LTN Cache Fix)。
  * @lastUpdated 2026-02-04
  */
 
@@ -149,7 +148,10 @@ const RULES = {
       'prism.ec.yahoo.com', 'graphql.ec.yahoo.com', 'visuals.feedly.com', 'api.revenuecat.com',
       'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com',
       'cmapi.tw.coupang.com',
-      'api.ipify.org'
+      'api.ipify.org',
+      
+      // [V43.42] LTN Content API (Protect from false positives)
+      'gcp-data-api.ltn.com.tw'
     ]),
     WILDCARDS: [
       'chatgpt.com',
@@ -182,8 +184,6 @@ const RULES = {
     'analytics.shopee.tw', 'dmp.shopee.tw',
     'analysis.momoshop.com.tw', 'event.momoshop.com.tw', 'sspap.momoshop.com.tw',
     'analytics.etmall.com.tw', 'pixel.momoshop.com.tw', 'trace.momoshop.com.tw',
-
-    // [V43.41] Removed 'cache.ltn.com.tw' (It hosts legitimate UI assets)
 
     'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
     'browser-intake-datadoghq.us', 'bam.nr-data.net', 'bam-cell.nr-data.net',
@@ -856,5 +856,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.41 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.42 Active\n${stats.toString()}` });
 }
