@@ -1,11 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.43.js
- * @version   43.43 (IMA SDK Block & LTN API Exemption)
- * @description [V43.43] 影音廣告攔截與 API 穩定性修復：
- * 1) [Block] 將 'imasdk.googleapis.com' (Google Video Ads) 納入 P0 優先攔截，去除影音貼片廣告。
- * 2) [Fix] 將 'gcp-data-api.ltn.com.tw' 加入參數淨化豁免清單。
- * 原因：API 請求若遭遇 302 重導向 (參數淨化) 容易導致 App 連線失敗，改為直接放行。
- * 3) [Base] 繼承 V43.42 所有規則。
+ * @file      URL-Ultimate-Filter-Surge-V43.44.js
+ * @version   43.44 (Omni Media Ad Block)
+ * @description [V43.44] 台灣廣告網路強化：
+ * 1) [New] 新增 'adsv.omgrmn.tw' (Omni Media 奧米互動) 至 P0 優先攔截。
+ * 2) [Base] 繼承 V43.43 所有規則 (IMA SDK, LTN API Fixes)。
  * @lastUpdated 2026-02-04
  */
 
@@ -32,7 +30,10 @@ const RULES = {
   // 此清單支援後綴匹配 (Suffix Matching)
   // [Logic] P0 執行順序優於 HARD_WHITELIST
   PRIORITY_BLOCK_DOMAINS: new Set([
-    // [V43.43] Google IMA SDK (Video Ads) - Bypass googleapis.com whitelist
+    // [V43.44] Omni Media (Taiwan AdNet)
+    'adsv.omgrmn.tw',
+
+    // Google IMA SDK (Video Ads) - Bypass googleapis.com whitelist
     'imasdk.googleapis.com',
 
     // iCloud Telemetry (Bypass icloud.com whitelist)
@@ -860,5 +861,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.43 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.44 Active\n${stats.toString()}` });
 }
