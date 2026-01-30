@@ -13,6 +13,7 @@
 DOMAIN-SUFFIX,vdn.line-scdn.net,DIRECT
 DOMAIN-SUFFIX,yuki-cdn.line-apps.com,DIRECT
 DOMAIN-SUFFIX,cix.line-apps.com,DIRECT
+DOMAIN-SUFFIX,uts-front.line-apps.com,DIRECT
 URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/ext\/album\/api\/v\d+\/albums\/(?:preview|\d+\/photos(?:\/\d+\/likes\/preview)?)(?:\?.*)?$,DIRECT
 URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/ext\/album\/?$,DIRECT
 URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/[A-Z0-9]+(\?.*)?$,DIRECT
