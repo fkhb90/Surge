@@ -1,11 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.63.js
- * @version   43.63 (Google Redirect Fix)
- * @description [V43.63] Google 重定向路徑豁免：
- * 1) [Exempt] 對 'www.google.com' 的 '/url' 與 '/search' 路徑進行關鍵字掃描豁免。
- * 原因：防止 Google 重定向連結因攜帶惡意參數 (如 q=...tracker...) 而被主過濾器誤殺 (Blocked by Keyword)，
- * 導致下游的 Google Unwrap 腳本無法執行。
- * 2) [Base] 繼承 V43.62 所有規則 (含 SendGrid Whitelist)。
+ * @file      URL-Ultimate-Filter-Surge-V43.65.js
+ * @version   43.65 (Google Log Fake-Success)
+ * @description [V43.65] 高頻日誌請求策略修正：
+ * 1) [Strategy Change] 針對 '/log/batch' 等高頻請求，從 '204 No Content' 改為 '200 OK' + Empty JSON。
+ * 原因：Google 客戶端會將 204 視為上傳失敗並持續重試。回傳 200 會欺騙客戶端認為上傳成功，從而停止請求。
+ * 2) [Base] 繼承 V43.64 所有規則。
  * @lastUpdated 2026-02-05
  */
 
@@ -27,6 +26,15 @@ const OAUTH_SAFE_HARBOR = {
 // #################################################################################################
 
 const RULES = {
+  // [Strategy] Fake Success for High Frequency Logs (Save CPU & Battery)
+  // Returns 200 OK with empty JSON to satisfy the client and stop retries.
+  EARLY_MOCK_PATHS: [
+      '/log/batch', 
+      '/api/v1/log',
+      '/android/log',
+      'log-receiver'
+  ],
+
   // [1] P0 Priority Block (High Risk / Telemetry / Wildcard AdNets)
   PRIORITY_BLOCK_DOMAINS: new Set([
     // [V43.61] 360 (Qihoo) Ecosystem
@@ -683,6 +691,21 @@ function processRequest(request) {
         pathLower = (urlObj.pathname + urlObj.search).toLowerCase();
     }
 
+    // [New] Early Mock for High-Frequency Logs
+    for (const earlyMockPath of RULES.EARLY_MOCK_PATHS) {
+        if (pathLower.includes(earlyMockPath)) {
+            stats.blocks++;
+            if (CONFIG.DEBUG_MODE) console.log(`[Mock] Early Success (200): ${pathLower}`);
+            return { 
+                response: { 
+                    status: 200, 
+                    body: "{}", 
+                    headers: { 'Content-Type': 'application/json' } 
+                } 
+            }; 
+        }
+    }
+
     if (pathLower.includes('/accounts/checkconnection')) {
         return { response: { status: 204 } };
     }
@@ -803,5 +826,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.63 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.65 Active\n${stats.toString()}` });
 }
