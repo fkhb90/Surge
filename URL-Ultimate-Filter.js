@@ -1,12 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.60.js
- * @version   43.60 (Quark Stat Block Fix)
- * @description [V43.60] 夸克瀏覽器追蹤器精準封鎖：
- * 1) [Block] 新增 'stat.quark.cn' 至 P0 優先封鎖列表。
- * 原因：修正 V43.59 雖然放行了主網域，但遺漏了此數據收集端點的問題。
- * 2) [Keep] 保持 'quark.cn' 主網域放行。
- * 3) [Base] 繼承 V43.59 所有其他規則。
- * @lastUpdated 2026-02-04
+ * @file      URL-Ultimate-Filter-Surge-V43.61.js
+ * @version   43.61 (CN Browsers Split-Horizon)
+ * @description [V43.61] 國產瀏覽器隱私分流總體檢：
+ * 1) [Block] 將 360/Sogou/Baidu 的核心追蹤器 (stat, ping, hm) 提升至 P0 封鎖。
+ * 2) [Allow] 確保上述瀏覽器的主網域 (首頁/搜尋) 不受影響。
+ * 3) [Base] 繼承 V43.60 (Quark Stat Block) 所有規則。
+ * @lastUpdated 2026-02-05
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 1024 };
@@ -31,18 +30,38 @@ const RULES = {
   // 此清單支援後綴匹配 (Suffix Matching)
   // [Logic] P0 執行順序優於 HARD_WHITELIST
   PRIORITY_BLOCK_DOMAINS: new Set([
-    // [V43.58] Alibaba / UC Ecosystem Extended Block (The Hydra)
+    // [V43.61] 360 (Qihoo) Ecosystem Telemetry
+    's.360.cn',         // 360 Statistics
+    'stat.360.cn',      // 360 Global Stat
+    'shouji.360.cn',    // 360 Mobile Assistant Telemetry
+    'browser.360.cn',   // Browser Usage Data (Careful: Check if breaks update)
+    
+    // [V43.61] Sogou Ecosystem Telemetry
+    'ping.sogou.com',   // Sogou Ping/Heartbeat
+    'pb.sogou.com',     // Sogou Pixel Beacon
+    'inte.sogou.com',   // Intelligence/Analytics
+    'lu.sogou.com',     // Log Upload
+
+    // [V43.61] Baidu Ecosystem (Reinforced P0)
+    'hm.baidu.com',     // Baidu Tongji (Global #1 CN Tracker)
+    'pos.baidu.com',    // Baidu Ad Position
+    'wn.pos.baidu.com', // Baidu Ad Delivery
+    'sp0.baidu.com',    // Speed/Performance Tracker
+    'sp1.baidu.com',
+    'sofire.baidu.com', // Baidu App Analytics
+
+    // [V43.60] Quark / Alibaba / UC Ecosystem (Inherited)
     'sm.cn',            // Shenma Search (Tracking)
-    // 'quark.cn',      // REMOVED in V43.59 (User Request)
     'uczzd.cn',         // UC Headlines (Ads)
     'tanx.com',         // Alibaba Ad Exchange
     'alimama.com',      // Alibaba Ad Union
-    'mmstat.com',       // Alibaba Analytics (Specific)
-    'ynuf.alipay.com',  // Alipay Security/Tracking (Unified)
-
-    // [V43.57] UC Browser Core
+    'mmstat.com',       // Alibaba Analytics
+    'ynuf.alipay.com',  // Alipay Security/Tracking
     'uc.cn',            // UC China Root
-    'ucweb.com',        // UC Global Root (Includes ut.ucweb.com)
+    'ucweb.com',        // UC Global Root
+    'stat.quark.cn',    // Quark Statistics (V43.60 Fix)
+    'unpm-upaas.quark.cn', 
+    'cms-statistics.quark.cn',
 
     // [V43.56] China Export Apps Telemetry (TikTok, Shein)
     'mon.tiktokv.com',
@@ -78,11 +97,6 @@ const RULES = {
     'metrics.icloud.com',
 
     'slackb.com',
-    
-    // [V43.60] Specific Quark Trackers (Fixed: Added stat.quark.cn)
-    'unpm-upaas.quark.cn', 
-    'cms-statistics.quark.cn', 
-    'stat.quark.cn', // <-- ADDED: User Request to Block Statistics
     
     'applog.uc.cn',
     'ecdmp.momoshop.com.tw',
@@ -908,5 +922,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.60 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.61 Active\n${stats.toString()}` });
 }
