@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.66.js
- * @version   43.66 (Google Log 429 Backoff)
- * @description [V43.66] Google 日誌最終策略 - 強制退避：
- * 1) [Strategy Change] 針對 '/log/batch' 等請求，改為回傳 429 Too Many Requests + Retry-After 標頭。
- * 原因：200 OK 導致客戶端誤以為連線順暢而加速清空緩存隊列。429 是標準的「請稍後再試」信號。
- * 2) [Base] 繼承 V43.63 (Google Redirect Fix) 的核心邏輯。
+ * @file      URL-Ultimate-Filter-Surge-V43.67.js
+ * @version   43.67 (Regression & Surge Offload)
+ * @description [V43.67] 策略回退與卸載：
+ * 1) [Revert] 回退至 V43.63 核心邏輯，移除所有針對 Log Batch 的 HTTP 狀態碼實驗 (200/204/429)。
+ * 2) [Exempt] 對 'play.googleapis.com/log/batch' 進行腳本豁免 (Allow)。
+ * 原因：將此頑強流量的處置權交還給 Surge 主程式，配合 [Rule] REJECT-DROP 實現最節能的 TCP 層阻斷。
  * @lastUpdated 2026-02-05
  */
 
@@ -26,15 +26,6 @@ const OAUTH_SAFE_HARBOR = {
 // #################################################################################################
 
 const RULES = {
-  // [Strategy] HTTP 429 Too Many Requests (The "Shut Up" Protocol)
-  // Tells the client to stop sending requests for a specified time (Retry-After).
-  EARLY_BACKOFF_PATHS: [
-      '/log/batch', 
-      '/api/v1/log',
-      '/android/log',
-      'log-receiver'
-  ],
-
   // [1] P0 Priority Block (High Risk / Telemetry / Wildcard AdNets)
   PRIORITY_BLOCK_DOMAINS: new Set([
     // [V43.61] 360 (Qihoo) Ecosystem
@@ -491,8 +482,10 @@ const RULES = {
     PATH_EXEMPTIONS: new Map([
         ['shopee.tw', new Set(['/api/v4/search/search_items'])],
         ['cmapi.tw.coupang.com', new Set(['/vendor-items/'])],
-        // [V43.63] Google Redirect Exemption to prevent keyword blocking on wrapper
-        ['www.google.com', new Set(['/url', '/search'])]
+        // [V43.63] Google Redirect Exemption
+        ['www.google.com', new Set(['/url', '/search'])],
+        // [V43.67] Surge Offload Exemption: Allow script to ignore Log Batch so Rule can REJECT-DROP
+        ['play.googleapis.com', new Set(['/log/batch'])]
     ])
   }
 };
@@ -691,24 +684,6 @@ function processRequest(request) {
         pathLower = (urlObj.pathname + urlObj.search).toLowerCase();
     }
 
-    // [New] Early Backoff for High-Frequency Logs (429)
-    for (const earlyBackoffPath of RULES.EARLY_BACKOFF_PATHS) {
-        if (pathLower.includes(earlyBackoffPath)) {
-            stats.blocks++;
-            if (CONFIG.DEBUG_MODE) console.log(`[Backoff] 429 Retry-After: ${pathLower}`);
-            return { 
-                response: { 
-                    status: 429, 
-                    headers: { 
-                        'Retry-After': '3600', // Tell client to wait 1 hour
-                        'Cache-Control': 'no-store'
-                    },
-                    body: 'Too Many Requests'
-                } 
-            }; 
-        }
-    }
-
     if (pathLower.includes('/accounts/checkconnection')) {
         return { response: { status: 204 } };
     }
@@ -829,5 +804,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.66 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.67 Active\n${stats.toString()}` });
 }
