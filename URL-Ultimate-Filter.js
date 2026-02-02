@@ -1,11 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.63.js
- * @version   43.63 (Google Redirect Fix)
- * @description [V43.63] Google 重定向路徑豁免：
- * 1) [Exempt] 對 'www.google.com' 的 '/url' 與 '/search' 路徑進行關鍵字掃描豁免。
- * 原因：防止 Google 重定向連結因攜帶惡意參數 (如 q=...tracker...) 而被主過濾器誤殺 (Blocked by Keyword)，
- * 導致下游的 Google Unwrap 腳本無法執行。
- * 2) [Base] 繼承 V43.62 所有規則 (含 SendGrid Whitelist)。
+ * @file      URL-Ultimate-Filter-Surge-V43.64.js
+ * @version   43.64 (Log Batch Optimization)
+ * @description [V43.64] 高頻日誌請求優化：
+ * 1) [Optimization] 新增 'EARLY_DROP' 機制，針對 '/log/batch' 等高頻請求，在邏輯最前端直接回傳 204 No Content。
+ * 目的：騙過客戶端使其認為上傳成功，停止重試，並節省後續正則比對資源。
+ * 2) [Base] 繼承 V43.63 (Google Redirect Fix) 所有規則。
  * @lastUpdated 2026-02-05
  */
 
@@ -27,6 +26,14 @@ const OAUTH_SAFE_HARBOR = {
 // #################################################################################################
 
 const RULES = {
+  // [New] Early Drop for High Frequency Logs (Save CPU)
+  EARLY_DROP_PATHS: [
+      '/log/batch', 
+      '/api/v1/log',
+      '/android/log',
+      'log-receiver'
+  ],
+
   // [1] P0 Priority Block (High Risk / Telemetry / Wildcard AdNets)
   PRIORITY_BLOCK_DOMAINS: new Set([
     // [V43.61] 360 (Qihoo) Ecosystem
@@ -683,6 +690,15 @@ function processRequest(request) {
         pathLower = (urlObj.pathname + urlObj.search).toLowerCase();
     }
 
+    // [New] Early Drop for High-Frequency Logs
+    for (const earlyDropPath of RULES.EARLY_DROP_PATHS) {
+        if (pathLower.includes(earlyDropPath)) {
+            stats.blocks++;
+            if (CONFIG.DEBUG_MODE) console.log(`[Drop] Early Exit (204): ${pathLower}`);
+            return { response: { status: 204 } }; // Early exit to save resources
+        }
+    }
+
     if (pathLower.includes('/accounts/checkconnection')) {
         return { response: { status: 204 } };
     }
@@ -803,5 +819,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.63 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.64 Active\n${stats.toString()}` });
 }
