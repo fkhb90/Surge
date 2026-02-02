@@ -1,10 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.67.js
- * @version   43.67 (Regression & Surge Offload)
- * @description [V43.67] 策略回退與卸載：
- * 1) [Revert] 回退至 V43.63 核心邏輯，移除所有針對 Log Batch 的 HTTP 狀態碼實驗 (200/204/429)。
- * 2) [Exempt] 對 'play.googleapis.com/log/batch' 進行腳本豁免 (Allow)。
- * 原因：將此頑強流量的處置權交還給 Surge 主程式，配合 [Rule] REJECT-DROP 實現最節能的 TCP 層阻斷。
+ * @file      URL-Ultimate-Filter-Surge-V43.63.js
+ * @version   43.63 (Google Redirect Fix)
+ * @description [V43.63] Google 重定向路徑豁免：
+ * 1) [Exempt] 對 'www.google.com' 的 '/url' 與 '/search' 路徑進行關鍵字掃描豁免。
+ * 原因：防止 Google 重定向連結因攜帶惡意參數 (如 q=...tracker...) 而被主過濾器誤殺 (Blocked by Keyword)，
+ * 導致下游的 Google Unwrap 腳本無法執行。
+ * 2) [Base] 繼承 V43.62 所有規則 (含 SendGrid Whitelist)。
  * @lastUpdated 2026-02-05
  */
 
@@ -482,10 +483,8 @@ const RULES = {
     PATH_EXEMPTIONS: new Map([
         ['shopee.tw', new Set(['/api/v4/search/search_items'])],
         ['cmapi.tw.coupang.com', new Set(['/vendor-items/'])],
-        // [V43.63] Google Redirect Exemption
-        ['www.google.com', new Set(['/url', '/search'])],
-        // [V43.67] Surge Offload Exemption: Allow script to ignore Log Batch so Rule can REJECT-DROP
-        ['play.googleapis.com', new Set(['/log/batch'])]
+        // [V43.63] Google Redirect Exemption to prevent keyword blocking on wrapper
+        ['www.google.com', new Set(['/url', '/search'])]
     ])
   }
 };
@@ -804,5 +803,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.67 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.63 Active\n${stats.toString()}` });
 }
