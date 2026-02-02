@@ -1,11 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.62.js
- * @version   43.62 (SendGrid Guard Compat)
- * @description [V43.62] SendGrid 腳本相容性修復：
- * 1) [Allow] 將 'sendgrid.net' 加入硬白名單 (Hard Whitelist)。
- * 原因：防止主過濾器因關鍵字 (Blocked by Keyword) 誤殺 SendGrid 請求，
- * 導致下游的 SendGrid Guard 腳本無法顯示警告頁面。
- * 2) [Base] 繼承 V43.61 所有規則 (含 360/Sogou/Baidu 分流)。
+ * @file      URL-Ultimate-Filter-Surge-V43.63.js
+ * @version   43.63 (Google Redirect Fix)
+ * @description [V43.63] Google 重定向路徑豁免：
+ * 1) [Exempt] 對 'www.google.com' 的 '/url' 與 '/search' 路徑進行關鍵字掃描豁免。
+ * 原因：防止 Google 重定向連結因攜帶惡意參數 (如 q=...tracker...) 而被主過濾器誤殺 (Blocked by Keyword)，
+ * 導致下游的 Google Unwrap 腳本無法執行。
+ * 2) [Base] 繼承 V43.62 所有規則 (含 SendGrid Whitelist)。
  * @lastUpdated 2026-02-05
  */
 
@@ -482,7 +482,9 @@ const RULES = {
     SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js', 'uploads', 'fonts', 'resources']),
     PATH_EXEMPTIONS: new Map([
         ['shopee.tw', new Set(['/api/v4/search/search_items'])],
-        ['cmapi.tw.coupang.com', new Set(['/vendor-items/'])]
+        ['cmapi.tw.coupang.com', new Set(['/vendor-items/'])],
+        // [V43.63] Google Redirect Exemption to prevent keyword blocking on wrapper
+        ['www.google.com', new Set(['/url', '/search'])]
     ])
   }
 };
@@ -801,5 +803,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.62 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.63 Active\n${stats.toString()}` });
 }
