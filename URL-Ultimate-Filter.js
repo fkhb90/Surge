@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.65.js
- * @version   43.65 (Google Log Fake-Success)
- * @description [V43.65] 高頻日誌請求策略修正：
- * 1) [Strategy Change] 針對 '/log/batch' 等高頻請求，從 '204 No Content' 改為 '200 OK' + Empty JSON。
- * 原因：Google 客戶端會將 204 視為上傳失敗並持續重試。回傳 200 會欺騙客戶端認為上傳成功，從而停止請求。
- * 2) [Base] 繼承 V43.64 所有規則。
+ * @file      URL-Ultimate-Filter-Surge-V43.66.js
+ * @version   43.66 (Google Log 429 Backoff)
+ * @description [V43.66] Google 日誌最終策略 - 強制退避：
+ * 1) [Strategy Change] 針對 '/log/batch' 等請求，改為回傳 429 Too Many Requests + Retry-After 標頭。
+ * 原因：200 OK 導致客戶端誤以為連線順暢而加速清空緩存隊列。429 是標準的「請稍後再試」信號。
+ * 2) [Base] 繼承 V43.63 (Google Redirect Fix) 的核心邏輯。
  * @lastUpdated 2026-02-05
  */
 
@@ -26,9 +26,9 @@ const OAUTH_SAFE_HARBOR = {
 // #################################################################################################
 
 const RULES = {
-  // [Strategy] Fake Success for High Frequency Logs (Save CPU & Battery)
-  // Returns 200 OK with empty JSON to satisfy the client and stop retries.
-  EARLY_MOCK_PATHS: [
+  // [Strategy] HTTP 429 Too Many Requests (The "Shut Up" Protocol)
+  // Tells the client to stop sending requests for a specified time (Retry-After).
+  EARLY_BACKOFF_PATHS: [
       '/log/batch', 
       '/api/v1/log',
       '/android/log',
@@ -691,16 +691,19 @@ function processRequest(request) {
         pathLower = (urlObj.pathname + urlObj.search).toLowerCase();
     }
 
-    // [New] Early Mock for High-Frequency Logs
-    for (const earlyMockPath of RULES.EARLY_MOCK_PATHS) {
-        if (pathLower.includes(earlyMockPath)) {
+    // [New] Early Backoff for High-Frequency Logs (429)
+    for (const earlyBackoffPath of RULES.EARLY_BACKOFF_PATHS) {
+        if (pathLower.includes(earlyBackoffPath)) {
             stats.blocks++;
-            if (CONFIG.DEBUG_MODE) console.log(`[Mock] Early Success (200): ${pathLower}`);
+            if (CONFIG.DEBUG_MODE) console.log(`[Backoff] 429 Retry-After: ${pathLower}`);
             return { 
                 response: { 
-                    status: 200, 
-                    body: "{}", 
-                    headers: { 'Content-Type': 'application/json' } 
+                    status: 429, 
+                    headers: { 
+                        'Retry-After': '3600', // Tell client to wait 1 hour
+                        'Cache-Control': 'no-store'
+                    },
+                    body: 'Too Many Requests'
                 } 
             }; 
         }
@@ -826,5 +829,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.65 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.66 Active\n${stats.toString()}` });
 }
