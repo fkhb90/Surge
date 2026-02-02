@@ -1,17 +1,16 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.48.js
- * @version   43.48 (Aotter Fix)
- * @description [V43.48] 電獺少女誤殺修正：
- * 1) [Move] 將 'aotter.net' 從 P0 優先攔截移除，移至 Regex 黑名單。
- * 2) [Allow] 新增 'agirls.aotter.net' 至 HARD_WHITELIST。
- * 原因：解決內容網站與廣告網域共用導致的誤殺問題，同時維持對追蹤器的攔截。
- * 3) [Base] 繼承 V43.47 所有規則。
+ * @file      URL-Ultimate-Filter-Surge-V43.60.js
+ * @version   43.60 (Quark Stat Block Fix)
+ * @description [V43.60] 夸克瀏覽器追蹤器精準封鎖：
+ * 1) [Block] 新增 'stat.quark.cn' 至 P0 優先封鎖列表。
+ * 原因：修正 V43.59 雖然放行了主網域，但遺漏了此數據收集端點的問題。
+ * 2) [Keep] 保持 'quark.cn' 主網域放行。
+ * 3) [Base] 繼承 V43.59 所有其他規則。
  * @lastUpdated 2026-02-04
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 1024 };
 
-// [V43.25] Moved to top-level to prevent ReferenceError
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
         'accounts.google.com', 'accounts.google.com.tw', 'accounts.youtube.com',
@@ -32,22 +31,59 @@ const RULES = {
   // 此清單支援後綴匹配 (Suffix Matching)
   // [Logic] P0 執行順序優於 HARD_WHITELIST
   PRIORITY_BLOCK_DOMAINS: new Set([
-    // United Internet Analytics (Bypass ui-portal.de whitelist)
+    // [V43.58] Alibaba / UC Ecosystem Extended Block (The Hydra)
+    'sm.cn',            // Shenma Search (Tracking)
+    // 'quark.cn',      // REMOVED in V43.59 (User Request)
+    'uczzd.cn',         // UC Headlines (Ads)
+    'tanx.com',         // Alibaba Ad Exchange
+    'alimama.com',      // Alibaba Ad Union
+    'mmstat.com',       // Alibaba Analytics (Specific)
+    'ynuf.alipay.com',  // Alipay Security/Tracking (Unified)
+
+    // [V43.57] UC Browser Core
+    'uc.cn',            // UC China Root
+    'ucweb.com',        // UC Global Root (Includes ut.ucweb.com)
+
+    // [V43.56] China Export Apps Telemetry (TikTok, Shein)
+    'mon.tiktokv.com',
+    'mon-va.tiktokv.com',
+    'log.tiktokv.com',
+    'log16-normal-c-useast1a.tiktokv.com',
+    'ibytedtos.com',
+    'dc.shein.com',
+    'analysis.shein.com',
+    'st.shein.com',
+    'report.temu.com',
+
+    // [V43.54] IoT / Smart Doorbell Backend
+    'doorphone92.com',
+
+    // [V43.51] Datadog Telemetry
+    'browser-intake-datadoghq.com',
+    'browser-intake-datadoghq.eu',
+    'browser-intake-datadoghq.us',
+    'logs.datadoghq.com',
+    'mobile-http-intake.logs.datadoghq.com',
+
+    // United Internet Analytics
     'wa.ui-portal.de',
 
-    // Omni Media (Taiwan AdNet)
+    // Omni Media
     'adsv.omgrmn.tw',
 
-    // Google IMA SDK (Video Ads) - Bypass googleapis.com whitelist
+    // Google IMA SDK
     'imasdk.googleapis.com',
 
-    // iCloud Telemetry (Bypass icloud.com whitelist)
+    // iCloud Telemetry
     'metrics.icloud.com',
 
     'slackb.com',
-    'log.m.sm.cn',
-    'unpm-upaas.quark.cn',
-    'cms-statistics.quark.cn',
+    
+    // [V43.60] Specific Quark Trackers (Fixed: Added stat.quark.cn)
+    'unpm-upaas.quark.cn', 
+    'cms-statistics.quark.cn', 
+    'stat.quark.cn', // <-- ADDED: User Request to Block Statistics
+    
     'applog.uc.cn',
     'ecdmp.momoshop.com.tw',
     'log.momoshop.com.tw',
@@ -57,11 +93,11 @@ const RULES = {
     'jslog.coupang.com',
     
     // Taiwan Social & Local Ads
-    'ad.gamer.com.tw',       // Bahamut Ads
-    'ad-tracking.dcard.tw',  // Dcard Tracking
+    'ad.gamer.com.tw',
+    'ad-tracking.dcard.tw',
     'b.bridgewell.com', 
     'scupio.com',
-    'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'cacafly.com', // Removed 'aotter.net' from P0 [V43.48]
+    'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'cacafly.com',
     'clickforce.com.tw', 'fast-trk.com', 'funp.com', 'guoshipartners.com',
     'imedia.com.tw', 'is-tracking.com', 'likr.tw', 'sitetag.us', 'tagtoo.co',
     'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com', 
@@ -127,7 +163,7 @@ const RULES = {
       'pro.104.com.tw', 'gov.tw'
     ]),
     WILDCARDS: [
-      'agirls.aotter.net', // [V43.48] Allow Aotter Girls (Content Site)
+      'agirls.aotter.net',
       'query1.finance.yahoo.com', 'query2.finance.yahoo.com',
       
       'shopee.tw',
@@ -188,14 +224,17 @@ const RULES = {
   },
 
   BLOCK_DOMAINS: new Set([
+    // [V43.55] Alibaba / UCWeb Trackers
+    'effirst.com', 'px.effirst.com',
+
     'simonsignal.com', 
     'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw',
     'analytics.shopee.tw', 'dmp.shopee.tw',
     'analysis.momoshop.com.tw', 'event.momoshop.com.tw', 'sspap.momoshop.com.tw',
     'analytics.etmall.com.tw', 'pixel.momoshop.com.tw', 'trace.momoshop.com.tw',
 
-    'browser.sentry-cdn.com', 'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu',
-    'browser-intake-datadoghq.us', 'bam.nr-data.net', 'bam-cell.nr-data.net',
+    'browser.sentry-cdn.com', 
+    'bam.nr-data.net', 'bam-cell.nr-data.net',
     'lrkt-in.com', 'cdn.lr-ingest.com', 'r.lr-ingest.io', 'api-iam.intercom.io',
     'openfpcdn.io', 'fingerprintjs.com', 'fundingchoicesmessages.google.com', 'hotjar.com', 'segment.io',
     'mixpanel.com', 'amplitude.com', 'crazyegg.com', 'bugsnag.com', 'sentry.io', 'newrelic.com',
@@ -869,5 +908,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.48 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.60 Active\n${stats.toString()}` });
 }
