@@ -1,45 +1,63 @@
 /**
- * Traffic Auditor - Diagnostic Mode (強制診斷版)
- * 用途：顯示 Surge 讀取到的底層數據，不進行攔截。
+ * Traffic Auditor (Lite Version)
+ * V4.0 - Header-Only Mode
+ * 解決 requires-body 導致 HTTP/2 腳本不執行的問題
  */
 
-// 1. 取得基本資訊
-const url = $request.url;
-const method = $request.method;
-const headers = $request.headers;
-
-// 2. 診斷 Content-Length 標頭
-// 注意：HTTP/2 或 Chunked 傳輸可能沒有此標頭
-const lenHeader = headers['Content-Length'] || headers['content-length'] || "MISSING";
-
-// 3. 診斷 Body 狀態
-let bodyStatus = "Null";
-let bodySize = 0;
-let bodyType = typeof $request.body;
-
-if ($request.body) {
-    if (bodyType === 'string') {
-        bodyStatus = "String";
-        bodySize = $request.body.length;
-    } else if ($request.body instanceof Uint8Array) {
-        bodyStatus = "Uint8Array (Binary)";
-        bodySize = $request.body.byteLength;
-    } else {
-        bodyStatus = "Unknown Object";
-        // 嘗試一種通用的長度讀取方式
-        bodySize = $request.body.byteLength || $request.body.length || 0;
-    }
+// 1. 解析參數
+let args = {};
+if (typeof $argument !== 'undefined') {
+    $argument.split('&').forEach(item => {
+        let [key, value] = item.split('=');
+        if (key && value) args[key.trim()] = value.trim();
+    });
 }
 
-// 4. 強制輸出診斷日誌 (請在 Surge Dashboard > Recent Requests > Notes 查看)
-console.log(`\n========== [Traffic Diagnostic] ==========`);
-console.log(`URL: ${url}`);
-console.log(`Method: ${method}`);
-console.log(`Header[Content-Length]: ${lenHeader}`);
-console.log(`Body Type: ${bodyType}`);
-console.log(`Body Status: ${bodyStatus}`);
-console.log(`Calculated Size: ${bodySize} bytes`);
-console.log(`==========================================\n`);
+const MODE = args.mode || "monitor";
+const THRESHOLD = parseInt(args.threshold || 50); // KB
+const THRESHOLD_BYTES = THRESHOLD * 1024;
 
-// 5. 結束 (放行)
-$done({});
+// 2. 執行核心邏輯
+runLiteAuditor();
+
+function runLiteAuditor() {
+    const url = $request.url;
+    const method = $request.method;
+    
+    // 取得 Content-Length (相容大小寫)
+    // 這是 HTTP 協議中宣告上傳大小的標準欄位
+    const lenStr = $request.headers['Content-Length'] || 
+                   $request.headers['content-length'] || 
+                   $request.headers['X-Upload-Content-Length'] || // 部分雲端服務使用
+                   "0";
+                   
+    const size = parseInt(lenStr);
+    const sizeKB = (size / 1024).toFixed(2);
+
+    // 強制輸出日誌，證明腳本有活著 (請在 Dashboard 查看)
+    console.log(`[Traffic Lite] URL: ${url} | Method: ${method} | Size: ${sizeKB} KB`);
+
+    // 3. 判斷與攔截
+    if (size > THRESHOLD_BYTES) {
+        
+        let logText = `偵測到大流量上傳: ${sizeKB} KB (Header) -> ${url}`;
+        
+        if (MODE === "reject") {
+            $notification.post("🛡️ 上傳攔截", `已阻擋 ${sizeKB} KB 上傳`, url);
+            console.log(`[Traffic Lite] ⛔ REJECTED: ${logText}`);
+            
+            $done({
+                response: {
+                    status: 403,
+                    body: "Traffic Limit Exceeded (Header Check)"
+                }
+            });
+        } else {
+            $notification.post("🚨 上傳警告", `發現 ${sizeKB} KB 上傳`, url);
+            console.log(`[Traffic Lite] ⚠️ MONITOR: ${logText}`);
+            $done({});
+        }
+    } else {
+        $done({});
+    }
+}
