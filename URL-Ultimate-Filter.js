@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.67.js
- * @version   43.67 (Regression & Surge Offload)
- * @description [V43.67] 策略回退與卸載：
- * 1) [Revert] 回退至 V43.63 核心邏輯，移除所有針對 Log Batch 的 HTTP 狀態碼實驗 (200/204/429)。
- * 2) [Exempt] 對 'play.googleapis.com/log/batch' 進行腳本豁免 (Allow)。
- * 原因：將此頑強流量的處置權交還給 Surge 主程式，配合 [Rule] REJECT-DROP 實現最節能的 TCP 層阻斷。
+ * @file      URL-Ultimate-Filter-Surge-V43.68.js
+ * @version   43.68 (RevenueCat & Dropbox)
+ * @description [V43.68] 精準遙測阻擋：
+ * 1) [Block] RevenueCat 歸因追蹤 (/adservices_attribution)。注意：僅阻擋路徑，不阻擋域名以保護訂閱功能。
+ * 2) [Block] Dropbox 移動端日誌 (/send_mobile_log)。
+ * 3) [Base] 繼承 V43.67 (Surge Offload Edition) 邏輯。
  * @lastUpdated 2026-02-05
  */
 
@@ -278,6 +278,10 @@ const RULES = {
       'tracking.js', 'user-id.js', 'user-timing.js', 'wcslog.js', 'jslog.min.js', 'device-uuid.js'
     ]),
     MAP: new Map([
+      // [V43.68] RevenueCat Attribution & Dropbox Mobile Log
+      ['api.rc-backup.com', new Set(['/adservices_attribution'])],
+      ['api-d.dropbox.com', new Set(['/send_mobile_log'])],
+
       ['www.google.com', new Set(['/log', '/pagead/1p-user-list/'])],
       ['js.stripe.com', new Set(['/fingerprinted/'])],
       ['chatgpt.com', new Set(['/ces/statsc/flush', '/v1/rgstr'])],
@@ -482,7 +486,7 @@ const RULES = {
     PATH_EXEMPTIONS: new Map([
         ['shopee.tw', new Set(['/api/v4/search/search_items'])],
         ['cmapi.tw.coupang.com', new Set(['/vendor-items/'])],
-        // [V43.63] Google Redirect Exemption
+        // [V43.63] Google Redirect Exemption to prevent keyword blocking on wrapper
         ['www.google.com', new Set(['/url', '/search'])],
         // [V43.67] Surge Offload Exemption: Allow script to ignore Log Batch so Rule can REJECT-DROP
         ['play.googleapis.com', new Set(['/log/batch'])]
@@ -804,5 +808,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.67 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.68 Active\n${stats.toString()}` });
 }
