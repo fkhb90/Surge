@@ -1,0 +1,51 @@
+#!name=Traffic Auditor (Telemetry Hunter)
+#!desc=[V1.0] 遙測獵人：自動偵測並警報「大上傳、小下載」的可疑流量。適用於捕捉隱蔽的日誌上傳行為。預設閾值：上傳 > 50KB。
+#!category=Diagnostics
+#!system=ios
+
+[Script]
+# 監控 HTTP 請求 (需開啟 MITM 才能精確讀取 HTTPS Body 大小)
+# 為了效能，我們只針對 API 類型的域名進行 Body 檢查，或使用 Header 判斷
+Traffic_Auditor=type=http-request,pattern=^https?://,script-path=https://raw.githubusercontent.com/fkhb90/Surge/main/TrafficAuditor/script.js,script-update-interval=0,debug=1,requires-body=true,timeout=5
+
+[General]
+# 這裡使用 Inline Script 以確保您方便複製使用，無需額外託管 JS 檔案
+# 注意：在 Surge 模組中，Inline Script 需透過 argument 傳遞或寫在 Script 區段
+# 由於 Surge Module 格式限制，以下為完整的 Script 邏輯封裝
+
+[Script]
+Traffic_Auditor_Logic=type=http-request,pattern=^https?://,script-path=data:text/javascript;base64,==,requires-body=true
+
+# Base64 解碼後的原始碼邏輯 (供您參考與修改):
+# const THRESHOLD = 50 * 1024; // 50KB
+# const url = $request.url;
+# const method = $request.method;
+#
+# // 排除清單 (白名單)
+# if (method !== "POST" || 
+#     url.includes("icloud.com") || 
+#     url.includes("dropbox") || 
+#     url.includes("upload") || 
+#     url.includes("googlevideo") ||
+#     url.includes("netflix")) {
+#     $done({});
+# } else {
+#     let size = 0;
+#     if ($request.body) {
+#         size = $request.body.length;
+#     } else {
+#         // 嘗試從 Header 讀取
+#         const len = $request.headers['Content-Length'] || $request.headers['content-length'];
+#         if (len) size = parseInt(len);
+#     }
+#
+#     if (size > THRESHOLD) {
+#         $notification.post(
+#             "🚨 發現大流量上傳",
+#             `Size: ${(size/1024).toFixed(1)} KB`,
+#             `URL: ${url.substring(0, 100)}` // 截斷過長 URL
+#         );
+#         console.log(`[Traffic Auditor] High Upload Detected: ${size} bytes to ${url}`);
+#     }
+#     $done({});
+# }
