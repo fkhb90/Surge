@@ -8,7 +8,7 @@
 # 監控 HTTP 請求
 # requires-body=true 是必須的，否則無法精確讀取上傳內容大小
 # script-path 指向本地 Scripts 資料夾中的檔案
-Traffic_Auditor=type=http-request,pattern=^https?://, cript-path=https://raw.githubusercontent.com/fkhb90/Surge/main/TrafficAuditor/script.js,requires-body=true,binary-body-mode=true,timeout=10,argument=mode={mode}&threshold={threshold}&wifi_pause={wifi_pause}
+Traffic_Auditor=type=http-request,pattern=^https?://,script-path=https://raw.githubusercontent.com/fkhb90/Surge/main/TrafficAuditor/script.js,requires-body=true,binary-body-mode=true,timeout=10,argument=mode={mode}&threshold={threshold}&wifi_pause={wifi_pause}
 
 [MITM]
 # 必須開啟 MITM 才能解密 HTTPS 流量並讀取 Body
