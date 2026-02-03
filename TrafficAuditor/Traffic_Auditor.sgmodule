@@ -1,66 +1,15 @@
-#!name=Traffic Auditor (Telemetry Hunter)
-#!desc=[V2.0] 遙測獵人：自動偵測並警報「大上傳、小下載」的可疑流量。
+#!name=Traffic Auditor (Smart Mode)
+#!desc=[V3.0] 遙測獵人：自動偵測並警報「大上傳」的可疑流量。\n\n功能特點：\n1. 支援 UI 切換「監控/攔截」模式。\n2. 支援自訂流量閾值 (預設 50KB)。\n3. [省電] 預設僅在行動數據下運作，WiFi 自動休眠。
 #!category=Diagnostics
 #!system=ios
-#!arguments=mode: {type=select, title="防禦模式", description="選擇偵測到大流量時的動作", items={monitor:"僅監控 (Monitor Only)", reject:"自動攔截 (Auto Reject)"}, default="monitor"}, threshold: {type=text, title="觸發閾值 (KB)", description="上傳大於此數值(KB)時觸發", default="50"}
-
-
-[Script]
-# 監控 HTTP 請求 (需開啟 MITM 才能精確讀取 HTTPS Body 大小)
-# 為了效能，我們只針對 API 類型的域名進行 Body 檢查，或使用 Header 判斷
-Traffic_Auditor=type=http-request,pattern=^https?://,script-path=https://raw.githubusercontent.com/fkhb90/Surge/main/TrafficAuditor/script.js,script-update-interval=0,debug=1,requires-body=true,timeout=5,argument=mode={mode}&threshold={threshold}
-
-[General]
-# Inline Script Logic
-# 為了適配 argument，我們需要在腳本中解析 $argument
+#!arguments=mode: {type=select, title="防禦模式", description="選擇偵測到大流量時的動作", items={monitor:"僅監控 (Monitor Only)", reject:"自動攔截 (Auto Reject)"}, default="monitor"}, threshold: {type=text, title="觸發閾值 (KB)", description="上傳大於此數值(KB)時觸發警報/攔截", default="50"}, wifi_pause: {type=boolean, title="WiFi 省電模式", description="開啟後，連接 WiFi 時自動暫停腳本以節省效能", default=true}
 
 [Script]
-Traffic_Auditor_Logic=type=http-request,pattern=^https?://,script-path=data:text/javascript;base64,==,requires-body=true,argument=mode={mode}&threshold={threshold}
+# 監控 HTTP 請求
+# requires-body=true 是必須的，否則無法精確讀取上傳內容大小
+# script-path 指向本地 Scripts 資料夾中的檔案
+Traffic_Auditor=type=http-request,pattern=^https?://,script-path=https://raw.githubusercontent.com/fkhb90/Surge/main/TrafficAuditor/script.js,script-update-interval=0,debug=1,requires-body=true,timeout=5,argument=mode={mode}&threshold={threshold}&wifi_pause={wifi_pause}
 
-# ---------------------------------------------------
-# JS 原始碼邏輯 (請參考下方說明，此處為 Base64 解碼前內容)
-# ---------------------------------------------------
-#
-# // 解析參數
-# let args = {};
-# if (typeof $argument !== 'undefined') {
-#     $argument.split('&').forEach(pair => {
-#         let [key, value] = pair.split('=');
-#         args[key] = value;
-#     });
-# }
-#
-# const MODE = args.mode || "monitor"; // 'monitor' or 'reject'
-# const KB_LIMIT = parseInt(args.threshold || "50");
-# const THRESHOLD = KB_LIMIT * 1024;
-# const url = $request.url;
-# const method = $request.method;
-#
-# // 白名單檢查... (同前版)
-# if (method !== "POST" || url.includes("icloud.com") || url.includes("dropbox") || url.includes("upload") || url.includes("googlevideo") || url.includes("netflix")) {
-#     $done({});
-# } else {
-#     let size = 0;
-#     if ($request.body) {
-#         size = $request.body.length;
-#     } else {
-#         const len = $request.headers['Content-Length'] || $request.headers['content-length'];
-#         if (len) size = parseInt(len);
-#     }
-#
-#     if (size > THRESHOLD) {
-#         const msg = `Size: ${(size/1024).toFixed(1)} KB | URL: ${url.substring(0, 50)}...`;
-#         
-#         if (MODE === "reject") {
-#             $notification.post("🛡️ 已自動攔截", msg, "Action: 403 Forbidden");
-#             console.log(`[Traffic Auditor] REJECTED High Upload: ${size} bytes`);
-#             $done({ response: { status: 403, body: "Blocked by Traffic Auditor" } });
-#         } else {
-#             $notification.post("🚨 發現大流量上傳", msg, "Action: Monitor Only");
-#             console.log(`[Traffic Auditor] MONITOR High Upload: ${size} bytes`);
-#             $done({});
-#         }
-#     } else {
-#         $done({});
-#     }
-# }
+[MITM]
+# 必須開啟 MITM 才能解密 HTTPS 流量並讀取 Body
+hostname = *
