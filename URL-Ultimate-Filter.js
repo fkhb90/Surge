@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.68.js
- * @version   43.68 (RevenueCat & Dropbox)
- * @description [V43.68] 精準遙測阻擋：
- * 1) [Block] RevenueCat 歸因追蹤 (/adservices_attribution)。注意：僅阻擋路徑，不阻擋域名以保護訂閱功能。
- * 2) [Block] Dropbox 移動端日誌 (/send_mobile_log)。
- * 3) [Base] 繼承 V43.67 (Surge Offload Edition) 邏輯。
+ * @file      URL-Ultimate-Filter-Surge-V43.69.js
+ * @version   43.69 (RevenueCat Dual-Stack Protection)
+ * @description [V43.69] RevenueCat 雙重防護：
+ * 1) [Enhance] 將 RevenueCat 的歸因路徑阻擋 (/adservices_attribution) 擴展至主域名 'api.revenuecat.com'。
+ * 原因：'rc-backup.com' 僅為備援，若不阻擋主域名，App 在正常網路環境下仍會洩漏歸因數據。
+ * 2) [Base] 繼承 V43.68 (RevenueCat & Dropbox) 與 V43.67 (Surge Offload) 邏輯。
  * @lastUpdated 2026-02-05
  */
 
@@ -278,8 +278,11 @@ const RULES = {
       'tracking.js', 'user-id.js', 'user-timing.js', 'wcslog.js', 'jslog.min.js', 'device-uuid.js'
     ]),
     MAP: new Map([
-      // [V43.68] RevenueCat Attribution & Dropbox Mobile Log
+      // [V43.69] RevenueCat Dual-Stack Protection (Primary + Backup)
       ['api.rc-backup.com', new Set(['/adservices_attribution'])],
+      ['api.revenuecat.com', new Set(['/adservices_attribution'])],
+      
+      // [V43.68] Dropbox Mobile Log
       ['api-d.dropbox.com', new Set(['/send_mobile_log'])],
 
       ['www.google.com', new Set(['/log', '/pagead/1p-user-list/'])],
@@ -808,5 +811,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.68 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.153 Active\n${stats.toString()}` });
 }
