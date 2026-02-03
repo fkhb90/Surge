@@ -1,11 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.69.js
- * @version   43.69 (RevenueCat Dual-Stack Protection)
- * @description [V43.69] RevenueCat 雙重防護：
- * 1) [Enhance] 將 RevenueCat 的歸因路徑阻擋 (/adservices_attribution) 擴展至主域名 'api.revenuecat.com'。
- * 原因：'rc-backup.com' 僅為備援，若不阻擋主域名，App 在正常網路環境下仍會洩漏歸因數據。
- * 2) [Base] 繼承 V43.68 (RevenueCat & Dropbox) 與 V43.67 (Surge Offload) 邏輯。
- * @lastUpdated 2026-02-05
+ * @file      URL-Ultimate-Filter-Surge-V43.70.js
+ * @version   43.70 (Firebase Telemetry Hardening)
+ * @description [V43.70] Firebase 遙測強化防護：
+ * 1) [New] 新增阻擋 'firebaselogging-pa.googleapis.com' (Firebase Analytics 核心日誌)。
+ * 2) [New] 新增阻擋 'crashlyticsreports-pa.googleapis.com' (非必要崩潰報告)。
+ * 3) [Base] 繼承 V43.69 (RevenueCat Dual-Stack) 所有邏輯，保留必要 Firebase 驗證服務。
+ * @lastUpdated 2026-02-06
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 1024 };
@@ -28,6 +28,10 @@ const OAUTH_SAFE_HARBOR = {
 const RULES = {
   // [1] P0 Priority Block (High Risk / Telemetry / Wildcard AdNets)
   PRIORITY_BLOCK_DOMAINS: new Set([
+    // [V43.70] Firebase Telemetry (Non-Critical)
+    'firebaselogging-pa.googleapis.com',
+    'crashlyticsreports-pa.googleapis.com',
+
     // [V43.61] 360 (Qihoo) Ecosystem
     's.360.cn', 'stat.360.cn', 'shouji.360.cn', 'browser.360.cn',
     // [V43.61] Sogou Ecosystem
