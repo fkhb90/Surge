@@ -1,15 +1,13 @@
-#!name=Traffic Auditor (Smart Mode)
-#!desc=[V3.0] 遙測獵人：自動偵測並警報「大上傳」的可疑流量。\n\n功能特點：\n1. 支援 UI 切換「監控/攔截」模式。\n2. 支援自訂流量閾值 (預設 50KB)。\n3. [省電] 預設僅在行動數據下運作，WiFi 自動休眠。
+#!name=Traffic Auditor (Lite)
+#!desc=[V4.0] 輕量版獵人：不讀取 Body，僅依靠 Header 判斷。解決 HTTP/2 串流導致腳本不執行的問題。
 #!category=Diagnostics
 #!system=ios
-#!arguments=mode: {type=select, title="防禦模式", description="選擇偵測到大流量時的動作", items={monitor:"僅監控 (Monitor Only)", reject:"自動攔截 (Auto Reject)"}, default="monitor"}, threshold: {type=text, title="觸發閾值 (KB)", description="上傳大於此數值(KB)時觸發警報/攔截", default="50"}, wifi_pause: {type=boolean, title="WiFi 省電模式", description="開啟後，連接 WiFi 時自動暫停腳本以節省效能", default=true}
+#!arguments=mode: {type=select, title="防禦模式", description="選擇動作", items={monitor:"僅監控", reject:"自動攔截"}, default="monitor"}, threshold: {type=text, title="閾值 (KB)", description="上傳限制", default="50"}
 
 [Script]
-# 監控 HTTP 請求
-# requires-body=true 是必須的，否則無法精確讀取上傳內容大小
-# script-path 指向本地 Scripts 資料夾中的檔案
-Traffic_Auditor=type=http-request,pattern=^https?://,script-path=https://raw.githubusercontent.com/fkhb90/Surge/main/TrafficAuditor/script.js,requires-body=true,binary-body-mode=true,timeout=10,argument=mode={mode}&threshold={threshold}&wifi_pause={wifi_pause}
+# 重點：移除 requires-body 與 binary-body-mode
+# 這能確保腳本在 HTTP/2 環境下必定執行
+Traffic_Auditor=type=http-request,pattern=^https?://,script-path=https://raw.githubusercontent.com/fkhb90/Surge/main/TrafficAuditor/script.js,timeout=5,argument=mode={mode}&threshold={threshold}
 
 [MITM]
-# 必須開啟 MITM 才能解密 HTTPS 流量並讀取 Body
 hostname = *
