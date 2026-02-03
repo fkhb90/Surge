@@ -10,8 +10,8 @@
 // --- 1. 參數解析 (Argument Parsing) ---
 let args = {
     mode: "monitor",    // 預設模式
-    threshold: "50",    // 預設閾值 (KB)
-    wifi_pause: "true"  // 預設 WiFi 下暫停
+    threshold: "0",    // 預設閾值 (KB)
+    wifi_pause: "false"  // 預設 WiFi 下暫停
 };
 
 // 解析 Surge 傳遞的參數字串 (格式: mode=reject&threshold=100...)
