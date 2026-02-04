@@ -1,10 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.73.js
- * @version   43.73 (Priority Logic Fix & Zoom)
- * @description [V43.73] 邏輯引擎修復與規則擴充：
- * 1) [Fix] 修正優先級倒置問題：將 'CRITICAL_PATH.MAP' 檢查提升至白名單之前。
- * - 修復 Shopee, Foodpanda, Facebook (/tr), Stripe 在白名單下無法阻擋追蹤的問題。
- * 2) [New] 新增阻擋 'log.zoom.us' (Zoom 遙測日誌)。
+ * @file      URL-Ultimate-Filter-Surge-V43.74.js
+ * @version   43.74 (YouTube Feedback Fix)
+ * @description [V43.74] YouTube 功能修復與規則優化：
+ * 1) [Fix] 移除對 '/youtubei/v1/feedback' 的阻擋，修復 YouTube「不要推薦這個頻道/不感興趣」功能失效的問題。
+ * 2) [Base] 保留 V43.73 的優先級修復與 Zoom/Firebase 防護邏輯。
  * @lastUpdated 2026-02-06
  */
 
@@ -241,7 +240,7 @@ const RULES = {
       '/accounts/CheckConnection', '/0.gif', '/1.gif', '/pixel.gif', '/beacon.gif', '/ping.gif',
       '/track.gif', '/dot.gif', '/clear.gif', '/empty.gif', '/shim.gif', '/spacer.gif', '/imp.gif',
       '/impression.gif', '/view.gif', '/sync.gif', '/sync.php', '/match.gif', '/match.php',
-      '/utm.gif', '/event.gif', '/bk', '/bk.gif', '/youtubei/v1/feedback', '/collect', '/events',
+      '/utm.gif', '/event.gif', '/bk', '/bk.gif', '/collect', '/events', // [Fix V43.74] Removed /youtubei/v1/feedback
       '/telemetry', '/metrics', '/traces', '/track', '/beacon', '/pixel', '/v1/collect', '/v1/events',
       '/v1/track', '/v1/telemetry', '/v1/metrics', '/v1/log', '/v1/traces', '/v1/report',
       '/appbase_report_log', '/stat_log', '/trackcode/', '/v2/collect', '/v2/events', '/v2/track',
