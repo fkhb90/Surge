@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.70.js
- * @version   43.70 (Firebase Telemetry Hardening)
- * @description [V43.70] Firebase 遙測強化防護：
- * 1) [New] 新增阻擋 'firebaselogging-pa.googleapis.com' (Firebase Analytics 核心日誌)。
- * 2) [New] 新增阻擋 'crashlyticsreports-pa.googleapis.com' (非必要崩潰報告)。
- * 3) [Base] 繼承 V43.69 (RevenueCat Dual-Stack) 所有邏輯，保留必要 Firebase 驗證服務。
+ * @file      URL-Ultimate-Filter-Surge-V43.73.js
+ * @version   43.73 (Priority Logic Fix & Zoom)
+ * @description [V43.73] 邏輯引擎修復與規則擴充：
+ * 1) [Fix] 修正優先級倒置問題：將 'CRITICAL_PATH.MAP' 檢查提升至白名單之前。
+ * - 修復 Shopee, Foodpanda, Facebook (/tr), Stripe 在白名單下無法阻擋追蹤的問題。
+ * 2) [New] 新增阻擋 'log.zoom.us' (Zoom 遙測日誌)。
  * @lastUpdated 2026-02-06
  */
 
@@ -28,15 +28,13 @@ const OAUTH_SAFE_HARBOR = {
 const RULES = {
   // [1] P0 Priority Block (High Risk / Telemetry / Wildcard AdNets)
   PRIORITY_BLOCK_DOMAINS: new Set([
-    // [V43.70] Firebase Telemetry (Non-Critical)
+    // [V43.70] Firebase Telemetry
     'firebaselogging-pa.googleapis.com',
     'crashlyticsreports-pa.googleapis.com',
 
-    // [V43.61] 360 (Qihoo) Ecosystem
+    // [V43.61] 360 / Sogou / Baidu Ecosystem
     's.360.cn', 'stat.360.cn', 'shouji.360.cn', 'browser.360.cn',
-    // [V43.61] Sogou Ecosystem
     'ping.sogou.com', 'pb.sogou.com', 'inte.sogou.com', 'lu.sogou.com',
-    // [V43.61] Baidu Ecosystem
     'hm.baidu.com', 'pos.baidu.com', 'wn.pos.baidu.com', 'sp0.baidu.com', 'sp1.baidu.com', 'sofire.baidu.com',
 
     // Quark / Alibaba / UC Ecosystem
@@ -120,9 +118,7 @@ const RULES = {
       'pro.104.com.tw', 'gov.tw'
     ]),
     WILDCARDS: [
-      // [V43.62] SendGrid Fix: Whitelist to allow SendGrid Guard script to handle it
       'sendgrid.net', 
-      
       'agirls.aotter.net',
       'query1.finance.yahoo.com', 'query2.finance.yahoo.com',
       'shopee.tw',
@@ -180,6 +176,9 @@ const RULES = {
   },
 
   BLOCK_DOMAINS: new Set([
+    // [V43.73] Zoom Telemetry Log
+    'log.zoom.us',
+    
     'effirst.com', 'px.effirst.com', 'simonsignal.com', 'dem.shopee.com', 'apm.tracking.shopee.tw',
     'live-apm.shopee.tw', 'log-collector.shopee.tw', 'analytics.shopee.tw', 'dmp.shopee.tw',
     'analysis.momoshop.com.tw', 'event.momoshop.com.tw', 'sspap.momoshop.com.tw',
@@ -282,13 +281,9 @@ const RULES = {
       'tracking.js', 'user-id.js', 'user-timing.js', 'wcslog.js', 'jslog.min.js', 'device-uuid.js'
     ]),
     MAP: new Map([
-      // [V43.69] RevenueCat Dual-Stack Protection (Primary + Backup)
       ['api.rc-backup.com', new Set(['/adservices_attribution'])],
       ['api.revenuecat.com', new Set(['/adservices_attribution'])],
-      
-      // [V43.68] Dropbox Mobile Log
       ['api-d.dropbox.com', new Set(['/send_mobile_log'])],
-
       ['www.google.com', new Set(['/log', '/pagead/1p-user-list/'])],
       ['js.stripe.com', new Set(['/fingerprinted/'])],
       ['chatgpt.com', new Set(['/ces/statsc/flush', '/v1/rgstr'])],
@@ -710,6 +705,18 @@ function processRequest(request) {
       return { response: { status: 403, body: 'Blocked Redirector' } };
     }
 
+    // [V43.73] Moved Map Check (L4) to Top Priority to override Whitelists for known trackers
+    const blockedPaths = getCriticalBlockedPaths(hostname);
+    if (blockedPaths && blockedPaths !== false) {
+      for (const badPath of blockedPaths) {
+        if (badPath && pathLower.includes(badPath)) {
+          stats.blocks++;
+          if (CONFIG.DEBUG_MODE) console.log(`[Block] L4 Map: ${badPath}`);
+          return { response: { status: 403, body: 'Blocked by Map' } };
+        }
+      }
+    }
+
     if (HELPERS.isSafeHarborDomain(hostname)) {
         stats.allows++;
         return null;
@@ -750,17 +757,6 @@ function processRequest(request) {
     }
 
     const isSoftWhitelisted = isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname);
-
-    const blockedPaths = getCriticalBlockedPaths(hostname);
-    if (blockedPaths && blockedPaths !== false) {
-      for (const badPath of blockedPaths) {
-        if (badPath && pathLower.includes(badPath)) {
-          stats.blocks++;
-          if (CONFIG.DEBUG_MODE) console.log(`[Block] L4 Map: ${badPath}`);
-          return { response: { status: 403, body: 'Blocked by Map' } };
-        }
-      }
-    }
 
     if (hostname === 'cmapi.tw.coupang.com') {
       if (/\/.*-ads\//.test(pathLower)) {
