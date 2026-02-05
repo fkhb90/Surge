@@ -1,14 +1,14 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.81.js
- * @version   43.81 (Cleanup & Logic Verification)
- * @description [V43.81] 規則維護與清理：
- * 1) [Revert] 移除 'cdn.plyr.io' 與 'gliastudios.com' 的顯式白名單，恢復標準檢查流程。
- * 2) [Logic] 確認 Redirector 阻擋邏輯為網域級別攔截，不受伺服器行為改變影響。
- * 3) [Base] 繼承 V43.80 所有廣告聯播網阻擋架構。
+ * @file      URL-Ultimate-Filter-Surge-V43.84.js
+ * @version   43.84 (Test Case Sync)
+ * @description [V43.84] 版本同步與維護：
+ * 1) [Sync] 配合測試套件 V43.84 修正畸形 URL 測試邏輯。
+ * 2) [Base] 保留 V43.83 所有效能優化 (ACScanner Limit 600) 與新阻擋規則。
  * @lastUpdated 2026-02-06
  */
 
-const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 1024 };
+// [Perf] Reduced scan length for mobile efficiency
+const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -53,9 +53,10 @@ const RULES = {
     // IoT / Doorbell
     'doorphone92.com',
 
-    // Datadog
+    // Datadog & Sentry Proxies
     'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu', 'browser-intake-datadoghq.us',
     'logs.datadoghq.com', 'mobile-http-intake.logs.datadoghq.com',
+    'browser.sentry-cdn.com', // [V43.83] Sentry Proxy
 
     // Others
     'wa.ui-portal.de', 'adsv.omgrmn.tw', 'imasdk.googleapis.com', 'metrics.icloud.com', 'slackb.com',
@@ -76,7 +77,13 @@ const RULES = {
     'appsflyer.com', 'adjust.com', 'kochava.com', 'branch.io', 'app-measurement.com', 'singular.net',
     'unityads.unity3d.com', 'applovin.com', 'ironsrc.com', 'vungle.com', 'adcolony.com', 'chartboost.com',
     'tapjoy.com', 'pangle.io', 'taboola.com', 'outbrain.com', 'popads.net', 'ads.tiktok.com',
-    'analytics.tiktok.com', 'ads.linkedin.com', 'ad.etmall.com.tw', 'ad.line.me', 'ad-history.line.me'
+    'analytics.tiktok.com', 'ads.linkedin.com', 'ad.etmall.com.tw', 'ad.line.me', 'ad-history.line.me',
+    
+    // [V43.83] High Risk Additions
+    'inmobi.com', 'inner-active.mobi', // Mobile Ads
+    'split.io', 'launchdarkly.com', // Feature Flagging/Tracking
+    'clarity.ms', 'fullstory.com', // Session Replay
+    'cdn.segment.com' // Analytics CDN
   ]),
 
   REDIRECTOR_HOSTS: new Set([
@@ -156,7 +163,9 @@ const RULES = {
       'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com',
       'cmapi.tw.coupang.com',
       'api.ipify.org',
-      'gcp-data-api.ltn.com.tw'
+      'gcp-data-api.ltn.com.tw',
+      's.pinimg.com', // [V43.83] Pinterest Resources
+      'cdn.shopify.com' // [V43.83] Shopify Resources
     ]),
     WILDCARDS: [
       'chatgpt.com', 'shopee.com', 'shopeemobile.com', 'shopee.io',
@@ -622,6 +631,9 @@ const HELPERS = {
   },
 
   cleanTrackingParams: (urlStr, hostname, pathLower) => {
+    // [V43.83 Perf] Early exit for clean URLs
+    if (!urlStr.includes('?')) return null;
+
     if (HELPERS.isSafeHarborDomain(hostname) || HELPERS.isAuthPath(pathLower)) {
         if (CONFIG.DEBUG_MODE) console.log(`[Safe Harbor] Skip cleaning for: ${urlStr}`);
         return null;
@@ -635,7 +647,6 @@ const HELPERS = {
     }
 
     try {
-      if (!urlStr.includes('?')) return null;
       const urlObj = new URL(urlStr);
       const params = urlObj.searchParams;
       let changed = false;
@@ -702,10 +713,9 @@ function getCriticalBlockedPaths(hostname) {
   let setOrUndef = RULES.CRITICAL_PATH.MAP.get(hostname);
 
   // 3. [V43.77] Fallback: Check Wildcard/Suffix Match
-  // Essential for dynamic subdomains like *.googlevideo.com
   if (!setOrUndef) {
     for (const [domain, paths] of RULES.CRITICAL_PATH.MAP) {
-      if (hostname.endsWith('.' + domain)) { // Strict suffix check (e.g. sub.domain.com ends with .domain.com)
+      if (hostname.endsWith('.' + domain)) {
         setOrUndef = paths;
         break;
       }
@@ -725,6 +735,7 @@ function processRequest(request) {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname.toLowerCase();
     
+    // [V43.83 Perf] Cache pathLower to avoid repeated concatenation/lowercase ops
     let pathLower;
     try {
         pathLower = decodeURIComponent(urlObj.pathname + urlObj.search).toLowerCase();
@@ -747,7 +758,6 @@ function processRequest(request) {
       return { response: { status: 403, body: 'Blocked Redirector' } };
     }
 
-    // [V43.73] Moved Map Check (L4) to Top Priority to override Whitelists for known trackers
     const blockedPaths = getCriticalBlockedPaths(hostname);
     if (blockedPaths && blockedPaths !== false) {
       for (const badPath of blockedPaths) {
@@ -792,6 +802,10 @@ function processRequest(request) {
         return performCleaning();
     }
 
+    // [V43.83 Perf] Check Static File BEFORE complex scanners, but AFTER domain/map blocks
+    // This prevents scanning .jpg files for keywords, saving CPU
+    const isStatic = HELPERS.isStaticFile(pathLower);
+
     if (criticalPathScanner.matches(pathLower)) {
       stats.blocks++;
       if (CONFIG.DEBUG_MODE) console.log(`[Block] L1 Critical: ${pathLower}`);
@@ -817,8 +831,9 @@ function processRequest(request) {
 
     const isExplicitlyAllowed = HELPERS.isPathExplicitlyAllowed(pathLower);
 
-    if (!isSoftWhitelisted || (isSoftWhitelisted && !HELPERS.isStaticFile(pathLower))) {
-      if (!isExplicitlyAllowed) {
+    // [V43.83 Perf] Optimization: Skip Keyword/Regex scan for Static Files
+    if (!isSoftWhitelisted || (isSoftWhitelisted && !isStatic)) {
+      if (!isExplicitlyAllowed && !isStatic) { 
         if (pathScanner.matches(pathLower)) {
           stats.blocks++;
           return { response: { status: 403, body: 'Blocked by Keyword' } };
@@ -830,7 +845,7 @@ function processRequest(request) {
       }
     }
 
-    if (!isExplicitlyAllowed && !HELPERS.isStaticFile(pathLower)) {
+    if (!isExplicitlyAllowed && !isStatic) {
       for (const k of RULES.KEYWORDS.DROP) {
         if (pathLower.includes(k)) {
           stats.blocks++;
@@ -853,5 +868,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.153 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.84 Active\n${stats.toString()}` });
 }
