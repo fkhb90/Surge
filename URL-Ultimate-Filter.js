@@ -1,13 +1,13 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.85.js
- * @version   43.85 (YouTube Notification Privacy)
- * @description [V43.85] 針對性隱私強化：
- * 1) [Block] 新增 YouTube 通知互動遙測 (record_interactions) 阻擋規則。
- * 2) [Base] 繼承 V43.84 所有效能優化與防護架構。
+ * @file      URL-Ultimate-Filter-Surge-V43.86.js
+ * @version   43.86 (Syntax Fix & YouTube Shorts)
+ * @description [V43.86] 隱私強化與穩定性修復：
+ * 1) [Block] 阻擋 YouTube Shorts 觀看序列遙測 (reel_watch_sequence)。
+ * 2) [Block] 阻擋 YouTube 通知互動遙測 (record_interactions)。
+ * 3) [Fix] 修正物件結構語法，確保 Node.js 解析穩定性。
  * @lastUpdated 2026-02-06
  */
 
-// [Perf] Reduced scan length for mobile efficiency
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
 
 const OAUTH_SAFE_HARBOR = {
@@ -80,10 +80,10 @@ const RULES = {
     'analytics.tiktok.com', 'ads.linkedin.com', 'ad.etmall.com.tw', 'ad.line.me', 'ad-history.line.me',
     
     // [V43.83] High Risk Additions
-    'inmobi.com', 'inner-active.mobi', // Mobile Ads
-    'split.io', 'launchdarkly.com', // Feature Flagging/Tracking
-    'clarity.ms', 'fullstory.com', // Session Replay
-    'cdn.segment.com' // Analytics CDN
+    'inmobi.com', 'inner-active.mobi',
+    'split.io', 'launchdarkly.com',
+    'clarity.ms', 'fullstory.com',
+    'cdn.segment.com'
   ]),
 
   REDIRECTOR_HOSTS: new Set([
@@ -105,7 +105,6 @@ const RULES = {
     'zegtrends.com'
   ]),
 
-  // [2] Intelligent Whitelists
   HARD_WHITELIST: {
     EXACT: new Set([
       'iappapi.investing.com',
@@ -164,8 +163,8 @@ const RULES = {
       'cmapi.tw.coupang.com',
       'api.ipify.org',
       'gcp-data-api.ltn.com.tw',
-      's.pinimg.com', // [V43.83] Pinterest Resources
-      'cdn.shopify.com' // [V43.83] Shopify Resources
+      's.pinimg.com',
+      'cdn.shopify.com'
     ]),
     WILDCARDS: [
       'chatgpt.com', 'shopee.com', 'shopeemobile.com', 'shopee.io',
@@ -267,7 +266,6 @@ const RULES = {
 
   CRITICAL_PATH: {
     GENERIC: [
-      // [V43.75 Optimization] Removed 'ptracking', 'log_event' (Moved to Map)
       '/accounts/CheckConnection', '/0.gif', '/1.gif', '/pixel.gif', '/beacon.gif', '/ping.gif',
       '/track.gif', '/dot.gif', '/clear.gif', '/empty.gif', '/shim.gif', '/spacer.gif', '/imp.gif',
       '/impression.gif', '/view.gif', '/sync.gif', '/sync.php', '/match.gif', '/match.php',
@@ -311,13 +309,10 @@ const RULES = {
       'tracking.js', 'user-id.js', 'user-timing.js', 'wcslog.js', 'jslog.min.js', 'device-uuid.js'
     ]),
     MAP: new Map([
-      // [V43.75] YouTube & Google Video Telemetry Matrix (Map Priority > Whitelist)
-      // [V43.85] Added /youtubei/v1/notification/record_interactions
       ['www.youtube.com', new Set(['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'])],
       ['m.youtube.com', new Set(['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'])],
-      ['youtubei.googleapis.com', new Set(['/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/', '/youtubei/v1/notification/record_interactions'])],
+      ['youtubei.googleapis.com', new Set(['/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/', '/youtubei/v1/notification/record_interactions', '/youtubei/v1/reel/reel_watch_sequence'])],
       ['googlevideo.com', new Set(['/ptracking', '/videoplayback?ptracking='])],
-
       ['api.rc-backup.com', new Set(['/adservices_attribution'])],
       ['api.revenuecat.com', new Set(['/adservices_attribution'])],
       ['api-d.dropbox.com', new Set(['/send_mobile_log'])],
@@ -869,5 +864,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.85 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.86 Active\n${stats.toString()}` });
 }
