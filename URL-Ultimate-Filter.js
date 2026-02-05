@@ -1,11 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.78.js
- * @version   43.78 (AdNet Expansion: ImpactifyIO/Underdog/Glia)
- * @description [V43.78] 廣告聯播網擴充：
- * 1) [New] 新增阻擋 'ad.impactify.io' (Impactify 備援網域)。
- * 2) [New] 新增阻擋 'udmserve.net' (Underdog Media)。
- * 3) [New] 新增阻擋 'signal-snacks.gliastudios.com' (GliaStudio 廣告訊號)。
- * 4) [Base] 繼承 V43.77 所有架構 (Map Wildcard Fix & YouTube Matrix)。
+ * @file      URL-Ultimate-Filter-Surge-V43.81.js
+ * @version   43.81 (Cleanup & Logic Verification)
+ * @description [V43.81] 規則維護與清理：
+ * 1) [Revert] 移除 'cdn.plyr.io' 與 'gliastudios.com' 的顯式白名單，恢復標準檢查流程。
+ * 2) [Logic] 確認 Redirector 阻擋邏輯為網域級別攔截，不受伺服器行為改變影響。
+ * 3) [Base] 繼承 V43.80 所有廣告聯播網阻擋架構。
  * @lastUpdated 2026-02-06
  */
 
@@ -182,6 +181,13 @@ const RULES = {
   },
 
   BLOCK_DOMAINS: new Set([
+    // [V43.80] VMFive / Vpon / Intowow / Innity
+    'vm5apis.com', 'vlitag.com',
+    'intentarget.com',
+    'innity.net',
+    'ad-specs.guoshippartners.com',
+    'cdn.ad.plus', 'cdn.doublemax.net',
+
     // [V43.78] Underdog Media
     'udmserve.net',
     // [V43.78] GliaStudio Signal Snacks
@@ -528,7 +534,7 @@ class ACScanner {
 }
 
 class HighPerformanceLRUCache {
-  constructor(limit = 256) {
+  constructor(limit = 512) {
     this.limit = limit;
     this.cache = new Map();
   }
