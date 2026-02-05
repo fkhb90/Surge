@@ -1,9 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.74.js
- * @version   43.74 (YouTube Feedback Fix)
- * @description [V43.74] YouTube 功能修復與規則優化：
- * 1) [Fix] 移除對 '/youtubei/v1/feedback' 的阻擋，修復 YouTube「不要推薦這個頻道/不感興趣」功能失效的問題。
- * 2) [Base] 保留 V43.73 的優先級修復與 Zoom/Firebase 防護邏輯。
+ * @file      URL-Ultimate-Filter-Surge-V43.78.js
+ * @version   43.78 (AdNet Expansion: ImpactifyIO/Underdog/Glia)
+ * @description [V43.78] 廣告聯播網擴充：
+ * 1) [New] 新增阻擋 'ad.impactify.io' (Impactify 備援網域)。
+ * 2) [New] 新增阻擋 'udmserve.net' (Underdog Media)。
+ * 3) [New] 新增阻擋 'signal-snacks.gliastudios.com' (GliaStudio 廣告訊號)。
+ * 4) [Base] 繼承 V43.77 所有架構 (Map Wildcard Fix & YouTube Matrix)。
  * @lastUpdated 2026-02-06
  */
 
@@ -27,6 +29,11 @@ const OAUTH_SAFE_HARBOR = {
 const RULES = {
   // [1] P0 Priority Block (High Risk / Telemetry / Wildcard AdNets)
   PRIORITY_BLOCK_DOMAINS: new Set([
+    // [V43.78] Impactify IO Domain
+    'ad.impactify.io',
+    // [V43.76] Impactify Media Domain
+    'ad.impactify.media', 'impactify.media',
+
     // [V43.70] Firebase Telemetry
     'firebaselogging-pa.googleapis.com',
     'crashlyticsreports-pa.googleapis.com',
@@ -175,6 +182,14 @@ const RULES = {
   },
 
   BLOCK_DOMAINS: new Set([
+    // [V43.78] Underdog Media
+    'udmserve.net',
+    // [V43.78] GliaStudio Signal Snacks
+    'signal-snacks.gliastudios.com',
+
+    // [V43.77] Tamedia Ads (Taiwan)
+    'adc.tamedia.com.tw',
+
     // [V43.73] Zoom Telemetry Log
     'log.zoom.us',
     
@@ -237,29 +252,30 @@ const RULES = {
 
   CRITICAL_PATH: {
     GENERIC: [
+      // [V43.75 Optimization] Removed 'ptracking', 'log_event' (Moved to Map)
       '/accounts/CheckConnection', '/0.gif', '/1.gif', '/pixel.gif', '/beacon.gif', '/ping.gif',
       '/track.gif', '/dot.gif', '/clear.gif', '/empty.gif', '/shim.gif', '/spacer.gif', '/imp.gif',
       '/impression.gif', '/view.gif', '/sync.gif', '/sync.php', '/match.gif', '/match.php',
-      '/utm.gif', '/event.gif', '/bk', '/bk.gif', '/collect', '/events', // [Fix V43.74] Removed /youtubei/v1/feedback
+      '/utm.gif', '/event.gif', '/bk', '/bk.gif', '/collect', '/events',
       '/telemetry', '/metrics', '/traces', '/track', '/beacon', '/pixel', '/v1/collect', '/v1/events',
       '/v1/track', '/v1/telemetry', '/v1/metrics', '/v1/log', '/v1/traces', '/v1/report',
       '/appbase_report_log', '/stat_log', '/trackcode/', '/v2/collect', '/v2/events', '/v2/track',
       '/v2/telemetry', '/tp2', '/api/v1/collect', '/api/v1/events', '/api/v1/track', '/api/v1/telemetry',
       '/api/v1/log', '/api/log', '/v1/event', '/api/stats/ads', '/api/stats/atr', '/api/stats/qoe',
-      '/api/stats/playback', '/pagead/gen_204', '/pagead/paralleladview', '/youtubei/v1/log_interaction',
-      '/youtubei/v1/log_event', '/youtubei/v1/player/log', '/tiktok/pixel/events', '/linkedin/insight/track',
-      '/api/fingerprint', '/v1/fingerprint', '/cdn/fp/', '/api/collect', '/api/track', '/tr/', '/beacon',
-      '/api/v1/event', '/ptracking', '/rest/n/log', '/action-log', '/ramen/v1/events', '/_events',
-      '/report/v1/log', '/app/mobilelog', '/api/web/ad/', '/cdn/fingerprint/', '/api/device-id',
-      '/api/visitor-id', '/ads/ga-audiences', '/doubleclick/', '/google-analytics/', '/googleadservices/',
-      '/googlesyndication/', '/googletagmanager/', '/tiktok/track/', '/__utm.gif', '/j/collect',
-      '/r/collect', '/api/batch', '/api/events', '/api/logs/', '/api/v1/events', '/api/v1/track',
-      '/api/v2/event', '/api/v2/events', '/collect?', '/data/collect', '/events/track', '/ingest/',
-      '/intake', '/p.gif', '/rec/bundle', '/t.gif', '/telemetry/', '/track/', '/v1/pixel', '/v2/track',
-      '/v3/track', '/2/client/addlog_batch', '/plugins/easy-social-share-buttons/', '/event_report',
-      '/log/aplus', '/v.gif', '/ad-sw.js', '/ads-sw.js', '/ad-call', '/adx/', '/adsales/', '/adserver/',
-      '/adsync/', '/adtech/', '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m',
-      '/track/pc', '/user-profile/', 'cacafly/track', '/api/v1/t', '/sa.gif', '/api/v2/rum'
+      '/api/stats/playback', '/pagead/gen_204', '/pagead/paralleladview', '/tiktok/pixel/events', 
+      '/linkedin/insight/track', '/api/fingerprint', '/v1/fingerprint', '/cdn/fp/', '/api/collect', 
+      '/api/track', '/tr/', '/beacon', '/api/v1/event', '/rest/n/log', '/action-log', 
+      '/ramen/v1/events', '/_events', '/report/v1/log', '/app/mobilelog', '/api/web/ad/', 
+      '/cdn/fingerprint/', '/api/device-id', '/api/visitor-id', '/ads/ga-audiences', '/doubleclick/', 
+      '/google-analytics/', '/googleadservices/', '/googlesyndication/', '/googletagmanager/', 
+      '/tiktok/track/', '/__utm.gif', '/j/collect', '/r/collect', '/api/batch', '/api/events', 
+      '/api/logs/', '/api/v1/events', '/api/v1/track', '/api/v2/event', '/api/v2/events', '/collect?', 
+      '/data/collect', '/events/track', '/ingest/', '/intake', '/p.gif', '/rec/bundle', '/t.gif', 
+      '/telemetry/', '/track/', '/v1/pixel', '/v2/track', '/v3/track', '/2/client/addlog_batch', 
+      '/plugins/easy-social-share-buttons/', '/event_report', '/log/aplus', '/v.gif', '/ad-sw.js', 
+      '/ads-sw.js', '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/', 
+      '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc', '/user-profile/', 
+      'cacafly/track', '/api/v1/t', '/sa.gif', '/api/v2/rum'
     ],
     SCRIPTS: new Set([
       'ads.js', 'adsbygoogle.js', 'analytics.js', 'ga-init.js', 'ga.js', 'gtag.js', 'gtm.js', 'ytag.js',
@@ -280,6 +296,12 @@ const RULES = {
       'tracking.js', 'user-id.js', 'user-timing.js', 'wcslog.js', 'jslog.min.js', 'device-uuid.js'
     ]),
     MAP: new Map([
+      // [V43.75] YouTube & Google Video Telemetry Matrix (Map Priority > Whitelist)
+      ['www.youtube.com', new Set(['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'])],
+      ['m.youtube.com', new Set(['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'])],
+      ['youtubei.googleapis.com', new Set(['/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/'])],
+      ['googlevideo.com', new Set(['/ptracking', '/videoplayback?ptracking='])],
+
       ['api.rc-backup.com', new Set(['/adservices_attribution'])],
       ['api.revenuecat.com', new Set(['/adservices_attribution'])],
       ['api-d.dropbox.com', new Set(['/send_mobile_log'])],
@@ -666,9 +688,24 @@ function isPriorityDomain(hostname) {
 }
 
 function getCriticalBlockedPaths(hostname) {
+  // 1. Check L1 Cache (LRU)
   const cached = criticalMapCache.get(hostname);
   if (cached !== null) return cached; 
-  const setOrUndef = RULES.CRITICAL_PATH.MAP.get(hostname);
+
+  // 2. Check Exact Match (L4 Map)
+  let setOrUndef = RULES.CRITICAL_PATH.MAP.get(hostname);
+
+  // 3. [V43.77] Fallback: Check Wildcard/Suffix Match
+  // Essential for dynamic subdomains like *.googlevideo.com
+  if (!setOrUndef) {
+    for (const [domain, paths] of RULES.CRITICAL_PATH.MAP) {
+      if (hostname.endsWith('.' + domain)) { // Strict suffix check (e.g. sub.domain.com ends with .domain.com)
+        setOrUndef = paths;
+        break;
+      }
+    }
+  }
+
   const value = setOrUndef ? setOrUndef : false;
   criticalMapCache.set(hostname, value, 300000);
   return value;
