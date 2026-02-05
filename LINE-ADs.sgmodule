@@ -14,6 +14,7 @@ DOMAIN-SUFFIX,vdn.line-scdn.net,DIRECT
 DOMAIN-SUFFIX,yuki-cdn.line-apps.com,DIRECT
 DOMAIN-SUFFIX,cix.line-apps.com,DIRECT
 DOMAIN-SUFFIX,uts-front.line-apps.com,DIRECT
+DOMAIN-SUFFIX,pagepoker.line-scdn.net,DIRECT
 URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/ext\/album\/api\/v\d+\/albums\/(?:preview|\d+\/photos(?:\/\d+\/likes\/preview)?)(?:\?.*)?$,DIRECT
 URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/ext\/album\/?$,DIRECT
 URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/[A-Z0-9]+(\?.*)?$,DIRECT
@@ -99,7 +100,6 @@ DOMAIN-SUFFIX,crossfeed.line-apps.com,REJECT
 DOMAIN-SUFFIX,dsp.line.me,REJECT
 DOMAIN-SUFFIX,rtb.line.me,REJECT
 DOMAIN-SUFFIX,music-ad.line.me,REJECT
-DOMAIN-SUFFIX,pagepoker.line-scdn.net,REJECT
 
 # === 追蹤與數據管理域名 ===
 DOMAIN-SUFFIX,impression.line.me,REJECT-DROP
