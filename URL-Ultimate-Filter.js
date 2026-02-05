@@ -1,9 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.84.js
- * @version   43.84 (Test Case Sync)
- * @description [V43.84] 版本同步與維護：
- * 1) [Sync] 配合測試套件 V43.84 修正畸形 URL 測試邏輯。
- * 2) [Base] 保留 V43.83 所有效能優化 (ACScanner Limit 600) 與新阻擋規則。
+ * @file      URL-Ultimate-Filter-Surge-V43.85.js
+ * @version   43.85 (YouTube Notification Privacy)
+ * @description [V43.85] 針對性隱私強化：
+ * 1) [Block] 新增 YouTube 通知互動遙測 (record_interactions) 阻擋規則。
+ * 2) [Base] 繼承 V43.84 所有效能優化與防護架構。
  * @lastUpdated 2026-02-06
  */
 
@@ -312,9 +312,10 @@ const RULES = {
     ]),
     MAP: new Map([
       // [V43.75] YouTube & Google Video Telemetry Matrix (Map Priority > Whitelist)
+      // [V43.85] Added /youtubei/v1/notification/record_interactions
       ['www.youtube.com', new Set(['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'])],
       ['m.youtube.com', new Set(['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'])],
-      ['youtubei.googleapis.com', new Set(['/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/'])],
+      ['youtubei.googleapis.com', new Set(['/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/', '/youtubei/v1/notification/record_interactions'])],
       ['googlevideo.com', new Set(['/ptracking', '/videoplayback?ptracking='])],
 
       ['api.rc-backup.com', new Set(['/adservices_attribution'])],
@@ -868,5 +869,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.84 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.85 Active\n${stats.toString()}` });
 }
