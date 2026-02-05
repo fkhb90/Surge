@@ -1,13 +1,12 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.85.js
- * @version   43.85 (YouTube Notification Privacy)
- * @description [V43.85] 針對性隱私強化：
- * 1) [Block] 新增 YouTube 通知互動遙測 (record_interactions) 阻擋規則。
- * 2) [Base] 繼承 V43.84 所有效能優化與防護架構。
+ * @file      URL-Ultimate-Filter-Surge-V43.87.js
+ * @version   43.87 (Hotfix: Shorts Playback)
+ * @description [V43.87] 功能修復：
+ * 1) [Revert] 移除對 'reel_watch_sequence' 的阻擋，修復 YouTube Shorts 無法播放下一則影片的問題。
+ * 2) [Base] 保留 V43.86 的其他隱私強化 (record_interactions) 與效能優化。
  * @lastUpdated 2026-02-06
  */
 
-// [Perf] Reduced scan length for mobile efficiency
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
 
 const OAUTH_SAFE_HARBOR = {
@@ -80,10 +79,10 @@ const RULES = {
     'analytics.tiktok.com', 'ads.linkedin.com', 'ad.etmall.com.tw', 'ad.line.me', 'ad-history.line.me',
     
     // [V43.83] High Risk Additions
-    'inmobi.com', 'inner-active.mobi', // Mobile Ads
-    'split.io', 'launchdarkly.com', // Feature Flagging/Tracking
-    'clarity.ms', 'fullstory.com', // Session Replay
-    'cdn.segment.com' // Analytics CDN
+    'inmobi.com', 'inner-active.mobi',
+    'split.io', 'launchdarkly.com',
+    'clarity.ms', 'fullstory.com',
+    'cdn.segment.com'
   ]),
 
   REDIRECTOR_HOSTS: new Set([
@@ -105,7 +104,6 @@ const RULES = {
     'zegtrends.com'
   ]),
 
-  // [2] Intelligent Whitelists
   HARD_WHITELIST: {
     EXACT: new Set([
       'iappapi.investing.com',
@@ -164,8 +162,8 @@ const RULES = {
       'cmapi.tw.coupang.com',
       'api.ipify.org',
       'gcp-data-api.ltn.com.tw',
-      's.pinimg.com', // [V43.83] Pinterest Resources
-      'cdn.shopify.com' // [V43.83] Shopify Resources
+      's.pinimg.com',
+      'cdn.shopify.com'
     ]),
     WILDCARDS: [
       'chatgpt.com', 'shopee.com', 'shopeemobile.com', 'shopee.io',
@@ -267,7 +265,6 @@ const RULES = {
 
   CRITICAL_PATH: {
     GENERIC: [
-      // [V43.75 Optimization] Removed 'ptracking', 'log_event' (Moved to Map)
       '/accounts/CheckConnection', '/0.gif', '/1.gif', '/pixel.gif', '/beacon.gif', '/ping.gif',
       '/track.gif', '/dot.gif', '/clear.gif', '/empty.gif', '/shim.gif', '/spacer.gif', '/imp.gif',
       '/impression.gif', '/view.gif', '/sync.gif', '/sync.php', '/match.gif', '/match.php',
@@ -311,13 +308,11 @@ const RULES = {
       'tracking.js', 'user-id.js', 'user-timing.js', 'wcslog.js', 'jslog.min.js', 'device-uuid.js'
     ]),
     MAP: new Map([
-      // [V43.75] YouTube & Google Video Telemetry Matrix (Map Priority > Whitelist)
-      // [V43.85] Added /youtubei/v1/notification/record_interactions
       ['www.youtube.com', new Set(['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'])],
       ['m.youtube.com', new Set(['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'])],
+      // [V43.87] Removed '/youtubei/v1/reel/reel_watch_sequence' from block list to fix Shorts playback
       ['youtubei.googleapis.com', new Set(['/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/', '/youtubei/v1/notification/record_interactions'])],
       ['googlevideo.com', new Set(['/ptracking', '/videoplayback?ptracking='])],
-
       ['api.rc-backup.com', new Set(['/adservices_attribution'])],
       ['api.revenuecat.com', new Set(['/adservices_attribution'])],
       ['api-d.dropbox.com', new Set(['/send_mobile_log'])],
@@ -457,57 +452,6 @@ const RULES = {
       'loggly', 'log-hl', 'realtime-log', '/rum/', 'server-event', 'telemetry', 'uploadmobiledata',
       'web-beacon', 'web-vitals', 'crash-report', 'diagnostic.log', 'profiler', 'stacktrace', 'trace.json'
     ])
-  },
-
-  PARAMS: {
-    GLOBAL: new Set([
-      'dev_id', 'gclid', 'fbclid', 'ttclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term',
-      'utm_content', 'yclid', 'mc_cid', 'mc_eid', 'srsltid', 'dclid', 'gclsrc', 'twclid', 'lid',
-      '_branch_match_id', '_ga', '_gl', '_gid', '_openstat', 'admitad_uid', 'aiad_clid', 'awc', 'btag',
-      'cjevent', 'cmpid', 'cuid', 'external_click_id', 'gad_source', 'gbraid', 'gps_adid', 'iclid',
-      'igshid', 'irclickid', 'is_retargeting', 'ko_click_id', 'li_fat_id', 'mibextid', 'msclkid',
-      'oprtrack', 'rb_clickid', 'sscid', 'trk', 'usqp', 'vero_conv', 'vero_id', 'wbraid', 'wt_mc',
-      'xtor', 'ysclid', 'zanpid', 'yt_src', 'yt_ad'
-    ]),
-    GLOBAL_REGEX: [/^utm_\w+/i, /^ig_[\w_]+/i, /^asa_\w+/i, /^tt_[\w_]+/i, /^li_[\w_]+/i],
-    PREFIXES: new Set([
-      '__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs', '_oly_', 'action_', 'ad_', 'adjust_', 'aff_', 'af_',
-      'alg_', 'at_', 'bd_', 'bsft_', 'campaign_', 'cj', 'cm_', 'content_', 'creative_', 'fb_', 'from_',
-      'gcl_', 'guce_', 'hmsr_', 'hsa_', 'ir_', 'itm_', 'li_', 'matomo_', 'medium_', 'mkt_', 'ms_', 'mt_',
-      'mtm', 'pk_', 'piwik_', 'placement_', 'ref_', 'share_', 'source_', 'space_', 'term_', 'trk_', 'tt_',
-      'ttc_', 'vsm_', 'li_fat_', 'linkedin_'
-    ]),
-    PREFIXES_REGEX: [/_ga_/i, /^tt_[\w_]+/i, /^li_[\w_]+/i],
-    COSMETIC: new Set(['fb_ref', 'fb_source', 'from', 'ref', 'share_id', 'spot_im_redirect_source']),
-    WHITELIST: new Set([
-      'code', 'id', 'item', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't',
-      'targetid', 'token', 'v', 'callback', 'ct', 'cv', 'filter', 'format', 'lang', 'locale', 'status',
-      'timestamp', 'type', 'withstats', 'access_token', 'client_assertion', 'client_id', 'device_id',
-      'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope', 'direction', 'limit', 'offset',
-      'order', 'page_number', 'size', 'sort', 'sort_by', 'aff_sub', 'click_id', 'deal_id', 'offer_id',
-      'cancel_url', 'error_url', 'return_url', 'success_url', 'metadata', 'pagestatus', 'eventactiontype',
-      'unitpricewithdeliveryfee', 'previousitempricecount', 'optiontablelandingvendoritemid',
-      'selectedshowdeliverypddstatus'
-    ]),
-    EXEMPTIONS: new Map([
-        ['www.google.com', new Set(['/maps/'])],
-        ['taxi.sleepnova.org', new Set(['/api/v4/routes_estimate'])],
-        ['cmapi.tw.coupang.com', new Set(['/'])],
-        ['accounts.felo.me', new Set(['/'])],
-        ['gcp-data-api.ltn.com.tw', new Set(['/'])]
-    ])
-  },
-
-  REGEX: {
-    PATH_BLOCK: [
-      /^https?:\/\/[^\/]+\/(\w+\/)?ad[s]?\//i,
-      /\.(com|net|org)\/(\w+\/)?(ad|banner|tracker)\.(js|gif|png)$/i,
-      /\/pagead\/ads/i, /\/googleads\//i, /\/ads\/user-lists\//i, /\/marketing\/api\//i
-    ],
-    HEURISTIC: [
-       /[?&](ad|ads|campaign|tracker)_[a-z]+=/i,
-       /\/ad(server|serve|vert|vertis|v)\./i
-    ]
   },
 
   EXCEPTIONS: {
@@ -869,5 +813,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.85 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.87 Active\n${stats.toString()}` });
 }
