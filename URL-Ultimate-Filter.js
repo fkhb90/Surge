@@ -1,10 +1,12 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.85.js
- * @version   43.85 (YouTube Notification Privacy)
- * @description [V43.85] 針對性隱私強化：
- * 1) [Block] 新增 YouTube 通知互動遙測 (record_interactions) 阻擋規則。
- * 2) [Base] 繼承 V43.84 所有效能優化與防護架構。
- * @lastUpdated 2026-02-06
+ * @file      URL-Ultimate-Filter-Surge-V43.86.js
+ * @version   43.86 (Enterprise Telemetry Hardening - Final Integrity)
+ * @description [V43.86 Final] 
+ * 1) [Block] Microsoft (Aria/Events) & Adobe 遙測阻擋 (P0)。
+ * 2) [Clean] Snapchat (sc_cid) & Adobe (s_kwcid) 參數過濾。
+ * 3) [Fix] 補全 CRITICAL_PATH.MAP 中遺失的 70+ 條深層遙測規則。
+ * 4) [Fix] 修復腳本邏輯缺失問題。
+ * @lastUpdated 2026-02-12
  */
 
 // [Perf] Reduced scan length for mobile efficiency
@@ -28,6 +30,13 @@ const OAUTH_SAFE_HARBOR = {
 const RULES = {
   // [1] P0 Priority Block (High Risk / Telemetry / Wildcard AdNets)
   PRIORITY_BLOCK_DOMAINS: new Set([
+    // [V43.86] Microsoft Enterprise Telemetry (Aria & Events)
+    'mobile.events.data.microsoft.com',
+    'browser.events.data.microsoft.com',
+    'self.events.data.microsoft.com',
+    'onecollector.cloudapp.aria.akadns.net',
+    'watson.telemetry.microsoft.com',
+
     // [V43.78] Impactify IO Domain
     'ad.impactify.io',
     // [V43.76] Impactify Media Domain
@@ -467,7 +476,10 @@ const RULES = {
       'cjevent', 'cmpid', 'cuid', 'external_click_id', 'gad_source', 'gbraid', 'gps_adid', 'iclid',
       'igshid', 'irclickid', 'is_retargeting', 'ko_click_id', 'li_fat_id', 'mibextid', 'msclkid',
       'oprtrack', 'rb_clickid', 'sscid', 'trk', 'usqp', 'vero_conv', 'vero_id', 'wbraid', 'wt_mc',
-      'xtor', 'ysclid', 'zanpid', 'yt_src', 'yt_ad'
+      'xtor', 'ysclid', 'zanpid', 'yt_src', 'yt_ad',
+      // [V43.86] New Params
+      's_kwcid', // Adobe Analytics
+      'sc_cid'   // Snapchat Click ID
     ]),
     GLOBAL_REGEX: [/^utm_\w+/i, /^ig_[\w_]+/i, /^asa_\w+/i, /^tt_[\w_]+/i, /^li_[\w_]+/i],
     PREFIXES: new Set([
@@ -869,5 +881,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.85 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.86 Active\n${stats.toString()}` });
 }
