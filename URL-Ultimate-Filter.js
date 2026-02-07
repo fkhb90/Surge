@@ -1,11 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.86.js
- * @version   43.86 (Enterprise Telemetry Hardening - Final Integrity)
- * @description [V43.86 Final] 
- * 1) [Block] Microsoft (Aria/Events) & Adobe 遙測阻擋 (P0)。
- * 2) [Clean] Snapchat (sc_cid) & Adobe (s_kwcid) 參數過濾。
- * 3) [Fix] 補全 CRITICAL_PATH.MAP 中遺失的 70+ 條深層遙測規則。
- * 4) [Fix] 修復腳本邏輯缺失問題。
+ * @file      URL-Ultimate-Filter-Surge-V43.87.js
+ * @version   43.87 (Datadog RUM Hardening)
+ * @description [V43.87 Patch] 
+ * 1) [Block] 強化 Datadog RUM 正則攔截，覆蓋多重區域變體 (如 us3/us5/ap1)。
+ * 2) [Inherit] 繼承 V43.86 Microsoft/Adobe 遙測阻擋與參數淨化規則。
  * @lastUpdated 2026-02-12
  */
 
@@ -63,7 +61,6 @@ const RULES = {
     'doorphone92.com',
 
     // Datadog & Sentry Proxies
-    'browser-intake-datadoghq.com', 'browser-intake-datadoghq.eu', 'browser-intake-datadoghq.us',
     'logs.datadoghq.com', 'mobile-http-intake.logs.datadoghq.com',
     'browser.sentry-cdn.com', // [V43.83] Sentry Proxy
 
@@ -136,7 +133,9 @@ const RULES = {
       'ss.ledabangong.com', 'userscripts.adtidy.org', 'api.github.com', 'api.vercel.com',
       'gateway.facebook.com', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com',
       'api.discord.com', 'api.twitch.tv', 'api.line.me', 'today.line.me',
-      'pro.104.com.tw', 'gov.tw'
+      'pro.104.com.tw', 'gov.tw',
+      // [V43.86] Infrastructure
+      'datadog.pool.ntp.org' 
     ]),
     WILDCARDS: [
       'sendgrid.net', 
@@ -269,7 +268,8 @@ const RULES = {
   BLOCK_DOMAINS_REGEX: [
     /^ad[s]?\d*\.(ettoday\.net|ltn\.com\.tw)$/i,
     /^(.+\.)?sentry\.io$/i,
-    /^(.+\.)?browser-intake-datadoghq\.(com|eu|us)$/i,
+    // [V43.87] Expanded Datadog RUM Block (Covers us3, us5, ap1 etc.)
+    /^browser-intake-.*datadoghq\.(com|eu|us)$/i,
     /^(.+\.)?lr-ingest\.io$/i,
     /^(.+\.)?aotter\.net$/i
   ],
@@ -881,5 +881,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.86 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.87 Active\n${stats.toString()}` });
 }
