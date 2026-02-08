@@ -1,9 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.87.js
- * @version   43.87 (Datadog RUM Hardening)
- * @description [V43.87 Patch] 
- * 1) [Block] 強化 Datadog RUM 正則攔截，覆蓋多重區域變體 (如 us3/us5/ap1)。
- * 2) [Inherit] 繼承 V43.86 Microsoft/Adobe 遙測阻擋與參數淨化規則。
+ * @file      URL-Ultimate-Filter-Surge-V43.88.js
+ * @version   43.88 (Uber & Datadog Dual Hardening)
+ * @description [V43.88 Consolidated] 
+ * 1) [Block] Uber/Uber Eats 深層遙測 (/ramen/v1/events) 與廣告 API 攔截。
+ * 2) [Block] Datadog RUM 跨區域正則防護 (繼承 V43.87)。
+ * 3) [Inherit] Microsoft/Adobe 企業遙測阻擋 (繼承 V43.86)。
  * @lastUpdated 2026-02-12
  */
 
@@ -135,7 +136,9 @@ const RULES = {
       'api.discord.com', 'api.twitch.tv', 'api.line.me', 'today.line.me',
       'pro.104.com.tw', 'gov.tw',
       // [V43.86] Infrastructure
-      'datadog.pool.ntp.org' 
+      'datadog.pool.ntp.org',
+      // [V43.88] Core Operations
+      'ewp.uber.com', 'copilot.microsoft.com'
     ]),
     WILDCARDS: [
       'sendgrid.net', 
@@ -215,6 +218,9 @@ const RULES = {
 
     // [V43.73] Zoom Telemetry Log
     'log.zoom.us',
+    
+    // [V43.88] Uber General Telemetry
+    'metrics.uber.com', 'event-tracker.uber.com', 'cn-geo1.uber.com',
     
     'effirst.com', 'px.effirst.com', 'simonsignal.com', 'dem.shopee.com', 'apm.tracking.shopee.tw',
     'live-apm.shopee.tw', 'log-collector.shopee.tw', 'analytics.shopee.tw', 'dmp.shopee.tw',
@@ -326,6 +332,11 @@ const RULES = {
       ['m.youtube.com', new Set(['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'])],
       ['youtubei.googleapis.com', new Set(['/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/', '/youtubei/v1/notification/record_interactions'])],
       ['googlevideo.com', new Set(['/ptracking', '/videoplayback?ptracking='])],
+
+      // [V43.88] Uber & Uber Eats Telemetry Matrix (Ramen/Events)
+      ['api.uber.com', new Set(['/ramen/v1/events', '/v3/mobile-event', '/advertising/v1/', '/eats/advertising/', '/rt/users/v1/device-info'])],
+      ['api.ubereats.com', new Set(['/v1/eats/advertising', '/ramen/v1/events'])],
+      ['cn-geo1.uber.com', new Set(['/ramen/v1/events', '/v3/mobile-event', '/monitor/v2/logs'])],
 
       ['api.rc-backup.com', new Set(['/adservices_attribution'])],
       ['api.revenuecat.com', new Set(['/adservices_attribution'])],
@@ -881,5 +892,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.87 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.88 Active\n${stats.toString()}` });
 }
+
