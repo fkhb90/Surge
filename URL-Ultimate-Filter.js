@@ -2,7 +2,7 @@
  * @file      URL-Ultimate-Filter-Surge-V43.90.js
  * @version   43.90 (Unwire.hk Tracking Script Block)
  * @description [V43.90 Update] 
- * 1) [Block] Unwire.hk 特定追蹤腳本 (mKGqAA1MFbon.js)。
+ * 1) [Block] Unwire.hk 特定追蹤腳本 (mKGqAA1MFbon.js) - L4 Map 精準打擊。
  * 2) [Inherit] V43.89 所有旗艦級防護規則 (Yahoo/Uber/Datadog/Pidetupop)。
  * @lastUpdated 2026-02-12
  */
@@ -347,8 +347,8 @@ const RULES = {
       ['tw.mapi.shp.yahoo.com', new Set(['/w/analytics', '/v1/instrumentation', '/ws/search/tracking', '/dw/tracker'])],
       ['tw.buy.yahoo.com', new Set(['/b/ss/', '/ws/search/tracking', '/activity/record'])],
 
-      // [V43.90] Unwire.hk Tracking Scripts
-      ['unwire.hk', new Set(['/mKGqAA1MFbon.js'])],
+      // [V43.90] Unwire.hk Tracking Scripts (L4 Map - Lowcase required)
+      ['unwire.hk', new Set(['/mkgqaa1mfbon.js'])],
 
       ['api.rc-backup.com', new Set(['/adservices_attribution'])],
       ['api.revenuecat.com', new Set(['/adservices_attribution'])],
@@ -838,35 +838,6 @@ function processRequest(request) {
         return performCleaning();
     }
 
-    // [V43.83 Perf] Check Static File BEFORE complex scanners, but AFTER domain/map blocks
-    // This prevents scanning .jpg files for keywords, saving CPU
-    const isStatic = HELPERS.isStaticFile(pathLower);
-
-    if (criticalPathScanner.matches(pathLower)) {
-      stats.blocks++;
-      if (CONFIG.DEBUG_MODE) console.log(`[Block] L1 Critical: ${pathLower}`);
-      return { response: { status: 403, body: 'Blocked by L1' } };
-    }
-
-    const isSoftWhitelisted = isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname);
-
-    if (hostname === 'cmapi.tw.coupang.com') {
-      if (/\/.*-ads\//.test(pathLower)) {
-        stats.blocks++;
-        if (CONFIG.DEBUG_MODE) console.log(`[Block] Coupang Omni-Ad: ${pathLower}`);
-        return { response: { status: 403, body: 'Blocked by Coupang Omni-Block' } };
-      }
-    }
-
-    if (!isSoftWhitelisted) {
-      if (RULES.BLOCK_DOMAINS.has(hostname) || RULES.BLOCK_DOMAINS_REGEX.some(r => r.test(hostname))) {
-        stats.blocks++;
-        return { response: { status: 403, body: 'Blocked by Domain' } };
-      }
-    }
-
-    const isExplicitlyAllowed = HELPERS.isPathExplicitlyAllowed(pathLower);
-
     // [V43.83 Perf] Optimization: Skip Keyword/Regex scan for Static Files
     if (!isSoftWhitelisted || (isSoftWhitelisted && !isStatic)) {
       if (!isExplicitlyAllowed && !isStatic) { 
@@ -906,4 +877,5 @@ if (typeof $request !== 'undefined') {
 } else {
   $done({ title: 'URL Ultimate Filter', content: `V43.90 Active\n${stats.toString()}` });
 }
+
 
