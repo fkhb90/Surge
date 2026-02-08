@@ -1,10 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.88.js
- * @version   43.88 (Uber & Datadog Dual Hardening)
- * @description [V43.88 Consolidated] 
- * 1) [Block] Uber/Uber Eats 深層遙測 (/ramen/v1/events) 與廣告 API 攔截。
- * 2) [Block] Datadog RUM 跨區域正則防護 (繼承 V43.87)。
- * 3) [Inherit] Microsoft/Adobe 企業遙測阻擋 (繼承 V43.86)。
+ * @file      URL-Ultimate-Filter-Surge-V43.89.js
+ * @version   43.89 (Yahoo Shopping & Pidetupop Hardening)
+ * @description [V43.89 Flagship] 
+ * 1) [Block] Yahoo 購物深層遙測 (/w/analytics) 與搜尋追蹤。
+ * 2) [Block] Pidetupop 惡意網域萬用字元攔截 (Hotfix)。
+ * 3) [Block] Uber/Datadog 進階遙測與廣告 API (繼承 V43.88)。
+ * 4) [Allow] 保障 Copilot, Uber EWP, Yahoo Campaign 核心功能。
  * @lastUpdated 2026-02-12
  */
 
@@ -137,8 +138,8 @@ const RULES = {
       'pro.104.com.tw', 'gov.tw',
       // [V43.86] Infrastructure
       'datadog.pool.ntp.org',
-      // [V43.88] Core Operations
-      'ewp.uber.com', 'copilot.microsoft.com'
+      // [V43.89] Core Operations
+      'ewp.uber.com', 'copilot.microsoft.com', 'tw.mapi.shp.yahoo.com'
     ]),
     WILDCARDS: [
       'sendgrid.net', 
@@ -222,6 +223,9 @@ const RULES = {
     // [V43.88] Uber General Telemetry
     'metrics.uber.com', 'event-tracker.uber.com', 'cn-geo1.uber.com',
     
+    // [V43.89] Yahoo Analytics
+    'udp.yahoo.com', 'analytics.yahoo.com',
+    
     'effirst.com', 'px.effirst.com', 'simonsignal.com', 'dem.shopee.com', 'apm.tracking.shopee.tw',
     'live-apm.shopee.tw', 'log-collector.shopee.tw', 'analytics.shopee.tw', 'dmp.shopee.tw',
     'analysis.momoshop.com.tw', 'event.momoshop.com.tw', 'sspap.momoshop.com.tw',
@@ -276,6 +280,9 @@ const RULES = {
     /^(.+\.)?sentry\.io$/i,
     // [V43.87] Expanded Datadog RUM Block (Covers us3, us5, ap1 etc.)
     /^browser-intake-.*datadoghq\.(com|eu|us)$/i,
+    // [V43.89] Pidetupop Malware/Ad Network Wildcard
+    /^(.+\.)?pidetupop\.com$/i,
+    
     /^(.+\.)?lr-ingest\.io$/i,
     /^(.+\.)?aotter\.net$/i
   ],
@@ -337,6 +344,10 @@ const RULES = {
       ['api.uber.com', new Set(['/ramen/v1/events', '/v3/mobile-event', '/advertising/v1/', '/eats/advertising/', '/rt/users/v1/device-info'])],
       ['api.ubereats.com', new Set(['/v1/eats/advertising', '/ramen/v1/events'])],
       ['cn-geo1.uber.com', new Set(['/ramen/v1/events', '/v3/mobile-event', '/monitor/v2/logs'])],
+
+      // [V43.89] Yahoo Shopping TW Telemetry Matrix
+      ['tw.mapi.shp.yahoo.com', new Set(['/w/analytics', '/v1/instrumentation', '/ws/search/tracking', '/dw/tracker'])],
+      ['tw.buy.yahoo.com', new Set(['/b/ss/', '/ws/search/tracking', '/activity/record'])],
 
       ['api.rc-backup.com', new Set(['/adservices_attribution'])],
       ['api.revenuecat.com', new Set(['/adservices_attribution'])],
@@ -892,6 +903,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.88 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.89 Active\n${stats.toString()}` });
 }
 
