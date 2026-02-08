@@ -1,9 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.90.js
- * @version   43.90 (Unwire.hk Tracking Script Block)
- * @description [V43.90 Update] 
- * 1) [Block] Unwire.hk 特定追蹤腳本 (mKGqAA1MFbon.js) - L4 Map 精準打擊。
- * 2) [Inherit] V43.89 所有旗艦級防護規則 (Yahoo/Uber/Datadog/Pidetupop)。
+ * @file      URL-Ultimate-Filter-Surge-V43.91.js
+ * @version   43.91 (Coupang JSLog Hardening)
+ * @description [V43.91 Update] 
+ * 1) [Block] Coupang CDN 前端日誌腳本 (jslog.min.js) - L4 Map 精準攔截。
+ * 2) [Inherit] V43.90 所有旗艦級防護規則 (Unwire/Yahoo/Uber/Datadog)。
  * @lastUpdated 2026-02-12
  */
 
@@ -349,6 +349,9 @@ const RULES = {
 
       // [V43.90] Unwire.hk Tracking Scripts (L4 Map - Lowcase required)
       ['unwire.hk', new Set(['/mkgqaa1mfbon.js'])],
+
+      // [V43.91] Coupang CDN JSLog Hardening
+      ['asset2.coupangcdn.com', new Set(['/jslog.min.js'])],
 
       ['api.rc-backup.com', new Set(['/adservices_attribution'])],
       ['api.revenuecat.com', new Set(['/adservices_attribution'])],
@@ -838,6 +841,35 @@ function processRequest(request) {
         return performCleaning();
     }
 
+    // [V43.83 Perf] Check Static File BEFORE complex scanners, but AFTER domain/map blocks
+    // This prevents scanning .jpg files for keywords, saving CPU
+    const isStatic = HELPERS.isStaticFile(pathLower);
+
+    if (criticalPathScanner.matches(pathLower)) {
+      stats.blocks++;
+      if (CONFIG.DEBUG_MODE) console.log(`[Block] L1 Critical: ${pathLower}`);
+      return { response: { status: 403, body: 'Blocked by L1' } };
+    }
+
+    const isSoftWhitelisted = isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname);
+
+    if (hostname === 'cmapi.tw.coupang.com') {
+      if (/\/.*-ads\//.test(pathLower)) {
+        stats.blocks++;
+        if (CONFIG.DEBUG_MODE) console.log(`[Block] Coupang Omni-Ad: ${pathLower}`);
+        return { response: { status: 403, body: 'Blocked by Coupang Omni-Block' } };
+      }
+    }
+
+    if (!isSoftWhitelisted) {
+      if (RULES.BLOCK_DOMAINS.has(hostname) || RULES.BLOCK_DOMAINS_REGEX.some(r => r.test(hostname))) {
+        stats.blocks++;
+        return { response: { status: 403, body: 'Blocked by Domain' } };
+      }
+    }
+
+    const isExplicitlyAllowed = HELPERS.isPathExplicitlyAllowed(pathLower);
+
     // [V43.83 Perf] Optimization: Skip Keyword/Regex scan for Static Files
     if (!isSoftWhitelisted || (isSoftWhitelisted && !isStatic)) {
       if (!isExplicitlyAllowed && !isStatic) { 
@@ -875,7 +907,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.90 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.91 Active\n${stats.toString()}` });
 }
-
 
