@@ -1,11 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.89.js
- * @version   43.89 (Yahoo Shopping & Pidetupop Hardening)
- * @description [V43.89 Flagship] 
- * 1) [Block] Yahoo 購物深層遙測 (/w/analytics) 與搜尋追蹤。
- * 2) [Block] Pidetupop 惡意網域萬用字元攔截 (Hotfix)。
- * 3) [Block] Uber/Datadog 進階遙測與廣告 API (繼承 V43.88)。
- * 4) [Allow] 保障 Copilot, Uber EWP, Yahoo Campaign 核心功能。
+ * @file      URL-Ultimate-Filter-Surge-V43.90.js
+ * @version   43.90 (Unwire.hk Tracking Script Block)
+ * @description [V43.90 Update] 
+ * 1) [Block] Unwire.hk 特定追蹤腳本 (mKGqAA1MFbon.js)。
+ * 2) [Inherit] V43.89 所有旗艦級防護規則 (Yahoo/Uber/Datadog/Pidetupop)。
  * @lastUpdated 2026-02-12
  */
 
@@ -348,6 +346,9 @@ const RULES = {
       // [V43.89] Yahoo Shopping TW Telemetry Matrix
       ['tw.mapi.shp.yahoo.com', new Set(['/w/analytics', '/v1/instrumentation', '/ws/search/tracking', '/dw/tracker'])],
       ['tw.buy.yahoo.com', new Set(['/b/ss/', '/ws/search/tracking', '/activity/record'])],
+
+      // [V43.90] Unwire.hk Tracking Scripts
+      ['unwire.hk', new Set(['/mKGqAA1MFbon.js'])],
 
       ['api.rc-backup.com', new Set(['/adservices_attribution'])],
       ['api.revenuecat.com', new Set(['/adservices_attribution'])],
@@ -903,6 +904,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.89 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.90 Active\n${stats.toString()}` });
 }
 
