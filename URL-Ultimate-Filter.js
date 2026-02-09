@@ -1,9 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.91.js
- * @version   43.91 (Coupang JSLog Hardening)
- * @description [V43.91 Update] 
- * 1) [Block] Coupang CDN 前端日誌腳本 (jslog.min.js) - L4 Map 精準攔截。
- * 2) [Inherit] V43.90 所有旗艦級防護規則 (Unwire/Yahoo/Uber/Datadog)。
+ * @file      URL-Ultimate-Filter-Surge-V43.93.js
+ * @version   43.93 (Histats Wildcard Hardening)
+ * @description [V43.93 Update] 
+ * 1) [Block] 升級 Histats (cdn-net.com) 為萬用字元正則攔截，覆蓋 six.cdn-net.com 等子網域。
+ * 2) [Inherit] V43.92 所有旗艦級防護規則。
  * @lastUpdated 2026-02-12
  */
 
@@ -223,6 +223,9 @@ const RULES = {
     
     // [V43.89] Yahoo Analytics
     'udp.yahoo.com', 'analytics.yahoo.com',
+
+    // [V43.93] Moved cdn-net.com to REGEX for wildcard support
+    // 'cdn-net.com',
     
     'effirst.com', 'px.effirst.com', 'simonsignal.com', 'dem.shopee.com', 'apm.tracking.shopee.tw',
     'live-apm.shopee.tw', 'log-collector.shopee.tw', 'analytics.shopee.tw', 'dmp.shopee.tw',
@@ -280,6 +283,8 @@ const RULES = {
     /^browser-intake-.*datadoghq\.(com|eu|us)$/i,
     // [V43.89] Pidetupop Malware/Ad Network Wildcard
     /^(.+\.)?pidetupop\.com$/i,
+    // [V43.93] Histats Cloaked Domain Wildcard (covers six.cdn-net.com)
+    /^(.+\.)?cdn-net\.com$/i,
     
     /^(.+\.)?lr-ingest\.io$/i,
     /^(.+\.)?aotter\.net$/i
@@ -907,6 +912,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.91 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.93 Active\n${stats.toString()}` });
 }
 
