@@ -1,9 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.93.js
- * @version   43.93 (Histats Wildcard Hardening)
- * @description [V43.93 Update] 
- * 1) [Block] 升級 Histats (cdn-net.com) 為萬用字元正則攔截，覆蓋 six.cdn-net.com 等子網域。
- * 2) [Inherit] V43.92 所有旗艦級防護規則。
+ * @file      URL-Ultimate-Filter-Surge-V43.94.js
+ * @version   43.94 (Firebase Deep Link Fix)
+ * @description [V43.94 Hotfix] 
+ * 1) [Allow] 強制放行 Firebase Dynamic Links (firebasedynamiclinks.googleapis.com)，解決 'attribution' 關鍵字誤殺問題。
+ * 2) [Inherit] V43.93 所有旗艦級防護規則 (Histats/Coupang/Unwire/Yahoo/Uber)。
  * @lastUpdated 2026-02-12
  */
 
@@ -137,7 +137,9 @@ const RULES = {
       // [V43.86] Infrastructure
       'datadog.pool.ntp.org',
       // [V43.89] Core Operations
-      'ewp.uber.com', 'copilot.microsoft.com', 'tw.mapi.shp.yahoo.com'
+      'ewp.uber.com', 'copilot.microsoft.com', 'tw.mapi.shp.yahoo.com',
+      // [V43.94] Firebase Dynamic Links (Prevents 'attribution' keyword block)
+      'firebasedynamiclinks.googleapis.com'
     ]),
     WILDCARDS: [
       'sendgrid.net', 
@@ -912,6 +914,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.93 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.94 Active\n${stats.toString()}` });
 }
-
