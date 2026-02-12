@@ -1,9 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.94.js
- * @version   43.94 (Firebase Deep Link Fix)
- * @description [V43.94 Hotfix] 
- * 1) [Allow] 強制放行 Firebase Dynamic Links (firebasedynamiclinks.googleapis.com)，解決 'attribution' 關鍵字誤殺問題。
- * 2) [Inherit] V43.93 所有旗艦級防護規則 (Histats/Coupang/Unwire/Yahoo/Uber)。
+ * @file      URL-Ultimate-Filter-Surge-V43.95.js
+ * @version   43.95 (Firebase Attribution Split)
+ * @description [V43.95 Update] 
+ * 1) [Block] 精準封鎖 Firebase 安裝歸因 (/installAttribution)，阻斷廣告安裝追蹤。
+ * 2) [Allow] 保持放行 Firebase 重啟歸因 (/reopenAttribution)，確保 App 喚醒功能。
+ * 3) [Inherit] V43.94 所有旗艦級防護規則。
  * @lastUpdated 2026-02-12
  */
 
@@ -138,7 +139,7 @@ const RULES = {
       'datadog.pool.ntp.org',
       // [V43.89] Core Operations
       'ewp.uber.com', 'copilot.microsoft.com', 'tw.mapi.shp.yahoo.com',
-      // [V43.94] Firebase Dynamic Links (Prevents 'attribution' keyword block)
+      // [V43.94] Firebase Dynamic Links Domain (Allows Reopen, Installs blocked by Map below)
       'firebasedynamiclinks.googleapis.com'
     ]),
     WILDCARDS: [
@@ -359,6 +360,10 @@ const RULES = {
 
       // [V43.91] Coupang CDN JSLog Hardening
       ['asset2.coupangcdn.com', new Set(['/jslog.min.js'])],
+
+      // [V43.95] Firebase Install Attribution Block
+      // Note: Domain is in HARD_WHITELIST, but MAP block happens BEFORE whitelist check
+      ['firebasedynamiclinks.googleapis.com', new Set(['/v1/installattribution'])],
 
       ['api.rc-backup.com', new Set(['/adservices_attribution'])],
       ['api.revenuecat.com', new Set(['/adservices_attribution'])],
