@@ -15,15 +15,15 @@ DOMAIN-SUFFIX,yuki-cdn.line-apps.com,DIRECT
 DOMAIN-SUFFIX,cix.line-apps.com,DIRECT
 DOMAIN-SUFFIX,uts-front.line-apps.com,DIRECT
 DOMAIN-SUFFIX,pagepoker.line-scdn.net,DIRECT
+DOMAIN-SUFFIX,obs-tw.line-apps.com,DIRECT
 URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/ext\/album\/api\/v\d+\/albums\/(?:preview|\d+\/photos(?:\/\d+\/likes\/preview)?)(?:\?.*)?$,DIRECT
 URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/ext\/album\/?$,DIRECT
 URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/[A-Z0-9]+(\?.*)?$,DIRECT
 URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/(?!ext\/(lgfp\/lad|smartch|today)\/).*$,DIRECT
 URL-REGEX,^https?:\/\/legy-backup\.line-apps\.com(:443)?\/[A-Z0-9]+(\?.*)?$,DIRECT
 URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/talk$,DIRECT
-URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/talk\/emi\/.*$,DIRECT
+# URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/talk\/emi\/.*$,DIRECT
 URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/talk\/emv\/.*\/ud-preview$,DIRECT
-URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/talk\/emv\/.*$,DIRECT
 URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/album\/a\/.*$,DIRECT
 URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/[A-Za-z0-9_-]+$,DIRECT
 URL-REGEX,^https?:\/\/manager\.line-scdn\.net(:443)?\/[A-Za-z0-9_-]+$,DIRECT
