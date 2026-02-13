@@ -1,5 +1,5 @@
-#!name=LINE 廣告與追蹤攔截  (v3.5.0 - 修正終極版)
-#!desc=修正 Regex 格式錯誤，恢復 Surfshark-Taipei 策略。基於 LINE-ADs-New 核心，整合舊版周邊攔截與核心保護。 v2026.01.28
+#!name=LINE 廣告與追蹤攔截  (v3.5.2 - 修正終極版)
+#!desc=修正 Regex 格式錯誤，恢復 Surfshark-Taipei 策略。基於 LINE-ADs-New 核心，整合舊版周邊攔截與核心保護。 v2026.02.13
 #!system=ios
 #!category=Line
 
