@@ -1,9 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.98.js
- * @version   43.98 (LINE CDN Hardening)
- * @description [V43.98 Update] 
- * 1) [Fix] 將 LINE CDN (obs-tw, obs) 提升至 Hard Whitelist，強制放行無副檔名的貼圖資源，解決雜湊誤殺。
- * 2) [Inherit] 繼承 V43.96 的 Yahoo AdTech 與 Firebase 防護規則。
+ * @file      URL-Ultimate-Filter-Surge-V43.99.js
+ * @version   43.99 (Business Weekly Ad Block)
+ * @description [V43.99 Update] 
+ * 1) [Block] 新增商周行銷網域 (campaign.businessweekly.com.tw) 阻擋規則，移除浮水印廣告。
+ * 2) [Fix] 維持 V43.98 的 LINE CDN 修復與 V43.96 的 AdTech 防護。
  * @lastUpdated 2026-02-13
  */
 
@@ -28,6 +28,9 @@ const OAUTH_SAFE_HARBOR = {
 const RULES = {
   // [1] P0 Priority Block (High Risk / Telemetry / Wildcard AdNets)
   PRIORITY_BLOCK_DOMAINS: new Set([
+    // [V43.99] Business Weekly Marketing Campaign (Floating Ads)
+    'campaign.businessweekly.com.tw',
+
     // [V43.86] Microsoft Enterprise Telemetry (Aria & Events)
     'mobile.events.data.microsoft.com',
     'browser.events.data.microsoft.com',
@@ -928,5 +931,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.98 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.99 Active\n${stats.toString()}` });
 }
