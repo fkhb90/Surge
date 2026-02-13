@@ -1,11 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.95.js
- * @version   43.95 (Firebase Attribution Split)
- * @description [V43.95 Update] 
- * 1) [Block] 精準封鎖 Firebase 安裝歸因 (/installAttribution)，阻斷廣告安裝追蹤。
- * 2) [Allow] 保持放行 Firebase 重啟歸因 (/reopenAttribution)，確保 App 喚醒功能。
- * 3) [Inherit] V43.94 所有旗艦級防護規則。
- * @lastUpdated 2026-02-12
+ * @file      URL-Ultimate-Filter-Surge-V43.96.js
+ * @version   43.96 (Yahoo SSP Hardening)
+ * @description [V43.96 Update] 
+ * 1) [Block] 新增 Yahoo SSP 廣告競價網域 (ssp.yahoo.com, C2shb-oao...)，阻斷 Header Bidding 追蹤。
+ * 2) [Inherit] V43.95 所有 Firebase 歸因切割與旗艦級防護規則。
+ * @lastUpdated 2026-02-13
  */
 
 // [Perf] Reduced scan length for mobile efficiency
@@ -226,6 +225,8 @@ const RULES = {
     
     // [V43.89] Yahoo Analytics
     'udp.yahoo.com', 'analytics.yahoo.com',
+    // [V43.96] Yahoo SSP (Header Bidding)
+    'ssp.yahoo.com', 'c2shb-oao.ssp.yahoo.com',
 
     // [V43.93] Moved cdn-net.com to REGEX for wildcard support
     // 'cdn-net.com',
@@ -244,7 +245,7 @@ const RULES = {
     'edgecompute-analytics.com', 'monitoring.edge-compute.io', 'realtime-edge.fastly.com', '2o7.net',
     'everesttech.net', 'log.felo.ai', 'event.sc.gearupportal.com', 'pidetupop.com', 'adform.net',
     'adsrvr.org', 'analytics.line.me', 'analytics.slashdotmedia.com', 'analytics.strava.com',
-    'analytics.twitter.com', 'analytics.yahoo.com', 'api.pendo.io', 'c.clarity.ms', 'c.segment.com',
+    'analytics.twitter.com', 'api.pendo.io', 'c.clarity.ms', 'c.segment.com',
     'chartbeat.com', 'clicktale.net', 'clicky.com', 'comscore.com', 'criteo.net', 'customer.io',
     'data.investing.com', 'datadoghq.com', 'dynatrace.com', 'fullstory.com', 'heap.io', 'inspectlet.com',
     'iterable.com', 'keen.io', 'kissmetrics.com', 'loggly.com', 'matomo.cloud', 'mgid.com',
