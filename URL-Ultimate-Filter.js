@@ -1,8 +1,8 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.97.js
- * @version   43.97 (LINE CDN Fix)
- * @description [V43.97 Update] 
- * 1) [Fix] 新增 obs-tw.line-apps.com 至智慧白名單，修復 LINE 表情符號/貼圖因無副檔名導致的誤殺。
+ * @file      URL-Ultimate-Filter-Surge-V43.98.js
+ * @version   43.98 (LINE CDN Hardening)
+ * @description [V43.98 Update] 
+ * 1) [Fix] 將 LINE CDN (obs-tw, obs) 提升至 Hard Whitelist，強制放行無副檔名的貼圖資源，解決雜湊誤殺。
  * 2) [Inherit] 繼承 V43.96 的 Yahoo AdTech 與 Firebase 防護規則。
  * @lastUpdated 2026-02-13
  */
@@ -139,7 +139,10 @@ const RULES = {
       // [V43.89] Core Operations
       'ewp.uber.com', 'copilot.microsoft.com', 'tw.mapi.shp.yahoo.com',
       // [V43.94] Firebase Dynamic Links Domain (Allows Reopen, Installs blocked by Map below)
-      'firebasedynamiclinks.googleapis.com'
+      'firebasedynamiclinks.googleapis.com',
+      
+      // [V43.98] LINE CDN (Hardened for Stickers/Emoji)
+      'obs-tw.line-apps.com', 'obs.line-scdn.net'
     ]),
     WILDCARDS: [
       'sendgrid.net', 
@@ -167,7 +170,7 @@ const RULES = {
       'gateway.shopback.com.tw', 'api.anthropic.com', 'api.cohere.ai', 'api.digitalocean.com',
       'api.fastly.com', 'api.heroku.com', 'api.hubapi.com', 'api.mailgun.com', 'api.netlify.com',
       'api.pagerduty.com', 'api.sendgrid.com', 'api.telegram.org', 'api.zendesk.com', 'duckduckgo.com',
-      'legy.line-apps.com', 'obs.line-scdn.net', 'secure.gravatar.com', 'api.asana.com',
+      'legy.line-apps.com', 'secure.gravatar.com', 'api.asana.com',
       'api.dropboxapi.com', 'api.figma.com', 'api.notion.com', 'api.trello.com', 'api.cloudflare.com',
       'auth.docker.io', 'database.windows.net', 'login.docker.com', 'api.irentcar.com.tw',
       'usiot.roborock.com', 'appapi.104.com.tw',
@@ -177,10 +180,7 @@ const RULES = {
       'api.ipify.org',
       'gcp-data-api.ltn.com.tw',
       's.pinimg.com', // [V43.83] Pinterest Resources
-      'cdn.shopify.com', // [V43.83] Shopify Resources
-      
-      // [V43.97] LINE Taiwan CDN (Emoji/Sticker Fix)
-      'obs-tw.line-apps.com'
+      'cdn.shopify.com' // [V43.83] Shopify Resources
     ]),
     WILDCARDS: [
       'chatgpt.com', 'shopee.com', 'shopeemobile.com', 'shopee.io',
@@ -928,5 +928,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.97 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.98 Active\n${stats.toString()}` });
 }
