@@ -1,9 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.98.js
- * @version   43.98 (LINE CDN Hardening)
- * @description [V43.98 Update] 
- * 1) [Fix] 將 LINE CDN (obs-tw, obs) 提升至 Hard Whitelist，強制放行無副檔名的貼圖資源，解決雜湊誤殺。
- * 2) [Inherit] 繼承 V43.96 的 Yahoo AdTech 與 Firebase 防護規則。
+ * @file      URL-Ultimate-Filter-Surge-V44.00.js
+ * @version   44.00 (PChome AdNet Eradication)
+ * @description [V44.00 Update] 
+ * 1) [Block] 新增 PChome 廣告生態系阻擋 (sspap, rtb, ad, log)。
+ * 2) [Inherit] 繼承 V43.98 的 LINE CDN 硬白名單與 momo 策略。
  * @lastUpdated 2026-02-13
  */
 
@@ -205,6 +205,12 @@ const RULES = {
   },
 
   BLOCK_DOMAINS: new Set([
+    // [V44.00] PChome Ecosystem AdNet
+    'sspap.pchome.tw',    // Supply-Side Platform (Ad Serving)
+    'rtb.pchome.tw',      // Real-Time Bidding System
+    'log.pchome.com.tw',  // PChome Telemetry
+    'ad.pchome.com.tw',   // General Ad Server
+
     // [V43.80] VMFive / Vpon / Intowow / Innity
     'vm5apis.com', 'vlitag.com',
     'intentarget.com',
@@ -928,5 +934,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.98 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V44.00 Active\n${stats.toString()}` });
 }
