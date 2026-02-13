@@ -1,10 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V43.96.js
- * @version   43.96 (AdTech Hardening - Wildcard Fix)
- * @description [V43.96 Update] 
- * 1) [Block] Yahoo AdTech: 封鎖 SSP (ssp.yahoo.com) 與 Prebid (pbs.yahoo.com) 競價伺服器。
- * 2) [Block] 3rd Party Ads: 新增 Yieldlove (ay.delivery), OTT Advisors, Cootlogix 等廣告商。
- * 3) [Fix] 將廣告網域改為 Regex 萬用字元匹配，解決子網域 (random.*, sync.*) 繞過問題。
+ * @file      URL-Ultimate-Filter-Surge-V43.97.js
+ * @version   43.97 (LINE CDN Fix)
+ * @description [V43.97 Update] 
+ * 1) [Fix] 新增 obs-tw.line-apps.com 至智慧白名單，修復 LINE 表情符號/貼圖因無副檔名導致的誤殺。
+ * 2) [Inherit] 繼承 V43.96 的 Yahoo AdTech 與 Firebase 防護規則。
  * @lastUpdated 2026-02-13
  */
 
@@ -178,7 +177,10 @@ const RULES = {
       'api.ipify.org',
       'gcp-data-api.ltn.com.tw',
       's.pinimg.com', // [V43.83] Pinterest Resources
-      'cdn.shopify.com' // [V43.83] Shopify Resources
+      'cdn.shopify.com', // [V43.83] Shopify Resources
+      
+      // [V43.97] LINE Taiwan CDN (Emoji/Sticker Fix)
+      'obs-tw.line-apps.com'
     ]),
     WILDCARDS: [
       'chatgpt.com', 'shopee.com', 'shopeemobile.com', 'shopee.io',
@@ -926,5 +928,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.96 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.97 Active\n${stats.toString()}` });
 }
