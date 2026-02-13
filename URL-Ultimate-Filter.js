@@ -1,9 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge-V43.96.js
- * @version   43.96 (Yahoo SSP Hardening)
+ * @version   43.96 (AdTech Hardening - Wildcard Fix)
  * @description [V43.96 Update] 
- * 1) [Block] 新增 Yahoo SSP 廣告競價網域 (ssp.yahoo.com, C2shb-oao...)，阻斷 Header Bidding 追蹤。
- * 2) [Inherit] V43.95 所有 Firebase 歸因切割與旗艦級防護規則。
+ * 1) [Block] Yahoo AdTech: 封鎖 SSP (ssp.yahoo.com) 與 Prebid (pbs.yahoo.com) 競價伺服器。
+ * 2) [Block] 3rd Party Ads: 新增 Yieldlove (ay.delivery), OTT Advisors, Cootlogix 等廣告商。
+ * 3) [Fix] 將廣告網域改為 Regex 萬用字元匹配，解決子網域 (random.*, sync.*) 繞過問題。
  * @lastUpdated 2026-02-13
  */
 
@@ -225,8 +226,6 @@ const RULES = {
     
     // [V43.89] Yahoo Analytics
     'udp.yahoo.com', 'analytics.yahoo.com',
-    // [V43.96] Yahoo SSP (Header Bidding)
-    'ssp.yahoo.com', 'c2shb-oao.ssp.yahoo.com',
 
     // [V43.93] Moved cdn-net.com to REGEX for wildcard support
     // 'cdn-net.com',
@@ -245,7 +244,7 @@ const RULES = {
     'edgecompute-analytics.com', 'monitoring.edge-compute.io', 'realtime-edge.fastly.com', '2o7.net',
     'everesttech.net', 'log.felo.ai', 'event.sc.gearupportal.com', 'pidetupop.com', 'adform.net',
     'adsrvr.org', 'analytics.line.me', 'analytics.slashdotmedia.com', 'analytics.strava.com',
-    'analytics.twitter.com', 'api.pendo.io', 'c.clarity.ms', 'c.segment.com',
+    'analytics.twitter.com', 'analytics.yahoo.com', 'api.pendo.io', 'c.clarity.ms', 'c.segment.com',
     'chartbeat.com', 'clicktale.net', 'clicky.com', 'comscore.com', 'criteo.net', 'customer.io',
     'data.investing.com', 'datadoghq.com', 'dynatrace.com', 'fullstory.com', 'heap.io', 'inspectlet.com',
     'iterable.com', 'keen.io', 'kissmetrics.com', 'loggly.com', 'matomo.cloud', 'mgid.com',
@@ -291,7 +290,14 @@ const RULES = {
     /^(.+\.)?cdn-net\.com$/i,
     
     /^(.+\.)?lr-ingest\.io$/i,
-    /^(.+\.)?aotter\.net$/i
+    /^(.+\.)?aotter\.net$/i,
+
+    // [V43.96] New AdTech Regex (Moved from Block Set for wildcard support)
+    /^(.+\.)?ssp\.yahoo\.com$/i,
+    /^(.+\.)?pbs\.yahoo\.com$/i,
+    /^(.+\.)?ay\.delivery$/i,
+    /^(.+\.)?cootlogix\.com$/i,
+    /^(.+\.)?ottadvisors\.com$/i
   ],
 
   CRITICAL_PATH: {
@@ -920,5 +926,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V43.94 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V43.96 Active\n${stats.toString()}` });
 }
