@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V44.00.js
- * @version   44.00 (Silent Kill: PChome AdNet & Yahoo NOA)
- * @description [V44.00 Update] 
- * 1) [Block] PChome 全面封殺: sspap, rtb, log, ad (解決漏網之魚)。
- * 2) [Block] Yahoo 靜默協議: 阻擋 noa.yahoo.com (Prebid 錯誤回報)。
- * 3) [Inherit] 繼承 V43.98 的 LINE CDN 硬白名單與 momo 版面放行策略。
+ * @file      URL-Ultimate-Filter-Surge-V44.01.js
+ * @version   44.01 (Yahoo Silent Matrix & PChome AdNet)
+ * @description [V44.01 Update] 
+ * 1) [Block] Yahoo 隱藏矩陣: udc, csc, beap.gemini, opus (深度隱私防護)。
+ * 2) [Block] PChome 廣告生態: sspap, rtb, log, ad。
+ * 3) [Inherit] 繼承 LINE CDN 硬白名單與 momo 策略。
  * @lastUpdated 2026-02-14
  */
 
@@ -206,14 +206,18 @@ const RULES = {
   },
 
   BLOCK_DOMAINS: new Set([
+    // [V44.01] Yahoo Silent Matrix (Hidden Short Domains)
+    'udc.yahoo.com',          // Unified Data Collection (Cross-product Tracking)
+    'csc.yahoo.com',          // Client Side Collection (Config & Fingerprinting)
+    'beap.gemini.yahoo.com',  // Beaconing Event Analysis (Ad Heartbeat)
+    'opus.analytics.yahoo.com', // Operations & Usage (Error/Perf Logging)
+    'noa.yahoo.com',          // Network Operations Analytics (Prebid Error)
+
     // [V44.00] PChome Ecosystem AdNet
     'sspap.pchome.tw',    // Supply-Side Platform (Ad Serving)
     'rtb.pchome.tw',      // Real-Time Bidding System
     'log.pchome.com.tw',  // PChome Telemetry
     'ad.pchome.com.tw',   // General Ad Server
-    
-    // [V44.00] Yahoo AdTech Telemetry
-    'noa.yahoo.com',      // Prebid/AdTech Error Reporting
 
     // [V43.80] VMFive / Vpon / Intowow / Innity
     'vm5apis.com', 'vlitag.com',
@@ -938,5 +942,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V44.00 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V44.01 Active\n${stats.toString()}` });
 }
+
