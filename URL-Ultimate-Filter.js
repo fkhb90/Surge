@@ -1,10 +1,10 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V44.01.js
- * @version   44.01 (Yahoo Silent Matrix & PChome AdNet)
- * @description [V44.01 Update] 
- * 1) [Block] Yahoo 隱藏矩陣: udc, csc, beap.gemini, opus (深度隱私防護)。
- * 2) [Block] PChome 廣告生態: sspap, rtb, log, ad。
- * 3) [Inherit] 繼承 LINE CDN 硬白名單與 momo 策略。
+ * @file      URL-Ultimate-Filter-Surge-V44.02.js
+ * @version   44.02 (Taiwan Media Hardening & Yahoo Silent Matrix)
+ * @description [V44.02 Update] 
+ * 1) [Block] 台媒靜態偽裝: 中時 (ad-param), TVBS (ad-read), 工商 (ad2019)。
+ * 2) [Block] 追蹤網域: iqr.chinatimes, ecount.ctee, sdk.gamania (橘子)。
+ * 3) [Inherit] Yahoo 靜默矩陣 (UDC/NOA) & PChome 廣告網。
  * @lastUpdated 2026-02-14
  */
 
@@ -206,6 +206,11 @@ const RULES = {
   },
 
   BLOCK_DOMAINS: new Set([
+    // [V44.02] Taiwan Media AdNets (China Times, CTEE, Gamania)
+    'iqr.chinatimes.com',     // China Times Tracker
+    'ecount.ctee.com.tw',     // CTEE Counter/Pixel
+    'sdk.gamania.dev',        // Gamania Tracking SDK
+
     // [V44.01] Yahoo Silent Matrix (Hidden Short Domains)
     'udc.yahoo.com',          // Unified Data Collection (Cross-product Tracking)
     'csc.yahoo.com',          // Client Side Collection (Config & Fingerprinting)
@@ -362,8 +367,12 @@ const RULES = {
       'tracking.js', 'user-id.js', 'user-timing.js', 'wcslog.js', 'jslog.min.js', 'device-uuid.js'
     ]),
     MAP: new Map([
-      // [V43.75] YouTube & Google Video Telemetry Matrix (Map Priority > Whitelist)
-      // [V43.85] Added /youtubei/v1/notification/record_interactions
+      // [V44.02] Taiwan Media Static-Like Ads (Map Priority > Static Check)
+      ['file.chinatimes.com', new Set(['/ad-param.json'])],
+      ['health.tvbs.com.tw', new Set(['/health-frontend-js/ad-read-page.js'])],
+      ['static.ctee.com.tw', new Set(['/js/ad2019.min.js', '/js/third-party-sticky-ad-callback.min.js'])],
+
+      // [V43.75] YouTube & Google Video Telemetry Matrix
       ['www.youtube.com', new Set(['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'])],
       ['m.youtube.com', new Set(['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'])],
       ['youtubei.googleapis.com', new Set(['/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/', '/youtubei/v1/notification/record_interactions'])],
@@ -378,14 +387,13 @@ const RULES = {
       ['tw.mapi.shp.yahoo.com', new Set(['/w/analytics', '/v1/instrumentation', '/ws/search/tracking', '/dw/tracker'])],
       ['tw.buy.yahoo.com', new Set(['/b/ss/', '/ws/search/tracking', '/activity/record'])],
 
-      // [V43.90] Unwire.hk Tracking Scripts (L4 Map - Lowcase required)
+      // [V43.90] Unwire.hk Tracking Scripts
       ['unwire.hk', new Set(['/mkgqaa1mfbon.js'])],
 
       // [V43.91] Coupang CDN JSLog Hardening
       ['asset2.coupangcdn.com', new Set(['/jslog.min.js'])],
 
       // [V43.95] Firebase Install Attribution Block
-      // Note: Domain is in HARD_WHITELIST, but MAP block happens BEFORE whitelist check
       ['firebasedynamiclinks.googleapis.com', new Set(['/v1/installattribution'])],
 
       ['api.rc-backup.com', new Set(['/adservices_attribution'])],
@@ -942,6 +950,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V44.01 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V44.02 Active\n${stats.toString()}` });
 }
-
