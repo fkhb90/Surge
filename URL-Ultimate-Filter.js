@@ -1,10 +1,11 @@
 /**
  * @file      URL-Ultimate-Filter-Surge-V44.00.js
- * @version   44.00 (PChome AdNet Eradication)
+ * @version   44.00 (Silent Kill: PChome AdNet & Yahoo NOA)
  * @description [V44.00 Update] 
- * 1) [Block] 新增 PChome 廣告生態系阻擋 (sspap, rtb, ad, log)。
- * 2) [Inherit] 繼承 V43.98 的 LINE CDN 硬白名單與 momo 策略。
- * @lastUpdated 2026-02-13
+ * 1) [Block] PChome 全面封殺: sspap, rtb, log, ad (解決漏網之魚)。
+ * 2) [Block] Yahoo 靜默協議: 阻擋 noa.yahoo.com (Prebid 錯誤回報)。
+ * 3) [Inherit] 繼承 V43.98 的 LINE CDN 硬白名單與 momo 版面放行策略。
+ * @lastUpdated 2026-02-14
  */
 
 // [Perf] Reduced scan length for mobile efficiency
@@ -210,6 +211,9 @@ const RULES = {
     'rtb.pchome.tw',      // Real-Time Bidding System
     'log.pchome.com.tw',  // PChome Telemetry
     'ad.pchome.com.tw',   // General Ad Server
+    
+    // [V44.00] Yahoo AdTech Telemetry
+    'noa.yahoo.com',      // Prebid/AdTech Error Reporting
 
     // [V43.80] VMFive / Vpon / Intowow / Innity
     'vm5apis.com', 'vlitag.com',
