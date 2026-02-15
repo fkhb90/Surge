@@ -1,11 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V44.04.js
- * @version   44.04 (Alibaba CNZZ/Tongyi Tracker Hardening)
- * @description [V44.04 Update] 
- * 1) [Map] 通義千問 CNZZ 追蹤: o.alicdn.com (Block /tongyi-fe/lib/cnzz/c.js).
- * 2) [Inherit] Qwen App Feed & Quark Tracker Hardening (V44.03).
+ * @file      URL-Ultimate-Filter-Surge-V44.05.js
+ * @version   44.05 (Alibaba CNZZ Matrix Hardening)
+ * @description [V44.05 Update] 
+ * 1) [Map] 通義千問 CNZZ 擴展: o.alicdn.com (Block /tongyi-fe/lib/cnzz/z.js).
+ * 2) [Inherit] CNZZ Core (c.js) & Qwen App Feed Block.
  * 3) [Inherit] 台媒偽裝 (ChinaTimes/TVBS) & Yahoo 靜默矩陣.
- * @lastUpdated 2026-02-15
+ * @lastUpdated 2026-02-16
  */
 
 // [Perf] Reduced scan length for mobile efficiency
@@ -370,8 +370,12 @@ const RULES = {
       'tracking.js', 'user-id.js', 'user-timing.js', 'wcslog.js', 'jslog.min.js', 'device-uuid.js'
     ]),
     MAP: new Map([
-      // [V44.04] Qwen / Tongyi Tracker (Alibaba CDN)
-      ['o.alicdn.com', new Set(['/tongyi-fe/lib/cnzz/c.js'])],
+      // [V44.05] Qwen / Tongyi Tracker Matrix (Alibaba CDN)
+      // Covers both c.js (core) and z.js (async)
+      ['o.alicdn.com', new Set([
+          '/tongyi-fe/lib/cnzz/c.js', 
+          '/tongyi-fe/lib/cnzz/z.js'
+      ])],
 
       // [V44.03] Qwen App Feed Block (Bloatware Removal)
       ['qwen-api.zaodian.com', new Set(['/api/app/template/v1/feed'])],
@@ -959,6 +963,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V44.04 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V44.05 Active\n${stats.toString()}` });
 }
-
