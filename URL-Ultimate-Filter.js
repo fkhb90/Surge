@@ -1,11 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V44.02.js
- * @version   44.02 (Taiwan Media Hardening & Yahoo Silent Matrix)
- * @description [V44.02 Update] 
- * 1) [Block] 台媒靜態偽裝: 中時 (ad-param), TVBS (ad-read), 工商 (ad2019)。
- * 2) [Block] 追蹤網域: iqr.chinatimes, ecount.ctee, sdk.gamania (橘子)。
- * 3) [Inherit] Yahoo 靜默矩陣 (UDC/NOA) & PChome 廣告網。
- * @lastUpdated 2026-02-14
+ * @file      URL-Ultimate-Filter-Surge-V44.03.js
+ * @version   44.03 (Qwen Feed & Quark Tracker Hardening)
+ * @description [V44.03 Update] 
+ * 1) [Map] 通義千問資訊流: qwen-api.zaodian.com (Block /feed for cleaner UI).
+ * 2) [Block] 誇克追蹤: vt.quark.cn (Visitor Tracker).
+ * 3) [Inherit] 台媒偽裝 (ChinaTimes/TVBS) & Yahoo 靜默矩陣.
+ * @lastUpdated 2026-02-15
  */
 
 // [Perf] Reduced scan length for mobile efficiency
@@ -206,6 +206,9 @@ const RULES = {
   },
 
   BLOCK_DOMAINS: new Set([
+    // [V44.03] Quark / Alibaba Tracker Hardening
+    'vt.quark.cn',            // Visitor/View Tracker
+
     // [V44.02] Taiwan Media AdNets (China Times, CTEE, Gamania)
     'iqr.chinatimes.com',     // China Times Tracker
     'ecount.ctee.com.tw',     // CTEE Counter/Pixel
@@ -367,6 +370,9 @@ const RULES = {
       'tracking.js', 'user-id.js', 'user-timing.js', 'wcslog.js', 'jslog.min.js', 'device-uuid.js'
     ]),
     MAP: new Map([
+      // [V44.03] Qwen App Feed Block (Bloatware Removal)
+      ['qwen-api.zaodian.com', new Set(['/api/app/template/v1/feed'])],
+
       // [V44.02] Taiwan Media Static-Like Ads (Map Priority > Static Check)
       ['file.chinatimes.com', new Set(['/ad-param.json'])],
       ['health.tvbs.com.tw', new Set(['/health-frontend-js/ad-read-page.js'])],
@@ -950,5 +956,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V44.02 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V44.03 Active\n${stats.toString()}` });
 }
