@@ -1,9 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V44.03.js
- * @version   44.03 (Qwen Feed & Quark Tracker Hardening)
- * @description [V44.03 Update] 
- * 1) [Map] 通義千問資訊流: qwen-api.zaodian.com (Block /feed for cleaner UI).
- * 2) [Block] 誇克追蹤: vt.quark.cn (Visitor Tracker).
+ * @file      URL-Ultimate-Filter-Surge-V44.04.js
+ * @version   44.04 (Alibaba CNZZ/Tongyi Tracker Hardening)
+ * @description [V44.04 Update] 
+ * 1) [Map] 通義千問 CNZZ 追蹤: o.alicdn.com (Block /tongyi-fe/lib/cnzz/c.js).
+ * 2) [Inherit] Qwen App Feed & Quark Tracker Hardening (V44.03).
  * 3) [Inherit] 台媒偽裝 (ChinaTimes/TVBS) & Yahoo 靜默矩陣.
  * @lastUpdated 2026-02-15
  */
@@ -370,6 +370,9 @@ const RULES = {
       'tracking.js', 'user-id.js', 'user-timing.js', 'wcslog.js', 'jslog.min.js', 'device-uuid.js'
     ]),
     MAP: new Map([
+      // [V44.04] Qwen / Tongyi Tracker (Alibaba CDN)
+      ['o.alicdn.com', new Set(['/tongyi-fe/lib/cnzz/c.js'])],
+
       // [V44.03] Qwen App Feed Block (Bloatware Removal)
       ['qwen-api.zaodian.com', new Set(['/api/app/template/v1/feed'])],
 
@@ -956,5 +959,6 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V44.03 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V44.04 Active\n${stats.toString()}` });
 }
+
