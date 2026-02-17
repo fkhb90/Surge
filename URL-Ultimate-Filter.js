@@ -1,10 +1,9 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V44.06.js
- * @version   44.06 (Block Malicious Fake CDN)
- * @description [V44.06 Update] 
- * 1) [Block] 惡意偽裝 CDN: cdn-path.com (High Risk/Adware).
- * 2) [Inherit] Alibaba CNZZ Matrix (c.js/z.js) Hardening (V44.05).
- * 3) [Inherit] 台媒偽裝 (ChinaTimes/TVBS) & Yahoo 靜默矩陣.
+ * @file      URL-Ultimate-Filter-Surge-V44.07.js
+ * @version   44.07 (Block Penphone92 IoT Telemetry)
+ * @description [V44.07 Update] 
+ * 1) [Block] 惡意 IoT 遙測: penphone92.com / api.penphone92.com (High Risk).
+ * 2) [Inherit] Fake CDN (cdn-path) & Alibaba CNZZ Matrix Hardening.
  * @lastUpdated 2026-02-17
  */
 
@@ -29,6 +28,11 @@ const OAUTH_SAFE_HARBOR = {
 const RULES = {
   // [1] P0 Priority Block (High Risk / Telemetry / Wildcard AdNets)
   PRIORITY_BLOCK_DOMAINS: new Set([
+    // [V44.07] Penphone92 IoT Telemetry (Related to Doorphone92)
+    'penphone92.com',
+    'api.penphone92.com',
+    'www.penphone92.com',
+
     // [V44.06] Malicious Fake CDN (Adware/Browser Hijacker)
     'cdn-path.com',
     'www.cdn-path.com',
