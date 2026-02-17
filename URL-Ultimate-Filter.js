@@ -1,11 +1,11 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V44.05.js
- * @version   44.05 (Alibaba CNZZ Matrix Hardening)
- * @description [V44.05 Update] 
- * 1) [Map] 通義千問 CNZZ 擴展: o.alicdn.com (Block /tongyi-fe/lib/cnzz/z.js).
- * 2) [Inherit] CNZZ Core (c.js) & Qwen App Feed Block.
+ * @file      URL-Ultimate-Filter-Surge-V44.06.js
+ * @version   44.06 (Block Malicious Fake CDN)
+ * @description [V44.06 Update] 
+ * 1) [Block] 惡意偽裝 CDN: cdn-path.com (High Risk/Adware).
+ * 2) [Inherit] Alibaba CNZZ Matrix (c.js/z.js) Hardening (V44.05).
  * 3) [Inherit] 台媒偽裝 (ChinaTimes/TVBS) & Yahoo 靜默矩陣.
- * @lastUpdated 2026-02-16
+ * @lastUpdated 2026-02-17
  */
 
 // [Perf] Reduced scan length for mobile efficiency
@@ -29,6 +29,10 @@ const OAUTH_SAFE_HARBOR = {
 const RULES = {
   // [1] P0 Priority Block (High Risk / Telemetry / Wildcard AdNets)
   PRIORITY_BLOCK_DOMAINS: new Set([
+    // [V44.06] Malicious Fake CDN (Adware/Browser Hijacker)
+    'cdn-path.com',
+    'www.cdn-path.com',
+
     // [V43.86] Microsoft Enterprise Telemetry (Aria & Events)
     'mobile.events.data.microsoft.com',
     'browser.events.data.microsoft.com',
@@ -963,5 +967,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V44.05 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V44.06 Active\n${stats.toString()}` });
 }
