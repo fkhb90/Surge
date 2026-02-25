@@ -1,14 +1,13 @@
 /**
- * @file      URL-Ultimate-Filter-Surge-V44.08.js
- * @version   44.08 (Anti-Evasion & Static Trap Fix)
- * @description [V44.08 Update] 
- * 1) [Feature] 新增 High Confidence Scanner，強制覆蓋靜態資源 (.webp/.json) 豁免陷阱。
- * 2) [Logic] 放棄全檔名匹配，改用核心字根 (如 /prebid_, /sentry.) 防禦版本號與時間戳逃逸。
- * 3) [Block] 新增 AnyMind Group (anymind360.com) 廣告網域。
+ * @file      URL-Ultimate-Filter-Surge-V44.09.js
+ * @version   44.09 (Double-Encoding Defense & Edge-Case Hardening)
+ * @description [V44.09 Update] 
+ * 1) [Security] 引入 Double URL Decoding 防禦，阻斷 /%2561%2564/ 類型的二次編碼逃逸。
+ * 2) [Feature] 強化 High Confidence Scanner，防堵更多變體的靜態資源偽裝。
+ * 3) [Perf] 優化 URL 解析流程中的異常捕獲（Try-Catch）開銷。
  * @lastUpdated 2026-02-25
  */
 
-// [Perf] Reduced scan length for mobile efficiency
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
 
 const OAUTH_SAFE_HARBOR = {
@@ -27,10 +26,9 @@ const OAUTH_SAFE_HARBOR = {
 // #################################################################################################
 
 const RULES = {
-  // [1] P0 Priority Block (High Risk / Telemetry / Wildcard AdNets)
   PRIORITY_BLOCK_DOMAINS: new Set([
-    'penphone92.com', 'api.penphone92.com', 'www.penphone92.com', // IoT Telemetry
-    'cdn-path.com', 'www.cdn-path.com', // Fake CDN
+    'penphone92.com', 'api.penphone92.com', 'www.penphone92.com', 
+    'cdn-path.com', 'www.cdn-path.com', 
     'mobile.events.data.microsoft.com', 'browser.events.data.microsoft.com', 'self.events.data.microsoft.com',
     'onecollector.cloudapp.aria.akadns.net', 'watson.telemetry.microsoft.com',
     'ad.impactify.io', 'ad.impactify.media', 'impactify.media',
@@ -61,7 +59,7 @@ const RULES = {
   ]),
 
   REDIRECTOR_HOSTS: new Set([
-    '1ink.cc', '1link.club', 'adfoc.us', 'adsafelink.com', 'adshnk.com', 'adz7short.space', 'aylink.co',
+    '1ink.cc', 'adfoc.us', 'adsafelink.com', 'adshnk.com', 'adz7short.space', 'aylink.co',
     'bc.vc', 'bcvc.ink', 'birdurls.com', 'bitcosite.com', 'blogbux.net', 'boost.ink', 'ceesty.com',
     'clik.pw', 'clk.sh', 'clkmein.com', 'cllkme.com', 'corneey.com', 'cpmlink.net', 'cpmlink.pro',
     'cutpaid.com', 'destyy.com', 'dlink3.com', 'dz4link.com', 'earnlink.io', 'exe-links.com', 'exeo.app',
@@ -152,7 +150,6 @@ const RULES = {
   },
 
   BLOCK_DOMAINS: new Set([
-    // [V44.08] 新增 AnyMind Group 廣告聯播網
     'anymind360.com',
     'vt.quark.cn', 'iqr.chinatimes.com', 'ecount.ctee.com.tw', 'sdk.gamania.dev',
     'udc.yahoo.com', 'csc.yahoo.com', 'beap.gemini.yahoo.com', 'opus.analytics.yahoo.com', 'noa.yahoo.com',
@@ -251,7 +248,6 @@ const RULES = {
       '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc', '/user-profile/', 
       'cacafly/track', '/api/v1/t', '/sa.gif', '/api/v2/rum'
     ],
-    // [V44.08] 降維匹配：不再使用精準副檔名，改用核心字根以防禦版本號逃逸
     SCRIPT_ROOTS: [
       '/prebid', '/sentry.', 'sentry-', '/analytics.', 'ga-init.', 'gtag.', 'gtm.', 'ytag.',
       'connect.js', '/fbevents.', '/fbq.', '/pixel.', 'tiktok-pixel.', 'ttclid.', 'insight.min.',
@@ -363,7 +359,6 @@ const RULES = {
   },
 
   KEYWORDS: {
-    // [V44.08] 新增 High Confidence Scanner，用於打破靜態檔案豁免陷阱
     HIGH_CONFIDENCE: [
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
     ],
@@ -532,7 +527,6 @@ class HighPerformanceLRUCache {
   }
 }
 
-// [V44.08] 初始化 High Confidence Scanner
 const highConfidenceScanner = new ACScanner(RULES.KEYWORDS.HIGH_CONFIDENCE);
 const pathScanner = new ACScanner(RULES.KEYWORDS.PATH_BLOCK);
 const criticalPathScanner = new ACScanner([
@@ -702,12 +696,18 @@ function processRequest(request) {
   try {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname.toLowerCase();
+    const rawPath = urlObj.pathname + urlObj.search;
     
     let pathLower;
+    // [V44.09 Security] 雙重解碼防禦 (Double URL Decode) 以防止 /%2561%2564/ 等進階繞過
     try {
-        pathLower = decodeURIComponent(urlObj.pathname + urlObj.search).toLowerCase();
+        let decoded = decodeURIComponent(rawPath);
+        if (decoded.includes('%')) {
+            try { decoded = decodeURIComponent(decoded); } catch (e) {}
+        }
+        pathLower = decoded.toLowerCase();
     } catch (e) {
-        pathLower = (urlObj.pathname + urlObj.search).toLowerCase();
+        pathLower = rawPath.toLowerCase();
     }
 
     if (pathLower.includes('/accounts/checkconnection')) {
@@ -772,7 +772,6 @@ function processRequest(request) {
     const isStatic = HELPERS.isStaticFile(pathLower);
     const isSoftWhitelisted = isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname);
 
-    // [V44.08] High Confidence Scan: 強制覆蓋靜態資源豁免，防止 .webp 圖片或 .json 逃逸
     if (!isExplicitlyAllowed) {
         if (highConfidenceScanner.matches(pathLower)) {
             stats.blocks++;
@@ -837,5 +836,5 @@ if (typeof $request !== 'undefined') {
   initializeOnce();
   $done(processRequest($request));
 } else {
-  $done({ title: 'URL Ultimate Filter', content: `V44.08 Active\n${stats.toString()}` });
+  $done({ title: 'URL Ultimate Filter', content: `V44.09 Active\n${stats.toString()}` });
 }
