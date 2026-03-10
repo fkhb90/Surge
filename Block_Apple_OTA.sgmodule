@@ -73,7 +73,7 @@ DOMAIN-SUFFIX,appldnld-lb.apple.com.akadns.net,REJECT
 DOMAIN-SUFFIX,appldnld.apple.com,REJECT
 DOMAIN-SUFFIX,appldnld.apple.com.akadns.net,REJECT
 DOMAIN-SUFFIX,appldnld.g.aaplimg.com,REJECT
-DOMAIN-SUFFIX,gdmf.apple.com,REJECT
+DOMAIN-SUFFIX,gdmf.apple.com,REJECT-DROP
 DOMAIN-SUFFIX,gdmf.apple.com.akadns.net,REJECT
 DOMAIN-SUFFIX,mesu-cdn.apple.com.akadns.net,REJECT
 DOMAIN-SUFFIX,mesu-cdn.origin-apple.com.akadns.net,REJECT
@@ -89,3 +89,4 @@ URL-REGEX,^https:\/\/mesu\.apple\.com\/assets\/com_apple_MobileAsset_SoftwareUpd
 
 [MITM]
 hostname = %APPEND% mesu.apple.com
+
