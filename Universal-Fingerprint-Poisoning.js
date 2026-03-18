@@ -1,8 +1,8 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.61
+ * @version   10.62
  * @author    Claude Code
- * @updated   2026-03-04
+ * @updated   2026-03-18
  * ----------------------------------------------------------------------------
  * [V10.60 穩定性大師版 - Optimized]:
  * 1) [FINAL SOLUTION] 確認國泰證券/三竹系統必須透過 "Skip Proxy" (跳過代理) 解決。
@@ -19,6 +19,14 @@
  * - [Modern JS] 使用 ?. 與 ?? 簡化 null-safety 判斷
  * - [Size]      注入 MODULE 壓縮空白，減少 ~40% payload
  * - [Robust]    Object.defineProperty 加 try-catch 防禦嚴格模式異常
+ *
+ * [V10.62 Review Patch]:
+ * - [BugFix]    localStorage → $persistentStore 修復 JSC 引擎中 seed 持久化失敗
+ * - [BugFix]    白名單 "line" → "\bline\b" 避免誤匹配 online/airline 等 URL
+ * - [Clean]     FP_KEY 版本號統一為 V1061
+ * - [Perf]      CSP header 查找 Object.keys → for...in 減少中間陣列分配
+ * - [Clean]     提取 THIRTY_DAYS_MS 常數取代 magic number
+ * - [BugFix]    WebRTC config 淺拷貝，避免修改呼叫方原始物件副作用
  */
 
 (function () {
@@ -56,7 +64,7 @@
     const EXCLUDE_RE = new RegExp([
       // App Immunity (UA keywords)
       "treegenie", "tradingview", "feedly", "megatime", "104app",
-      "line", "facebook", "instagram", "shopee", "uber", "foodpanda",
+      "\\bline\\b", "facebook", "instagram", "shopee", "uber", "foodpanda",
       "teamviewer", "anydesk", "zoom", "meet", "teams", "webex",
       "cfnetwork", "darwin", "flipper", "okhttp", "applewebkit",
       // Domain fragments (URL)
@@ -100,15 +108,17 @@
 
     const body = $response.body;
     const MARKER = "__FP_SHIELD_INJECTED__";
-    const FP_KEY = "FP_SHIELD_ID_V1014";
+    const FP_KEY = "FP_SHIELD_ID_V1061";
     const NOISE_STEP = 4;
+    const THIRTY_DAYS_MS = 2592000000;
 
     const chunk = body.substring(0, 2048);
     if (chunk.includes(MARKER)) { exit(); return; }
 
     // CSP & Nonce extraction (early-exit loop)
     let csp = "";
-    for (const k of Object.keys(headers)) {
+    for (const k in headers) {
+      if (!Object.prototype.hasOwnProperty.call(headers, k)) continue;
       if (k.toLowerCase() === "content-security-policy") {
         csp = headers[k];
         break;
@@ -121,16 +131,16 @@
       return;
     }
 
-    // Seed Generation (consolidated — no duplicate branches)
+    // Seed Generation (using $persistentStore for JSC compatibility)
     const seed = (function () {
       const now = Date.now();
       const makeNew = () => {
         const s = (now ^ (Math.random() * 1e8)) >>> 0;
-        try { localStorage.setItem(FP_KEY, s + "|" + (now + 2592000000)); } catch (_) {}
+        try { $persistentStore.write(s + "|" + (now + THIRTY_DAYS_MS), FP_KEY); } catch (_) {}
         return s;
       };
       try {
-        const stored = localStorage.getItem(FP_KEY);
+        const stored = $persistentStore.read(FP_KEY);
         if (stored) {
           const sep = stored.indexOf("|");
           if (sep > 0 && now < parseInt(stored.substring(sep + 1), 10)) {
@@ -154,7 +164,7 @@
         // 1. WebRTC Relay
         '["RTCPeerConnection","webkitRTCPeerConnection","mozRTCPeerConnection"].forEach(function(n){' +
           "if(!w[n])return;var N=w[n]," +
-          "S=function(c){var g=c||{};g.iceTransportPolicy='relay';g.iceCandidatePoolSize=0;return new N(g)};" +
+          "S=function(c){var g={};if(c)for(var p in c)g[p]=c[p];g.iceTransportPolicy='relay';g.iceCandidatePoolSize=0;return new N(g)};" +
           "S.prototype=N.prototype;" +
           "try{Object.defineProperty(S,'name',{value:N.name})}catch(e){}" +
           "try{w[n]=new Proxy(S,{" +
