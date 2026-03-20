@@ -1,0 +1,9 @@
+#!name=URL Ultimate Filter Benchmark
+#!desc=Run the built-in benchmark mode of URL-Ultimate-Filter-Surge.js on Surge iOS.
+#!requirement=SYSTEM = 'iOS'
+
+[Panel]
+URL Filter Benchmark = title="URL Ultimate Filter",content="Tap refresh to run benchmark",style=info,script-name=URL-Ultimate-Filter-Benchmark
+
+[Script]
+URL-Ultimate-Filter-Benchmark = type=generic,timeout=60,script-path=https://raw.githubusercontent.com/fkhb90/URL_Ultimate_Filter/main/URL-Ultimate-Filter-Surge.js,script-update-interval=86400,argument=benchmark
