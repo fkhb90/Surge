@@ -1,8 +1,8 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.62
+ * @version   10.63
  * @author    Claude Code
- * @updated   2026-03-18
+ * @updated   2026-03-24
  * ----------------------------------------------------------------------------
  * [V10.60 穩定性大師版 - Optimized]:
  * 1) [FINAL SOLUTION] 確認國泰證券/三竹系統必須透過 "Skip Proxy" (跳過代理) 解決。
@@ -27,6 +27,9 @@
  * - [Perf]      CSP header 查找 Object.keys → for...in 減少中間陣列分配
  * - [Clean]     提取 THIRTY_DAYS_MS 常數取代 magic number
  * - [BugFix]    WebRTC config 淺拷貝，避免修改呼叫方原始物件副作用
+ *
+ * [V10.63 Hotfix]:
+ * - [Compat]    白名單加入 "tiktok"，修復 TikTok 網頁/App 無法正常瀏覽的問題
  */
 
 (function () {
@@ -64,7 +67,7 @@
     const EXCLUDE_RE = new RegExp([
       // App Immunity (UA keywords)
       "treegenie", "tradingview", "feedly", "megatime", "104app",
-      "\\bline\\b", "facebook", "instagram", "shopee", "uber", "foodpanda",
+      "\\bline\\b", "facebook", "instagram", "tiktok", "shopee", "uber", "foodpanda",
       "teamviewer", "anydesk", "zoom", "meet", "teams", "webex",
       "cfnetwork", "darwin", "flipper", "okhttp", "applewebkit",
       // Domain fragments (URL)
