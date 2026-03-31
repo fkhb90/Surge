@@ -1,8 +1,8 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.63
+ * @version   10.64
  * @author    Claude Code
- * @updated   2026-03-24
+ * @updated   2026-03-31
  * ----------------------------------------------------------------------------
  * [V10.60 穩定性大師版 - Optimized]:
  * 1) [FINAL SOLUTION] 確認國泰證券/三竹系統必須透過 "Skip Proxy" (跳過代理) 解決。
@@ -30,6 +30,11 @@
  *
  * [V10.63 Hotfix]:
  * - [Compat]    白名單加入 "tiktok"，修復 TikTok 網頁/App 無法正常瀏覽的問題
+ *
+ * [V10.64 Regression Refinement]:
+ * - [BugFix]    headRe 加入前瞻 (?=[\s>])，排除 <header>/<heading> 等標籤誤匹配
+ * - [BugFix]    IP 正則加入 \b 左邊界，防止 URL 路徑中 1175.99.x 等偽 IP 子串誤判
+ * - [Privacy]   Canvas 噪聲隨機化 RGB 通道選擇，消除僅污染 R 通道的可預測性
  */
 
 (function () {
@@ -57,7 +62,7 @@
     // ========================================================================
 
     // A. Direct IP & Protocol Conflict (Cathay/Mitake — Skip Proxy backup)
-    if (/175\.99\.|210\.61\.|cathay|sinopac|mitake/.test(u) ||
+    if (/\b175\.99\.|\b210\.61\.|cathay|sinopac|mitake/.test(u) ||
         (u.startsWith("http:") && u.includes(":443"))) {
       exit();
       return;
@@ -179,8 +184,8 @@
         // 2. Canvas Noise
         "try{var hC=function(P){var old=P.getImageData;P.getImageData=function(x,y,W,H){" +
           "var r=old.apply(this,arguments);if(W>32&&H>32){var d=r.data;" +
-          "for(var i=0;i<d.length;i+=C.step*4){if((i/4)%10===0){var n=hash(C.s,i)%3-1;" +
-          "if(n!==0)d[i]=Math.max(0,Math.min(255,d[i]+n))}}}return r}};" +
+          "for(var i=0;i<d.length;i+=C.step*4){if((i/4)%10===0){var ch=hash(C.s,i+1)%3;var n=hash(C.s,i)%3-1;" +
+          "if(n!==0)d[i+ch]=Math.max(0,Math.min(255,d[i+ch]+n))}}}return r}};" +
         "if(w.CanvasRenderingContext2D)hC(w.CanvasRenderingContext2D.prototype);" +
         "if(w.OffscreenCanvasRenderingContext2D)hC(w.OffscreenCanvasRenderingContext2D.prototype)}catch(e){}" +
         // 3. Audio Noise
@@ -205,7 +210,7 @@
       'document.documentElement.setAttribute("' + MARKER + '","true")' +
       "})()</script>";
 
-    const headRe = /<head[^>]*>/i;
+    const headRe = /<head(?=[\s>])[^>]*>/i;
     const newBody = headRe.test(chunk)
       ? body.replace(headRe, (m) => m + INJECT)
       : INJECT + body;
