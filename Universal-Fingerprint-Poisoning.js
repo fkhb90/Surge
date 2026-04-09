@@ -1,8 +1,8 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.64
+ * @version   10.65
  * @author    Claude Code
- * @updated   2026-03-31
+ * @updated   2026-04-09
  * ----------------------------------------------------------------------------
  * [V10.60 穩定性大師版 - Optimized]:
  * 1) [FINAL SOLUTION] 確認國泰證券/三竹系統必須透過 "Skip Proxy" (跳過代理) 解決。
@@ -30,6 +30,9 @@
  *
  * [V10.63 Hotfix]:
  * - [Compat]    白名單加入 "tiktok"，修復 TikTok 網頁/App 無法正常瀏覽的問題
+ *
+ * [V10.65 Grok Whitelist]:
+ * - [Compat]    白名單加入 "grok" (UA) 與 "x.ai" (Domain)，修復 iOS Grok App 無法登入的問題
  *
  * [V10.64 Regression Refinement]:
  * - [BugFix]    headRe 加入前瞻 (?=[\s>])，排除 <header>/<heading> 等標籤誤匹配
@@ -72,12 +75,12 @@
     const EXCLUDE_RE = new RegExp([
       // App Immunity (UA keywords)
       "treegenie", "tradingview", "feedly", "megatime", "104app",
-      "\\bline\\b", "facebook", "instagram", "tiktok", "shopee", "uber", "foodpanda",
+      "\\bline\\b", "facebook", "instagram", "tiktok", "grok", "shopee", "uber", "foodpanda",
       "teamviewer", "anydesk", "zoom", "meet", "teams", "webex",
       "cfnetwork", "darwin", "flipper", "okhttp", "applewebkit",
       // Domain fragments (URL)
       "tradingview\\.com", "tdcc\\.com\\.tw", "cnyes", "wantgoo",
-      "accounts\\.google", "appleid", "icloud", "login", "oauth", "sso",
+      "accounts\\.google", "appleid", "icloud", "x\\.ai", "login", "oauth", "sso",
       "okta", "auth0", "cloudflareaccess", "github", "gitlab", "atlassian",
       "recaptcha", "turnstile", "hcaptcha",
       "ctbc", "esun", "fubon", "taishin", "landbank", "post\\.gov",
