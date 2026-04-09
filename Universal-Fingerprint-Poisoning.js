@@ -1,9 +1,28 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.65
+ * @version   10.66
  * @author    Claude Code
  * @updated   2026-04-09
  * ----------------------------------------------------------------------------
+ * [V10.66 Grok Whitelist]:
+ * - [Compat]    白名單加入 "grok" (UA) 與 "x.ai"/"x.com"/"twitter.com" (Domain)，修復 iOS Grok App 無法登入的問題（Grok 登入走 X/Twitter OAuth）
+ *
+ * [V10.64 Regression Refinement]:
+ * - [BugFix]    headRe 加入前瞻 (?=[\s>])，排除 <header>/<heading> 等標籤誤匹配
+ * - [BugFix]    IP 正則加入 \b 左邊界，防止 URL 路徑中 1175.99.x 等偽 IP 子串誤判
+ * - [Privacy]   Canvas 噪聲隨機化 RGB 通道選擇，消除僅污染 R 通道的可預測性
+ *
+ * [V10.63 Hotfix]:
+ * - [Compat]    白名單加入 "tiktok"，修復 TikTok 網頁/App 無法正常瀏覽的問題
+ *
+ * [V10.62 Review Patch]:
+ * - [BugFix]    localStorage → $persistentStore 修復 JSC 引擎中 seed 持久化失敗
+ * - [BugFix]    白名單 "line" → "\bline\b" 避免誤匹配 online/airline 等 URL
+ * - [Clean]     FP_KEY 版本號統一為 V1061
+ * - [Perf]      CSP header 查找 Object.keys → for...in 減少中間陣列分配
+ * - [Clean]     提取 THIRTY_DAYS_MS 常數取代 magic number
+ * - [BugFix]    WebRTC config 淺拷貝，避免修改呼叫方原始物件副作用
+ *
  * [V10.60 穩定性大師版 - Optimized]:
  * 1) [FINAL SOLUTION] 確認國泰證券/三竹系統必須透過 "Skip Proxy" (跳過代理) 解決。
  *    - 請使用者務必在 Loon/Surge 設定中排除 "175.99.0.0/16" 與 "*.cathaysec.com.tw"。
@@ -20,24 +39,6 @@
  * - [Size]      注入 MODULE 壓縮空白，減少 ~40% payload
  * - [Robust]    Object.defineProperty 加 try-catch 防禦嚴格模式異常
  *
- * [V10.62 Review Patch]:
- * - [BugFix]    localStorage → $persistentStore 修復 JSC 引擎中 seed 持久化失敗
- * - [BugFix]    白名單 "line" → "\bline\b" 避免誤匹配 online/airline 等 URL
- * - [Clean]     FP_KEY 版本號統一為 V1061
- * - [Perf]      CSP header 查找 Object.keys → for...in 減少中間陣列分配
- * - [Clean]     提取 THIRTY_DAYS_MS 常數取代 magic number
- * - [BugFix]    WebRTC config 淺拷貝，避免修改呼叫方原始物件副作用
- *
- * [V10.63 Hotfix]:
- * - [Compat]    白名單加入 "tiktok"，修復 TikTok 網頁/App 無法正常瀏覽的問題
- *
- * [V10.65 Grok Whitelist]:
- * - [Compat]    白名單加入 "grok" (UA) 與 "x.ai" (Domain)，修復 iOS Grok App 無法登入的問題
- *
- * [V10.64 Regression Refinement]:
- * - [BugFix]    headRe 加入前瞻 (?=[\s>])，排除 <header>/<heading> 等標籤誤匹配
- * - [BugFix]    IP 正則加入 \b 左邊界，防止 URL 路徑中 1175.99.x 等偽 IP 子串誤判
- * - [Privacy]   Canvas 噪聲隨機化 RGB 通道選擇，消除僅污染 R 通道的可預測性
  */
 
 (function () {
@@ -80,7 +81,7 @@
       "cfnetwork", "darwin", "flipper", "okhttp", "applewebkit",
       // Domain fragments (URL)
       "tradingview\\.com", "tdcc\\.com\\.tw", "cnyes", "wantgoo",
-      "accounts\\.google", "appleid", "icloud", "x\\.ai", "login", "oauth", "sso",
+      "accounts\\.google", "appleid", "icloud", "x\\.ai", "x\\.com", "twitter\\.com", "login", "oauth", "sso",
       "okta", "auth0", "cloudflareaccess", "github", "gitlab", "atlassian",
       "recaptcha", "turnstile", "hcaptcha",
       "ctbc", "esun", "fubon", "taishin", "landbank", "post\\.gov",
