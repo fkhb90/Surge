@@ -1,9 +1,12 @@
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.66
+ * @version   10.67
  * @author    Claude Code
  * @updated   2026-04-09
  * ----------------------------------------------------------------------------
+ * [V10.67 Revert Grok Whitelist]:
+ * - [Revert]    回退 V10.66 白名單變更（移除 grok/x.ai/x.com/twitter.com）— Grok App 登入根因為 MITM 干擾，正確解法為 Loon/Surge skip-mitm grok.com
+ *
  * [V10.66 Grok Whitelist]:
  * - [Compat]    白名單加入 "grok" (UA) 與 "x.ai"/"x.com"/"twitter.com" (Domain)，修復 iOS Grok App 無法登入的問題（Grok 登入走 X/Twitter OAuth）
  *
@@ -76,12 +79,12 @@
     const EXCLUDE_RE = new RegExp([
       // App Immunity (UA keywords)
       "treegenie", "tradingview", "feedly", "megatime", "104app",
-      "\\bline\\b", "facebook", "instagram", "tiktok", "grok", "shopee", "uber", "foodpanda",
+      "\\bline\\b", "facebook", "instagram", "tiktok", "shopee", "uber", "foodpanda",
       "teamviewer", "anydesk", "zoom", "meet", "teams", "webex",
       "cfnetwork", "darwin", "flipper", "okhttp", "applewebkit",
       // Domain fragments (URL)
       "tradingview\\.com", "tdcc\\.com\\.tw", "cnyes", "wantgoo",
-      "accounts\\.google", "appleid", "icloud", "x\\.ai", "x\\.com", "twitter\\.com", "login", "oauth", "sso",
+      "accounts\\.google", "appleid", "icloud", "login", "oauth", "sso",
       "okta", "auth0", "cloudflareaccess", "github", "gitlab", "atlassian",
       "recaptcha", "turnstile", "hcaptcha",
       "ctbc", "esun", "fubon", "taishin", "landbank", "post\\.gov",
