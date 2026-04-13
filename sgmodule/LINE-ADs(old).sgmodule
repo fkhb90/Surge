@@ -1,0 +1,131 @@
+#!name=LINE 廣告與追蹤攔截規則 (v3.4.3 - REGEX 最終修正版)
+#!desc=修正所有因正規表示式包含逗號而導致的 Surge 解析錯誤。v20250916
+#!system=ios
+#!category=Line
+
+#
+# 最後更新：2025-09-16
+# 說明：此版本修正了所有已知的 URL-REGEX 規則，因其表達式內部含有
+#       逗號 {n,} 與 Surge 解析器衝突的問題。通過為所有相關表達式
+#       添加雙引號，解決了 "unknown policy" 的警告。
+# ===================================================================
+
+[General]
+# 此區段為 Surge Module 標準結構的一部分，即使沒有通用設定也建議保留。
+
+[Rule]
+# -------------------------------------------------------------------
+# A. 核心功能保護 (最高優先級)
+# -------------------------------------------------------------------
+DOMAIN-SUFFIX,gw.line.naver.jp,Surfshark-Taipei
+DOMAIN-SUFFIX,gw2.line.naver.jp,Surfshark-Taipei
+DOMAIN-SUFFIX,gwx.line.naver.jp,Surfshark-Taipei
+DOMAIN-SUFFIX,api.line.me,Surfshark-Taipei
+DOMAIN-SUFFIX,profile.line-scdn.net,Surfshark-Taipei
+DOMAIN-SUFFIX,stickershop.line-scdn.net,Proxy
+URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/ext\/album\/api\/v\d+\/albums\/(?:preview|\d+\/photos(?:\/\d+\/likes\/preview)?)(?:\?.*)?$,Surfshark-Taipei
+URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/ext\/album\/?$,Surfshark-Taipei
+URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/[A-Z0-9]+(\?.*)?$,Surfshark-Taipei
+URL-REGEX,^https?:\/\/legy\.line-apps\.com(:443)?\/(?!ext\/(lgfp\/lad|smartch|today)\/).*$,Surfshark-Taipei
+URL-REGEX,^https?:\/\/legy-backup\.line-apps\.com(:443)?\/[A-Z0-9]+(\?.*)?$,Surfshark-Taipei
+URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/talk$,Surfshark-Taipei
+URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/talk\/emi\/.*$,Surfshark-Taipei
+URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/talk\/emv\/.*\/ud-preview$,Surfshark-Taipei
+URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/talk\/emv\/.*$,Surfshark-Taipei
+URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/r\/album\/a\/.*$,Surfshark-Taipei
+URL-REGEX,^https?:\/\/obs-tw\.line-apps\.com(:443)?\/[A-Za-z0-9_-]+$,Surfshark-Taipei
+URL-REGEX,^https?:\/\/manager\.line-scdn\.net(:443)?\/[A-Za-z0-9_-]+$,Surfshark-Taipei
+URL-REGEX,^https?:\/\/obs\.line-scdn\.net\/(?!.*(\/banner\/|r\/linecrs)).*$,Surfshark-Taipei
+
+# -------------------------------------------------------------------
+# B. 全域廣告 API 與追蹤服務 (攔截核心)
+# -------------------------------------------------------------------
+# --- 主要廣告 API ---
+URL-REGEX,^https:\/\/legy\.line-apps\.com\/ext\/lgfp\/lad\/v\d+,REJECT
+URL-REGEX,^https:\/\/legy\.line-apps\.com\/ext\/(smartch|today)\/.*\/ad\/,REJECT
+
+# --- [v3.4 新增] 核心閘道廣告與追蹤 ---
+URL-REGEX,^https:\/\/gw\.line\.naver\.jp\/lass\/api\/v1\/ads$,REJECT
+URL-REGEX,^https:\/\/gw\.line\.naver\.jp\/tr\/event$,REJECT-DROP
+
+# --- [v3.4 新增] 通用廣告 API 與追蹤 ---
+URL-REGEX,^https:\/\/.*\.line\.me\/lass\/api\/.*\/ads$,REJECT
+URL-REGEX,^https:\/\/.*\.line\.me\/la.*\/api\/.*\/ads$,REJECT
+URL-REGEX,^https:\/\/.*\.line\.me\/er\/lads\/v1\/ei\.*$,REJECT-DROP
+
+# --- 核心追蹤與分析 (使用 REJECT-DROP 無聲拒絕，效率更高) ---
+URL-REGEX,^https:\/\/nelo2-col\.linecorp\.com\/_store$,REJECT-DROP
+URL-REGEX,^https:\/\/(analytics|stat|track|metrics|collect|telemetry|beacon)\.line(-apps)?\.(com|me)\/.*$,REJECT-DROP
+
+# --- 個人化與目標式廣告 (涉及用戶行為分析) ---
+URL-REGEX,^https:\/\/(targeting|behavioral|personalized|recommend-ad)\.line\.me\/.*$,REJECT-DROP
+
+# -------------------------------------------------------------------
+# C. 各服務內嵌廣告 (API 優先，內容為輔)
+# -------------------------------------------------------------------
+# === 廣告內容 CDN ===
+URL-REGEX,"https:\/\/obs\.line-scdn\.net\/(r\/linecrs\/.+\/m\d+x\d+|0h[0-9a-zA-Z_-]{50,})",REJECT-TINYGIF
+URL-REGEX,^https:\/\/d\.line-scdn\.net\/lcp-prod-photo\/20.+\.(jpe?g|png)$,REJECT-TINYGIF
+URL-REGEX,^https:\/\/(splash|startup-ad|dynamic-ad)\.line\.(me|net|com)\/.*$,REJECT-TINYGIF
+URL-REGEX,^https:\/\/.*\.line\.me\/er\/lass\/v1\/event\/image\.*$,REJECT-TINYGIF # [v3.4 新增]
+DOMAIN-SUFFIX,ad.line-scdn.net,REJECT-TINYGIF
+DOMAIN-SUFFIX,shop-ad.line-scdn.net,REJECT-TINYGIF
+DOMAIN-SUFFIX,wallet-ad.line.me,REJECT-TINYGIF
+
+# === 廣告 API 域名 ===
+DOMAIN-SUFFIX,sch.line.me,REJECT
+DOMAIN-SUFFIX,sspapi.line.me,REJECT
+DOMAIN-SUFFIX,a.line.me,REJECT
+DOMAIN-SUFFIX,adcreative.line.me,REJECT
+DOMAIN-SUFFIX,lap.line.me,REJECT
+DOMAIN-SUFFIX,lap-api.line.me,REJECT
+DOMAIN-SUFFIX,crossfeed.line-apps.com,REJECT
+DOMAIN-SUFFIX,dsp.line.me,REJECT
+DOMAIN-SUFFIX,rtb.line.me,REJECT
+DOMAIN-SUFFIX,music-ad.line.me,REJECT
+
+# === 追蹤與數據管理域名 ===
+DOMAIN-SUFFIX,impression.line.me,REJECT-DROP
+DOMAIN-SUFFIX,dmp.line.me,REJECT-DROP # Data Management Platform
+
+# === 混合內容域名的 URL 過濾 (需 MitM) ===
+URL-REGEX,^https:\/\/scdn\.line-apps\.com\/(promotion|campaign|sponsored|ad)\/.*$,REJECT
+URL-REGEX,^https:\/\/static\.line-scdn\.net\/.*(\/ad\/|\/promotion\/|\/banner\/).*$,REJECT
+
+# --- LINE Today, Voom, Timeline ---
+URL-REGEX,^https:\/\/vdn\.line-scdn\.net(:443)?\/.*\/adv\/.*\.(mp4|webm)$,REJECT
+URL-REGEX,"^https:\/\/today-api\.line-apps\.com(:443)?\/.*\/promoted\/[0-9a-f]{16,}",REJECT
+URL-REGEX,^https:\/\/voom\.line\.me(:443)?\/api\/v\d+\/post\/sponsored,REJECT
+URL-REGEX,^https:\/\/timeline\.line\.me(:443)?\/.*\/sponsored\/.*$,REJECT
+URL-REGEX,^https:\/\/today\.line\.me(:443)?\/webapi\/social-feed\/interactions(\?.*)?$,REJECT
+
+# --- 官方賬號 (OA) 廣告 ---
+URL-REGEX,^https:\/\/api\.line\.me\/officialaccount\/v1\/messages\/ad\/,REJECT
+URL-REGEX,^https:\/\/oa\.line\.biz\/api\/v\d+\/ad\/,REJECT
+
+# --- LINE LIVE 直播廣告 ---
+URL-REGEX,^https:\/\/live(-api)?\.line\.me\/api\/v\d+\/ad\/,REJECT
+URL-REGEX,^https:\/\/live-api\.line-apps\.com\/v\d+\/ad\/impression,REJECT
+
+# --- LINE Shopping, Pay, Points ---
+URL-REGEX,^https:\/\/shopping\.line\.me\/api\/.*\/promotion\/banner\/.*$,REJECT
+URL-REGEX,^https:\/\/pay\.line\.me\/api\/.*\/advertisement\/.*$,REJECT
+URL-REGEX,^https:\/\/point-ad\.line\.me\/.*$,REJECT
+URL-REGEX,^https:\/\/reward\.line\.me\/.*\/advertisement\/.*$,REJECT
+
+# --- LINE Place, Gift ---
+URL-REGEX,^https:\/\/place\.line\.me\/api\/v\d+\/recommendation\/ad,REJECT
+URL-REGEX,^https:\/\/gift\.line\.me\/api\/v\d+\/promotions\/sponsored,REJECT
+
+# --- WEBTOON, Manga ---
+URL-REGEX,^https:\/\/webtoon\.line\.me\/.*\/advertisement\/.*$,REJECT
+URL-REGEX,^https:\/\/manga\.line\.me\/.*\/ad\/.*$,REJECT
+
+# --- 其他已知廣告與推播 ---
+URL-REGEX,^https:\/\/friend\.line\.me\/.*\/suggestion\/ad\/.*$,REJECT
+URL-REGEX,^https:\/\/push(-api)?\.line\.me\/.*\/(advertisement|sponsored|promotion)\/.*$,REJECT
+URL-REGEX,^https:\/\/real-time-ad\.line\.me\/.*\/[0-9a-f]{32},REJECT
+URL-REGEX,^https:\/\/(partner-ad|affiliate|external-ad|network-ad)\.line\.(me|com|net|apps)\/.*$,REJECT
+
+[MITM]
+hostname = %APPEND% legy.line-apps.com, obs.line-scdn.net, api.line.me, nelo2-col.linecorp.com, analytics.line.me, stat.line-apps.com, track.line.me, metrics.line-apps.com, collect.line-apps.com, telemetry.line.me, beacon.line.me, targeting.line.me, behavioral.line.me, personalized.line-apps.com, recommend-ad.line.me, d.line-scdn.net, splash.line.me, startup-ad.line-scdn.net, dynamic-ad.line-scdn.net, vdn.line-scdn.net, today-api.line-apps.com, voom.line.me, timeline.line.me, oa.line.biz, live.line.me, live-api.line-apps.com, shopping.line.me, pay.line.me, point-ad.line.me, reward.line.me, place.line.me, gift.line.me, webtoon.line.me, manga.line.me, friend.line.me, push.line.me, push-api.line.me, real-time-ad.line.me, partner-ad.line-scdn.net, affiliate.line.me, external-ad.line.me, network-ad.line-apps.com

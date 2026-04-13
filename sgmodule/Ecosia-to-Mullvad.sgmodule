@@ -1,0 +1,9 @@
+#!name=Ecosia to Mullvad
+#!desc=把 Ecosia 搜尋轉址到 leta.mullvad.net
+
+[URL Rewrite]
+^https\:\/\/ac\.ecosia\.org\/autocomplete https\:\/\/leta\.mullvad\.net\/autocomplete 307
+^https\:\/\/www\.ecosia\.org\/search https\:\/\/leta\.mullvad\.net\/search 307
+
+[MITM]
+hostname = %APPEND% leta.mullvad.net, mullvad.net
