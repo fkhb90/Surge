@@ -1,0 +1,53 @@
+# YouTube 廣告阻擋規則清單（Premium 完全相容版）
+
+## 基礎網路協定規則
+# 阻擋可疑 UDP 連線
+# AND,((PROTOCOL,UDP), (DEST-PORT,443)),REJECT-NO-DROP
+
+## 🎬 **精準影片廣告攔截（Premium 兼容）**
+# Googlevideo 廣告內容（精確匹配，保護 Premium 播放）
+URL-REGEX,^https?\:\/\/[\w-]+\.googlevideo\.com\/.*[?&]oad=[^&]*$
+URL-REGEX,^https?\:\/\/[\w-]+\.googlevideo\.com\/.*[?&]ctier=L[^&]*$
+URL-REGEX,^https?\:\/\/[\w-]+\.googlevideo\.com\/ptracking\?pltype=adhost
+
+# YouTube 廣告統計（不影響播放品質監控）
+URL-REGEX,^https?\:\/\/(www|s)\.youtube\.com\/api\/stats\/ads(\?|$)
+URL-REGEX,^https?\:\/\/(www|s)\.youtube\.com\/pagead\/
+URL-REGEX,^https?\:\/\/\w+\.youtube\.com\/get_midroll_
+
+# YouTube 廣告相關 API（精確匹配）
+URL-REGEX,^https?\:\/\/.*\.youtube\.com\/api\/stats\/qoe\?.*adformat=
+URL-REGEX,^https?\:\/\/.*\.youtube\.com\/api\/stats\/atr\?.*ad_
+URL-REGEX,^https?\:\/\/.*\.youtube\.com\/_get_ads(\?|$)
+
+# YouTubei API 廣告專用端點
+URL-REGEX,^https?\:\/\/youtubei\.googleapis\.com\/youtubei\/v\d+\/player\/ad_break(\?|$)
+URL-REGEX,^https?\:\/\/youtubei\.googleapis\.com\/.*\/att\/get\?.*ad_
+
+## ⚠️ **Premium 功能保護清單**
+# 以下端點必須保持暢通，確保 Premium 服務正常：
+
+# ✅ 播放核心功能
+# youtube.com/api/stats/qoe（非廣告品質評估）
+# googlevideo.com/videoplayback（影片串流）
+# youtubei.googleapis.com/youtubei/*/player（播放器核心）
+
+# ✅ Premium 專屬功能
+# youtubei.googleapis.com/youtubei/*/browse（瀏覽功能）
+# youtubei.googleapis.com/youtubei/*/search（搜尋功能）
+# youtubei.googleapis.com/youtubei/*/guide（導覽功能）
+# youtube.com/api/timedtext（字幕服務）
+
+# ✅ 背景播放與下載
+# youtubei.googleapis.com/youtubei/*/offline（離線功能）
+# youtube.com/api/sound_device（音訊處理）
+
+## 🔒 **進階隱私防護**
+# 數據收集防護
+URL-REGEX,^https?\:\/\/.*\.google\.com\/ads\/measurement\/
+URL-REGEX,^https?\:\/\/.*\.google\.com\/pagead\/conversion\/
+URL-REGEX,^https?\:\/\/.*\.google\.com\/ads\/on-device\/conversions\?
+
+# 指紋追蹤防護
+URL-REGEX,^https?\:\/\/.*\.googleapis\.com\/adsmeasurement\/
+URL-REGEX,^https?\:\/\/.*\.youtube\.com\/youtubei\/.*\/log_event\?.*ad_
