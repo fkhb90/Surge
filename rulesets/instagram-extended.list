@@ -1,0 +1,22 @@
+# ===================================================================
+# Instagram 流量導向規則 (v1.0)
+# 將 "Your_Instagram_Policy" 替換為您在 Surge 中設定的策略組名稱
+# ===================================================================
+
+# SECTION 1: 核心服務與 API (Core Services & API)
+# 涵蓋了 Instagram 應用程式與網站運作所需的核心域名，包括登入、圖形 API、資料交換等。
+DOMAIN-SUFFIX,instagram.com
+DOMAIN-SUFFIX,instagr.am
+
+# SECTION 2: 內容傳遞網路 (Content Delivery Network - CDN)
+# 負責圖片、影片、Reels、Stories 等所有多媒體內容的載入。
+# 注意：fbcdn.net 為 Meta (Facebook, Instagram, WhatsApp) 的共用 CDN。
+# 將其納入會一併導向 Facebook 等服務的媒體流量，但這是確保 Instagram 內容完整載入的最穩健做法。
+DOMAIN-SUFFIX,cdninstagram.com
+DOMAIN-SUFFIX,igcdn.com
+DOMAIN-KEYWORD,instagram
+
+# SECTION 3: 相關服務與短網址 (Related Services & Shorteners)
+# 包含 IGTV 相關域名及官方短網址服務。
+DOMAIN-SUFFIX,igtv.com
+DOMAIN,ig.me
