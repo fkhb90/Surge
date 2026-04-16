@@ -1,8 +1,9 @@
 # ============================================================
 # DOMAIN-SET REJECT MERGED (prematching + main, all pre-matching)
 # Format: bare domain per line, DOMAIN-SUFFIX semantics
-# Total: 2485 domains  (subsumed: 19)
+# Total: 2484 domains  (subsumed: 19)
 # ============================================================
+
 
 
 
@@ -95,7 +96,6 @@ ad.doubleclick.net
 ad.doublemax.net
 ad.duapps.com
 ad.ettoday.net
-ad.example.com
 ad.flipboard.com
 ad.huajiao.com
 ad.hzyoka.com
