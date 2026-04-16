@@ -1,9 +1,11 @@
 # ============================================================
 # REJECT-DROP MERGED (prematching + main, all pre-matching)
-# Total: 529 rules  (subsumed: 7)
+# Total: 528 rules  (subsumed: 7)
 # Policy implied: REJECT-DROP, pre-matching (set in conf)
 # ============================================================
 
+
+# --- DOMAIN-SUFFIX ---
 
 # --- DOMAIN-SUFFIX ---
 DOMAIN-SUFFIX,14.ras.yahoo.com
@@ -49,7 +51,6 @@ DOMAIN-SUFFIX,analysis.tw
 DOMAIN-SUFFIX,analytics.shopee.tw
 DOMAIN-SUFFIX,analytics.tiktok.com
 DOMAIN-SUFFIX,analytics.twitter.com
-DOMAIN-SUFFIX,aotter.net
 DOMAIN-SUFFIX,api.aliyung.com
 DOMAIN-SUFFIX,api.aliyung.org
 DOMAIN-SUFFIX,api.firebaseo.com
