@@ -1,9 +1,14 @@
+```javascript
 /**
  * @file      Universal-Fingerprint-Poisoning.js
- * @version   10.67
+ * @version   10.68
  * @author    Claude Code
- * @updated   2026-04-09
+ * @updated   2026-04-18
  * ----------------------------------------------------------------------------
+ * [V10.68 Surge 5.101.0 Hotfix & Memory Optimization]:
+ * - [BugFix]    退出函數 done() 完整包含 headers，修復 Surge "unsupported parameter" 報錯與標頭遺失問題
+ * - [Perf]      將 EXCLUDE_RE 正規表示式提至全域作用域，避免高並發時動態編譯造成記憶體峰值 (Low Memory Mode)
+ *
  * [V10.67 Revert Grok Whitelist]:
  * - [Revert]    回退 V10.66 白名單變更（移除 grok/x.ai/x.com/twitter.com）— Grok App 登入根因為 MITM 干擾，正確解法為 Loon/Surge skip-mitm grok.com
  *
@@ -28,27 +33,43 @@
  *
  * [V10.60 穩定性大師版 - Optimized]:
  * 1) [FINAL SOLUTION] 確認國泰證券/三竹系統必須透過 "Skip Proxy" (跳過代理) 解決。
- *    - 請使用者務必在 Loon/Surge 設定中排除 "175.99.0.0/16" 與 "*.cathaysec.com.tw"。
+ * - 請使用者務必在 Loon/Surge 設定中排除 "175.99.0.0/16" 與 "*.cathaysec.com.tw"。
  * 2) [FULL POWER] 恢復 Canvas/Audio/WebRTC 的全功率防護。
- *    - 既然問題 App 已被物理隔離，腳本將不再自我閹割，確保最佳隱私保護力。
+ * - 既然問題 App 已被物理隔離，腳本將不再自我閹割，確保最佳隱私保護力。
  * 3) [MAINTAIN] 保留 Feedly, TradingView, Zoom 等已驗證的白名單。
  *
- * [Optimization Changelog]:
- * - [Security]  eval(M) → (new Function(M))()，消除 eval 安全隱患
- * - [Perf]      白名單由 Array.some+includes (O(n)) → 編譯 RegExp (O(1))
- * - [Perf]      CSP header 查找改用 for-of + break，找到即停
- * - [DRY]       Seed 生成合併重複分支；抽取 exit() 消除 7 處重複 $done
- * - [Modern JS] 使用 ?. 與 ?? 簡化 null-safety 判斷
- * - [Size]      注入 MODULE 壓縮空白，減少 ~40% payload
- * - [Robust]    Object.defineProperty 加 try-catch 防禦嚴格模式異常
- *
  */
+
+// ========================================================================
+// 全域靜態區 (Global Static Area)
+// 優化：將正則表達式提至全域，避免每次請求重複編譯消耗 JSVM 記憶體
+// ========================================================================
+const EXCLUDE_RE = new RegExp([
+  // App Immunity (UA keywords)
+  "treegenie", "tradingview", "feedly", "megatime", "104app",
+  "\\bline\\b", "facebook", "instagram", "tiktok", "shopee", "uber", "foodpanda",
+  "teamviewer", "anydesk", "zoom", "meet", "teams", "webex",
+  "cfnetwork", "darwin", "flipper", "okhttp", "applewebkit",
+  // Domain fragments (URL)
+  "tradingview\\.com", "tdcc\\.com\\.tw", "cnyes", "wantgoo",
+  "accounts\\.google", "appleid", "icloud", "login", "oauth", "sso",
+  "okta", "auth0", "cloudflareaccess", "github", "gitlab", "atlassian",
+  "recaptcha", "turnstile", "hcaptcha",
+  "ctbc", "esun", "fubon", "taishin", "landbank", "post\\.gov",
+  "hitrust", "twca", "verisign",
+  "localhost", "127\\.0\\.0\\.1", "::1"
+].join("|"));
 
 (function () {
   "use strict";
 
   const done = typeof $done !== "undefined" ? $done : null;
-  const exit = () => { if (done) done({}); };
+  // 優化：確保提早退出時不干擾原生請求與標頭
+  const exit = () => { 
+    if (done) {
+        done({}); 
+    }
+  };
 
   try {
     // ========================================================================
@@ -75,23 +96,7 @@
       return;
     }
 
-    // B. General App & Web Whitelist — compiled RegExp for single-pass matching
-    const EXCLUDE_RE = new RegExp([
-      // App Immunity (UA keywords)
-      "treegenie", "tradingview", "feedly", "megatime", "104app",
-      "\\bline\\b", "facebook", "instagram", "tiktok", "shopee", "uber", "foodpanda",
-      "teamviewer", "anydesk", "zoom", "meet", "teams", "webex",
-      "cfnetwork", "darwin", "flipper", "okhttp", "applewebkit",
-      // Domain fragments (URL)
-      "tradingview\\.com", "tdcc\\.com\\.tw", "cnyes", "wantgoo",
-      "accounts\\.google", "appleid", "icloud", "login", "oauth", "sso",
-      "okta", "auth0", "cloudflareaccess", "github", "gitlab", "atlassian",
-      "recaptcha", "turnstile", "hcaptcha",
-      "ctbc", "esun", "fubon", "taishin", "landbank", "post\\.gov",
-      "hitrust", "twca", "verisign",
-      "localhost", "127\\.0\\.0\\.1", "::1"
-    ].join("|"));
-
+    // B. General App & Web Whitelist (使用全域編譯的 RegExp 進行 O(1) 匹配)
     if (EXCLUDE_RE.test(u) || EXCLUDE_RE.test(ua)) {
       exit();
       return;
@@ -222,9 +227,15 @@
       ? body.replace(headRe, (m) => m + INJECT)
       : INJECT + body;
 
-    done({ body: newBody });
+    // 優化：完整回傳 headers 與修改後的 body，修復參數不支援警告
+    done({ 
+        headers: headers, 
+        body: newBody 
+    });
 
   } catch (_) {
     exit();
   }
 })();
+
+```
