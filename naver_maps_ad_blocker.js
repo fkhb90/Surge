@@ -1,149 +1,181 @@
 /**
- * naver_maps_ad_blocker.js  ·  v2.0.0 (2026-04-20)
+ * naver_maps_ad_blocker.js  ·  v3.0.0 (2026-04-20)
  * ===================================================
- * Removes AD① sponsored listing cards from Naver Maps WebView search results
- * by surgically patching the Apollo GraphQL SSR state embedded in the HTML.
+ * Removes AD① sponsored listing cards from Naver Maps WebView search results.
  *
- * ARCHITECTURE DISCOVERY (via Surge HTTP Capture + HTML analysis)
- * ──────────────────────────────────────────────────────────────
- * The page at nmap.place.naver.com/restaurant/list is a React SPA shell
- * with server-side pre-rendered Apollo GraphQL state embedded as:
+ * ARCHITECTURE (confirmed via HTML analysis + Apollo SSR study)
+ * ─────────────────────────────────────────────────────────────
  *
- *   window.__APOLLO_STATE__ = { ... }
+ *  Phase 1 — Initial page load (WebView navigation)
+ *  ┌─────────────────────────────────────────────────────────────────┐
+ *  │ GET nmap.place.naver.com/restaurant/list                        │
+ *  │ → 200 HTML with window.__APOLLO_STATE__ embedded (~958 KB)      │
+ *  │ → ROOT_QUERY.adBusinesses → RestaurantAdSummary items           │
+ *  │ Target: patch __APOLLO_STATE__ JSON in HTML                     │
+ *  └─────────────────────────────────────────────────────────────────┘
  *
- * This state object contains TWO separate GraphQL query result types:
+ *  Phase 2 — React hydration re-fetch (XHR, ~500ms after Phase 1)
+ *  ┌─────────────────────────────────────────────────────────────────┐
+ *  │ POST bff-gateway.place.naver.com/graphql                        │
+ *  │ → JSON: { data: { restaurantList: {...},                        │
+ *  │                    adBusinesses: { total: 4, items: [...] } } } │
+ *  │ Apollo fetchPolicy: cache-and-network → overwrites SSR cache    │
+ *  │ Target: strip data.adBusinesses from GraphQL JSON response      │
+ *  └─────────────────────────────────────────────────────────────────┘
  *
- *   ┌─ Organic results ────────────────────────────────────────────────┐
- *   │  ROOT_QUERY.restaurantList(...)                                   │
- *   │  Items: RestaurantListSummary:{id}  (NO adId field)              │
- *   └──────────────────────────────────────────────────────────────────┘
- *   ┌─ Ad results ─────────────────────────────────────────────────────┐
- *   │  ROOT_QUERY.adBusinesses(...)  ← total: 4  ← TARGET             │
- *   │  Items: RestaurantAdSummary:{id}  (HAS adId, adClickLog, etc.)   │
- *   │  adClickLog.clickUrl  →  ader.naver.com/v1/...                   │
- *   │  impressionEventUrl   →  ader.naver.com/v1/...                   │
- *   │  adImages             →  searchad-phinf.pstatic.net/...          │
- *   └──────────────────────────────────────────────────────────────────┘
- *
- * SURGICAL PATCH STRATEGY
- * ───────────────────────
- * 1. Locate window.__APOLLO_STATE__ = {...}; in the HTML
- * 2. JSON.parse the state object
- * 3. For every key that starts with "RestaurantAdSummary:" → delete it
- * 4. For every ROOT_QUERY key that includes "adBusinesses" → zero its items
- * 5. JSON.stringify and splice back into the HTML
- *
- * This leaves all 30+ organic RestaurantListSummary items untouched.
+ * THIS SCRIPT handles BOTH phases.
  *
  * REQUIRED SURGE CONFIGURATION
  * ─────────────────────────────
  * [Script]
- * naver-maps-ad = type=http-response, \
+ * ; Phase 1: HTML Apollo State patch
+ * naver-maps-html = type=http-response, \
  *   pattern=https://nmap\.place\.naver\.com/(place|restaurant)/list, \
  *   requires-body=1, max-size=0, \
  *   script-path=/path/to/naver_maps_ad_blocker.js
  *
+ * ; Phase 2: GraphQL BFF XHR response strip
+ * naver-maps-gql = type=http-response, \
+ *   pattern=https://bff-gateway\.place\.naver\.com/, \
+ *   requires-body=1, max-size=0, \
+ *   script-path=/path/to/naver_maps_ad_blocker.js
+ *
  * [MITM]
- * hostname = nmap.place.naver.com, %APPEND%
- *
- * IMPORTANT NOTES
- * ───────────────
- * • This script requires MITM to be enabled for nmap.place.naver.com.
- *   If Surge shows "MITM Failed", the Naver Maps app has SSL Pinning
- *   and interception is not possible at this layer.
- *
- * • The Apollo State patch prevents the React app from rendering ad cards
- *   at all, since the data never reaches the component layer.
- *
- * • Organic results are completely untouched (different __typename).
- *
- * • For belt-and-suspenders coverage, also configure SSOT_Compiler to:
- *     DROP: ader.naver.com         (ad click/impression tracking)
- *     DROP: veta.naver.com         (GFP ad SDK)
- *     BLOCK: searchad-phinf.pstatic.net  (ad image CDN)
+ * hostname = nmap.place.naver.com, bff-gateway.place.naver.com, %APPEND%
  *
  * Version history:
- *   v2.0.0 (2026-04-20) - Complete rewrite. Apollo State surgical patch.
- *                          Based on confirmed HTML structure analysis.
- *   v1.0.0 (2026-04-20) - Original provisional version (HTML regex approach).
+ *   v3.0.0 (2026-04-20) - Dual-phase: HTML patch + GraphQL XHR strip.
+ *                          Removed bad early-exit on removedAdEntries=0.
+ *   v2.0.0 (2026-04-20) - Apollo State surgical patch (HTML only).
+ *   v1.0.0 (2026-04-20) - Original provisional HTML regex approach.
  */
 
 "use strict";
 
-const TAG = "[NaverMapsAdBlocker v2]";
+const TAG = "[NaverMapsAd v3]";
 
 // ── Guard: empty body ────────────────────────────────────────────────────────
 const rawBody = $response.body;
 if (!rawBody || rawBody.length === 0) {
-    console.log(`${TAG} Empty response — skip`);
+    console.log(`${TAG} Empty body — skip`);
     $done({});
 }
+
+// ── Route by Content-Type ────────────────────────────────────────────────────
+const headers = $response.headers || {};
+const contentType = (headers["Content-Type"] || headers["content-type"] || "").toLowerCase();
+const isJson = contentType.includes("application/json");
+
+console.log(`${TAG} URL: ${$request.url.substring(0, 80)}`);
+console.log(`${TAG} Content-Type: ${contentType}, body: ${rawBody.length} bytes`);
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  PHASE 2 — GraphQL JSON response from bff-gateway               ║
+// ║  Intercepts the Apollo re-fetch that overwrites SSR cache        ║
+// ╚══════════════════════════════════════════════════════════════════╝
+if (isJson) {
+    let gql;
+    try {
+        gql = JSON.parse(rawBody);
+    } catch (e) {
+        console.log(`${TAG} JSON parse error: ${e.message}`);
+        $done({});
+    }
+
+    let patched = false;
+
+    // Standard GraphQL response envelope: { data: { adBusinesses: { ... } } }
+    if (gql && gql.data) {
+        // --- adBusinesses (primary ad query) ---
+        if (gql.data.adBusinesses) {
+            const before = Array.isArray(gql.data.adBusinesses.items)
+                ? gql.data.adBusinesses.items.length : 0;
+            gql.data.adBusinesses.items = [];
+            gql.data.adBusinesses.total = 0;
+            gql.data.adBusinesses.bucket = null;
+            gql.data.adBusinesses.bucketTest = null;
+            console.log(`${TAG} [GQL] Cleared adBusinesses (was ${before} items)`);
+            patched = true;
+        }
+
+        // --- Batched queries: array of { data: {...} } ---
+        // Apollo sometimes batches multiple operations in one request
+        if (Array.isArray(gql)) {
+            for (let i = 0; i < gql.length; i++) {
+                const op = gql[i];
+                if (op && op.data && op.data.adBusinesses) {
+                    const before = Array.isArray(op.data.adBusinesses.items)
+                        ? op.data.adBusinesses.items.length : 0;
+                    op.data.adBusinesses.items = [];
+                    op.data.adBusinesses.total = 0;
+                    console.log(`${TAG} [GQL batch #${i}] Cleared adBusinesses (was ${before} items)`);
+                    patched = true;
+                }
+            }
+        }
+    }
+
+    if (!patched) {
+        console.log(`${TAG} [GQL] No adBusinesses field found in response — pass through`);
+    }
+
+    $done({ body: JSON.stringify(gql) });
+}
+
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  PHASE 1 — HTML Apollo SSR State patch                          ║
+// ║  Removes ads from the server-side rendered initial payload       ║
+// ╚══════════════════════════════════════════════════════════════════╝
 
 // ── Locate the Apollo State block ────────────────────────────────────────────
 const APOLLO_MARKER = "window.__APOLLO_STATE__ = ";
 const markerIdx = rawBody.indexOf(APOLLO_MARKER);
 
 if (markerIdx === -1) {
-    console.log(`${TAG} No __APOLLO_STATE__ found (page structure may have changed)`);
-    $done({});
+    console.log(`${TAG} [HTML] No __APOLLO_STATE__ found — pass through`);
+    $done({ body: rawBody });
 }
 
-// Find the exact JSON object boundaries using brace counting
+// Find exact JSON boundaries by brace counting
 const jsonStart = markerIdx + APOLLO_MARKER.length;
-let depth = 0;
-let jsonEnd = jsonStart;
-let found = false;
+let depth = 0, jsonEnd = jsonStart, found = false;
 
 for (let i = jsonStart; i < rawBody.length; i++) {
     const ch = rawBody[i];
-    if (ch === '{') {
-        depth++;
-    } else if (ch === '}') {
+    if (ch === '{') { depth++; }
+    else if (ch === '}') {
         depth--;
-        if (depth === 0) {
-            jsonEnd = i + 1;
-            found = true;
-            break;
-        }
+        if (depth === 0) { jsonEnd = i + 1; found = true; break; }
     }
 }
 
 if (!found) {
-    console.log(`${TAG} Could not find end of __APOLLO_STATE__ object`);
-    $done({});
+    console.log(`${TAG} [HTML] Could not find end of __APOLLO_STATE__ — pass through`);
+    $done({ body: rawBody });
 }
 
-const apolloJsonStr = rawBody.substring(jsonStart, jsonEnd);
-
-// ── Parse the Apollo State ───────────────────────────────────────────────────
+// ── Parse Apollo State ───────────────────────────────────────────────────────
 let apolloState;
 try {
-    apolloState = JSON.parse(apolloJsonStr);
+    apolloState = JSON.parse(rawBody.substring(jsonStart, jsonEnd));
 } catch (e) {
-    console.log(`${TAG} JSON parse error: ${e.message} — passing through unchanged`);
-    $done({});
+    console.log(`${TAG} [HTML] JSON parse error: ${e.message} — pass through`);
+    $done({ body: rawBody });
 }
 
 // ── Surgical patch ───────────────────────────────────────────────────────────
 let removedAdEntries = 0;
 let patchedQueries = 0;
 
-// Step 1: Remove all RestaurantAdSummary cache entries
-// These are the individual ad item objects (adId, adClickLog, adImages, etc.)
-const keysToDelete = [];
+// Step 1: Delete all RestaurantAdSummary cache entries (the ad item objects)
 for (const key of Object.keys(apolloState)) {
     if (key.startsWith("RestaurantAdSummary:")) {
-        keysToDelete.push(key);
+        delete apolloState[key];
+        removedAdEntries++;
     }
-}
-for (const key of keysToDelete) {
-    delete apolloState[key];
-    removedAdEntries++;
 }
 
 // Step 2: Zero out adBusinesses query results in ROOT_QUERY
-// The component reads ROOT_QUERY.adBusinesses(...) to get the ad list.
-// Clearing items[] and setting total=0 makes the component render nothing.
 const rootQuery = apolloState["ROOT_QUERY"];
 if (rootQuery) {
     for (const queryKey of Object.keys(rootQuery)) {
@@ -156,38 +188,39 @@ if (rootQuery) {
                 adResult.bucket = null;
                 adResult.bucketTest = null;
                 patchedQueries++;
-                console.log(`${TAG} Zeroed adBusinesses query (had ${before} items): ${queryKey.substring(0, 60)}...`);
+                console.log(`${TAG} [HTML] Zeroed adBusinesses (was ${before} items)`);
             }
         }
     }
 }
 
-// ── Reconstruct the response body ────────────────────────────────────────────
+// ── Always return body (even if 0 ads found) ─────────────────────────────────
+// Returning unchanged body prevents Surge from showing "Script skipped modification"
+// and ensures the script path is exercised on every request for debugging.
 if (removedAdEntries === 0 && patchedQueries === 0) {
-    console.log(`${TAG} ⚠ Nothing patched. Possible causes:`);
-    console.log(`${TAG}   • No ads in this search result (0 ad slots)`);
-    console.log(`${TAG}   • Apollo State schema changed — check __typename values`);
-    $done({});
+    console.log(`${TAG} [HTML] No ad entries found in this response.`);
+    console.log(`${TAG}   Likely cause: non-Korean IP (VPN/proxy) → Naver omits adBusinesses from SSR`);
+    console.log(`${TAG}   Add DIRECT rule for nmap.place.naver.com to get geo-targeted ads`);
 }
 
+// ── Reconstruct and return ───────────────────────────────────────────────────
 let newApolloJsonStr;
 try {
     newApolloJsonStr = JSON.stringify(apolloState);
 } catch (e) {
-    console.log(`${TAG} JSON stringify error: ${e.message}`);
-    $done({});
+    console.log(`${TAG} [HTML] JSON stringify error — pass through unchanged`);
+    $done({ body: rawBody });
 }
 
-// Splice the patched JSON back into the HTML
 const newBody =
     rawBody.substring(0, jsonStart) +
     newApolloJsonStr +
     rawBody.substring(jsonEnd);
 
 console.log(
-    `${TAG} ✓ Patch complete — removed ${removedAdEntries} RestaurantAdSummary entries, ` +
-    `zeroed ${patchedQueries} adBusinesses quer${patchedQueries === 1 ? "y" : "ies"}. ` +
-    `Body: ${rawBody.length} → ${newBody.length} bytes`
+    `${TAG} [HTML] ✓ Done — removed ${removedAdEntries} AdSummary entries, ` +
+    `patched ${patchedQueries} adBusinesses quer${patchedQueries === 1 ? "y" : "ies"}. ` +
+    `${rawBody.length} → ${newBody.length} bytes`
 );
 
 $done({ body: newBody });
