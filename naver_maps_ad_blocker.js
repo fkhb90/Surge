@@ -27,21 +27,21 @@
  *
  * REQUIRED SURGE CONFIGURATION
  * ─────────────────────────────
- * [Script]
- * ; Phase 1: HTML Apollo State patch
- * naver-maps-html = type=http-response, \
- *   pattern=https://nmap\.place\.naver\.com/(place|restaurant)/list, \
- *   requires-body=1, max-size=0, \
- *   script-path=/path/to/naver_maps_ad_blocker.js
+ * Script URL (hosted on GitHub):
+ *   https://raw.githubusercontent.com/fkhb90/Surge/main/naver_maps_ad_blocker.js
  *
- * ; Phase 2: GraphQL BFF XHR response strip
- * naver-maps-gql = type=http-response, \
- *   pattern=https://bff-gateway\.place\.naver\.com/, \
- *   requires-body=1, max-size=0, \
- *   script-path=/path/to/naver_maps_ad_blocker.js
+ * [Script]
+ * ; Phase 1: HTML SSR Apollo State patch (initial page load)
+ * naver-maps-html = type=http-response, pattern=https://nmap\.place\.naver\.com/(place|restaurant)/list, requires-body=1, max-size=0, script-path=https://raw.githubusercontent.com/fkhb90/Surge/main/naver_maps_ad_blocker.js
+ *
+ * ; Phase 2a: BFF GraphQL – initial search + re-sort re-fetch
+ * naver-maps-gql = type=http-response, pattern=https://bff-gateway\.place\.naver\.com/, requires-body=1, max-size=0, script-path=https://raw.githubusercontent.com/fkhb90/Surge/main/naver_maps_ad_blocker.js
+ *
+ * ; Phase 2b: nmap-api – alternate endpoint used after re-sort / pagination
+ * naver-maps-api = type=http-response, pattern=https://nmap-api\.place\.naver\.com/, requires-body=1, max-size=0, script-path=https://raw.githubusercontent.com/fkhb90/Surge/main/naver_maps_ad_blocker.js
  *
  * [MITM]
- * hostname = nmap.place.naver.com, bff-gateway.place.naver.com, %APPEND%
+ * hostname = nmap.place.naver.com, bff-gateway.place.naver.com, nmap-api.place.naver.com, %APPEND%
  *
  * Version history:
  *   v3.0.0 (2026-04-20) - Dual-phase: HTML patch + GraphQL XHR strip.
@@ -70,8 +70,8 @@ console.log(`${TAG} URL: ${$request.url.substring(0, 80)}`);
 console.log(`${TAG} Content-Type: ${contentType}, body: ${rawBody.length} bytes`);
 
 // ╔══════════════════════════════════════════════════════════════════╗
-// ║  PHASE 2 — GraphQL JSON response from bff-gateway               ║
-// ║  Intercepts the Apollo re-fetch that overwrites SSR cache        ║
+// ║  PHASE 2 — GraphQL JSON response (bff-gateway / nmap-api)        ║
+// ║  Handles BOTH initial load AND re-sort re-fetch patterns          ║
 // ╚══════════════════════════════════════════════════════════════════╝
 if (isJson) {
     let gql;
@@ -79,47 +79,85 @@ if (isJson) {
         gql = JSON.parse(rawBody);
     } catch (e) {
         console.log(`${TAG} JSON parse error: ${e.message}`);
-        $done({});
+        $done({ body: rawBody });
     }
 
-    let patched = false;
+    // Determine if this is a batched request (array of operations)
+    const ops = Array.isArray(gql) ? gql : [gql];
+    let totalRemoved = 0;
 
-    // Standard GraphQL response envelope: { data: { adBusinesses: { ... } } }
-    if (gql && gql.data) {
-        // --- adBusinesses (primary ad query) ---
-        if (gql.data.adBusinesses) {
-            const before = Array.isArray(gql.data.adBusinesses.items)
-                ? gql.data.adBusinesses.items.length : 0;
-            gql.data.adBusinesses.items = [];
-            gql.data.adBusinesses.total = 0;
-            gql.data.adBusinesses.bucket = null;
-            gql.data.adBusinesses.bucketTest = null;
-            console.log(`${TAG} [GQL] Cleared adBusinesses (was ${before} items)`);
-            patched = true;
+    // Helper: returns true if an item is a sponsored ad
+    const isAdItem = (item) => {
+        if (!item || typeof item !== "object") return false;
+        // __typename is the most reliable field (present in un-normalized GQL responses)
+        if (item.__typename === "RestaurantAdSummary") return true;
+        // adId present = sponsored item (from HTML analysis: RestaurantAdSummary has adId)
+        if (item.adId !== undefined && item.adId !== null) return true;
+        // impressionEventUrl is exclusive to ad items
+        if (item.impressionEventUrl !== undefined) return true;
+        return false;
+    };
+
+    for (let opIdx = 0; opIdx < ops.length; opIdx++) {
+        const op = ops[opIdx];
+        if (!op || !op.data) continue;
+        const d = op.data;
+        const prefix = ops.length > 1 ? `[GQL batch #${opIdx}]` : "[GQL]";
+
+        // ── Layer 1: Clear adBusinesses (initial search, top-slot ads) ──────
+        // Fired on first search AND after each re-sort if ad slots are separate
+        if (d.adBusinesses) {
+            const before = Array.isArray(d.adBusinesses.items)
+                ? d.adBusinesses.items.length : 0;
+            d.adBusinesses.items = [];
+            d.adBusinesses.total = 0;
+            d.adBusinesses.bucket = null;
+            d.adBusinesses.bucketTest = null;
+            totalRemoved += before;
+            console.log(`${TAG} ${prefix} adBusinesses cleared (was ${before})`);
         }
 
-        // --- Batched queries: array of { data: {...} } ---
-        // Apollo sometimes batches multiple operations in one request
-        if (Array.isArray(gql)) {
-            for (let i = 0; i < gql.length; i++) {
-                const op = gql[i];
-                if (op && op.data && op.data.adBusinesses) {
-                    const before = Array.isArray(op.data.adBusinesses.items)
-                        ? op.data.adBusinesses.items.length : 0;
-                    op.data.adBusinesses.items = [];
-                    op.data.adBusinesses.total = 0;
-                    console.log(`${TAG} [GQL batch #${i}] Cleared adBusinesses (was ${before} items)`);
-                    patched = true;
+        // ── Layer 2: Filter ads mixed into restaurantList.items ──────────────
+        // After re-sort, Naver may inject RestaurantAdSummary items directly
+        // into the organic restaurantList rather than using a separate adBusinesses query
+        if (d.restaurantList && Array.isArray(d.restaurantList.items)) {
+            const before = d.restaurantList.items.length;
+            d.restaurantList.items = d.restaurantList.items.filter(item => !isAdItem(item));
+            const removed = before - d.restaurantList.items.length;
+            if (removed > 0) {
+                // Adjust reported total to avoid "X results" count including removed ads
+                if (typeof d.restaurantList.total === "number") {
+                    d.restaurantList.total -= removed;
+                }
+                totalRemoved += removed;
+                console.log(`${TAG} ${prefix} restaurantList: removed ${removed} ad items`);
+            }
+        }
+
+        // ── Layer 3: adBusinesses variant field names ─────────────────────────
+        // Some re-sort or channel queries use different top-level field names
+        const adFieldVariants = ["adList", "adItems", "sponsoredList", "promotedList"];
+        for (const field of adFieldVariants) {
+            if (d[field]) {
+                const arr = Array.isArray(d[field]) ? d[field]
+                          : (Array.isArray(d[field].items) ? d[field].items : null);
+                if (arr && arr.length > 0) {
+                    totalRemoved += arr.length;
+                    if (Array.isArray(d[field])) d[field] = [];
+                    else { d[field].items = []; d[field].total = 0; }
+                    console.log(`${TAG} ${prefix} Cleared alt ad field: ${field}`);
                 }
             }
         }
     }
 
-    if (!patched) {
-        console.log(`${TAG} [GQL] No adBusinesses field found in response — pass through`);
+    if (totalRemoved === 0) {
+        console.log(`${TAG} [GQL] No ad items found in this response`);
+    } else {
+        console.log(`${TAG} [GQL] ✓ Total removed: ${totalRemoved} ad item(s)`);
     }
 
-    $done({ body: JSON.stringify(gql) });
+    $done({ body: JSON.stringify(Array.isArray(gql) ? ops : ops[0]) });
 }
 
 // ╔══════════════════════════════════════════════════════════════════╗
