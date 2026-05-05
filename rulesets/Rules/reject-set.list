@@ -1,8 +1,9 @@
 # ============================================================
 # DOMAIN-SET REJECT MERGED (prematching + main, all pre-matching)
 # Format: bare domain per line, DOMAIN-SUFFIX semantics
-# Total: 2484 domains  (subsumed: 19)
+# Total: 2485 domains  (subsumed: 19)
 # ============================================================
+
 
 
 
@@ -71,6 +72,7 @@ accuenmedia.com
 accunix.net
 ace-sync.toast.com
 aclickoooo.host
+acs.m.taobao.com
 acs86.com
 activity.browser.intl.miui.com
 acxiom.com
