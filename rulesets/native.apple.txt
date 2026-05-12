@@ -9,6 +9,7 @@
 # Syntax: Domains
 # Domains: 27
 #
+USER-AGENT,com.apple.AppStore.ProductPageExtension*
 acfeedbackws.icloud.com
 ads.internal.unity3d.com
 ads.prd.ie.internal.unity3d.com
@@ -35,3 +36,4 @@ tr.iadsdk.apple.com
 unityads.unity3d.com
 weather-analytics-events.apple.com
 weather-analytics-events.news.apple-dns.net
+
