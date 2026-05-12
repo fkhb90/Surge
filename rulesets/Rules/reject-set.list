@@ -1,8 +1,9 @@
 # ============================================================
 # DOMAIN-SET REJECT MERGED (prematching + main, all pre-matching)
 # Format: bare domain per line, DOMAIN-SUFFIX semantics
-# Total: 2486 domains  (subsumed: 19)
+# Total: 2487 domains  (subsumed: 19)
 # ============================================================
+
 
 
 
@@ -1855,6 +1856,7 @@ px.marchex.io
 q.stripe.com
 qa.pixnet.cc
 qchannel01.cn
+qchannel02.cn
 qcl777.com
 qgss8.com
 qiyou.com
