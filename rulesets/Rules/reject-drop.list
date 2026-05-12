@@ -1,9 +1,11 @@
 # ============================================================
 # REJECT-DROP MERGED (prematching + main, all pre-matching)
-# Total: 528 rules  (subsumed: 7)
+# Total: 529 rules  (subsumed: 7)
 # Policy implied: REJECT-DROP, pre-matching (set in conf)
 # ============================================================
 
+
+# --- DOMAIN-SUFFIX ---
 
 # --- DOMAIN-SUFFIX ---
 
@@ -14,6 +16,7 @@ DOMAIN-SUFFIX,3lift.com
 DOMAIN-SUFFIX,aan.amazon.com
 DOMAIN-SUFFIX,ab.chatgpt.com
 DOMAIN-SUFFIX,abtest.yuewen.cn
+DOMAIN-SUFFIX,acs.m.taobao.com
 DOMAIN-SUFFIX,ad-geek.net
 DOMAIN-SUFFIX,ad-history.line.me
 DOMAIN-SUFFIX,ad-hub.net
