@@ -4,17 +4,11 @@
 # Policy implied: REJECT-DROP, pre-matching (set in conf)
 # ============================================================
 
-
-# --- DOMAIN-SUFFIX ---
-
-# --- DOMAIN-SUFFIX ---
-
 # --- DOMAIN-SUFFIX ---
 DOMAIN-SUFFIX,14.ras.yahoo.com
 DOMAIN-SUFFIX,2o7.net
 DOMAIN-SUFFIX,3lift.com
 DOMAIN-SUFFIX,aan.amazon.com
-DOMAIN-SUFFIX,ab.chatgpt.com
 DOMAIN-SUFFIX,abtest.yuewen.cn
 DOMAIN-SUFFIX,acs.m.taobao.com
 DOMAIN-SUFFIX,ad-geek.net
