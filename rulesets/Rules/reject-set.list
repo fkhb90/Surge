@@ -1,8 +1,9 @@
 # ============================================================
 # DOMAIN-SET REJECT MERGED (prematching + main, all pre-matching)
 # Format: bare domain per line, DOMAIN-SUFFIX semantics
-# Total: 2488 domains  (subsumed: 19)
+# Total: 2489 domains  (subsumed: 19)
 # ============================================================
+
 
 
 
@@ -2190,6 +2191,7 @@ telemetryverification.net
 tend.io
 teracreative.com
 terraclicks.com
+test.net
 testplus.cn
 textron.vo.llnwd.net
 tf-naviking-3d.trafficmanager.net
