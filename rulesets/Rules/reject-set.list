@@ -1,8 +1,9 @@
 # ============================================================
 # DOMAIN-SET REJECT MERGED (prematching + main, all pre-matching)
 # Format: bare domain per line, DOMAIN-SUFFIX semantics
-# Total: 2488 domains  (subsumed: 19)
+# Total: 2487 domains  (subsumed: 19)
 # ============================================================
+
 
 
 0.gravatar.com
@@ -1653,7 +1654,6 @@ nxcount.com
 nxtck.com
 nycp-hlb.dvgtm.akadns.net
 nytelecom.vo.llnwd.net
-o.expo.dev
 o109294.ingest.sentry.io
 o1142666.ingest.sentry.io
 o1277943.ingest.sentry.io
