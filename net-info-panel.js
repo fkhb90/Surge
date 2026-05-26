@@ -1,10 +1,10 @@
 /*
- * Surge 網路詳情面板 v2.0
+ * Surge 網路詳情面板 v2.1
  *
  * @author Nebulosa-Cat (Original Author)
  * @author Gemini (Code Refactoring & Optimization)
  *
- * 最後更新時間: 2025-09-17
+ * 最後更新時間: 2026-05-26
  *
  * 此版本基於原版進行了全面的程式碼優化與現代化，提升了效能、可讀性與穩定性。
  * 詳情請見 README。
@@ -231,24 +231,104 @@ function getLocalIPInfo() {
 }
 
 /**
+ * 非阻塞延遲
+ * @param {number} ms - 延遲毫秒數
+ * @returns {Promise<void>}
+ */
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * 只允許呼叫一次的 $done 包裝器，避免逾時與正常流程重複結束
+ * @param {Logger} logger - 日誌實例
+ * @returns {(payload: Object) => void}
+ */
+function createDoneOnce(logger) {
+    let finished = false;
+    return (payload) => {
+        if (finished) {
+            logger.log('偵測到重複 $done 呼叫，已忽略。');
+            return;
+        }
+        finished = true;
+        $done(payload);
+    };
+}
+
+/**
  * 獲取公網 IP 資訊並產生面板
  * @param {Logger} logger - 日誌實例
  * @param {Http} http - Http 請求實例
  * @param {number} [retryTimes=3] - 剩餘重試次數
  * @param {number} [retryInterval=1000] - 重試間隔 (ms)
  */
-async function generatePanel(logger, http, retryTimes = 3, retryInterval = 1000) {
+async function generatePanel(logger, http, done, retryTimes = 3, retryInterval = 1000) {
     try {
-        const apiUrl = 'https://ip-api.com/json?fields=status,country,countryCode,city,isp,query';
-        const response = await http.get(apiUrl);
+        const endpoints = [
+            {
+                name: 'ipwho.is',
+                url: 'https://ipwho.is/?fields=success,ip,country,country_code,city,connection.isp',
+                parse: (raw) => {
+                    const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                    if (!data?.success) {
+                        throw new Error(`ipwho.is 回應錯誤: ${data?.message || '未知錯誤'}`);
+                    }
+                    return {
+                        query: data.ip || 'N/A',
+                        isp: data.connection?.isp || 'N/A',
+                        country: data.country || 'N/A',
+                        countryCode: data.country_code || '',
+                        city: data.city || 'N/A',
+                    };
+                },
+            },
+            {
+                name: 'ipinfo.io',
+                url: 'https://ipinfo.io/json',
+                parse: (raw) => {
+                    const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                    return {
+                        query: data.ip || 'N/A',
+                        isp: data.org || 'N/A',
+                        country: data.country_name || data.country || 'N/A',
+                        countryCode: data.country || '',
+                        city: data.city || 'N/A',
+                    };
+                },
+            },
+        ];
 
-        if (response.status !== 200) {
-            throw new Error(`API 請求失敗，狀態碼: ${response.status}`);
+        let info = null;
+        let lastError = null;
+
+        for (let attempt = 0; attempt <= retryTimes && !info; attempt++) {
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await http.get(endpoint.url);
+                    if (response.status !== 200) {
+                        throw new Error(`${endpoint.name} 狀態碼異常: ${response.status}`);
+                    }
+                    const parsed = endpoint.parse(response.data);
+                    if (!parsed?.query || !parsed?.countryCode) {
+                        throw new Error(`${endpoint.name} 缺少必要欄位`);
+                    }
+                    info = parsed;
+                    break;
+                } catch (error) {
+                    lastError = error;
+                    logger.error(`${endpoint.name} 失敗: ${error.toString()}`);
+                }
+            }
+
+            if (!info && attempt < retryTimes) {
+                logger.log(`請求失敗，${retryInterval}ms 後重試... (剩餘 ${retryTimes - attempt - 1} 次)`);
+                await sleep(retryInterval);
+            }
         }
-        
-        const info = JSON.parse(response.data);
-        if (info.status !== 'success') {
-            throw new Error(`API 回應錯誤: ${info.message || '未知錯誤'}`);
+
+        if (!info) {
+            throw lastError || new Error('所有 IP 資訊來源都失敗');
         }
 
         const isWifi = !!getSSID();
@@ -260,7 +340,7 @@ ${getLocalIPInfo()}
 [節點位置] ${getFlagEmoji(info.countryCode)} ${info.country} - ${info.city}
         `.trim();
 
-        $done({
+        done({
             title: getSSID() || getCellularInfo() || '網路資訊',
             content,
             icon: isWifi ? 'wifi' : 'simcard',
@@ -277,19 +357,13 @@ ${getLocalIPInfo()}
             $network.v4 = undefined;
             $network.v6 = undefined;
         }
-
-        if (retryTimes > 0) {
-            logger.log(`請求失敗，${retryInterval}ms 後重試... (剩餘 ${retryTimes - 1} 次)`);
-            setTimeout(() => generatePanel(logger, http, retryTimes - 1, retryInterval), retryInterval);
-        } else {
-            logger.error('重試次數已用盡，顯示錯誤面板');
-            $done({
-                title: '網路資訊獲取失敗',
-                content: '無法獲取目前網路資訊，請檢查網路連線後重試。',
-                icon: 'wifi.exclamationmark',
-                'icon-color': '#FF3B30',
-            });
-        }
+        logger.error('重試次數已用盡，顯示錯誤面板');
+        done({
+            title: '網路資訊獲取失敗',
+            content: '無法獲取目前網路資訊，請檢查網路連線後重試。',
+            icon: 'wifi.exclamationmark',
+            'icon-color': '#FF3B30',
+        });
     }
 }
 
@@ -299,6 +373,7 @@ ${getLocalIPInfo()}
 (function main() {
     const logger = new Logger();
     const http = new Http();
+    const done = createDoneOnce(logger);
 
     const retryTimes = 3;
     const retryInterval = 1000;
@@ -310,7 +385,7 @@ ${getLocalIPInfo()}
     
     const timeoutHandle = setTimeout(() => {
         logger.error("腳本執行逾時");
-        $done({
+        done({
             title: "請求逾時",
             content: "連線請求逾時，請檢查網路狀態或代理設定。",
             icon: 'wifi.exclamationmark',
@@ -319,7 +394,7 @@ ${getLocalIPInfo()}
     }, Math.min(scriptTimeout, surgeMaxTimeout));
 
     logger.log("腳本啟動，開始獲取網路資訊...");
-    generatePanel(logger, http, retryTimes, retryInterval).finally(() => {
+    generatePanel(logger, http, done, retryTimes, retryInterval).finally(() => {
         // 無論成功或失敗，只要 generatePanel 執行完畢就清除計時器
         clearTimeout(timeoutHandle);
     });
