@@ -71,16 +71,15 @@ def _preprocess_argv(argv: list[str]) -> list[str]:
                 safe_argv.append(f"__DEL__{merged_domain[1:]}")
                 i += 2  # 跳過已被縫合的下一個碎片
                 continue
-                
-            # 排除 -b 接檔名的邊界情況 (例: -bdomains.txt)
-            if arg.startswith("-b") and len(arg) > 2:
-                safe_argv.append(arg)
-            # 若字串中包含 '.'，判定為網域操作，強制轉換為內部標記以繞過 argparse
-            elif "." in arg:
+
+            # 含 '.' → 判定為刪除網域，轉成內部標記繞過 argparse 短旗標誤判。
+            # (涵蓋開頭恰為短旗標字母的域名，如刪除 baidu.com / set.example.com；
+            #  正常的 "-b domains.txt" 批次參數不含 '.'，不受影響)
+            if "." in arg:
                 safe_argv.append(f"__DEL__{arg[1:]}")
                 i += 1
                 continue
-                
+
         safe_argv.append(arg)
         i += 1
         
@@ -296,10 +295,15 @@ def append_to_rule_set(path: Path, rtype: str, value: str):
     raw = path.read_text(encoding="utf-8").splitlines()
     h = []
     for l in raw:
-        if l.strip().startswith("#") or not l.strip():
-            h.append(l)
-        else:
+        s = l.strip()
+        if s.startswith("# ---"):        # 區段標記 (# --- TYPE ---) 由下方重新產生，不併入檔頭
             break
+        if s.startswith("#") or not s:
+            h.append(l)
+        else:                            # 第一條規則 → 檔頭結束
+            break
+    while h and not h[-1].strip():        # 去除檔頭尾端空行，避免與區段標記間多一行空白
+        h.pop()
     for i, line in enumerate(h):
         if "Total:" in line:
             h[i] = re.sub(r"Total: \d+", f"Total: {len(entries)}", line)
@@ -329,10 +333,15 @@ def remove_from_files(reject_set_path: Path, reject_drop_path: Path, domains: li
             raw = path.read_text(encoding="utf-8").splitlines()
             header = []
             for l in raw:
-                if l.strip().startswith("#") or not l.strip():
+                s = l.strip()
+                if s.startswith("# ---"):        # 區段標記由 rule-set 分支重新產生，不併入檔頭
+                    break
+                if s.startswith("#") or not s:
                     header.append(l)
                 else:
                     break
+            while header and not header[-1].strip():   # 去除檔頭尾端空行
+                header.pop()
             for i, line in enumerate(header):
                 if "Total:" in line:
                     header[i] = re.sub(r"Total: \d+", f"Total: {len(entries)}", line)
