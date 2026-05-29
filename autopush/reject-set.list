@@ -1,7 +1,7 @@
 # ============================================================
 # DOMAIN-SET REJECT MERGED (prematching + main, all pre-matching)
 # Format: bare domain per line, DOMAIN-SUFFIX semantics
-# Total: 2489 domains  (subsumed: 19)
+# Total: 2488 domains  (subsumed: 19)
 # ============================================================
 
 0.gravatar.com
@@ -1067,7 +1067,6 @@ fusionads.net
 fyber.com
 g1.ads.oppomobile.com
 g2.com
-ga.591.com.tw
 gameanalysis.appcpi.net
 gammassp.com
 gamut.media
