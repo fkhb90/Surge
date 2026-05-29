@@ -1,9 +1,11 @@
 # ============================================================
 # REJECT-DROP MERGED (prematching + main, all pre-matching)
-# Total: 530 rules  (subsumed: 7)
+# Total: 529 rules  (subsumed: 7)
 # Policy implied: REJECT-DROP, pre-matching (set in conf)
 # ============================================================
 
+
+# --- DOMAIN-SUFFIX ---
 
 # --- DOMAIN-SUFFIX ---
 DOMAIN-SUFFIX,14.ras.yahoo.com
@@ -136,7 +138,6 @@ DOMAIN-SUFFIX,flury-ycpi.gycpi.b.yahoodns.net
 DOMAIN-SUFFIX,fullstory.com
 DOMAIN-SUFFIX,funp.com
 DOMAIN-SUFFIX,ga.591.com.tw
-DOMAIN-SUFFIX,ga.592.com.tw
 DOMAIN-SUFFIX,gemini.yahoo.com
 DOMAIN-SUFFIX,geo.query.yahoo.com
 DOMAIN-SUFFIX,geo.yahoo.com
