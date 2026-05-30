@@ -2,7 +2,7 @@
 # AUTHOR: blackmatrix7
 # REPO: https://github.com/blackmatrix7/ios_rule_script
 # UPDATED: 2023-10-28 02:15:45
-DOMAIN-SUFFIN,chatgpt.com
+DOMAIN-SUFFIX,chatgpt.com
 DOMAIN-SUFFIX,ai.com
 DOMAIN-SUFFIX,auth0.com
 DOMAIN-SUFFIX,oaistatic.com
