@@ -1,0 +1,9 @@
+#!name=Ecosia to DuckDuckGo No AI
+#!desc=把 Ecosia 搜尋轉址到 noai.duckduckgo.com
+
+[URL Rewrite]
+^https\:\/\/ac\.ecosia\.org\/autocomplete https\:\/\/noai\.duckduckgo\.com\/ac\/ 307
+^https\:\/\/www\.ecosia\.org\/search https\:\/\/noai\.duckduckgo\.com\/search 307
+
+[MITM]
+hostname = %APPEND% noai.duckduckgo.com, duckduckgo.com, links.duckduckgo.com, ac.ecosia.org, www.ecosia.org
