@@ -1,5 +1,5 @@
 [Script]
-x-ads-blocker = type=http-response, pattern=^https?:\/\/(api\.)?(x|twitter)\.com\/(i\/api\/graphql|graphql|2|1\.1)\/, requires-body=true,max-size=10485760,timeout=5, script-path=https://raw.githubusercontent.com/fkhb90/Surge/main/x_ads_blocker-1.1.js
+x-ads-blocker = type=http-response, pattern=^https?:\/\/(api\.)?(x|twitter)\.com\/(i\/api\/graphql|graphql|2|1\.1)\/, requires-body=true,max-size=2097152,timeout=5, script-path=https://raw.githubusercontent.com/fkhb90/Surge/main/x_ads_blocker-1.1.js
 
 [MITM]
 hostname = %APPEND% x.com, *.x.com, twitter.com, *.twitter.com
