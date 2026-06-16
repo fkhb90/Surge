@@ -1,40 +1,47 @@
-// X.com / Twitter Ads Blocker for Surge (iOS optimized)
-// Version: 1.3.0
+// X.com / Twitter Ads Blocker for Surge (iOS App optimized)
+// Version: 1.4.0
 // Purpose: Remove promoted tweets / ads from X.com / Twitter GraphQL timeline responses.
 //
-// Surge [Script] 建議設定:
+// Surge [Script] 建議設定（iOS 原生 App 請用下面兩條或合併 pattern）:
 // [Script]
-// x-ads-blocker = type=http-response,pattern=^https?://[^/]*(x|twitter)\.com/(i/)?api/graphql/,script-path=x_ads_blocker-1.1.js,requires-body=true,max-size=4194304,timeout=5,debug=false
+// x-ads-blocker = type=http-response,pattern=^https?://([^/]+\.)?((x|twitter)\.com|albtls\.t\.co)(/i)?(/api)?/graphql/,script-path=x_ads_blocker-1.4.js,requires-body=true,max-size=4194304,timeout=5,debug=false
+// x-ads-blocker-legacy = type=http-response,pattern=^https?://([^/]+\.)?(x|twitter)\.com/2/timeline/,script-path=x_ads_blocker-1.4.js,requires-body=true,max-size=4194304,timeout=5,debug=false
 //
-// [MITM] — 只開「腳本實際會攔到的域名」，不必全开 api.*
+// [MITM] — iOS 原生 X App 首頁常見域名（依 Surge 日誌「Modified」與「MITM failed」調整）:
 // hostname = %APPEND% x.com, twitter.com
-// 選用（僅當 Surge 對該域 MITM 成功、且 X App 確實走此域時再加）:
 // hostname = %APPEND% api.x.com
+// hostname = %APPEND% api.twitter.com
+// hostname = %APPEND% albtls.t.co
 //
 // 關於 api.twitter.com:
-// - 不建議開啟。X/iOS 常對該域做憑證綁定（pinning），Surge 會顯示 MITM failed。
-// - 本腳本 pattern 匹配的是 /api/graphql/，Timeline 廣告 JSON 通常在 x.com/i/api/graphql/，
-//   不在 api.twitter.com，因此開 api.twitter.com 對本腳本通常沒有幫助。
+// - iOS App 首頁 GraphQL 常走 https://api.twitter.com/graphql/<hash>/HomeTimeline（無 /api/ 前綴）
+// - 若 Surge 顯示 MITM failed，該域流量無法改 body，首頁廣告會漏擋；請確認已安裝並信任 Surge 根憑證。
+// - 部分 App 版本改走 x.com 或 api.x.com，以 Surge Recent Requests 實際 URL 為準。
 //
 // 參數說明（iOS）:
-// - http-response 腳本必須 MITM「請求實際經過的域名」才能改 body；開錯域名等於腳本不執行。
-// - Safari / 網頁版：x.com + twitter.com 通常就夠。
-// - 原生 X App：若 api.x.com 也 MITM failed，代表 App API 無法解密，此腳本對 App 無效，請改用 Safari。
-// - max-size=4194304（4 MiB）：大型 Timeline 回應較不易 passthrough
+// - http-response 必須 MITM「請求實際經過的域名」才能改 body。
+// - max-size=4194304（4 MiB）：大型 Timeline 回應較不易 passthrough。
+// - debug=true 時可在 Surge 日誌看到攔截的端點與刪除數量。
 
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 
-// GraphQL timeline / search / detail 等（寬鬆匹配，避免漏端點）
-const GRAPHQL_RE = /\/api\/graphql\//i;
+// 網頁: /i/api/graphql/ ；iOS/Android App: /graphql/（常無 /api/）
+const GRAPHQL_RE = /(\/api)?\/graphql\//i;
 
-// 快速預檢：有特徵才 parse；刻意比 isPromoted 寬，避免漏掉變體欄位名
-const PROMOTED_HINT_RE = /"promotedMetadata"|"promoted_metadata"|"placementTracking"|"placement_tracking"|"impressionId"|"impression_id"|promoted-tweet|"entryId":"[^"]*promoted|"entry_id":"[^"]*promoted|"disclosure_type"|"disclosureType"|TimelineTweetPromoted|"clientEventInfo"|"moduleItems"/i;
+const LEGACY_TIMELINE_RE = /\/2\/timeline\//i;
 
-const AD_KEY_RE = /^(promotedMetadata|promoted_metadata|promotedContent|promoted_content|adMetadata|ad_metadata|placementTracking|placement_tracking|impressionId|impression_id|adImpressionId|ad_impression_id)$/;
+// 首頁等 Timeline 端點：即使預檢無廣告特徵也強制 parse（App 廣告欄位可能較隱蔽）
+const FORCE_PARSE_RE = /HomeTimeline|HomeLatestTimeline|ForYouTimeline|FollowingTimeline|SearchTimeline|ListLatestTweetsTimeline|CommunityTweetsTimeline|generic_urt|ConversationTimeline/i;
+
+const PROMOTED_HINT_RE = /"promotedMetadata"|"promoted_metadata"|"promotedContent"|"promoted_content"|"placementTracking"|"placement_tracking"|"impressionId"|"impression_id"|"ext_has_promoted"|promoted-tweet|"entryId"\s*:\s*"[^"]*promoted|"entry_id"\s*:\s*"[^"]*promoted|"disclosure_type"|"disclosureType"|TimelineTweetPromoted|"clientEventInfo"|"moduleItems"|"items_results"|ads-api\.twitter\.com|Twitter for Advertisers|"scribe_key"\s*:\s*"(ad|promoted)"/i;
+
+const AD_KEY_RE = /^(promotedMetadata|promoted_metadata|promotedContent|promoted_content|adMetadata|ad_metadata|placementTracking|placement_tracking|impressionId|impression_id|adImpressionId|ad_impression_id|ext_has_promoted_metadata)$/;
 
 const PROMOTED_ENTRY_ID_RE = /promoted|advertisement|^ad-|-ad-|who-to-follow-ad|promoted-trend|promoted_event/i;
 
 const PROMOTED_CLIENT_EVENT_RE = /promoted|advertisement|sponsored|ad_/i;
+
+const PROMOTED_SOURCE_RE = /ads-api\.twitter\.com|Twitter for Advertisers/i;
 
 let removedCount = 0;
 
@@ -53,8 +60,34 @@ function getBodyString() {
     return '';
 }
 
+function getEndpointName(url) {
+    const gqlMatch = url.match(/\/graphql\/[^/]+\/([^/?]+)/i);
+    if (gqlMatch) {
+        return gqlMatch[1];
+    }
+    const legacyMatch = url.match(/\/2\/timeline\/([^/?]+)/i);
+    if (legacyMatch) {
+        return 'timeline/' + legacyMatch[1];
+    }
+    return (url.match(/\/([^/?]+)(?:\?|$)/) || [])[1] || 'unknown';
+}
+
+function shouldParseBody(url, body) {
+    if (FORCE_PARSE_RE.test(url)) {
+        return true;
+    }
+    if (LEGACY_TIMELINE_RE.test(url)) {
+        return true;
+    }
+    return PROMOTED_HINT_RE.test(body);
+}
+
 function isPromotedEntryId(entryId) {
     return typeof entryId === 'string' && PROMOTED_ENTRY_ID_RE.test(entryId);
+}
+
+function isPromotedSource(source) {
+    return typeof source === 'string' && PROMOTED_SOURCE_RE.test(source);
 }
 
 function isPromotedSocialContext(socialContext) {
@@ -103,6 +136,10 @@ function isPromotedTweetResult(result) {
         return true;
     }
 
+    if (tweet.ext_has_promoted_metadata === true) {
+        return true;
+    }
+
     const typename = tweet.__typename;
     if (typeof typename === 'string' && /Promoted|Ad/i.test(typename)) {
         return true;
@@ -114,7 +151,16 @@ function isPromotedTweetResult(result) {
     }
 
     const legacy = tweet.legacy;
-    if (legacy && (legacy.scribe_key === 'ad' || legacy.scribe_key === 'promoted')) {
+    if (legacy) {
+        if (legacy.scribe_key === 'ad' || legacy.scribe_key === 'promoted') {
+            return true;
+        }
+        if (isPromotedSource(legacy.source)) {
+            return true;
+        }
+    }
+
+    if (isPromotedSource(tweet.source)) {
         return true;
     }
 
@@ -152,6 +198,14 @@ function deepHasPromotedSignal(node, depth) {
 
     for (const key of Object.keys(node)) {
         if (AD_KEY_RE.test(key)) {
+            return true;
+        }
+
+        if (key === 'scribe_key' && (node[key] === 'ad' || node[key] === 'promoted')) {
+            return true;
+        }
+
+        if (key === 'source' && isPromotedSource(node[key])) {
             return true;
         }
 
@@ -233,28 +287,52 @@ function unwrapTimelineItem(wrapped) {
 
 function sanitizeModuleItems(entry) {
     const content = entry && entry.content;
-    if (!content || !Array.isArray(content.items)) {
+    if (!content) {
         return entry;
     }
 
-    const before = content.items.length;
-    content.items = content.items.filter((wrapped) => {
-        const nested = unwrapTimelineItem(wrapped);
-        if (!nested) {
-            return true;
-        }
-        const nestedContent = nested.itemContent || nested.item_content;
-        return (
-            !hasPromotedMetadata(nestedContent) &&
-            !isPromotedEntryId(nested.entryId || nested.entry_id) &&
-            !deepHasPromotedSignal(nested, 0)
-        );
-    });
-    removedCount += before - content.items.length;
+    if (Array.isArray(content.items)) {
+        const before = content.items.length;
+        content.items = content.items.filter((wrapped) => {
+            const nested = unwrapTimelineItem(wrapped);
+            if (!nested) {
+                return true;
+            }
+            const nestedContent = nested.itemContent || nested.item_content;
+            return (
+                !hasPromotedMetadata(nestedContent) &&
+                !isPromotedEntryId(nested.entryId || nested.entry_id) &&
+                !deepHasPromotedSignal(nested, 0)
+            );
+        });
+        removedCount += before - content.items.length;
 
-    if (content.items.length === 0) {
-        removedCount++;
-        return null;
+        if (content.items.length === 0) {
+            removedCount++;
+            return null;
+        }
+    }
+
+    if (Array.isArray(content.moduleItems)) {
+        const before = content.moduleItems.length;
+        content.moduleItems = content.moduleItems.filter((wrapped) => {
+            const nested = unwrapTimelineItem(wrapped);
+            if (!nested) {
+                return true;
+            }
+            const nestedContent = nested.itemContent || nested.item_content;
+            return (
+                !hasPromotedMetadata(nestedContent) &&
+                !isPromotedEntryId(nested.entryId || nested.entry_id) &&
+                !deepHasPromotedSignal(nested, 0)
+            );
+        });
+        removedCount += before - content.moduleItems.length;
+
+        if (content.moduleItems.length === 0 && !Array.isArray(content.items)) {
+            removedCount++;
+            return null;
+        }
     }
 
     return entry;
@@ -289,8 +367,9 @@ function isPromotedEntry(entry) {
         return true;
     }
 
+    // TimelineTimelineModule：先 sanitize 再判斷；若模組內仍有廣告才整條刪除
     const items = content.items;
-    if (Array.isArray(items)) {
+    if (Array.isArray(items) && items.length > 0) {
         for (const wrapped of items) {
             const nested = unwrapTimelineItem(wrapped);
             const nestedContent = nested && (nested.itemContent || nested.item_content);
@@ -298,6 +377,7 @@ function isPromotedEntry(entry) {
                 return true;
             }
         }
+        return false;
     }
 
     if (deepHasPromotedSignal(entry, 0)) {
@@ -346,6 +426,10 @@ function filterInstruction(instruction) {
         instruction.moduleItems = filterEntryList(instruction.moduleItems);
     }
 
+    if (Array.isArray(instruction.items_results)) {
+        instruction.items_results = filterEntryList(instruction.items_results);
+    }
+
     if (instruction.entry) {
         let entry = sanitizeModuleItems(instruction.entry);
         if (!entry || isPromotedEntry(entry)) {
@@ -362,7 +446,6 @@ function collectInstructionArrays(node, bucket, depth, seen) {
         return;
     }
 
-    const nodeId = seen.length;
     if (seen.indexOf(node) !== -1) {
         return;
     }
@@ -370,6 +453,10 @@ function collectInstructionArrays(node, bucket, depth, seen) {
 
     if (Array.isArray(node.instructions)) {
         bucket.push(node.instructions);
+    }
+
+    if (Array.isArray(node.items_results)) {
+        bucket.push({ type: 'items_results', list: node.items_results });
     }
 
     if (Array.isArray(node)) {
@@ -382,10 +469,60 @@ function collectInstructionArrays(node, bucket, depth, seen) {
     const keys = Object.keys(node);
     for (let i = 0; i < keys.length; i++) {
         const key = keys[i];
-        if (key === 'instructions') {
+        if (key === 'instructions' || key === 'items_results') {
             continue;
         }
         collectInstructionArrays(node[key], bucket, depth + 1, seen);
+    }
+}
+
+function applyInstructionBuckets(buckets) {
+    for (const instructions of buckets) {
+        if (instructions && instructions.type === 'items_results') {
+            instructions.list = filterEntryList(instructions.list);
+            continue;
+        }
+        if (!Array.isArray(instructions)) {
+            continue;
+        }
+        for (const instruction of instructions) {
+            filterInstruction(instruction);
+        }
+    }
+}
+
+function cleanKnownHomePaths(json) {
+    const paths = [
+        ['home', 'home_timeline_urt', 'instructions'],
+        ['home', 'home_latest_timeline_urt', 'instructions'],
+        ['viewer', 'home_timeline_urt', 'instructions'],
+        ['home_timeline', 'timeline', 'instructions'],
+        ['home', 'home_timeline', 'instructions']
+    ];
+
+    let touched = false;
+    for (const parts of paths) {
+        let node = json && json.data;
+        for (let i = 0; i < parts.length; i++) {
+            if (!node || typeof node !== 'object') {
+                node = null;
+                break;
+            }
+            node = node[parts[i]];
+        }
+        if (Array.isArray(node)) {
+            bucketPushUnique(node);
+            touched = true;
+        }
+    }
+    return touched;
+}
+
+const _bucketRegistry = [];
+
+function bucketPushUnique(instructions) {
+    if (_bucketRegistry.indexOf(instructions) === -1) {
+        _bucketRegistry.push(instructions);
     }
 }
 
@@ -393,20 +530,19 @@ function cleanTimelineJson(json) {
     let totalRemoved = 0;
     const buckets = [];
     const seen = [];
+    _bucketRegistry.length = 0;
 
     if (json && json.data) {
         collectInstructionArrays(json.data, buckets, 0, seen);
+        cleanKnownHomePaths(json);
+        for (const instructions of _bucketRegistry) {
+            buckets.push(instructions);
+        }
     }
 
-    // 多輪過濾：TimelineAddToModule 等可能需連續清理
     for (let pass = 0; pass < 3; pass++) {
         removedCount = 0;
-
-        for (const instructions of buckets) {
-            for (const instruction of instructions) {
-                filterInstruction(instruction);
-            }
-        }
+        applyInstructionBuckets(buckets);
 
         totalRemoved += removedCount;
         if (removedCount === 0) {
@@ -416,9 +552,29 @@ function cleanTimelineJson(json) {
 
     removedCount = totalRemoved;
 
-    // 找到 instructions 但未刪到 entry 時，清殘留 promoted metadata 欄位
     if (removedCount === 0 && buckets.length > 0 && json && json.data) {
         stripAdKeys(json.data, 0, 10);
+    }
+
+    return removedCount > 0 ? json : null;
+}
+
+function cleanLegacyTimeline(json) {
+    const tweets = json && json.globalObjects && json.globalObjects.tweets;
+    if (!tweets || typeof tweets !== 'object') {
+        return null;
+    }
+
+    removedCount = 0;
+    for (const key of Object.keys(tweets)) {
+        const tweet = tweets[key];
+        if (!tweet || typeof tweet !== 'object') {
+            continue;
+        }
+        if (isPromotedSource(tweet.source) || tweet.scribe_key === 'ad' || tweet.scribe_key === 'promoted') {
+            delete tweets[key];
+            removedCount++;
+        }
     }
 
     return removedCount > 0 ? json : null;
@@ -465,23 +621,26 @@ function fallbackRegexClean(rawBody) {
 }
 
 const url = $request.url || '';
+const isGraphql = GRAPHQL_RE.test(url);
+const isLegacyTimeline = LEGACY_TIMELINE_RE.test(url);
 
-if (!GRAPHQL_RE.test(url)) {
+if (!isGraphql && !isLegacyTimeline) {
     $done({});
 } else {
     let body = getBodyString();
 
-    if (!body || !PROMOTED_HINT_RE.test(body)) {
+    if (!body || !shouldParseBody(url, body)) {
         $done({});
     } else {
         try {
             const json = JSON.parse(body);
-            const cleaned = cleanTimelineJson(json);
+            const cleaned = isLegacyTimeline ? cleanLegacyTimeline(json) : cleanTimelineJson(json);
 
             if (cleaned) {
                 body = JSON.stringify(cleaned);
-                const endpoint = (url.match(/\/([^/?]+)(?:\?|$)/) || [])[1] || 'graphql';
-                console.log(`[X Ads Blocker ${VERSION}] ${endpoint} removed ${removedCount} promoted item(s).`);
+                const endpoint = getEndpointName(url);
+                const host = (url.match(/^https?:\/\/([^/?#]+)/i) || [])[1] || 'unknown';
+                console.log(`[X Ads Blocker ${VERSION}] ${endpoint} removed ${removedCount} promoted item(s). host=${host}`);
                 $done({ body });
             } else {
                 $done({});
