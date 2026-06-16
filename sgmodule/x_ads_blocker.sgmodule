@@ -4,7 +4,7 @@
 #!category=Adblock
 
 [Script]
-x-ads-blocker = type=http-response,pattern=^https?://([^/]+\.)?((x|twitter)\.com|albtls\.t\.co)(/i)?(/api)?/graphql/,script-path=https://raw.githubusercontent.com/fkhb90/Surge/main/x_ads_blocker-1.4.js,requires-body=true,max-size=4194304,timeout=5,debug=false
+x-ads-blocker = type=http-response,pattern=^https?://([^/]+\.)?((x|twitter)\.com|albtls\.t\.co)(/i)?(/api)?/graphql/,script-path=https://raw.githubusercontent.com/fkhb90/Surge/main/x_ads_blocker-1.5.js,requires-body=true,max-size=4194304,timeout=8,debug=false
 
 [MITM]
 hostname = %APPEND% x.com, twitter.com, api.x.com, albtls.t.co
