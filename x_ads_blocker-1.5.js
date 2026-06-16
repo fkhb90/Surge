@@ -1,39 +1,45 @@
 // X.com / Twitter Ads Blocker for Surge (iOS App optimized)
-// Version: 1.4.0
+// Version: 1.5.0
 // Purpose: Remove promoted tweets / ads from X.com / Twitter GraphQL timeline responses.
 //
-// Surge [Script] 建議設定（iOS 原生 App 請用下面兩條或合併 pattern）:
+// Surge [Script] 建議設定:
 // [Script]
-// x-ads-blocker = type=http-response,pattern=^https?://([^/]+\.)?((x|twitter)\.com|albtls\.t\.co)(/i)?(/api)?/graphql/,script-path=x_ads_blocker-1.4.js,requires-body=true,max-size=4194304,timeout=5,debug=false
-// x-ads-blocker-legacy = type=http-response,pattern=^https?://([^/]+\.)?(x|twitter)\.com/2/timeline/,script-path=x_ads_blocker-1.4.js,requires-body=true,max-size=4194304,timeout=5,debug=false
+// x-ads-blocker = type=http-response,pattern=^https?://([^/]+\.)?((x|twitter)\.com|albtls\.t\.co)(/i)?(/api)?/graphql/,script-path=x_ads_blocker-1.5.js,requires-body=true,max-size=4194304,timeout=8,debug=false
+// x-ads-blocker-legacy = type=http-response,pattern=^https?://([^/]+\.)?(x|twitter)\.com/2/timeline/,script-path=x_ads_blocker-1.5.js,requires-body=true,max-size=4194304,timeout=5,debug=false
 //
-// [MITM] — iOS 原生 X App 首頁常見域名（依 Surge 日誌「Modified」與「MITM failed」調整）:
+// 進階（可選）：僅攔 Timeline 類端點，減少 UserByRestId 等無關請求的腳本開銷
+// x-ads-blocker-timeline = type=http-response,pattern=^https?://([^/]+\.)?((x|twitter)\.com|albtls\.t\.co)(/i)?(/api)?/graphql/[^/]+/(HomeTimeline|HomeLatestTimeline|ForYouTimeline|FollowingTimeline|SearchTimeline|TweetDetail|UserTweets|UserTweetsAndReplies|ListLatestTweetsTimeline|CommunityTweetsTimeline|Bookmarks|ConversationTimeline|GenericTimelineById),script-path=x_ads_blocker-1.5.js,requires-body=true,max-size=4194304,timeout=8,debug=false
+//
+// [MITM] — 僅開「能成功解密」的域名（pattern 故意不含 api.twitter.com）:
 // hostname = %APPEND% x.com, twitter.com
 // hostname = %APPEND% api.x.com
-// hostname = %APPEND% api.twitter.com
 // hostname = %APPEND% albtls.t.co
 //
-// 關於 api.twitter.com:
-// - iOS App 首頁 GraphQL 常走 https://api.twitter.com/graphql/<hash>/HomeTimeline（無 /api/ 前綴）
-// - 若 Surge 顯示 MITM failed，該域流量無法改 body，首頁廣告會漏擋；請確認已安裝並信任 Surge 根憑證。
-// - 部分 App 版本改走 x.com 或 api.x.com，以 Surge Recent Requests 實際 URL 為準。
+// ⚠️ 切勿將 api.twitter.com 加入 MITM（iOS 原生 X App 憑證綁定 / pinning）:
+// - Surge 會顯示 MITM failed，且首頁 Timeline 可能完全無法載入（連線被中斷）。
+// - 若已加入並導致首頁空白：立刻從 [MITM] 移除 api.twitter.com → 強制關閉 X App → 重開。
+// - App 首頁主流量若只走 api.twitter.com，則 Surge http-response 腳本無法改寫該回應，首頁廣告無法用此法擋。
+// - 可改試：Safari 開 x.com（本腳本 + x.com MITM 通常有效），或觀察 Recent Requests 是否另有 albtls.t.co / api.x.com 的 HomeTimeline。
 //
 // 參數說明（iOS）:
-// - http-response 必須 MITM「請求實際經過的域名」才能改 body。
+// - http-response 必須 MITM「請求實際經過且解密成功」的域名才能改 body。
 // - max-size=4194304（4 MiB）：大型 Timeline 回應較不易 passthrough。
 // - debug=true 時可在 Surge 日誌看到攔截的端點與刪除數量。
 
-const VERSION = '1.4.0';
+const VERSION = '1.5.0';
 
 // 網頁: /i/api/graphql/ ；iOS/Android App: /graphql/（常無 /api/）
 const GRAPHQL_RE = /(\/api)?\/graphql\//i;
 
 const LEGACY_TIMELINE_RE = /\/2\/timeline\//i;
 
-// 首頁等 Timeline 端點：即使預檢無廣告特徵也強制 parse（App 廣告欄位可能較隱蔽）
-const FORCE_PARSE_RE = /HomeTimeline|HomeLatestTimeline|ForYouTimeline|FollowingTimeline|SearchTimeline|ListLatestTweetsTimeline|CommunityTweetsTimeline|generic_urt|ConversationTimeline/i;
+// 僅 Timeline 類端點強制 parse；UserByRestId 等無廣告端點靠 PROMOTED_HINT_RE 預檢跳過
+const TIMELINE_ENDPOINT_RE = /^(HomeTimeline|HomeLatestTimeline|ForYouTimeline|FollowingTimeline|SearchTimeline|ListLatestTweetsTimeline|CommunityTweetsTimeline|TweetDetail|UserTweets|UserTweetsAndReplies|UserMedia|Bookmarks|ConversationTimeline|GenericTimelineById|HomeTimelineUrt|homeTimeline)$/i;
 
-const PROMOTED_HINT_RE = /"promotedMetadata"|"promoted_metadata"|"promotedContent"|"promoted_content"|"placementTracking"|"placement_tracking"|"impressionId"|"impression_id"|"ext_has_promoted"|promoted-tweet|"entryId"\s*:\s*"[^"]*promoted|"entry_id"\s*:\s*"[^"]*promoted|"disclosure_type"|"disclosureType"|TimelineTweetPromoted|"clientEventInfo"|"moduleItems"|"items_results"|ads-api\.twitter\.com|Twitter for Advertisers|"scribe_key"\s*:\s*"(ad|promoted)"/i;
+// 明確非廣告的 entryId 前綴，跳過 deep scan
+const SAFE_ENTRY_ID_RE = /^(tweet|cursor|messageprompt|sq-cursor|home-conversation|conversation)-/i;
+
+const PROMOTED_HINT_RE = /"promotedMetadata"|"promoted_metadata"|"promotedContent"|"promoted_content"|"placementTracking"|"placement_tracking"|"impressionId"|"impression_id"|"ext_has_promoted"|promoted-tweet|"entryId"\s*:\s*"[^"]*promoted|"entry_id"\s*:\s*"[^"]*promoted|"disclosure_type"|"disclosureType"|TimelineTweetPromoted|PromotedTrend|TrendPromoted|"clientEventInfo"|"moduleItems"|"items_results"|ads-api\.twitter\.com|Twitter for Advertisers|"scribe_key"\s*:\s*"(ad|promoted)"|"monetizable"|"advertiser_results"/i;
 
 const AD_KEY_RE = /^(promotedMetadata|promoted_metadata|promotedContent|promoted_content|adMetadata|ad_metadata|placementTracking|placement_tracking|impressionId|impression_id|adImpressionId|ad_impression_id|ext_has_promoted_metadata)$/;
 
@@ -52,6 +58,9 @@ function getBodyString() {
     }
     if (raw && typeof raw.byteLength === 'number') {
         const encoding = ($response.headers['Content-Encoding'] || $response.headers['content-encoding'] || '').toLowerCase();
+        if (encoding.includes('br') && typeof $utils.unbrotli === 'function') {
+            return new TextDecoder('utf-8').decode($utils.unbrotli(raw));
+        }
         if (encoding.includes('gzip') && typeof $utils.ungzip === 'function') {
             return new TextDecoder('utf-8').decode($utils.ungzip(raw));
         }
@@ -72,14 +81,26 @@ function getEndpointName(url) {
     return (url.match(/\/([^/?]+)(?:\?|$)/) || [])[1] || 'unknown';
 }
 
+function isTimelineEndpoint(url) {
+    return TIMELINE_ENDPOINT_RE.test(getEndpointName(url));
+}
+
 function shouldParseBody(url, body) {
-    if (FORCE_PARSE_RE.test(url)) {
+    if (isTimelineEndpoint(url)) {
         return true;
     }
     if (LEGACY_TIMELINE_RE.test(url)) {
         return true;
     }
     return PROMOTED_HINT_RE.test(body);
+}
+
+function needsDeepScan(entry) {
+    const entryId = entry && (entry.entryId || entry.entry_id);
+    if (typeof entryId === 'string' && SAFE_ENTRY_ID_RE.test(entryId)) {
+        return false;
+    }
+    return true;
 }
 
 function isPromotedEntryId(entryId) {
@@ -157,6 +178,16 @@ function isPromotedTweetResult(result) {
         }
         if (isPromotedSource(legacy.source)) {
             return true;
+        }
+        const mediaList = (legacy.extended_entities && legacy.extended_entities.media) ||
+            legacy.entities && legacy.entities.media;
+        if (Array.isArray(mediaList)) {
+            for (let i = 0; i < mediaList.length; i++) {
+                const info = mediaList[i] && mediaList[i].additional_media_info;
+                if (info && (info.monetizable || info.advertiser)) {
+                    return true;
+                }
+            }
         }
     }
 
@@ -299,11 +330,13 @@ function sanitizeModuleItems(entry) {
                 return true;
             }
             const nestedContent = nested.itemContent || nested.item_content;
-            return (
-                !hasPromotedMetadata(nestedContent) &&
-                !isPromotedEntryId(nested.entryId || nested.entry_id) &&
-                !deepHasPromotedSignal(nested, 0)
-            );
+            if (isPromotedEntryId(nested.entryId || nested.entry_id)) {
+                return false;
+            }
+            if (hasPromotedMetadata(nestedContent)) {
+                return false;
+            }
+            return !needsDeepScan(nested) || !deepHasPromotedSignal(nested, 0);
         });
         removedCount += before - content.items.length;
 
@@ -321,11 +354,13 @@ function sanitizeModuleItems(entry) {
                 return true;
             }
             const nestedContent = nested.itemContent || nested.item_content;
-            return (
-                !hasPromotedMetadata(nestedContent) &&
-                !isPromotedEntryId(nested.entryId || nested.entry_id) &&
-                !deepHasPromotedSignal(nested, 0)
-            );
+            if (isPromotedEntryId(nested.entryId || nested.entry_id)) {
+                return false;
+            }
+            if (hasPromotedMetadata(nestedContent)) {
+                return false;
+            }
+            return !needsDeepScan(nested) || !deepHasPromotedSignal(nested, 0);
         });
         removedCount += before - content.moduleItems.length;
 
@@ -349,7 +384,7 @@ function isPromotedEntry(entry) {
 
     const content = entry.content;
     if (!content || typeof content !== 'object') {
-        return deepHasPromotedSignal(entry, 0);
+        return needsDeepScan(entry) && deepHasPromotedSignal(entry, 0);
     }
 
     const contentType = content.__typename || content.item_type || content.itemType;
@@ -380,11 +415,7 @@ function isPromotedEntry(entry) {
         return false;
     }
 
-    if (deepHasPromotedSignal(entry, 0)) {
-        return true;
-    }
-
-    return false;
+    return needsDeepScan(entry) && deepHasPromotedSignal(entry, 0);
 }
 
 function filterEntryList(entries) {
@@ -491,53 +522,13 @@ function applyInstructionBuckets(buckets) {
     }
 }
 
-function cleanKnownHomePaths(json) {
-    const paths = [
-        ['home', 'home_timeline_urt', 'instructions'],
-        ['home', 'home_latest_timeline_urt', 'instructions'],
-        ['viewer', 'home_timeline_urt', 'instructions'],
-        ['home_timeline', 'timeline', 'instructions'],
-        ['home', 'home_timeline', 'instructions']
-    ];
-
-    let touched = false;
-    for (const parts of paths) {
-        let node = json && json.data;
-        for (let i = 0; i < parts.length; i++) {
-            if (!node || typeof node !== 'object') {
-                node = null;
-                break;
-            }
-            node = node[parts[i]];
-        }
-        if (Array.isArray(node)) {
-            bucketPushUnique(node);
-            touched = true;
-        }
-    }
-    return touched;
-}
-
-const _bucketRegistry = [];
-
-function bucketPushUnique(instructions) {
-    if (_bucketRegistry.indexOf(instructions) === -1) {
-        _bucketRegistry.push(instructions);
-    }
-}
-
 function cleanTimelineJson(json) {
     let totalRemoved = 0;
     const buckets = [];
     const seen = [];
-    _bucketRegistry.length = 0;
 
     if (json && json.data) {
         collectInstructionArrays(json.data, buckets, 0, seen);
-        cleanKnownHomePaths(json);
-        for (const instructions of _bucketRegistry) {
-            buckets.push(instructions);
-        }
     }
 
     for (let pass = 0; pass < 3; pass++) {
