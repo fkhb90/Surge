@@ -1,30 +1,40 @@
 // X.com / Twitter Ads Blocker for Surge (iOS optimized)
-// Version: 1.2.0
+// Version: 1.3.0
 // Purpose: Remove promoted tweets / ads from X.com / Twitter GraphQL timeline responses.
 //
 // Surge [Script] 建議設定:
 // [Script]
 // x-ads-blocker = type=http-response,pattern=^https?://[^/]*(x|twitter)\.com/(i/)?api/graphql/,script-path=x_ads_blocker-1.1.js,requires-body=true,max-size=4194304,timeout=5,debug=false
 //
-// [MITM]
-// hostname = %APPEND% x.com, twitter.com, api.x.com, api.twitter.com
+// [MITM] — 只開「腳本實際會攔到的域名」，不必全开 api.*
+// hostname = %APPEND% x.com, twitter.com
+// 選用（僅當 Surge 對該域 MITM 成功、且 X App 確實走此域時再加）:
+// hostname = %APPEND% api.x.com
+//
+// 關於 api.twitter.com:
+// - 不建議開啟。X/iOS 常對該域做憑證綁定（pinning），Surge 會顯示 MITM failed。
+// - 本腳本 pattern 匹配的是 /api/graphql/，Timeline 廣告 JSON 通常在 x.com/i/api/graphql/，
+//   不在 api.twitter.com，因此開 api.twitter.com 對本腳本通常沒有幫助。
 //
 // 參數說明（iOS）:
+// - http-response 腳本必須 MITM「請求實際經過的域名」才能改 body；開錯域名等於腳本不執行。
+// - Safari / 網頁版：x.com + twitter.com 通常就夠。
+// - 原生 X App：若 api.x.com 也 MITM failed，代表 App API 無法解密，此腳本對 App 無效，請改用 Safari。
 // - max-size=4194304（4 MiB）：大型 Timeline 回應較不易 passthrough
-// - pattern 含 api.x.com / api.twitter.com（iOS App 常用）
-// - 不設 engine：純 JSON 過濾，用預設 JSC 即可
 
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 
 // GraphQL timeline / search / detail 等（寬鬆匹配，避免漏端點）
 const GRAPHQL_RE = /\/api\/graphql\//i;
 
 // 快速預檢：有特徵才 parse；刻意比 isPromoted 寬，避免漏掉變體欄位名
-const PROMOTED_HINT_RE = /"promotedMetadata"|"promoted_metadata"|"placementTracking"|"placement_tracking"|promoted-tweet|"entryId":"[^"]*promoted|"entry_id":"[^"]*promoted|"disclosure_type"|"disclosureType"|TimelineTweetPromoted/i;
+const PROMOTED_HINT_RE = /"promotedMetadata"|"promoted_metadata"|"placementTracking"|"placement_tracking"|"impressionId"|"impression_id"|promoted-tweet|"entryId":"[^"]*promoted|"entry_id":"[^"]*promoted|"disclosure_type"|"disclosureType"|TimelineTweetPromoted|"clientEventInfo"|"moduleItems"/i;
 
-const AD_KEY_RE = /^(promotedMetadata|promoted_metadata|promotedContent|promoted_content|adMetadata|ad_metadata|placementTracking|placement_tracking)$/;
+const AD_KEY_RE = /^(promotedMetadata|promoted_metadata|promotedContent|promoted_content|adMetadata|ad_metadata|placementTracking|placement_tracking|impressionId|impression_id|adImpressionId|ad_impression_id)$/;
 
 const PROMOTED_ENTRY_ID_RE = /promoted|advertisement|^ad-|-ad-|who-to-follow-ad|promoted-trend|promoted_event/i;
+
+const PROMOTED_CLIENT_EVENT_RE = /promoted|advertisement|sponsored|ad_/i;
 
 let removedCount = 0;
 
@@ -67,23 +77,104 @@ function isPromotedSocialContext(socialContext) {
     return false;
 }
 
-function isPromotedTweetResult(result) {
+function resolveTweetResult(result) {
     if (!result || typeof result !== 'object') {
+        return null;
+    }
+
+    if (result.__typename === 'TweetWithVisibilityResults' && result.tweet) {
+        return result.tweet;
+    }
+
+    if (result.tweet && typeof result.tweet === 'object') {
+        return result.tweet;
+    }
+
+    return result;
+}
+
+function isPromotedTweetResult(result) {
+    const tweet = resolveTweetResult(result);
+    if (!tweet || typeof tweet !== 'object') {
         return false;
     }
 
-    if (result.promotedMetadata || result.promoted_metadata) {
+    if (tweet.promotedMetadata || tweet.promoted_metadata) {
         return true;
     }
 
-    const typename = result.__typename;
+    const typename = tweet.__typename;
     if (typeof typename === 'string' && /Promoted|Ad/i.test(typename)) {
         return true;
     }
 
-    const card = result.card;
+    const card = tweet.card;
     if (card && (card.promotedMetadata || card.promoted_metadata)) {
         return true;
+    }
+
+    const legacy = tweet.legacy;
+    if (legacy && (legacy.scribe_key === 'ad' || legacy.scribe_key === 'promoted')) {
+        return true;
+    }
+
+    return false;
+}
+
+function isPromotedClientEventInfo(clientEventInfo) {
+    if (!clientEventInfo || typeof clientEventInfo !== 'object') {
+        return false;
+    }
+
+    const parts = [
+        clientEventInfo.component,
+        clientEventInfo.element,
+        clientEventInfo.action,
+        clientEventInfo.details
+    ].filter(Boolean).join(' ');
+
+    return PROMOTED_CLIENT_EVENT_RE.test(parts);
+}
+
+function deepHasPromotedSignal(node, depth) {
+    if (!node || typeof node !== 'object' || depth > 10) {
+        return false;
+    }
+
+    if (Array.isArray(node)) {
+        for (const item of node) {
+            if (deepHasPromotedSignal(item, depth + 1)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    for (const key of Object.keys(node)) {
+        if (AD_KEY_RE.test(key)) {
+            return true;
+        }
+
+        if (key === 'clientEventInfo' && isPromotedClientEventInfo(node[key])) {
+            return true;
+        }
+
+        if (key === 'socialContext' || key === 'social_context') {
+            if (isPromotedSocialContext(node[key])) {
+                return true;
+            }
+        }
+
+        if (key === 'tweet_results' || key === 'tweetResults') {
+            const result = node[key] && node[key].result;
+            if (isPromotedTweetResult(result)) {
+                return true;
+            }
+        }
+
+        if (deepHasPromotedSignal(node[key], depth + 1)) {
+            return true;
+        }
     }
 
     return false;
@@ -112,8 +203,11 @@ function hasPromotedMetadata(itemContent) {
     }
 
     const tweetResults = itemContent.tweet_results || itemContent.tweetResults;
-    const result = tweetResults && tweetResults.result;
-    if (isPromotedTweetResult(result)) {
+    if (isPromotedTweetResult(tweetResults && tweetResults.result)) {
+        return true;
+    }
+
+    if (isPromotedClientEventInfo(itemContent.clientEventInfo || itemContent.client_event_info)) {
         return true;
     }
 
@@ -150,7 +244,11 @@ function sanitizeModuleItems(entry) {
             return true;
         }
         const nestedContent = nested.itemContent || nested.item_content;
-        return !hasPromotedMetadata(nestedContent) && !isPromotedEntryId(nested.entryId || nested.entry_id);
+        return (
+            !hasPromotedMetadata(nestedContent) &&
+            !isPromotedEntryId(nested.entryId || nested.entry_id) &&
+            !deepHasPromotedSignal(nested, 0)
+        );
     });
     removedCount += before - content.items.length;
 
@@ -173,7 +271,7 @@ function isPromotedEntry(entry) {
 
     const content = entry.content;
     if (!content || typeof content !== 'object') {
-        return false;
+        return deepHasPromotedSignal(entry, 0);
     }
 
     const contentType = content.__typename || content.item_type || content.itemType;
@@ -202,7 +300,25 @@ function isPromotedEntry(entry) {
         }
     }
 
+    if (deepHasPromotedSignal(entry, 0)) {
+        return true;
+    }
+
     return false;
+}
+
+function filterEntryList(entries) {
+    if (!Array.isArray(entries)) {
+        return entries;
+    }
+
+    const before = entries.length;
+    const filtered = entries
+        .map((entry) => sanitizeModuleItems(entry))
+        .filter((entry) => entry && !isPromotedEntry(entry));
+
+    removedCount += before - filtered.length;
+    return filtered;
 }
 
 function filterInstruction(instruction) {
@@ -211,16 +327,23 @@ function filterInstruction(instruction) {
     }
 
     const type = instruction.type;
-    if (type !== 'TimelineAddEntries' && type !== 'TimelineReplaceEntry' && type !== 'TimelinePinEntry') {
+    const handledTypes = {
+        TimelineAddEntries: true,
+        TimelineReplaceEntry: true,
+        TimelinePinEntry: true,
+        TimelineAddToModule: true
+    };
+
+    if (!handledTypes[type]) {
         return;
     }
 
     if (Array.isArray(instruction.entries)) {
-        const before = instruction.entries.length;
-        instruction.entries = instruction.entries
-            .map((entry) => sanitizeModuleItems(entry))
-            .filter((entry) => entry && !isPromotedEntry(entry));
-        removedCount += before - instruction.entries.length;
+        instruction.entries = filterEntryList(instruction.entries);
+    }
+
+    if (Array.isArray(instruction.moduleItems)) {
+        instruction.moduleItems = filterEntryList(instruction.moduleItems);
     }
 
     if (instruction.entry) {
@@ -267,7 +390,7 @@ function collectInstructionArrays(node, bucket, depth, seen) {
 }
 
 function cleanTimelineJson(json) {
-    removedCount = 0;
+    let totalRemoved = 0;
     const buckets = [];
     const seen = [];
 
@@ -275,15 +398,27 @@ function cleanTimelineJson(json) {
         collectInstructionArrays(json.data, buckets, 0, seen);
     }
 
-    for (const instructions of buckets) {
-        for (const instruction of instructions) {
-            filterInstruction(instruction);
+    // 多輪過濾：TimelineAddToModule 等可能需連續清理
+    for (let pass = 0; pass < 3; pass++) {
+        removedCount = 0;
+
+        for (const instructions of buckets) {
+            for (const instruction of instructions) {
+                filterInstruction(instruction);
+            }
+        }
+
+        totalRemoved += removedCount;
+        if (removedCount === 0) {
+            break;
         }
     }
 
+    removedCount = totalRemoved;
+
     // 找到 instructions 但未刪到 entry 時，清殘留 promoted metadata 欄位
     if (removedCount === 0 && buckets.length > 0 && json && json.data) {
-        stripAdKeys(json.data, 0, 8);
+        stripAdKeys(json.data, 0, 10);
     }
 
     return removedCount > 0 ? json : null;
