@@ -1,7 +1,7 @@
 # ============================================================
 # DOMAIN-SET REJECT MERGED (prematching + main, all pre-matching)
 # Format: bare domain per line, DOMAIN-SUFFIX semantics
-# Total: 2489 domains  (subsumed: 19)
+# Total: 2490 domains  (subsumed: 19)
 # ============================================================
 
 0.gravatar.com
@@ -1283,6 +1283,7 @@ irs09.com
 iscep-stories.commencis.com
 istreamsche.com
 itad.linetv.tw
+j2c03hoppk-default-cn.rum.aliyuncs.com
 ja.chushou.tv
 javacript.gq
 jenjo.com
