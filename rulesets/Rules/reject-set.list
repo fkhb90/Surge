@@ -1,7 +1,7 @@
 # ============================================================
 # DOMAIN-SET REJECT MERGED (prematching + main, all pre-matching)
 # Format: bare domain per line, DOMAIN-SUFFIX semantics
-# Total: 2488 domains  (subsumed: 19)
+# Total: 2489 domains  (subsumed: 19)
 # ============================================================
 
 0.gravatar.com
@@ -206,6 +206,7 @@ admixer.net
 admob.com
 admon.cn
 admotion.com
+admsmaterial.businessweekly.com.tw
 admulti.com
 adn.insight.ucweb.com
 adnet.com
