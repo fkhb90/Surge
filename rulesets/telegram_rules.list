@@ -63,7 +63,7 @@ IP-CIDR6,2001:b28:f23d:f003::e/128,no-resolve // Telegram
 IP-CIDR6,2001:b28:f23f::/48,no-resolve // Telegram Messenger DC4 Network
 IP-CIDR6,2001:b28:f23f:f005::a/128,no-resolve // Telegram Messenger DC4 Network
 IP-CIDR6,2001:b28:f242::/48,no-resolve // Telegram CDN
-IP-ASN,1273,no-resolve // Vodafone Group PLC
+# IP-ASN,1273,no-resolve // Vodafone Group PLC
 IP-ASN,7459,no-resolve // Grande Communications Networks, LLC
 IP-ASN,14061,no-resolve // DigitalOcean, LLC
 IP-ASN,31500,no-resolve // GLOBALNET-AS
