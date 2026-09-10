@@ -1,14 +1,14 @@
 // X.com / Twitter Ads Blocker for Surge (iOS App optimized)
-// Version: 2.3.2 (Ultimate Performance Refactored)
+// Version: 2.4.0 (Deep strict scan + injectionType + leak detector)
 // Purpose: Remove promoted tweets / ads from X.com / Twitter GraphQL timeline responses.
 //
 // Surge [Script] 建議設定:
 // [Script]
-// x-ads-blocker = type=http-response,pattern=^https?://([^/]+\.)?((x|twitter)\.com|albtls\.t\.co)(/i)?(/api)?/graphql/,script-path=x_ads_blocker-2.3.2.js,requires-body=true,max-size=4194304,timeout=8,debug=false
-// x-ads-blocker-legacy = type=http-response,pattern=^https?://([^/]+\.)?(x|twitter)\.com/2/timeline/,script-path=x_ads_blocker-2.3.2.js,requires-body=true,max-size=4194304,timeout=5,debug=false
+// x-ads-blocker = type=http-response,pattern=^https?://([^/]+\.)?((x|twitter)\.com|albtls\.t\.co)(/i)?(/api)?/graphql/,script-path=x_ads_blocker.js,requires-body=true,max-size=4194304,timeout=8,debug=false
+// x-ads-blocker-legacy = type=http-response,pattern=^https?://([^/]+\.)?(x|twitter)\.com/2/timeline/,script-path=x_ads_blocker.js,requires-body=true,max-size=4194304,timeout=5,debug=false
 //
 // 進階（可選）：僅攔 Timeline 類端點，減少 UserByRestId 等無關請求的腳本開銷
-// x-ads-blocker-timeline = type=http-response,pattern=^https?://([^/]+\.)?((x|twitter)\.com|albtls\.t\.co)(/i)?(/api)?/graphql/[^/]+/(HomeTimeline|HomeLatestTimeline|ForYouTimeline|FollowingTimeline|SearchTimeline|TweetDetail|UserTweets|UserTweetsAndReplies|UserMedia|ListLatestTweetsTimeline|CommunityTweetsTimeline|Bookmarks|ConversationTimeline|GenericTimelineById|HomeTimelineUrt|homeTimeline),script-path=x_ads_blocker-2.3.2.js,requires-body=true,max-size=4194304,timeout=8,debug=false
+// x-ads-blocker-timeline = type=http-response,pattern=^https?://([^/]+\.)?((x|twitter)\.com|albtls\.t\.co)(/i)?(/api)?/graphql/[^/]+/(HomeTimeline|HomeLatestTimeline|ForYouTimeline|FollowingTimeline|SearchTimeline|TweetDetail|UserTweets|UserTweetsAndReplies|UserMedia|ListLatestTweetsTimeline|CommunityTweetsTimeline|Bookmarks|ConversationTimeline|GenericTimelineById|HomeTimelineUrt|homeTimeline),script-path=x_ads_blocker.js,requires-body=true,max-size=4194304,timeout=8,debug=false
 //
 // [MITM] — 僅開「能成功解密」的域名（pattern 故意不含 api.twitter.com）:
 // hostname = %APPEND% x.com, twitter.com
@@ -29,18 +29,24 @@
 (function() {
   'use strict';
 
-  const VERSION = '2.3.2';
+  const VERSION = '2.4.0';
 
   // === 優化重點 2. 事件監聽優化 (預編譯正則表達式單例 Regex Singletons) ===
   // 集中預編譯所有正則表達式，避免在熱路徑中重複創建 Regex 實例，顯著降低 CPU 使用率與 GC 負載
   const REGEX_GRAPHQL = /(\/api)?\/graphql\//i;
   const REGEX_LEGACY_TIMELINE = /\/2\/timeline\//i;
   const REGEX_TIMELINE_ENDPOINT = /^(HomeTimeline|HomeLatestTimeline|ForYouTimeline|FollowingTimeline|SearchTimeline|ListLatestTweetsTimeline|CommunityTweetsTimeline|TweetDetail|UserTweets|UserTweetsAndReplies|UserMedia|Bookmarks|ConversationTimeline|GenericTimelineById|HomeTimelineUrt|homeTimeline)$/i;
-  const REGEX_SAFE_ENTRY_ID = /^(tweet|cursor|messageprompt|sq-cursor|home-conversation|conversation)-/i;
   const REGEX_PROMOTED_HINT = /"promotedMetadata"|"promoted_metadata"|"promotedContent"|"promoted_content"|"placementTracking"|"placement_tracking"|"impressionId"|"impression_id"|"ext_has_promoted"|promoted-tweet|"entryId"\s*:\s*"[^"]*promoted|"entry_id"\s*:\s*"[^"]*promoted|"disclosure_type"|"disclosureType"|TimelineTweetPromoted|PromotedTrend|TrendPromoted|"clientEventInfo"|"moduleItems"|"items_results"|ads-api\.twitter\.com|Twitter for Advertisers|"scribe_key"\s*:\s*"(ad|promoted)"|"monetizable"|"advertiser_results"|"isPromoted"|"is_promoted"/i;
   // 廣義預檢：涵蓋原版 23 個 indexOf 的全部大小寫變體（advertiser⊂advertis、isPromoted⊂promoted、
   // impressionId / impression_id 由 impression_?id 合併），單次掃描即可。
   const REGEX_ANY_PROMOTED_SIGNAL = /promoted|placement|advertis|disclosure|scribe_key|ad[_m]etadata|ad-|sponsored|impression_?id|monetizable|廣告|推广|推廣/i;
+  // X 以 injectionType 標記「注入式」項目，廣告為 PromotedTweet / PromotedTrend 等。
+  // 舊版完全沒有檢查這個欄位，是首頁廣告最主要的漏網來源之一。
+  const REGEX_PROMOTED_INJECTION = /promoted|advertis/i;
+  // 嚴格型別比對：GraphQL __typename / itemType 皆為 PascalCase，用大小寫敏感避免命中 "ad" 子字串。
+  const REGEX_STRICT_AD_TYPENAME = /Promoted|Advertisement/;
+  // 清理後仍殘留的廣告痕跡：用於在 Surge 日誌回報「有東西沒擋掉」，只記錄不改寫。
+  const REGEX_RESIDUAL_AD = /"promotedMetadata"|"promoted_metadata"|"injectionType"\s*:\s*"[^"]*[Pp]romoted|"entryId"\s*:\s*"[^"]*[Pp]romoted/;
   const REGEX_AD_KEY = /^(promotedMetadata|promoted_metadata|promotedContent|promoted_content|adMetadata|ad_metadata|placementTracking|placement_tracking|impressionId|impression_id|adImpressionId|ad_impression_id|ext_has_promoted_metadata)$/;
   const REGEX_PROMOTED_ENTRY_ID = /promoted|advertisement|^ad-|-ad-|who-to-follow-ad|promoted-trend|promoted_event/i;
   // `ad_` 必須位於字首或 `_` 之後，避免 "download_adapter"、"thread_ad" 這類子字串誤判。
@@ -53,15 +59,6 @@
   const REGEX_PROMOTED_TWEET_TYPE = /Promoted|^Ad$|^Ad[A-Z]/;
   // 同理，/ad/i 太寬鬆；限制為完整詞或 advert 前綴。
   const REGEX_PROMOTED_DISCLOSURE = /promoted|sponsored|advert|^ad$/i;
-
-  // === 優化重點 5. 記憶體管理 (常置物件快取) ===
-  // 快取不需要改變的指令類型物件，避免 filterInstruction 每次執行時重複分配臨時物件
-  const HANDLED_INSTRUCTION_TYPES = {
-    TimelineAddEntries: true,
-    TimelineReplaceEntry: true,
-    TimelinePinEntry: true,
-    TimelineAddToModule: true
-  };
 
   // 快取 TextDecoder 單例，避免多次解碼響應時重複 new TextDecoder 實例，降低記憶體佔用與 GC 壓力
   const decoder = typeof TextDecoder !== 'undefined' ? new TextDecoder('utf-8') : null;
@@ -157,11 +154,6 @@
     return REGEX_PROMOTED_HINT.test(body);
   }
 
-  function needsDeepScan(entry) {
-    const entryId = entry && (entry.entryId || entry.entry_id);
-    return !(typeof entryId === 'string' && REGEX_SAFE_ENTRY_ID.test(entryId));
-  }
-
   // ... (下同，無變化)
   function isPromotedEntryId(entryId) {
     return typeof entryId === 'string' && REGEX_PROMOTED_ENTRY_ID.test(entryId);
@@ -251,10 +243,33 @@
    */
   function isPromotedClientEventInfo(clientEventInfo) {
     if (!clientEventInfo || typeof clientEventInfo !== 'object') return false;
-    return (typeof clientEventInfo.component === 'string' && REGEX_PROMOTED_CLIENT_EVENT.test(clientEventInfo.component)) ||
-           (typeof clientEventInfo.element === 'string' && REGEX_PROMOTED_CLIENT_EVENT.test(clientEventInfo.element)) ||
-           (typeof clientEventInfo.action === 'string' && REGEX_PROMOTED_CLIENT_EVENT.test(clientEventInfo.action)) ||
-           (typeof clientEventInfo.details === 'string' && REGEX_PROMOTED_CLIENT_EVENT.test(clientEventInfo.details));
+    if ((typeof clientEventInfo.component === 'string' && REGEX_PROMOTED_CLIENT_EVENT.test(clientEventInfo.component)) ||
+        (typeof clientEventInfo.element === 'string' && REGEX_PROMOTED_CLIENT_EVENT.test(clientEventInfo.element)) ||
+        (typeof clientEventInfo.action === 'string' && REGEX_PROMOTED_CLIENT_EVENT.test(clientEventInfo.action))) {
+      return true;
+    }
+
+    // 舊版只在 details 為字串時比對，但實際 X 回應中 details 一律是物件：
+    //   clientEventInfo.details.timelinesDetails.injectionType === 'PromotedTweet'
+    // 導致整條 clientEventInfo 偵測形同虛設。這裡同時支援字串與物件兩種形態。
+    const details = clientEventInfo.details;
+    if (typeof details === 'string') return REGEX_PROMOTED_CLIENT_EVENT.test(details);
+    if (details && typeof details === 'object') {
+      if (hasPromotedInjectionType(details)) return true;
+      const timelines = details.timelinesDetails || details.timelines_details;
+      if (timelines && typeof timelines === 'object' && hasPromotedInjectionType(timelines)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * 檢查物件上的 injectionType / injection_type 是否標示為廣告。
+   * X 用這個欄位區分自然內容（OrganicTweet / WhoToFollow）與注入廣告（PromotedTweet）。
+   */
+  function hasPromotedInjectionType(record) {
+    if (!record || typeof record !== 'object') return false;
+    const injection = record.injectionType || record.injection_type;
+    return typeof injection === 'string' && REGEX_PROMOTED_INJECTION.test(injection);
   }
 
   /**
@@ -292,6 +307,91 @@
     return false;
   }
 
+  /**
+   * 單一 key/value 是否為「無歧義」的廣告標記。
+   * 刻意只收錄明確標記，不含 promoted/ad 之類的模糊字串比對 ——
+   * 因為這組判定會被套用到 entry 的整棵子樹，寬鬆規則會誤刪正常推文。
+   */
+  function isStrictPromotedMarker(key, value) {
+    if (REGEX_AD_KEY.test(key)) return !!value;
+
+    switch (key) {
+      case 'ext_has_promoted':
+      case 'isPromoted':
+      case 'is_promoted':
+        return value === true;
+      case 'scribe_key':
+        return value === 'ad' || value === 'promoted';
+      case 'injectionType':
+      case 'injection_type':
+        return typeof value === 'string' && REGEX_PROMOTED_INJECTION.test(value);
+      case 'source':
+        return isPromotedSource(value);
+      case 'disclosureType':
+      case 'disclosure_type':
+        return typeof value === 'string' && REGEX_PROMOTED_DISCLOSURE.test(value);
+      case 'advertiser_results':
+      case 'advertiserResults':
+        return !!(value && typeof value === 'object' && value.result);
+      case '__typename':
+      case 'entryType':
+      case 'itemType':
+      case 'item_type':
+        return typeof value === 'string' && REGEX_STRICT_AD_TYPENAME.test(value);
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * 對 entry 子樹做真正的遞迴掃描（迭代 DFS 實作）。
+   *
+   * 為什麼需要這個：舊版的 deepHasPromotedSignal 只檢查節點「自己的一層」屬性，
+   * 註解甚至明寫「不對屬性值進行遞迴子層檢查」。因此只要 X 把廣告標記多包一層
+   * （例如 content.itemContent.promotedMetadata 之外的新位置、或
+   * clientEventInfo.details.timelinesDetails.injectionType），整個 entry 就漏掉。
+   * 這是首頁仍看得到廣告的結構性原因。
+   *
+   * 用 isStrictPromotedMarker 的嚴格標記集掃全子樹：
+   * schema 怎麼改、標記埋多深都攔得到，同時不會因為模糊字串誤刪正常內容。
+   *
+   * maxDepth 與 visited 上限用來限制單一 entry 的最壞成本，避免 Surge timeout。
+   */
+  function deepScanPromoted(root, maxDepth) {
+    if (!root || typeof root !== 'object') return false;
+
+    const stack = [root, 0];
+    const seen = new Set();
+    let visited = 0;
+
+    while (stack.length > 0) {
+      const depth = stack.pop();
+      const node = stack.pop();
+
+      if (!node || typeof node !== 'object' || depth > maxDepth) continue;
+      if (seen.has(node)) continue;
+      seen.add(node);
+      if (++visited > 4000) break; // CPU 保險絲：超大 entry 直接停掃，寧可漏也不要 timeout
+
+      if (Array.isArray(node)) {
+        for (let i = node.length - 1; i >= 0; i--) {
+          const item = node[i];
+          if (item && typeof item === 'object') stack.push(item, depth + 1);
+        }
+        continue;
+      }
+
+      for (const key in node) {
+        if (!hasOwn.call(node, key)) continue;
+        const value = node[key];
+        if (isStrictPromotedMarker(key, value)) return true;
+        if (value && typeof value === 'object') stack.push(value, depth + 1);
+      }
+    }
+
+    return false;
+  }
+
   function hasPromotedMetadata(itemContent) {
     if (!itemContent || typeof itemContent !== 'object') return false;
     if (hasPromotedAdFields(itemContent)) return true;
@@ -309,6 +409,8 @@
 
     if (isPromotedClientEventInfo(itemContent.clientEventInfo) ||
         isPromotedClientEventInfo(itemContent.client_event_info)) return true;
+
+    if (hasPromotedInjectionType(itemContent)) return true;
 
     // 同 deepHasPromotedSignal：要求 result 非空，避免空殼欄位造成誤判。
     const advertiser = itemContent.advertiser_results;
@@ -411,7 +513,7 @@
 
     const content = entry.content;
     if (!content || typeof content !== 'object') {
-      return needsDeepScan(entry) && deepHasPromotedSignal(entry);
+      return deepScanPromoted(entry, 8);
     }
 
     if (hasPromotedMetadata(content) || deepHasPromotedSignal(content)) return true;
@@ -439,7 +541,11 @@
       }
     }
 
-    return needsDeepScan(entry) && deepHasPromotedSignal(entry);
+    // 最終保險：對整棵 entry 子樹做嚴格標記遞迴掃描。
+    // 舊版此處是 `needsDeepScan(entry) && deepHasPromotedSignal(entry)`，
+    // 只要 entryId 以 tweet-/cursor- 開頭就整個跳過，而 X 的首頁廣告 entryId
+    // 確實常常就是 `tweet-<id>` —— 等於對最常見的廣告形態直接放行。
+    return deepScanPromoted(entry, 8);
   }
 
   /**
@@ -492,9 +598,15 @@
   function filterInstruction(instruction) {
     if (!instruction || typeof instruction !== 'object') return true;
 
-    const type = instruction.type;
-    // 使用預先快取的常置屬性判定 O(1) 檢查，避免重複宣告 Handled Types 物件
-    if (typeof type !== 'string' || !hasOwn.call(HANDLED_INSTRUCTION_TYPES, type)) return true;
+    // 舊版用寫死的型別白名單（TimelineAddEntries / ReplaceEntry / PinEntry / AddToModule）。
+    // X 只要新增一種攜帶 entries 的指令型別，該型別裡的廣告就整條被放行。
+    // 改為依「是否存在可過濾欄位」判斷，對未知型別同樣有效。
+    if (!Array.isArray(instruction.entries) &&
+        !Array.isArray(instruction.moduleItems) &&
+        !Array.isArray(instruction.items_results) &&
+        !instruction.entry) {
+      return true;
+    }
 
     if (Array.isArray(instruction.entries)) {
       instruction.entries = filterEntryList(instruction.entries);
@@ -708,6 +820,27 @@
     $done({ body: newBody, headers });
   }
 
+  /**
+   * 殘留偵測：清理完成後（或判定不需清理後）檢查輸出裡是否還留有廣告痕跡。
+   * 只寫日誌、絕不改寫回應 —— 目的是把「為什麼首頁還有廣告」變成可觀測的事實，
+   * 而不是靠猜。日誌會印出殘留標記附近的 entryId，方便針對真實 payload 補規則。
+   */
+  function reportResidualAds(outBody, endpoint) {
+    if (typeof outBody !== 'string') return;
+    const match = outBody.match(REGEX_RESIDUAL_AD);
+    if (!match) return;
+
+    // 往前找最近的 entryId，指出是哪一則沒被擋掉。
+    const at = match.index || 0;
+    const head = outBody.lastIndexOf('"entryId"', at);
+    let where = 'unknown-entry';
+    if (head !== -1) {
+      const idMatch = outBody.slice(head, head + 120).match(/"entryId"\s*:\s*"([^"]{0,80})"/);
+      if (idMatch) where = idMatch[1];
+    }
+    console.log(`[X Ads Blocker ${VERSION}] RESIDUAL ad marker survived: endpoint=${endpoint} marker=${match[0].slice(0, 40)} entryId=${where}`);
+  }
+
   function fallbackRegexClean(rawBody) {
     if (typeof rawBody !== 'string') return null;
 
@@ -777,8 +910,12 @@
       const endpoint = getEndpointName(url);
       const host = (url.match(/^https?:\/\/([^/?#]+)/i) || [])[1] || 'unknown';
       console.log(`[X Ads Blocker ${VERSION}] ${endpoint} removed ${removedCount} promoted item(s). host=${host}`);
+      reportResidualAds(body, endpoint);
       doneWithBody(body);
     } else {
+      // 判定「無廣告可清」時同樣檢查一次：若這裡出現殘留，代表偵測規則有缺口，
+      // 正是首頁仍看得到廣告的情況，日誌會直接指出漏掉的 entryId。
+      reportResidualAds(body, getEndpointName(url));
       if (typeof $done === 'function') $done({});
     }
   } catch (error) {
