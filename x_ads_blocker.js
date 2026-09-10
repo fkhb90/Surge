@@ -1,5 +1,5 @@
 // X.com / Twitter Ads Blocker for Surge (iOS App optimized)
-// Version: 2.4.0 (Deep strict scan + injectionType + leak detector)
+// Version: 2.4.1 (Always-on timeline diagnostics + residual payload sample)
 // Purpose: Remove promoted tweets / ads from X.com / Twitter GraphQL timeline responses.
 //
 // Surge [Script] 建議設定:
@@ -29,7 +29,7 @@
 (function() {
   'use strict';
 
-  const VERSION = '2.4.0';
+  const VERSION = '2.4.1';
 
   // === 優化重點 2. 事件監聽優化 (預編譯正則表達式單例 Regex Singletons) ===
   // 集中預編譯所有正則表達式，避免在熱路徑中重複創建 Regex 實例，顯著降低 CPU 使用率與 GC 負載
@@ -838,7 +838,12 @@
       const idMatch = outBody.slice(head, head + 120).match(/"entryId"\s*:\s*"([^"]{0,80})"/);
       if (idMatch) where = idMatch[1];
     }
+    // 連同標記前後的原始 JSON 片段一起印出。沒有真實 payload 就只能猜規則，
+    // 這段是把「漏掉的廣告長什麼樣」變成可讀事實的唯一方法。
+    const from = Math.max(0, at - 200);
+    const sample = outBody.slice(from, at + 400).replace(/\s+/g, ' ');
     console.log(`[X Ads Blocker ${VERSION}] RESIDUAL ad marker survived: endpoint=${endpoint} marker=${match[0].slice(0, 40)} entryId=${where}`);
+    console.log(`[X Ads Blocker ${VERSION}] RESIDUAL sample: ${sample}`);
   }
 
   function fallbackRegexClean(rawBody) {
@@ -873,9 +878,47 @@
     return;
   }
 
+  const endpoint = getEndpointName(url);
+  const host = (url.match(/^https?:\/\/([^/?#]+)/i) || [])[1] || 'unknown';
+
+  // 只對 Timeline 類端點輸出診斷，避免 UserByRestId 等大量無關請求洗版。
+  const isTimeline = REGEX_TIMELINE_ENDPOINT.test(endpoint) || isLegacyTimeline;
+
+  /**
+   * 每個 Timeline 回應固定輸出一行結果。
+   *
+   * 為什麼需要：舊版只在「確實刪掉東西」時才寫日誌，所以當腳本因為
+   * 拿不到 body、預檢未命中、或解析失敗而提前放行時，日誌上完全沒有痕跡。
+   * 結果就是「首頁還有廣告」時無法分辨到底是
+   *   (a) 腳本根本沒看到這個回應（MITM / certificate pinning / max-size）
+   *   (b) 看到了但預檢判定沒廣告（規則有缺口）
+   *   (c) 看到了也刪了，但漏掉某幾則
+   * 這三種情況的修法完全不同，沒有這行日誌就只能瞎猜。
+   */
+  function diag(outcome, detail) {
+    if (!isTimeline) return;
+    console.log(`[X Ads Blocker ${VERSION}] ${endpoint} host=${host} ${outcome}${detail ? ' ' + detail : ''}`);
+  }
+
   let body = getBodyString();
 
-  if (!body || !shouldParseBody(url, body)) {
+  if (!body) {
+    // body 取不到：Surge 未提供（超過 max-size / 非文字回應），
+    // 或 Content-Encoding 解壓失敗（缺 $utils.unbrotli 等）。
+    const raw = (typeof $response !== 'undefined' && $response) ? $response.body : undefined;
+    const rawKind = raw === undefined ? 'undefined'
+                  : (typeof raw === 'string' ? 'string' : (raw && typeof raw.byteLength === 'number' ? 'buffer:' + raw.byteLength : typeof raw));
+    const enc = (typeof $response !== 'undefined' && $response && $response.headers &&
+                 ($response.headers['Content-Encoding'] || $response.headers['content-encoding'])) || 'none';
+    diag('SKIP no-body', `raw=${rawKind} encoding=${enc}`);
+    if (typeof $done === 'function') $done({});
+    return;
+  }
+
+  if (!shouldParseBody(url, body)) {
+    // 預檢未命中：body 拿到了，但裡面找不到任何已知廣告信號。
+    // 若此時首頁仍有廣告，代表 X 換了標記字彙，需要補 REGEX_ANY_PROMOTED_SIGNAL。
+    diag('SKIP no-signal', `len=${body.length}`);
     if (typeof $done === 'function') $done({});
     return;
   }
@@ -891,13 +934,16 @@
         if (!fallbackJson || typeof fallbackJson !== 'object') throw new Error('fallback is not an object');
       } catch (fallbackError) {
         // Regex fallback 仍不是有效 JSON 時，保留原始回應，避免送出損壞資料。
+        diag('SKIP parse-fail', `len=${body.length}`);
         if (typeof $done === 'function') $done({});
         return;
       }
+      diag('REGEX-FALLBACK', `len=${body.length}`);
       console.log(`[X Ads Blocker ${VERSION}] JSON parse failed, regex fallback: ${error}`);
       doneWithBody(cleanedBody);
-    } else if (typeof $done === 'function') {
-      $done({});
+    } else {
+      diag('SKIP parse-fail', `len=${body.length}`);
+      if (typeof $done === 'function') $done({});
     }
     return;
   }
@@ -907,19 +953,19 @@
 
     if (cleaned) {
       body = JSON.stringify(cleaned);
-      const endpoint = getEndpointName(url);
-      const host = (url.match(/^https?:\/\/([^/?#]+)/i) || [])[1] || 'unknown';
-      console.log(`[X Ads Blocker ${VERSION}] ${endpoint} removed ${removedCount} promoted item(s). host=${host}`);
+      diag('REMOVED', `${removedCount} item(s) len=${body.length}`);
       reportResidualAds(body, endpoint);
       doneWithBody(body);
     } else {
-      // 判定「無廣告可清」時同樣檢查一次：若這裡出現殘留，代表偵測規則有缺口，
-      // 正是首頁仍看得到廣告的情況，日誌會直接指出漏掉的 entryId。
-      reportResidualAds(body, getEndpointName(url));
+      // 有廣告信號、JSON 也解析成功，卻一則都沒刪 —— 這正是「首頁還有廣告」
+      // 最可疑的情況：結構化規則沒認出 X 目前的廣告形態。
+      diag('NO-ADS-FOUND', `len=${body.length}`);
+      reportResidualAds(body, endpoint);
       if (typeof $done === 'function') $done({});
     }
   } catch (error) {
     // 有效 JSON 的清理若出錯，直接 passthrough，不對回應做猜測式 regex 修改。
+    diag('ERROR', String(error));
     console.log(`[X Ads Blocker ${VERSION}] cleaning failed, passthrough: ${error}`);
     if (typeof $done === 'function') $done({});
   }
