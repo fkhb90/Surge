@@ -1,5 +1,5 @@
 // X.com / Twitter Ads Blocker for Surge (iOS App optimized)
-// Version: 2.4.1 (Always-on timeline diagnostics + residual payload sample)
+// Version: 2.4.2 (Diagnostics no longer depend on endpoint-name whitelist)
 // Purpose: Remove promoted tweets / ads from X.com / Twitter GraphQL timeline responses.
 //
 // Surge [Script] 建議設定:
@@ -29,7 +29,7 @@
 (function() {
   'use strict';
 
-  const VERSION = '2.4.1';
+  const VERSION = '2.4.2';
 
   // === 優化重點 2. 事件監聽優化 (預編譯正則表達式單例 Regex Singletons) ===
   // 集中預編譯所有正則表達式，避免在熱路徑中重複創建 Regex 實例，顯著降低 CPU 使用率與 GC 負載
@@ -881,8 +881,12 @@
   const endpoint = getEndpointName(url);
   const host = (url.match(/^https?:\/\/([^/?#]+)/i) || [])[1] || 'unknown';
 
-  // 只對 Timeline 類端點輸出診斷，避免 UserByRestId 等大量無關請求洗版。
-  const isTimeline = REGEX_TIMELINE_ENDPOINT.test(endpoint) || isLegacyTimeline;
+  // 只對 Timeline 類請求輸出診斷，避免 UserByRestId 等大量無關請求洗版。
+  //
+  // 不能只信 REGEX_TIMELINE_ENDPOINT 的名單：X 一旦把端點改名（HomeTimelineV2）
+  // 或 URL 不含端點名，診斷就會全程靜默 —— 診斷工具自己有盲點，等於白做。
+  // 因此額外接受「URL 裡含 timeline 字樣」，並在確定要解析 body 後強制打開輸出。
+  let verbose = REGEX_TIMELINE_ENDPOINT.test(endpoint) || isLegacyTimeline || /timeline/i.test(url);
 
   /**
    * 每個 Timeline 回應固定輸出一行結果。
@@ -896,7 +900,7 @@
    * 這三種情況的修法完全不同，沒有這行日誌就只能瞎猜。
    */
   function diag(outcome, detail) {
-    if (!isTimeline) return;
+    if (!verbose) return;
     console.log(`[X Ads Blocker ${VERSION}] ${endpoint} host=${host} ${outcome}${detail ? ' ' + detail : ''}`);
   }
 
@@ -915,7 +919,11 @@
     return;
   }
 
-  if (!shouldParseBody(url, body)) {
+  const willParse = shouldParseBody(url, body);
+  // body 帶有廣告信號 = 這個回應值得被觀察，強制打開診斷輸出。
+  if (willParse) verbose = true;
+
+  if (!willParse) {
     // 預檢未命中：body 拿到了，但裡面找不到任何已知廣告信號。
     // 若此時首頁仍有廣告，代表 X 換了標記字彙，需要補 REGEX_ANY_PROMOTED_SIGNAL。
     diag('SKIP no-signal', `len=${body.length}`);
