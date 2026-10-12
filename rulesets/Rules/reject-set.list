@@ -1,7 +1,7 @@
 # ============================================================
 # DOMAIN-SET REJECT MERGED (prematching + main, all pre-matching)
 # Format: bare domain per line, DOMAIN-SUFFIX semantics
-# Total: 2490 domains  (subsumed: 19)
+# Total: 2491 domains  (subsumed: 19)
 # ============================================================
 
 0.gravatar.com
@@ -1259,6 +1259,7 @@ inskin.vo.llnwd.net
 inspectlet.com
 instabug.com
 insticator.com
+intake-logging.wikimedia.org
 integral-marketing.com
 integralads.com
 intelliad.com
