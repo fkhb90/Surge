@@ -1,7 +1,7 @@
 # ============================================================
 # DOMAIN-SET REJECT MERGED (prematching + main, all pre-matching)
 # Format: bare domain per line, DOMAIN-SUFFIX semantics
-# Total: 2491 domains  (subsumed: 19)
+# Total: 2492 domains  (subsumed: 19)
 # ============================================================
 
 0.gravatar.com
@@ -491,6 +491,7 @@ api.quantumgraph.com
 api.storyly.io
 api.whizzone.com
 apis.appnxt.net
+apitd.net
 apm.gotokeep.com
 apm.volccdn.com
 apmplus.volces.com
