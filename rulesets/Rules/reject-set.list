@@ -1,7 +1,7 @@
 # ============================================================
 # DOMAIN-SET REJECT MERGED (prematching + main, all pre-matching)
 # Format: bare domain per line, DOMAIN-SUFFIX semantics
-# Total: 2492 domains  (subsumed: 19)
+# Total: 2494 domains  (subsumed: 19)
 # ============================================================
 
 0.gravatar.com
@@ -1186,6 +1186,8 @@ houseads-prod.elasticbeanstalk.com
 houseads.ttpsdk.info
 hqsjc.com
 hs-analytics.net
+hs-banner.com
+hsadspixel.net
 hstats.hepsiburada.com
 httpool.com
 huangye.miui.com
