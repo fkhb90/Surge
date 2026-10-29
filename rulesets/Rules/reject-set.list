@@ -1,7 +1,7 @@
 # ============================================================
 # DOMAIN-SET REJECT MERGED (prematching + main, all pre-matching)
 # Format: bare domain per line, DOMAIN-SUFFIX semantics
-# Total: 2494 domains  (subsumed: 19)
+# Total: 2495 domains  (subsumed: 19)
 # ============================================================
 
 0.gravatar.com
@@ -1384,6 +1384,7 @@ lkqd.net
 localytics.com
 lockerdome.com
 log-collector.shopee.tw
+log-dealer.eservice.emarsys.net
 log-hl-ipv6.snssdk.com
 log-lq.snssdk.com
 log-va.tiktokv.com
